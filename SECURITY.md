@@ -11,7 +11,7 @@
 
 **Please do NOT report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to **security@fluidhq.io**.
+Instead, please report them via email to **change@agenticstransformation.com**.
 
 You should receive a response within **48 hours**. If for some reason you do not, please follow up via email to ensure we received your original message.
 
@@ -42,6 +42,6 @@ We follow [coordinated disclosure](https://en.wikipedia.org/wiki/Coordinated_vul
 
 ## Contact
 
-For security concerns: **security@fluidhq.io**
+For security concerns: **change@agenticstransformation.com**
 
 For general questions: [GitHub Discussions](https://github.com/Agenticstiger/forge-cli/discussions)
