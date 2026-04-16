@@ -513,6 +513,6 @@ fluid apply contract.fluid.yaml --provider local
 
 ## Ready for Production?
 
-👉 **[Deploy to GCP →](/walkthrough/gcp)**
+👉 **[Deploy to GCP →](/forge_docs/walkthrough/gcp)**
 
 Learn how to deploy to BigQuery, set up scheduled ingestion, and implement governance policies.

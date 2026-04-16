@@ -204,15 +204,15 @@ Key test categories:
 
 ### New Documentation
 
-- **[Export Orchestration Guide](/walkthrough/export-orchestration.html)** - Comprehensive tutorial with examples
+- **[Export Orchestration Guide](/forge_docs/walkthrough/export-orchestration.html)** - Comprehensive tutorial with examples
 
 ### Updated Documentation
 
 - **[README.md](/README.md)** - Updated feature list
-- **[CLI Reference](/cli/)** - Added `fluid export` command
-- **[Provider Roadmap](/providers/roadmap.html)** - Updated AWS and Snowflake status
-- **[GCP Provider](/providers/gcp.html)** - Added export capabilities
-- **[Getting Started](/getting-started/)** - Added export examples
+- **[CLI Reference](/forge_docs/cli/)** - Added `fluid export` command
+- **[Provider Roadmap](/forge_docs/providers/roadmap.html)** - Updated AWS and Snowflake status
+- **[GCP Provider](/forge_docs/providers/gcp.html)** - Added export capabilities
+- **[Getting Started](/forge_docs/getting-started/)** - Added export examples
 
 ---
 
@@ -364,9 +364,9 @@ This release was made possible by:
 
 ## 🔗 Links
 
-- [Export Orchestration Guide](/walkthrough/export-orchestration.html)
-- [CLI Reference](/cli/)
-- [Provider Roadmap](/providers/roadmap.html)
+- [Export Orchestration Guide](/forge_docs/walkthrough/export-orchestration.html)
+- [CLI Reference](/forge_docs/cli/)
+- [Provider Roadmap](/forge_docs/providers/roadmap.html)
 - [GitHub Repository](https://github.com/Agenticstiger/forge-cli)
 
 ---

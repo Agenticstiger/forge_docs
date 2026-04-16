@@ -130,10 +130,10 @@ That split is intentional. The CLI release and the contract schema version move 
 
 ## Get involved
 
-- [Getting Started](/getting-started/)
-- [CLI Reference](/cli/)
-- [Providers](/providers/)
-- [Contributing](/contributing)
+- [Getting Started](/forge_docs/getting-started/)
+- [CLI Reference](/forge_docs/cli/)
+- [Providers](/forge_docs/providers/)
+- [Contributing](/forge_docs/contributing)
 
 ---
 
@@ -141,4 +141,4 @@ That split is intentional. The CLI release and the contract schema version move 
 
 - **Questions or ideas?** [Start a GitHub Discussion](https://github.com/Agenticstiger/forge-cli/discussions)
 - **Bug or unexpected behavior?** [Open an issue](https://github.com/Agenticstiger/forge-cli/issues)
-- **Want to contribute?** See [the contributing guide](/contributing)
+- **Want to contribute?** See [the contributing guide](/forge_docs/contributing)

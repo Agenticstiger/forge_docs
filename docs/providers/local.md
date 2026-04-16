@@ -316,9 +316,9 @@ fluid apply contract.yaml --provider gcp
 
 ## Next Steps
 
-- **[Local Walkthrough](/walkthrough/local)** - Complete tutorial
-- **[GCP Walkthrough](/walkthrough/gcp)** - Migrate to cloud
-- **[CLI Reference](/cli/)** - Local provider commands
+- **[Local Walkthrough](/forge_docs/walkthrough/local)** - Complete tutorial
+- **[GCP Walkthrough](/forge_docs/walkthrough/gcp)** - Migrate to cloud
+- **[CLI Reference](/forge_docs/cli/)** - Local provider commands
 
 ---
 

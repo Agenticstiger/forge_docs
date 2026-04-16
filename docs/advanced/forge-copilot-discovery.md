@@ -79,4 +79,4 @@ That combined context shapes the contract draft and any follow-up prompts.
 ## Related guides
 
 - [Forge memory guide](./forge-copilot-memory.md)
-- [CLI reference for `fluid forge`](/cli/forge.md)
+- [CLI reference for `fluid forge`](/forge_docs/cli/forge.md)

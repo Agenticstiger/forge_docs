@@ -57,7 +57,7 @@ fluid forge --blank --target-dir ./out
 
 - The current promoted syntax is `fluid forge`, not `fluid forge --mode copilot`.
 - Use `--domain` for built-in domain guidance instead of the older `--mode agent` flow shown in some legacy docs.
-- Discovery and memory guides live in the advanced docs: [discovery](/advanced/forge-copilot-discovery) and [memory](/advanced/forge-copilot-memory).
+- Discovery and memory guides live in the advanced docs: [discovery](/forge_docs/advanced/forge-copilot-discovery) and [memory](/forge_docs/advanced/forge-copilot-memory).
 
 ## Industry skills — `fluid skills`
 

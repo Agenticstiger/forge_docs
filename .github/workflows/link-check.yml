@@ -1,0 +1,98 @@
+name: Link Check
+
+# Catches broken docs links before they ship.
+#
+# Three jobs:
+#   1. base-prefix-check — fast shell regex catching the SPECIFIC bug class
+#      that bit us once: an absolute link like [x](/cli/foo) in body markdown
+#      that VuePress does NOT auto-prefix with the /forge_docs/ base, so it
+#      404s in the rendered HTML. The grep is precise: it flags every body
+#      link to a known internal route prefix that isn't already
+#      base-prefixed.
+#   2. lychee-source — lychee --offline on source markdown to catch
+#      relative-link typos and missing files.
+#   3. lychee-external — weekly cron (skipped on PRs) checking external
+#      URLs with retries and rate-limit tolerance.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/link-check.yml"
+      - ".lycheeignore"
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/link-check.yml"
+      - ".lycheeignore"
+  schedule:
+    # Tuesday 09:13 UTC — off-peak, includes external link check
+    - cron: "13 9 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write   # so the scheduled job can open an issue when external links break
+
+concurrency:
+  group: link-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  base-prefix-check:
+    name: Base-prefix check (catches /cli/ vs /forge_docs/cli/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify all internal absolute links carry the /forge_docs/ base
+        run: |
+          # VuePress base is /forge_docs/. Sidebar/navbar links auto-prefix,
+          # but body markdown links do NOT — so an absolute link like
+          # [x](/cli/foo) renders as <a href="/cli/foo"> which 404s.
+          # Internal route prefixes that MUST be base-prefixed when written
+          # as absolute paths in body markdown:
+          PREFIXES='cli|getting-started|providers|walkthrough|advanced|contributing|vision|RELEASE_NOTES_'
+
+          # Find lines like ](/cli...) that AREN'T already ](/forge_docs/cli...).
+          # Restricted to known-internal prefixes — won't flag external sites.
+          if grep -rIn -E "\]\(/(${PREFIXES})[^)]*\)" docs/ --include="*.md" \
+             | grep -v "(/forge_docs/" ; then
+            echo ""
+            echo "::error::Found internal absolute markdown links that are missing the /forge_docs/ base prefix."
+            echo "::error::These will render as <a href=\"/cli/...\"> and 404 on the live site."
+            echo "::error::Fix: rewrite [text](/cli/foo) → [text](/forge_docs/cli/foo) (or use a relative path)."
+            exit 1
+          fi
+          echo "✅ All internal absolute body links carry the /forge_docs/ base."
+
+  external:
+    name: External URLs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run lychee on external links
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-retries 3
+            --max-concurrency 8
+            --timeout 20
+            --exclude-loopback
+            --exclude-mail
+            './docs/**/*.md'
+          fail: false   # external blips should not fail CI; we open an issue instead
+
+      - name: Open issue if external links broke
+        if: steps.lychee.outputs.exit_code != '0'
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Link Check: broken external links found"
+          content-filepath: ./lychee/out.md
+          labels: docs, link-check

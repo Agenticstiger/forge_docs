@@ -150,9 +150,9 @@ fluid policy-check contract.fluid.yaml --strict --format json --output report.js
 
 ## See Also
 
-- [GCP Provider](/providers/gcp) — GCP-specific IAM, policy tags, data masking
-- [AWS Provider](/providers/aws) — AWS IAM policies, sovereignty, EventBridge
-- [Snowflake Provider](/providers/snowflake) — Snowflake RBAC, warehouse grants
-- [apply command](/cli/apply) — deploy with governance enforcement
-- [CLI Reference](/cli/) — all available commands
-- [Contributing](/contributing) — help improve governance features
+- [GCP Provider](/forge_docs/providers/gcp) — GCP-specific IAM, policy tags, data masking
+- [AWS Provider](/forge_docs/providers/aws) — AWS IAM policies, sovereignty, EventBridge
+- [Snowflake Provider](/forge_docs/providers/snowflake) — Snowflake RBAC, warehouse grants
+- [apply command](/forge_docs/cli/apply) — deploy with governance enforcement
+- [CLI Reference](/forge_docs/cli/) — all available commands
+- [Contributing](/forge_docs/contributing) — help improve governance features
