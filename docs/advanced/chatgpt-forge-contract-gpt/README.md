@@ -1,6 +1,10 @@
 # FLUID Forge Contract GPT Packet
 
-This folder is a self-contained builder packet for a private/internal ChatGPT GPT that drafts and reviews FLUID Forge contracts.
+> **Building a custom GPT or plugin around Fluid Forge?** This section collects the artifacts you need to spin one up: the FLUID 0.7.2 schema knowledge file, validation reference, plan reference, conversation starters, and the upload manifest. **End users running `fluid forge` from the CLI can safely skip this section** — those workflows live under [`fluid forge`](/cli/forge.html) and the [Forge Copilot guides](/advanced/forge-copilot-discovery).
+
+---
+
+This folder is a self-contained builder packet for a ChatGPT custom GPT (or other plugin) that drafts and reviews FLUID Forge contracts.
 
 It is designed around these rules:
 

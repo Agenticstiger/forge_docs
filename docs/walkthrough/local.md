@@ -32,7 +32,7 @@ Build a **Netflix customer viewing analytics pipeline** entirely on your laptop 
 ### Install Fluid Forge
 
 ```bash
-pip install fluid-forge
+pip install data-product-forge
 ```
 
 ### Verify Installation

@@ -607,7 +607,7 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Install Fluid Forge
-        run: pip install fluid-forge
+        run: pip install data-product-forge
       
       - name: Generate Airflow DAGs
         run: |
@@ -678,7 +678,7 @@ tasks:
 
 **Solution:** Update to latest Fluid Forge version:
 ```bash
-pip install --upgrade fluid-forge
+pip install --upgrade data-product-forge
 ```
 
 ---

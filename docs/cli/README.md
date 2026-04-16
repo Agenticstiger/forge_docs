@@ -80,3 +80,7 @@ fluid <command> -h
 ```
 
 If a page in the docs uses an older command spelling such as `fluid forge --mode ...`, treat it as historical or compatibility-only unless the page explicitly says it is current.
+
+---
+
+> Need a hand with a specific command, or noticing something out of date? [Start a discussion](https://github.com/Agenticstiger/forge-cli/discussions) or [open an issue](https://github.com/Agenticstiger/forge-cli/issues) — docs PRs welcome.

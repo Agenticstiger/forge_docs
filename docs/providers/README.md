@@ -81,3 +81,7 @@ Shortcut: `fluid export-opds contract.fluid.yaml` — equivalent to `fluid gener
 - Use [provider-specific guides](./gcp.md) when you need deep target details.
 - Use [CLI Reference](/cli/) for command syntax.
 - Use [Getting Started](/getting-started/) for the local-first workflow.
+
+---
+
+> Need a hand with a specific provider? [Start a discussion](https://github.com/Agenticstiger/forge-cli/discussions) or [open an issue](https://github.com/Agenticstiger/forge-cli/issues).
