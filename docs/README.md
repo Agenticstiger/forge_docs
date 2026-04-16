@@ -28,10 +28,12 @@ features:
 footer: Apache 2.0 Licensed | Documentation for the Fluid Forge CLI
 ---
 
+> **Fluid Forge is for data engineers who want to write a data product contract once and deploy it anywhere.** Build and test locally with DuckDB, then push the same contract to BigQuery, Athena, or Snowflake — no pipeline glue code to maintain.
+
 ## Start with the current workflow
 
 ```bash
-pip install fluid-forge
+pip install data-product-forge
 fluid version
 fluid doctor
 fluid init my-project --quickstart
@@ -77,3 +79,11 @@ Use `fluid forge` when you want discovery, memory, and LLM-guided scaffolding. U
 
 Compatibility note:
 `fluid generate-airflow` is still available, but primary docs now lead with `fluid generate schedule --scheduler airflow`.
+
+---
+
+## Need help?
+
+- **Questions or ideas?** [Start a GitHub Discussion](https://github.com/Agenticstiger/forge-cli/discussions) — we read every one.
+- **Bug or unexpected behavior?** [Open an issue](https://github.com/Agenticstiger/forge-cli/issues) with what you ran and what you saw.
+- **Want to contribute?** See [the contributing guide](./contributing.md) — we welcome doc fixes, examples, and providers.

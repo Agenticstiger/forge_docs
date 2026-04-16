@@ -11,7 +11,7 @@ Run your first data product locally in a few minutes, then move to cloud targets
 ## Install the CLI
 
 ```bash
-pip install fluid-forge
+pip install data-product-forge
 ```
 
 Check the installed CLI and basic system health:
@@ -22,6 +22,8 @@ fluid doctor
 ```
 
 This docs set tracks CLI release `0.7.9`.
+
+> Stuck on install? Jump to [Troubleshooting](#troubleshooting) further down, or [open an issue](https://github.com/Agenticstiger/forge-cli/issues) — happy to help.
 
 ## Understand the version numbers
 
@@ -126,3 +128,11 @@ fluid <command> -h
 - [CLI Reference](/cli/)
 - [Local walkthrough](/walkthrough/local)
 - [Vision](/vision)
+
+---
+
+## Need help?
+
+- **Questions or ideas?** [Start a GitHub Discussion](https://github.com/Agenticstiger/forge-cli/discussions)
+- **Bug or unexpected behavior?** [Open an issue](https://github.com/Agenticstiger/forge-cli/issues) with what you ran and what you saw
+- **Want to contribute?** See [the contributing guide](../contributing.md)

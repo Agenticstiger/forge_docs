@@ -40,7 +40,7 @@ Forge may inspect local:
 If you want richer Parquet and Avro schema inspection, install the optional discovery helpers:
 
 ```bash
-pip install "fluid-forge[copilot]"
+pip install "data-product-forge[copilot]"
 ```
 
 That adds local readers such as `pyarrow` and `fastavro`. Without them, Forge can still discover files, but schema extraction is more limited.

@@ -90,10 +90,12 @@ class MyProvider(BaseProvider):
 
 ## Docs Standards
 
-- **Clarity first** — prefer practical examples and direct wording
-- **Build cleanly** — run `npm run docs:build` before opening the PR
-- **Keep links current** — prefer the published docs site and current repo URLs
-- **Commits** — use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `chore:`
+A few things that help reviewers focus on what matters in your change:
+
+- **Clarity first** — practical examples and direct language help readers learn fast.
+- **Build cleanly** — `npm run docs:build` catches issues early so reviewers can focus on content.
+- **Links that work** — point at the published docs site and current repo URLs so nothing 404s a month from now.
+- **Conventional Commits** — `feat:` / `fix:` / `docs:` / `chore:` ([reference](https://www.conventionalcommits.org/)); helps changelog automation pick up your work.
 
 ## Code of Conduct
 

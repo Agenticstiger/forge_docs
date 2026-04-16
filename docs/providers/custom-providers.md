@@ -400,7 +400,7 @@ name = "fluid-provider-mydb"
 version = "1.0.0"
 description = "Fluid Forge provider for MyDB"
 requires-python = ">=3.9"
-dependencies = ["fluid-forge>=0.7.0"]
+dependencies = ["data-product-forge>=0.7.0"]
 
 [project.entry-points."fluid_build.providers"]
 mydb = "my_provider.provider:MyDbProvider"

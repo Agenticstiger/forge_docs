@@ -134,3 +134,11 @@ That split is intentional. The CLI release and the contract schema version move 
 - [CLI Reference](/cli/)
 - [Providers](/providers/)
 - [Contributing](/contributing)
+
+---
+
+## Need help?
+
+- **Questions or ideas?** [Start a GitHub Discussion](https://github.com/Agenticstiger/forge-cli/discussions)
+- **Bug or unexpected behavior?** [Open an issue](https://github.com/Agenticstiger/forge-cli/issues)
+- **Want to contribute?** See [the contributing guide](/contributing)
