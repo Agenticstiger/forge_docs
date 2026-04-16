@@ -12,11 +12,12 @@ This section tracks the promoted command surface shown by `fluid --help` in `for
 
 | Command | What it is for |
 | --- | --- |
-| [`fluid init`](./init.md) | Create a new project quickly from a scaffold or template |
-| [`fluid forge`](./forge.md) | AI-assisted scaffolding with optional discovery, memory, and domain hints |
+| [`fluid init`](./init.md) | Create a new project (includes `fluid demo` — the 30-second zero-setup variant) |
+| [`fluid forge`](./forge.md) | AI-assisted scaffolding (includes `fluid skills` for industry knowledge packs) |
 | [`fluid validate`](./validate.md) | Validate a contract against bundled or fetched FLUID schemas |
-| [`fluid plan`](./plan.md) | Preview planned execution and optionally write a plan JSON or HTML view |
+| [`fluid plan`](./plan.md) | Preview planned execution (includes `fluid viz-graph` for rich visualization) |
 | [`fluid apply`](./apply.md) | Run a contract or saved plan end-to-end |
+| [`fluid status`](./status.md) | One-page summary of the product in the current directory |
 
 The newcomer path is usually:
 
@@ -32,7 +33,7 @@ fluid apply contract.fluid.yaml --yes
 
 | Command | What it is for |
 | --- | --- |
-| [`fluid generate`](./generate.md) | Unified generation entry point |
+| [`fluid generate`](./generate.md) | Unified generation entry point (includes `fluid export-opds` — shortcut for the OPDS standard) |
 | `fluid generate transformation` | Emit transformation artifacts such as dbt or SQL |
 | `fluid generate schedule` | Emit Airflow, Dagster, or Prefect scheduling artifacts |
 | `fluid generate ci` | Generate GitHub Actions, GitLab CI, or Jenkins templates |
@@ -69,6 +70,7 @@ Compatibility note:
 | [`fluid doctor`](./doctor.md) | Run built-in health checks |
 | [`fluid providers`](./providers.md) | List registered providers |
 | [`fluid version`](./version.md) | Show CLI version and environment details |
+
 
 ## Command discovery
 
