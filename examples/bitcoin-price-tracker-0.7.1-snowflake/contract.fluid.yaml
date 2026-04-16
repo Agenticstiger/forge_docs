@@ -1,0 +1,410 @@
+fluidVersion: "0.7.1"
+kind: DataProduct
+id: crypto.bitcoin_prices_snowflake_governed
+name: Bitcoin Price Index (FLUID 0.7.1 + Snowflake + Governance)
+description: Real-time Bitcoin price data with comprehensive governance policies on Snowflake Data Cloud
+domain: finance
+
+# Standard metadata
+metadata:
+  layer: Gold
+  owner:
+    team: data-engineering
+    email: data-engineering@company.com
+
+# Optional tags (supported by schema)
+tags:
+  - cryptocurrency
+  - real-time
+  - governed
+  - gdpr-compliant
+  - snowflake
+
+# Optional labels (supported by schema)
+labels:
+  cost_center: "CC-1234"
+  business_criticality: "high"
+  compliance_gdpr: "true"
+  compliance_soc2: "true"
+  platform: "snowflake"
+
+# ═══════════════════════════════════════════════════════════════
+# 0.7.1 NEW FEATURES: Sovereignty & AI Governance
+# ═══════════════════════════════════════════════════════════════
+
+# Data Sovereignty (NEW in 0.7.1)
+sovereignty:
+  jurisdiction: "EU"
+  dataResidency: true
+  allowedRegions:
+    - eu-west-1          # Snowflake AWS Europe (Ireland)
+    - eu-central-1       # Snowflake AWS Europe (Frankfurt) - GDPR compliant
+    - europe-west4       # Snowflake GCP Europe (Netherlands)
+  deniedRegions:
+    - us-east-1          # Explicitly block US regions
+    - us-west-2
+    - us-central1
+  crossBorderTransfer: false
+  transferMechanisms:
+    - SCCs               # Standard Contractual Clauses
+  regulatoryFramework:
+    - GDPR
+    - SOC2
+  enforcementMode: advisory  # strict|advisory|audit (strict blocks deployment)
+  validationRequired: true
+  
+  tags:
+    - gdpr-compliant
+    - eu-residency
+    - data-sovereignty
+  
+  labels:
+    compliance_region: "EU"
+    data_classification: "regulated"
+    transfer_restriction: "strict"
+
+# ═══════════════════════════════════════════════════════════════
+# Access Policy: Snowflake RBAC (WHO can access data)
+# ═══════════════════════════════════════════════════════════════
+
+accessPolicy:
+  grants:
+    # Data Analytics Role - Read Access
+    - principal: "role:DATA_ANALYST"
+      permissions:
+        - read
+        - select
+        - query
+      
+    # Finance Team Role - Read Access
+    - principal: "role:FINANCE_ANALYST"
+      permissions:
+        - read
+        - select
+      
+    # Trading Desk Role - Read Access
+    - principal: "role:TRADER"
+      permissions:
+        - read
+        - select
+        - query
+      
+    # Data Engineering Role - Write Access
+    - principal: "role:DATA_ENGINEER"
+      permissions:
+        - write
+        - insert
+        - update
+        - delete
+        - create
+      
+    # Looker Service Account - Read Access (if integrating with BI tools)
+    - principal: "user:looker_service@company.com"
+      permissions:
+        - read
+        - select
+
+# ═══════════════════════════════════════════════════════════════
+# Build: API Ingestion with Execution Configuration
+# ═══════════════════════════════════════════════════════════════
+
+builds:
+  - id: bitcoin_price_ingestion
+    description: Fetch Bitcoin prices from CoinGecko API with data quality validation
+    pattern: hybrid-reference
+    engine: python
+    repository: ./runtime
+    properties:
+      model: ingest
+    
+    tags:
+      - api-ingestion
+      - real-time
+      - coingecko
+    
+    labels:
+      source_api: "coingecko"
+      ingestion_pattern: "pull"
+      data_format: "json"
+      target_platform: "snowflake"
+    
+    # Execution trigger configuration
+    execution:
+      trigger:
+        type: manual
+        iterations: 1  # Run 2 times in CI/CD pipeline
+        delaySeconds: 3  # 3 second delay between runs
+      
+      runtime:
+        platform: snowflake
+        resources:
+          warehouse: "COMPUTE_WH"  # Snowflake virtual warehouse
+          warehouse_size: "X-SMALL"  # Cost optimization
+      
+      retries:
+        count: 3
+        backoff: exponential
+    
+    outputs:
+      - bitcoin_prices_table
+
+# ═══════════════════════════════════════════════════════════════
+# Expose: Snowflake Table with Full Governance
+# ═══════════════════════════════════════════════════════════════
+
+exposes:
+  - exposeId: bitcoin_prices_table
+    title: "Bitcoin Real-time Price Feed"
+    version: "1.0.0"
+    kind: table
+    
+    # Tags for discoverability and governance
+    tags:
+      - financial-data
+      - real-time
+      - api-sourced
+      - internal-use
+      - snowflake
+    
+    # Labels for automation and filtering
+    labels:
+      sensitivity: "internal"
+      data_domain: "finance"
+      update_frequency: "realtime"
+      retention_years: "7"
+      region: "eu"
+      platform: "snowflake"
+    
+    # Platform binding - SNOWFLAKE
+    binding:
+      platform: snowflake
+      format: snowflake_table
+      
+      location:
+        # Environment variables for Snowflake connection
+        account: "{{ env.SNOWFLAKE_ACCOUNT }}"      # e.g., "myorg-myaccount"
+        database: "CRYPTO_DATA"                      # Database name
+        schema: "MARKET_DATA"                        # Schema name
+        table: "BITCOIN_PRICES"                      # Table name
+        
+      properties:
+        # Performance optimization
+        cluster_by: ["price_timestamp"]              # Cluster by timestamp for time-series queries
+        
+        # Table properties
+        table_type: "STANDARD"                       # STANDARD or TRANSIENT
+        
+        # Time Travel retention (Snowflake feature)
+        data_retention_time_in_days: 7               # 7 days of time travel
+        
+        # Change tracking for CDC
+        change_tracking: true
+        
+        # Table comment
+        comment: "Real-time Bitcoin price data from CoinGecko API with governance policies"
+    
+    # ═══════════════════════════════════════════════════════════
+    # GOVERNANCE POLICIES (v0.5.7 compatible, enhanced in 0.7.1)
+    # ═══════════════════════════════════════════════════════════
+    
+    policy:
+      # Data classification
+      classification: Internal  # Options: Public, Internal, Confidential, Restricted
+      
+      # Authentication method (Snowflake uses role-based access)
+      authn: iam  # Snowflake RBAC
+      
+      # Authorization policies
+      authz:
+        readers:
+          - role:DATA_ANALYST
+          - role:FINANCE_ANALYST
+          - role:TRADER
+          - user:looker_service@company.com
+        
+        writers:
+          - role:DATA_ENGINEER
+        
+        # Column-level access control (Snowflake dynamic data masking)
+        columnRestrictions:
+          - principal: "role:INTERN"
+            columns:
+              - market_cap_usd
+              - volume_24h_usd
+            access: deny
+            tags:
+              - sensitive-financial-data
+              - restricted
+      
+      # Privacy controls
+      privacy:
+        # Data masking rules (Snowflake supports dynamic data masking)
+        masking:
+          - column: "ingestion_timestamp"
+            strategy: "hash"
+            params:
+              algorithm: "SHA256"
+            labels:
+              pii_type: "operational_data"
+              reason: "audit_trail_protection"
+        
+        # Row-level security (Snowflake row access policies)
+        rowLevelPolicy:
+          expression: "ingestion_timestamp >= DATEADD(DAY, -30, CURRENT_TIMESTAMP())"
+          tags:
+            - data-retention
+            - gdpr-compliance
+      
+      # Policy tags for governance
+      tags:
+        - gdpr-compliant
+        - soc2-compliant
+        - financial-data
+        - snowflake-governed
+      
+      # Policy labels for automation
+      labels:
+        compliance_framework: "GDPR,SOC2,ISO27001,MiFID_II"
+        audit_required: "true"
+        data_lineage_tracked: "true"
+        masking_enabled: "true"
+    
+    # ═══════════════════════════════════════════════════════════
+    # Schema Contract with Field-Level Metadata
+    # ═══════════════════════════════════════════════════════════
+    
+    contract:
+      schema:
+        - name: price_timestamp
+          type: TIMESTAMP_NTZ  # Snowflake timestamp without timezone
+          required: true
+          description: "Timestamp when the price was recorded (UTC)"
+          sensitivity: cleartext
+          semanticType: "timestamp"
+          labels:
+            timezone: "UTC"
+            partition_field: "true"
+          tags:
+            - temporal
+            - utc-timezone
+            - cluster-key
+          
+        - name: price_usd
+          type: NUMBER  # Snowflake numeric type (38,2)
+          required: true
+          description: "Bitcoin price in US Dollars"
+          sensitivity: cleartext
+          semanticType: "currency"
+          labels:
+            currency: "USD"
+            precision: "2"
+            scale: "2"
+          tags:
+            - price-data
+            - usd-denominated
+            - business-critical
+          
+        - name: price_eur
+          type: NUMBER
+          required: true
+          description: "Bitcoin price in Euros"
+          sensitivity: cleartext
+          semanticType: "currency"
+          labels:
+            currency: "EUR"
+            precision: "2"
+            scale: "2"
+          tags:
+            - price-data
+            - eur-denominated
+            - business-critical
+          
+        - name: price_gbp
+          type: NUMBER
+          required: true
+          description: "Bitcoin price in British Pounds"
+          sensitivity: cleartext
+          semanticType: "currency"
+          labels:
+            currency: "GBP"
+            precision: "2"
+            scale: "2"
+          tags:
+            - price-data
+            - gbp-denominated
+            - business-critical
+          
+        - name: market_cap_usd
+          type: NUMBER
+          required: false
+          description: "Total Bitcoin market capitalization in USD"
+          sensitivity: internal
+          semanticType: "metric"
+          labels:
+            metric_type: "market_cap"
+            currency: "USD"
+          tags:
+            - market-data
+            - aggregated
+            - financial-metric
+          
+        - name: volume_24h_usd
+          type: NUMBER
+          required: false
+          description: "24-hour trading volume in USD"
+          sensitivity: internal
+          semanticType: "metric"
+          labels:
+            metric_type: "volume"
+            currency: "USD"
+          tags:
+            - market-data
+            - aggregated
+            - trading-volume
+          
+        - name: price_change_24h
+          type: NUMBER
+          required: false
+          description: "Price change in last 24 hours (percentage)"
+          sensitivity: cleartext
+          semanticType: "percentage"
+          labels:
+            metric_type: "derived"
+            calculation: "percentage_change"
+            volatility_indicator: "true"
+          tags:
+            - derived-metric
+            - volatility-indicator
+            - percentage
+          
+        - name: last_updated
+          type: TIMESTAMP_NTZ
+          required: true
+          description: "Timestamp from CoinGecko API (source system time)"
+          sensitivity: cleartext
+          semanticType: "timestamp"
+          labels:
+            source: "coingecko_api"
+            timezone: "UTC"
+            field_type: "source_timestamp"
+          tags:
+            - source-metadata
+            - utc-timezone
+            - api-timestamp
+          
+        - name: ingestion_timestamp
+          type: TIMESTAMP_NTZ
+          required: true
+          description: "When this record was ingested into our system"
+          sensitivity: cleartext
+          semanticType: "timestamp"
+          labels:
+            system_generated: "true"
+            audit_field: "true"
+            timezone: "UTC"
+            default: "CURRENT_TIMESTAMP()"
+          tags:
+            - audit-trail
+            - pipeline-metadata
+            - utc-timezone
+            - system-field

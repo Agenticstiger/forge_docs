@@ -1,0 +1,327 @@
+#!/usr/bin/env groovy
+/**
+ * FLUID Pipeline v0.7.1 — Provider-Agnostic
+ *
+ * This pipeline runs ANY FLUID data product on ANY provider without modification.
+ * Zero provider-specific logic lives here — the contract is the single source of truth.
+ *
+ * Credentials convention:
+ *   Supports two Jenkins credential types:
+ *   - "Secret File" (default for GCP/Snowflake): shell-exportable env vars or raw JSON key
+ *   - "Username with password" (for AWS etc.): mapped via CRED_USERNAME_VAR / CRED_PASSWORD_VAR
+ *
+ *   Secret File format — shell-exportable env vars:
+ *
+ *   GCP credentials file:          AWS credentials file:         Snowflake credentials file:
+ *     (raw SA JSON key works too)   AWS_ACCESS_KEY_ID=AKIAxxx    SNOWFLAKE_ACCOUNT=xxx
+ *     GCP_PROJECT=my-project        AWS_SECRET_ACCESS_KEY=xxx    SNOWFLAKE_USER=xxx
+ *                                   AWS_REGION=eu-central-1      SNOWFLAKE_PASSWORD=xxx
+ *                                   S3_BUCKET=my-bucket          SNOWFLAKE_WAREHOUSE=COMPUTE_WH
+ *                                                                SNOWFLAKE_ROLE=SYSADMIN
+ *
+ *   For GCP, the Secret File can be the raw service-account JSON key —
+ *   the pipeline auto-detects JSON vs env-file format.
+ *
+ * Adding a new provider:
+ *   1. Add a provider to the FLUID CLI (fluid_build/providers/)
+ *   2. Set binding.platform in your contract
+ *   3. Create a credentials file with the env vars your provider needs
+ *   4. That's it — this Jenkinsfile doesn't change
+ *
+ * NOTE: All file references use absolute "$WORKSPACE/..." paths because the
+ * Jenkins Durable Task plugin may start each sh block in a different cwd.
+ */
+
+pipeline {
+    agent {
+        docker {
+            image "${params.FLUID_IMAGE}"
+            alwaysPull true
+            args '-v /var/run/docker.sock:/var/run/docker.sock --entrypoint='
+        }
+    }
+
+    environment {
+        HOME       = "${WORKSPACE}"
+        FLUID_ENV  = "${WORKSPACE}/.fluid-env"
+        ENV        = "${BRANCH_NAME == 'main' ? 'prod' : BRANCH_NAME == 'develop' ? 'staging' : 'dev'}"
+    }
+
+    parameters {
+        string(name: 'CONTRACT_FILE',  defaultValue: 'contract.fluid.yaml',                        description: 'FLUID contract file')
+        string(name: 'FLUID_IMAGE',    defaultValue: 'localhost:5000/fluid-forge-cli:beta-latest',  description: 'FLUID CLI Docker image')
+        string(name: 'CREDENTIALS_ID', defaultValue: 'aws-credentials',                              description: 'Jenkins credential ID (leave empty for .env fallback)')
+        choice(name: 'CREDENTIAL_TYPE', choices: ['usernamePassword', 'file'],                        description: 'Credential binding type (file=Secret File, usernamePassword=User+Pass)')
+        string(name: 'CRED_USERNAME_VAR', defaultValue: 'AWS_ACCESS_KEY_ID',                          description: 'Env var name for username (usernamePassword type only)')
+        string(name: 'CRED_PASSWORD_VAR', defaultValue: 'AWS_SECRET_ACCESS_KEY',                      description: 'Env var name for password (usernamePassword type only)')
+        text(name: 'EXTRA_ENV', defaultValue: "AWS_DEFAULT_REGION=eu-central-1\nAWS_REGION=eu-central-1", description: 'Extra env vars appended to credentials (one key=value per line)')
+        booleanParam(name: 'RUN_EXECUTION', defaultValue: true,  description: 'Execute builds after infrastructure apply')
+        booleanParam(name: 'ENFORCE_IAM',   defaultValue: true,  description: 'Enforce IAM/RBAC policies from contract')
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        disableConcurrentBuilds()
+    }
+
+    stages {
+
+        // ─────────────────────────────────────────────────────
+        //  Setup: load credentials, detect provider
+        // ─────────────────────────────────────────────────────
+        stage('Setup') {
+            steps {
+                script {
+                    if (!fileExists(params.CONTRACT_FILE)) {
+                        error "Contract not found: ${params.CONTRACT_FILE}"
+                    }
+
+                    echo "CREDENTIALS_ID = '${params.CREDENTIALS_ID}'"
+
+                    // Load credentials — supports Secret File and Username/Password types.
+                    if (params.CREDENTIALS_ID) {
+                        if (params.CREDENTIAL_TYPE == 'usernamePassword') {
+                            withCredentials([usernamePassword(credentialsId: params.CREDENTIALS_ID, usernameVariable: 'CRED_USR', passwordVariable: 'CRED_PSW')]) {
+                                sh """
+                                    cat > "\$WORKSPACE/.fluid-creds" << CREDEOF
+${params.CRED_USERNAME_VAR}=\$CRED_USR
+${params.CRED_PASSWORD_VAR}=\$CRED_PSW
+CREDEOF
+                                """
+                            }
+                        } else {
+                            withCredentials([file(credentialsId: params.CREDENTIALS_ID, variable: 'CREDS_FILE')]) {
+                                sh "cp \$CREDS_FILE \"\$WORKSPACE/.fluid-creds\""
+                            }
+                        }
+                        // Append extra env vars (e.g. AWS_REGION, S3_BUCKET)
+                        if (params.EXTRA_ENV?.trim()) {
+                            writeFile file: '.fluid-creds-extra', text: params.EXTRA_ENV.trim() + '\n'
+                            sh 'cat "$WORKSPACE/.fluid-creds-extra" >> "$WORKSPACE/.fluid-creds" && rm -f "$WORKSPACE/.fluid-creds-extra"'
+                        }
+                    } else if (fileExists('.env')) {
+                        sh 'cp "$WORKSPACE/.env" "$WORKSPACE/.fluid-creds"'
+                    } else {
+                        echo "WARNING: No CREDENTIALS_ID and no .env file — pipeline will run without credentials"
+                    }
+                }
+
+                // Auto-detect credential format and create $FLUID_ENV.
+                // If the file is a GCP JSON key → set GOOGLE_APPLICATION_CREDENTIALS.
+                // Otherwise → treat as sourceable shell env vars (works for AWS, Snowflake, anything).
+                sh '''
+                    echo "── Credential Detection ──"
+                    if [ -f "$WORKSPACE/.fluid-creds" ]; then
+                        echo "Found .fluid-creds ($(wc -c < "$WORKSPACE/.fluid-creds") bytes)"
+                        if python3 -c "import json; d=json.load(open('$WORKSPACE/.fluid-creds')); assert d.get('type')=='service_account'" 2>/dev/null; then
+                            cp "$WORKSPACE/.fluid-creds" "$WORKSPACE/.gcp-key.json"
+                            PROJECT=$(python3 -c "import json; print(json.load(open('$WORKSPACE/.gcp-key.json')).get('project_id',''))")
+                            cat > "$FLUID_ENV" << ENVEOF
+GOOGLE_APPLICATION_CREDENTIALS=$WORKSPACE/.gcp-key.json
+GCP_PROJECT=$PROJECT
+ENVEOF
+                            echo "Loaded GCP service account (project: $PROJECT)"
+                        else
+                            grep -v '^#' "$WORKSPACE/.fluid-creds" | grep -v '^$' | sed 's/^export //' > "$FLUID_ENV"
+                            echo "Loaded credentials from env file"
+                        fi
+                    else
+                        touch "$FLUID_ENV"
+                        echo "WARNING: No .fluid-creds file found — no credentials loaded"
+                    fi
+                    echo "── $FLUID_ENV contents ──"
+                    cat "$FLUID_ENV"
+                    echo "── end ──"
+                '''
+
+                // Pre-flight summary
+                sh '''
+                    set -a; . "$FLUID_ENV"; set +a
+
+                    echo "=================================================="
+                    echo "  FLUID Pipeline"
+                    echo "=================================================="
+                    echo "Contract    : $WORKSPACE/${CONTRACT_FILE}"
+                    echo "Env         : ${ENV}"
+                    echo "Credentials : $(wc -l < "$FLUID_ENV") env vars loaded"
+                    echo ""
+                    fluid --version 2>/dev/null || echo "FLUID CLI version unavailable"
+                    python3 --version
+                '''
+
+                // Install project-specific dependencies (e.g. snowflake-connector-python, boto3)
+                sh '''
+                    cd "$WORKSPACE"
+                    [ -f requirements.txt ] && pip3 install --quiet -r requirements.txt && echo "Installed project dependencies" || true
+                '''
+            }
+        }
+
+        // ─────────────────────────────────────────────────────
+        //  Validate → Export → Compile → Plan → Test
+        // ─────────────────────────────────────────────────────
+        stage('Validate Contract') {
+            steps {
+                sh '''
+                    set -a; . "$FLUID_ENV"; set +a
+                    cd "$WORKSPACE"
+                    mkdir -p reports
+                    fluid validate ${CONTRACT_FILE} --verbose 2>&1 | tee reports/validation.log
+                '''
+                archiveArtifacts artifacts: 'reports/validation.log', allowEmptyArchive: true
+            }
+        }
+
+        stage('Export Standards') {
+            steps {
+                sh '''
+                    cd "$WORKSPACE"
+                    mkdir -p standards
+                    fluid odps export ${CONTRACT_FILE} --out standards/product.odps.json || true
+                    fluid odcs export ${CONTRACT_FILE} --out standards/product.odcs.yaml || true
+                '''
+                archiveArtifacts artifacts: 'standards/**/*', allowEmptyArchive: true
+            }
+        }
+
+        stage('Compile IAM Policies') {
+            steps {
+                sh '''
+                    set -a; . "$FLUID_ENV"; set +a
+                    cd "$WORKSPACE"
+                    mkdir -p runtime/policy
+                    fluid policy-compile ${CONTRACT_FILE} \
+                        --env ${ENV} \
+                        --out runtime/policy/bindings.json || {
+                        echo '{"bindings":[],"warnings":["policy-compile unavailable"]}' > runtime/policy/bindings.json
+                    }
+                '''
+                archiveArtifacts artifacts: 'runtime/policy/**/*', allowEmptyArchive: true
+            }
+        }
+
+        stage('Generate Plan') {
+            steps {
+                sh '''
+                    set -a; . "$FLUID_ENV"; set +a
+                    cd "$WORKSPACE"
+                    mkdir -p plans
+                    fluid plan ${CONTRACT_FILE} --env ${ENV} --out plans/plan-${ENV}.json || true
+                '''
+                archiveArtifacts artifacts: 'plans/**/*', allowEmptyArchive: true
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh '''
+                    set -a; . "$FLUID_ENV"; set +a
+                    cd "$WORKSPACE"
+                    fluid contract-tests ${CONTRACT_FILE} || true
+                '''
+            }
+        }
+
+        // ─────────────────────────────────────────────────────
+        //  Apply infrastructure + IAM
+        // ─────────────────────────────────────────────────────
+        stage('Apply Infrastructure') {
+            steps {
+                sh '''
+                    set -a; . "$FLUID_ENV"; set +a
+                    cd "$WORKSPACE"
+                    mkdir -p runtime
+                    fluid apply ${CONTRACT_FILE} \
+                        --env ${ENV} \
+                        --yes \
+                        --report runtime/apply-report-${ENV}.html
+                '''
+                archiveArtifacts artifacts: 'runtime/**/*', allowEmptyArchive: true
+            }
+        }
+
+        stage('Apply IAM Policies') {
+            steps {
+                sh """
+                    set -a; . "\$FLUID_ENV"; set +a
+                    cd "\$WORKSPACE"
+                    if [ -f runtime/policy/bindings.json ]; then
+                        COUNT=\$(python3 -c "import json; print(len(json.load(open('runtime/policy/bindings.json')).get('bindings',[])))" 2>/dev/null || echo 0)
+                        if [ "\$COUNT" != "0" ]; then
+                            echo "Applying \$COUNT IAM binding(s)..."
+                            fluid policy-apply runtime/policy/bindings.json \
+                                --mode ${params.ENFORCE_IAM ? 'enforce' : 'check'} || true
+                        else
+                            echo "No IAM bindings to apply"
+                        fi
+                    fi
+                """
+            }
+        }
+
+        // ─────────────────────────────────────────────────────
+        //  Execute builds + generate Airflow DAG
+        // ─────────────────────────────────────────────────────
+        stage('Execute Builds') {
+            when { expression { params.RUN_EXECUTION } }
+            steps {
+                sh '''
+                    set -a; . "$FLUID_ENV"; set +a
+                    cd "$WORKSPACE"
+                    [ -f requirements.txt ] && pip3 install --quiet -r requirements.txt
+                    fluid execute ${CONTRACT_FILE}
+                '''
+            }
+        }
+
+        stage('Generate Airflow DAG') {
+            steps {
+                sh '''
+                    cd "$WORKSPACE"
+                    mkdir -p airflow-dags
+                    CONTRACT_ID=$(grep -m1 '^id:' ${CONTRACT_FILE} | cut -d' ' -f2 | tr -d '"' | tr '.' '_')
+                    fluid generate-airflow ${CONTRACT_FILE} \
+                        --out airflow-dags/data_product_${ENV}.py \
+                        --dag-id "${CONTRACT_ID}_${ENV}" || true
+
+                    [ -f airflow-dags/data_product_${ENV}.py ] && python3 -m py_compile airflow-dags/data_product_${ENV}.py && echo "DAG valid"
+                '''
+                archiveArtifacts artifacts: 'airflow-dags/**/*', allowEmptyArchive: true
+            }
+        }
+
+        // ─────────────────────────────────────────────────────
+        //  Summary
+        // ─────────────────────────────────────────────────────
+        stage('Summary') {
+            steps {
+                sh '''
+                    cd "$WORKSPACE"
+                    echo "=================================================="
+                    echo "  FLUID Pipeline Complete"
+                    echo "=================================================="
+                    echo ""
+                    grep -m1 "^id:" ${CONTRACT_FILE}   | cut -d" " -f2
+                    grep -m1 "^name:" ${CONTRACT_FILE}  | cut -d" " -f2-
+                    echo ""
+                    echo "Env: ${ENV}"
+                    echo ""
+                    echo "Artifacts:"
+                    ls -lh reports/*.log 2>/dev/null                    || echo "  (no validation log)"
+                    ls -lh runtime/apply-report-${ENV}.html 2>/dev/null || echo "  (no apply report)"
+                    ls -lh runtime/policy/bindings.json 2>/dev/null     || echo "  (no IAM bindings)"
+                    ls -lh airflow-dags/*.py 2>/dev/null                || echo "  (no Airflow DAG)"
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f "$WORKSPACE/.fluid-creds" "$WORKSPACE/.fluid-env" "$WORKSPACE/.gcp-key.json" 2>/dev/null || true'
+            archiveArtifacts artifacts: '**/*.log, **/*.json, **/*.html, **/*.py', allowEmptyArchive: true
+            cleanWs()
+        }
+    }
+}

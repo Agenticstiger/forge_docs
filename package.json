@@ -1,0 +1,37 @@
+{
+  "name": "forge-cli-docs",
+  "version": "1.0.0",
+  "description": "Fluid Forge Documentation — Declarative Data Products for Modern Data Teams",
+  "homepage": "https://agenticstiger.github.io/forge_docs/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Agenticstiger/forge_docs.git"
+  },
+  "scripts": {
+    "docs:dev": "vuepress dev docs",
+    "docs:build": "vuepress build docs",
+    "docs:preview": "vuepress preview docs"
+  },
+  "keywords": [
+    "data-products",
+    "declarative",
+    "data-engineering",
+    "gcp",
+    "bigquery",
+    "aws",
+    "athena",
+    "snowflake",
+    "duckdb",
+    "infrastructure-as-code",
+    "dataops"
+  ],
+  "author": "Agentics Transformation Pty Ltd <hello@fluidhq.io> (https://fluidhq.io)",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@vuepress/bundler-vite": "^2.0.0-rc.26",
+    "@vuepress/client": "^2.0.0-rc.26",
+    "@vuepress/theme-default": "^2.0.0-rc.125",
+    "sass-embedded": "^1.97.2",
+    "vuepress": "^2.0.0-rc.26"
+  }
+}

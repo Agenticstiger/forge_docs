@@ -1,0 +1,339 @@
+{
+  "opds_version": "1.0",
+  "generator": "fluid-forge-opds-provider",
+  "generated_at": "2026-01-21T09:52:35Z",
+  "target_platform": "generic",
+  "count": 1,
+  "artifacts": {
+    "schema": "https://github.com/Open-Data-Product-Initiative/v4.1/blob/main/source/schema/odps.json",
+    "version": "4.1",
+    "product": {
+      "details": {
+        "en": {
+          "name": "bitcoin-prices-gcp",
+          "productID": "crypto.bitcoin_prices_gcp",
+          "visibility": "private",
+          "status": "draft",
+          "type": "dataset",
+          "created": null,
+          "updated": null,
+          "description": "",
+          "valueProposition": "",
+          "productVersion": "1.0.0",
+          "categories": [],
+          "tags": []
+        }
+      },
+      "dataAccess": [
+        {
+          "name": {
+            "en": "bitcoin_prices_table"
+          },
+          "description": {
+            "en": "Data access endpoint"
+          },
+          "outputPortType": "API",
+          "format": "JSON"
+        },
+        {
+          "name": {
+            "en": "daily_price_summary"
+          },
+          "description": {
+            "en": "Data access endpoint"
+          },
+          "outputPortType": "API",
+          "format": "JSON"
+        },
+        {
+          "name": {
+            "en": "price_trends"
+          },
+          "description": {
+            "en": "Data access endpoint"
+          },
+          "outputPortType": "API",
+          "format": "JSON"
+        }
+      ],
+      "SLA": {
+        "availability": {
+          "target": "99.9%",
+          "measurementWindow": "monthly"
+        }
+      },
+      "dataHolder": {
+        "legalName": "data-engineering",
+        "contactName": "",
+        "email": "data-eng@example.com",
+        "description": ""
+      }
+    },
+    "_legacy": {
+      "dataProductId": "crypto.bitcoin_prices_gcp",
+      "dataProductName": "bitcoin-prices-gcp",
+      "dataProductDescription": "",
+      "dataProductOwner": {
+        "name": "data-engineering",
+        "email": "data-eng@example.com",
+        "contact": null,
+        "organization": null
+      },
+      "dataProductType": "DataProduct",
+      "domain": null,
+      "tags": [],
+      "layer": "Gold",
+      "status": "Draft",
+      "outputPorts": [
+        {
+          "id": "bitcoin_prices_table",
+          "name": "bitcoin_prices_table",
+          "description": "",
+          "type": "table",
+          "format": "bigquery_table",
+          "location": {
+            "project": "<<YOUR_PROJECT_HERE>>",
+            "dataset": "crypto_data",
+            "table": "bitcoin_prices",
+            "region": "us-central1"
+          },
+          "schema": {
+            "fields": [
+              {
+                "name": "price_timestamp",
+                "type": "TIMESTAMP",
+                "nullable": false,
+                "description": "When the price was recorded"
+              },
+              {
+                "name": "price_usd",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": "Bitcoin price in USD"
+              },
+              {
+                "name": "price_eur",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": "Bitcoin price in EUR"
+              },
+              {
+                "name": "price_gbp",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": "Bitcoin price in GBP"
+              },
+              {
+                "name": "market_cap_usd",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": "Total market capitalization in USD"
+              },
+              {
+                "name": "volume_24h_usd",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": "24-hour trading volume in USD"
+              },
+              {
+                "name": "price_change_24h_percent",
+                "type": "FLOAT64",
+                "nullable": true,
+                "description": "24-hour price change percentage"
+              },
+              {
+                "name": "ingestion_timestamp",
+                "type": "TIMESTAMP",
+                "nullable": false,
+                "description": "When data was ingested into BigQuery"
+              }
+            ],
+            "format": "json-schema"
+          }
+        },
+        {
+          "id": "daily_price_summary",
+          "name": "daily_price_summary",
+          "description": "",
+          "type": "view",
+          "format": "bigquery_table",
+          "location": {
+            "project": "<<YOUR_PROJECT_HERE>>",
+            "dataset": "crypto_data",
+            "table": "daily_price_summary",
+            "region": "us-central1"
+          },
+          "schema": {
+            "fields": [
+              {
+                "name": "date",
+                "type": "DATE",
+                "nullable": false,
+                "description": ""
+              },
+              {
+                "name": "avg_price_usd",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": ""
+              },
+              {
+                "name": "min_price_usd",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": ""
+              },
+              {
+                "name": "max_price_usd",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": ""
+              },
+              {
+                "name": "daily_volatility",
+                "type": "FLOAT64",
+                "nullable": true,
+                "description": ""
+              },
+              {
+                "name": "total_volume_usd",
+                "type": "FLOAT64",
+                "nullable": true,
+                "description": ""
+              }
+            ],
+            "format": "json-schema"
+          }
+        },
+        {
+          "id": "price_trends",
+          "name": "price_trends",
+          "description": "",
+          "type": "view",
+          "format": "bigquery_table",
+          "location": {
+            "project": "<<YOUR_PROJECT_HERE>>",
+            "dataset": "crypto_data",
+            "table": "price_trends",
+            "region": "us-central1"
+          },
+          "schema": {
+            "fields": [
+              {
+                "name": "price_timestamp",
+                "type": "TIMESTAMP",
+                "nullable": false,
+                "description": ""
+              },
+              {
+                "name": "price_usd",
+                "type": "FLOAT64",
+                "nullable": false,
+                "description": ""
+              },
+              {
+                "name": "ma_7day",
+                "type": "FLOAT64",
+                "nullable": true,
+                "description": ""
+              },
+              {
+                "name": "ma_30day",
+                "type": "FLOAT64",
+                "nullable": true,
+                "description": ""
+              },
+              {
+                "name": "deviation_from_7day_ma",
+                "type": "FLOAT64",
+                "nullable": true,
+                "description": ""
+              }
+            ],
+            "format": "json-schema"
+          }
+        }
+      ],
+      "inputPorts": []
+    },
+    "x-fluid": {
+      "fluidVersion": "0.7.1",
+      "originalId": "crypto.bitcoin_prices_gcp",
+      "builds": [
+        {
+          "id": "ingest_bitcoin_prices",
+          "description": "Fetch Bitcoin prices from CoinGecko API and load to BigQuery",
+          "pattern": "hybrid-reference",
+          "engine": "python",
+          "repository": "./runtime",
+          "properties": {
+            "model": "ingest_bitcoin_prices"
+          },
+          "execution": {
+            "trigger": {
+              "type": "manual"
+            },
+            "runtime": {
+              "resources": {
+                "memory": "512Mi"
+              },
+              "timeout": "PT5M"
+            },
+            "retries": {
+              "maxAttempts": 3,
+              "backoffStrategy": "exponential"
+            }
+          },
+          "outputs": [
+            "bitcoin_prices_table"
+          ]
+        },
+        {
+          "id": "calculate_daily_summary",
+          "description": "Calculate daily Bitcoin price statistics using dbt",
+          "pattern": "hybrid-reference",
+          "engine": "dbt",
+          "repository": "./dbt",
+          "properties": {
+            "model": "daily_price_summary"
+          },
+          "outputs": [
+            "daily_price_summary"
+          ]
+        },
+        {
+          "id": "calculate_price_trends",
+          "description": "Calculate moving averages and price trends using dbt",
+          "pattern": "hybrid-reference",
+          "engine": "dbt",
+          "repository": "./dbt",
+          "properties": {
+            "model": "price_trends"
+          },
+          "outputs": [
+            "price_trends"
+          ]
+        }
+      ],
+      "customFields": {
+        "fluidVersion": "0.7.1",
+        "tags": [
+          "crypto",
+          "bitcoin",
+          "real-time",
+          "api-integration"
+        ],
+        "labels": {
+          "environment": "production",
+          "platform": "gcp"
+        }
+      }
+    }
+  },
+  "status": "success",
+  "export_config": {
+    "include_build_info": true,
+    "include_execution_details": false,
+    "validation_enabled": true
+  }
+}

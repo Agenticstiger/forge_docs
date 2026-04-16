@@ -1,0 +1,7 @@
+version: 1.0.0
+apiVersion: v3.1.0
+kind: DataContract
+id: crypto.bitcoin_prices_gcp
+status: active
+schema: []
+servers: []

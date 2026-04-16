@@ -1,0 +1,156 @@
+fluidVersion: "0.7.1"
+kind: DataProduct
+id: crypto.market_data.bitcoin_prices_iceberg_v1
+name: Bitcoin Price Tracker (AWS Iceberg)
+description: Real-time Bitcoin price data using Apache Iceberg table format on AWS
+domain: Market Data
+tags:
+  - crypto
+  - market-data
+  - real-time
+  - iceberg
+labels:
+  team: data-engineering
+  cost-center: analytics
+
+metadata:
+  layer: Silver
+  owner:
+    email: data-eng@company.com
+
+exposes:
+  - exposeId: bitcoin_prices_iceberg_table
+    title: Bitcoin Prices Iceberg Table
+    version: "1.0.0"
+    kind: table
+    description: Bitcoin price data with ACID transactions and time travel capabilities
+    
+    binding:
+      platform: aws
+      format: iceberg  # ← Apache Iceberg table format
+      
+      # Iceberg-specific configuration
+      icebergConfig:
+        writeVersion: 2  # Iceberg format version (1 or 2)
+        fileFormat: parquet  # Underlying file format (parquet/orc/avro)
+        
+        # Hidden partitioning - users don't specify partition values
+        partitionSpec:
+          - name: price_day
+            transform: day  # Partition by day(price_timestamp)
+            sourceColumn: price_timestamp
+        
+        # Sort order for optimal query performance
+        sortOrder:
+          - column: price_timestamp
+            direction: asc
+        
+        # Iceberg table properties
+        properties:
+          write.parquet.compression-codec: zstd
+          write.metadata.delete-after-commit.enabled: "true"
+          write.metadata.previous-versions-max: "100"
+          commit.retry.num-retries: "3"
+          write.target-file-size-bytes: "536870912"  # 512 MB
+      
+      location:
+        database: crypto_data
+        table: bitcoin_prices_iceberg
+        bucket: "{{ env.S3_BUCKET }}"
+        path: data/bitcoin/iceberg/prices/
+        region: "{{ env.AWS_REGION }}"
+    
+    contract:
+      schema:
+        - name: price_timestamp
+          type: timestamp
+          required: true
+          description: UTC timestamp when price was recorded
+          
+        - name: price_usd
+          type: decimal(18,2)
+          required: true
+          description: Bitcoin price in USD
+          sensitivity: none
+          
+        - name: price_eur
+          type: decimal(18,2)
+          required: false
+          description: Bitcoin price in EUR
+          
+        - name: price_gbp
+          type: decimal(18,2)
+          required: false
+          description: Bitcoin price in GBP
+          
+        - name: price_jpy
+          type: decimal(18,2)
+          required: false
+          description: Bitcoin price in JPY
+          
+        - name: price_cny
+          type: decimal(18,2)
+          required: false
+          description: Bitcoin price in CNY
+          
+        - name: price_inr
+          type: decimal(18,2)
+          required: false
+          description: Bitcoin price in INR
+          
+        - name: price_aud
+          type: decimal(18,2)
+          required: false
+          description: Bitcoin price in AUD
+          
+        - name: market_cap_usd
+          type: decimal(20,2)
+          required: false
+          description: Total market capitalization in USD
+          
+        - name: volume_24h_usd
+          type: decimal(20,2)
+          required: false
+          description: 24-hour trading volume in USD
+          
+        - name: price_change_24h_pct
+          type: decimal(10,4)
+          required: false
+          description: 24-hour price change percentage
+          
+        - name: last_updated
+          type: timestamp
+          required: false
+          description: Timestamp from data source
+          
+        - name: ingestion_timestamp
+          type: timestamp
+          required: true
+          description: When data was ingested into our system
+
+builds:
+  - id: bitcoin_price_ingestion
+    description: Fetch Bitcoin prices from CoinGecko API and write to Iceberg
+    pattern: hybrid-reference
+    engine: python
+    repository: ./runtime
+    properties:
+      model: ingest_iceberg
+    
+    execution:
+      trigger:
+        type: manual
+        iterations: 1
+        delaySeconds: 3
+      
+      runtime:
+        image: python:3.11-slim
+        dependencies:
+          - boto3
+          - requests
+          - pyarrow
+        env:
+          - AWS_REGION
+          - S3_BUCKET
+          - AWS_ACCESS_KEY_ID
+          - AWS_SECRET_ACCESS_KEY

@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# VuePress build output
+docs/.vuepress/dist/
+docs/.vuepress/.cache/
+docs/.vuepress/.temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Lock file — tracked for CI reproducibility
+
+# Environment
+.env
+.env.local

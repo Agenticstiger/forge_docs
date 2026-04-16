@@ -1,0 +1,143 @@
+fluidVersion: "0.7.2"
+kind: "DataProduct"
+id: "gold.customer.customer360_v1"
+name: "Customer 360"
+description: "Unified customer analytics table with governance and semantic truth definitions."
+domain: "customer"
+metadata:
+  layer: "Gold"
+  owner:
+    team: "customer-platform"
+    email: "cust-platform@example.com"
+  businessContext:
+    domain: "Customer Experience"
+    subdomain: "Customer Intelligence"
+sovereignty:
+  jurisdiction: "EU"
+  allowedRegions:
+    - "europe-west1"
+    - "europe-west4"
+  dataResidency: true
+  crossBorderTransfer: false
+  regulatoryFramework:
+    - "GDPR"
+  enforcementMode: "strict"
+  validationRequired: true
+consumes:
+  - productId: "silver.crm.core_v1"
+    exposeId: "crm_core"
+    purpose: "Customer master data from CRM."
+  - productId: "silver.billing.accounts_v1"
+    exposeId: "billing_accounts"
+    purpose: "Billing account information."
+builds:
+  - id: "customer360_build"
+    description: "Customer 360 aggregation pipeline."
+    pattern: "hybrid-reference"
+    engine: "dbt"
+    repository: "./examples/customer360/dbt_project"
+    properties:
+      model: "customer360"
+      vars:
+        materialization: "table"
+    execution:
+      trigger:
+        type: "schedule"
+        cron: "15 2 * * *"
+      runtime:
+        platform: "gcp"
+        resources:
+          cpu: "2"
+          memory: "8Gi"
+      retries:
+        count: 2
+        delaySeconds: 60
+        backoff: "exponential"
+exposes:
+  - exposeId: "customer360_table"
+    kind: "table"
+    binding:
+      platform: "gcp"
+      format: "bigquery_table"
+      location:
+        project: "YOUR_PROJECT"
+        dataset: "gold_demo"
+        table: "customer360_v1"
+    contract:
+      schema:
+        - name: "customer_id"
+          type: "STRING"
+          required: true
+          description: "Stable customer identifier."
+        - name: "segment"
+          type: "STRING"
+          description: "Current customer segment."
+        - name: "arpu_30d"
+          type: "NUMERIC"
+          description: "Average revenue per user over the last 30 days."
+        - name: "updated_at"
+          type: "TIMESTAMP"
+          required: true
+          description: "Last time this row was refreshed."
+      dq:
+        rules:
+          - id: "customer_id_not_null"
+            type: "completeness"
+            selector: "customer_id"
+            threshold: 1.0
+            operator: ">="
+            severity: "error"
+          - id: "updated_at_not_null"
+            type: "completeness"
+            selector: "updated_at"
+            threshold: 1.0
+            operator: ">="
+            severity: "error"
+    qos:
+      availability: "99.5%"
+      freshnessSLO: "PT2H"
+    policy:
+      classification: "Confidential"
+      agentPolicy:
+        allowedUseCases:
+          - "analysis"
+          - "qa"
+          - "rag"
+        deniedUseCases:
+          - "training"
+          - "fine_tuning"
+        canStore: false
+        canReason: true
+        auditRequired: true
+        retentionPolicy:
+          maxRetentionDays: 0
+          requireDeletion: true
+        purposeLimitation: "Internal analytics and support use only."
+    semantics:
+      name: "customer360"
+      description: "Semantic model for customer identity and revenue analysis."
+      defaultAggTimeDimension: "updated_at"
+      entities:
+        - name: "customer"
+          type: "primary"
+          expr: "customer_id"
+          description: "Unique customer record key."
+      measures:
+        - name: "arpu_30d"
+          agg: "avg"
+          expr: "arpu_30d"
+          description: "Average revenue per user in the trailing 30-day window."
+          createMetric: true
+      dimensions:
+        - name: "updated_at"
+          type: "time"
+          typeParams:
+            timeGranularity: "day"
+        - name: "segment"
+          type: "categorical"
+      metrics:
+        - name: "avg_arpu_30d"
+          description: "Average customer ARPU over the last 30 days."
+          type: "simple"
+          measure: "arpu_30d"
+          owner: "cust-platform@example.com"

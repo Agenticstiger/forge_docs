@@ -1,0 +1,362 @@
+fluidVersion: "0.7.1"
+kind: DataProduct
+id: crypto.market_data.bitcoin_prices_aws_v1
+name: Bitcoin Price Tracker (AWS Athena)
+description: Real-time Bitcoin price data stored in AWS Athena with S3 backend, with comprehensive governance
+domain: Market Data
+
+tags:
+  - crypto
+  - market-data
+  - real-time
+  - governed
+  - gdpr-compliant
+
+labels:
+  team: data-engineering
+  cost-center: analytics
+  business_criticality: "high"
+  compliance_gdpr: "true"
+  platform: "aws"
+
+metadata:
+  layer: Gold
+  owner:
+    team: data-engineering
+    email: data-eng@company.com
+
+# ═══════════════════════════════════════════════════════════════
+# 0.7.1: Data Sovereignty
+# ═══════════════════════════════════════════════════════════════
+
+sovereignty:
+  jurisdiction: "EU"
+  dataResidency: true
+  allowedRegions:
+    - eu-central-1       # AWS Frankfurt (GDPR compliant)
+    - eu-west-1          # AWS Ireland
+  deniedRegions:
+    - us-east-1
+    - us-west-2
+  crossBorderTransfer: false
+  transferMechanisms:
+    - SCCs               # Standard Contractual Clauses
+  regulatoryFramework:
+    - GDPR
+    - SOC2
+  enforcementMode: advisory
+  validationRequired: true
+
+  tags:
+    - gdpr-compliant
+    - eu-residency
+    - data-sovereignty
+  labels:
+    compliance_region: "EU"
+    data_classification: "regulated"
+    transfer_restriction: "strict"
+
+# ═══════════════════════════════════════════════════════════════
+# Access Policy: AWS IAM Principals
+# ═══════════════════════════════════════════════════════════════
+
+accessPolicy:
+  grants:
+    - principal: "role:data-analyst"
+      permissions:
+        - read
+        - select
+        - query
+
+    - principal: "role:finance-team"
+      permissions:
+        - read
+        - select
+
+    - principal: "role:trading-desk"
+      permissions:
+        - read
+        - select
+        - query
+
+    - principal: "role:data-engineer"
+      permissions:
+        - write
+        - insert
+        - update
+        - delete
+        - create
+
+    - principal: "role:pipeline-service"
+      permissions:
+        - read
+        - write
+        - insert
+
+# ═══════════════════════════════════════════════════════════════
+# Expose: Athena Table with Governance
+# ═══════════════════════════════════════════════════════════════
+
+exposes:
+  - exposeId: bitcoin_prices_table
+    title: Bitcoin Real-time Price Feed
+    version: "1.0.0"
+    kind: table
+
+    tags:
+      - financial-data
+      - real-time
+      - api-sourced
+      - internal-use
+
+    labels:
+      sensitivity: "internal"
+      data_domain: "finance"
+      update_frequency: "realtime"
+      retention_years: "7"
+      region: "eu"
+
+    binding:
+      platform: aws
+      format: parquet
+      location:
+        database: crypto_data
+        table: bitcoin_prices
+        bucket: "{{ env.S3_BUCKET }}"
+        path: data/bitcoin/prices/
+        region: "{{ env.AWS_REGION }}"
+
+    # ═══════════════════════════════════════════════════════════
+    # Governance Policies
+    # ═══════════════════════════════════════════════════════════
+
+    policy:
+      classification: Internal
+      authn: iam
+
+      authz:
+        readers:
+          - role:data-analyst
+          - role:finance-team
+          - role:trading-desk
+          - role:pipeline-service
+        writers:
+          - role:data-engineer
+          - role:pipeline-service
+        columnRestrictions:
+          - principal: "role:intern"
+            columns:
+              - market_cap_usd
+              - volume_24h_usd
+            access: deny
+            tags:
+              - sensitive-financial-data
+
+      privacy:
+        masking:
+          - column: "ingestion_timestamp"
+            strategy: "hash"
+            params:
+              algorithm: "SHA256"
+            labels:
+              pii_type: "operational_data"
+              reason: "audit_trail_protection"
+        rowLevelPolicy:
+          expression: "price_timestamp >= DATE_ADD('day', -30, CURRENT_TIMESTAMP)"
+          tags:
+            - data-retention
+            - gdpr-compliance
+
+      tags:
+        - gdpr-compliant
+        - soc2-compliant
+        - financial-data
+      labels:
+        compliance_framework: "GDPR,SOC2"
+        audit_required: "true"
+        data_lineage_tracked: "true"
+
+    # ═══════════════════════════════════════════════════════════
+    # Schema Contract with Field-Level Metadata
+    # ═══════════════════════════════════════════════════════════
+
+    contract:
+      schema:
+        - name: price_timestamp
+          type: timestamp
+          required: true
+          description: UTC timestamp when price was recorded
+          sensitivity: cleartext
+          semanticType: "timestamp"
+          labels:
+            timezone: "UTC"
+            partition_field: "true"
+          tags:
+            - temporal
+            - utc-timezone
+            - partition-key
+
+        - name: price_usd
+          type: decimal(18,2)
+          required: true
+          description: Bitcoin price in USD
+          sensitivity: cleartext
+          semanticType: "currency"
+          labels:
+            currency: "USD"
+            precision: "2"
+          tags:
+            - price-data
+            - usd-denominated
+            - business-critical
+
+        - name: price_eur
+          type: decimal(18,2)
+          required: false
+          description: Bitcoin price in EUR
+          sensitivity: cleartext
+          semanticType: "currency"
+          labels:
+            currency: "EUR"
+            precision: "2"
+          tags:
+            - price-data
+            - eur-denominated
+            - business-critical
+
+        - name: price_gbp
+          type: decimal(18,2)
+          required: false
+          description: Bitcoin price in GBP
+          sensitivity: cleartext
+          semanticType: "currency"
+          labels:
+            currency: "GBP"
+            precision: "2"
+          tags:
+            - price-data
+            - gbp-denominated
+            - business-critical
+
+        - name: market_cap_usd
+          type: decimal(20,2)
+          required: false
+          description: Total market capitalization in USD
+          sensitivity: internal
+          semanticType: "metric"
+          labels:
+            metric_type: "market_cap"
+            currency: "USD"
+          tags:
+            - market-data
+            - aggregated
+            - financial-metric
+
+        - name: volume_24h_usd
+          type: decimal(20,2)
+          required: false
+          description: 24-hour trading volume in USD
+          sensitivity: internal
+          semanticType: "metric"
+          labels:
+            metric_type: "volume"
+            currency: "USD"
+          tags:
+            - market-data
+            - aggregated
+            - trading-volume
+
+        - name: price_change_24h_pct
+          type: decimal(10,4)
+          required: false
+          description: 24-hour price change percentage
+          sensitivity: cleartext
+          semanticType: "percentage"
+          labels:
+            metric_type: "derived"
+            calculation: "percentage_change"
+            volatility_indicator: "true"
+          tags:
+            - derived-metric
+            - volatility-indicator
+            - percentage
+
+        - name: last_updated
+          type: timestamp
+          required: false
+          description: Timestamp from CoinGecko API (source system time)
+          sensitivity: cleartext
+          semanticType: "timestamp"
+          labels:
+            source: "coingecko_api"
+            timezone: "UTC"
+            field_type: "source_timestamp"
+          tags:
+            - source-metadata
+            - utc-timezone
+            - api-timestamp
+
+        - name: ingestion_timestamp
+          type: timestamp
+          required: true
+          description: When data was ingested into our system
+          sensitivity: cleartext
+          semanticType: "timestamp"
+          labels:
+            system_generated: "true"
+            audit_field: "true"
+            timezone: "UTC"
+          tags:
+            - audit-trail
+            - pipeline-metadata
+            - utc-timezone
+            - system-field
+
+# ═══════════════════════════════════════════════════════════════
+# Build: API Ingestion with Execution Configuration
+# ═══════════════════════════════════════════════════════════════
+
+builds:
+  - id: bitcoin_price_ingestion
+    description: Fetch Bitcoin prices from CoinGecko API with data quality validation
+    pattern: hybrid-reference
+    engine: python
+    repository: ./runtime
+    properties:
+      model: ingest
+
+    tags:
+      - api-ingestion
+      - real-time
+      - coingecko
+
+    labels:
+      source_api: "coingecko"
+      ingestion_pattern: "pull"
+      data_format: "json"
+      target_platform: "aws"
+
+    execution:
+      trigger:
+        type: manual
+        iterations: 1
+        delaySeconds: 3
+
+      runtime:
+        image: python:3.11-slim
+        dependencies:
+          - boto3
+          - requests
+          - pyarrow
+        env:
+          - AWS_REGION
+          - S3_BUCKET
+          - AWS_ACCESS_KEY_ID
+          - AWS_SECRET_ACCESS_KEY
+
+      retries:
+        count: 3
+        backoff: exponential
+
+    outputs:
+      - bitcoin_prices_table

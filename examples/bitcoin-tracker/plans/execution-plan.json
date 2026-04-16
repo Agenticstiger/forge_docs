@@ -1,0 +1,574 @@
+{
+  "format_version": "0.7.1",
+  "generated_at": 1769088460.588292,
+  "contract": {
+    "id": "crypto.bitcoin_prices_gcp",
+    "name": null,
+    "version": "0.7.1"
+  },
+  "actions": [
+    {
+      "step": 1,
+      "action_id": "provision_price_trends",
+      "action_type": "provisionDataset",
+      "provider": "gcp",
+      "params": {
+        "exposeId": "price_trends",
+        "kind": "view",
+        "binding": {
+          "platform": "gcp",
+          "format": "bigquery_table",
+          "location": {
+            "project": "dust-labs-485011",
+            "dataset": "crypto_data",
+            "table": "price_trends",
+            "region": "us-central1"
+          }
+        },
+        "schema": [
+          {
+            "name": "price_timestamp",
+            "type": "TIMESTAMP",
+            "required": true,
+            "description": "Timestamp of the price observation",
+            "semanticType": "timestamp",
+            "businessName": "Timestamp",
+            "tags": [
+              "dimension",
+              "time-series"
+            ]
+          },
+          {
+            "name": "price_usd",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "Bitcoin price in USD",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Spot Price",
+            "tags": [
+              "metric",
+              "price-data"
+            ]
+          },
+          {
+            "name": "ma_7day",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "7-day moving average (168 hours)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "7-Day Moving Average",
+            "tags": [
+              "metric",
+              "moving-average",
+              "derived"
+            ],
+            "labels": {
+              "window": "7-days",
+              "calculation": "rolling-average"
+            }
+          },
+          {
+            "name": "ma_30day",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "30-day moving average (720 hours)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "30-Day Moving Average",
+            "tags": [
+              "metric",
+              "moving-average",
+              "derived"
+            ],
+            "labels": {
+              "window": "30-days",
+              "calculation": "rolling-average"
+            }
+          },
+          {
+            "name": "deviation_from_7day_ma",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "Price deviation from 7-day moving average",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Deviation from 7-Day MA",
+            "tags": [
+              "metric",
+              "derived",
+              "variance"
+            ],
+            "labels": {
+              "calculation": "difference",
+              "reference": "7day-ma"
+            }
+          }
+        ]
+      },
+      "depends_on": [],
+      "description": "Provision dataset for price_trends"
+    },
+    {
+      "step": 2,
+      "action_id": "provision_daily_price_summary",
+      "action_type": "provisionDataset",
+      "provider": "gcp",
+      "params": {
+        "exposeId": "daily_price_summary",
+        "kind": "view",
+        "binding": {
+          "platform": "gcp",
+          "format": "bigquery_table",
+          "location": {
+            "project": "dust-labs-485011",
+            "dataset": "crypto_data",
+            "table": "daily_price_summary",
+            "region": "us-central1"
+          }
+        },
+        "schema": [
+          {
+            "name": "date",
+            "type": "DATE",
+            "required": true,
+            "description": "Calendar date for aggregation",
+            "semanticType": "date",
+            "businessName": "Date",
+            "tags": [
+              "dimension",
+              "time"
+            ]
+          },
+          {
+            "name": "min_price_usd",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "Minimum Bitcoin price for the day (USD)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Daily Low",
+            "tags": [
+              "metric",
+              "aggregated"
+            ],
+            "labels": {
+              "aggregation": "minimum"
+            }
+          },
+          {
+            "name": "max_price_usd",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "Maximum Bitcoin price for the day (USD)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Daily High",
+            "tags": [
+              "metric",
+              "aggregated"
+            ],
+            "labels": {
+              "aggregation": "maximum"
+            }
+          },
+          {
+            "name": "avg_price_usd",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "Average Bitcoin price for the day (USD)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Daily Average Price",
+            "tags": [
+              "metric",
+              "aggregated"
+            ],
+            "labels": {
+              "aggregation": "average"
+            }
+          },
+          {
+            "name": "open_price_usd",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "First price recorded for the day (OHLC Open)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Opening Price",
+            "tags": [
+              "metric",
+              "ohlc"
+            ],
+            "labels": {
+              "calculation": "first-value"
+            }
+          },
+          {
+            "name": "close_price_usd",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "Last price recorded for the day (OHLC Close)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Closing Price",
+            "tags": [
+              "metric",
+              "ohlc"
+            ],
+            "labels": {
+              "calculation": "last-value"
+            }
+          },
+          {
+            "name": "daily_volatility",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "Standard deviation of prices (volatility indicator)",
+            "sensitivity": "none",
+            "semanticType": "number",
+            "businessName": "Daily Volatility",
+            "tags": [
+              "metric",
+              "statistical"
+            ],
+            "labels": {
+              "calculation": "stddev"
+            }
+          },
+          {
+            "name": "price_range",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "Difference between max and min price (daily range)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Daily Price Range",
+            "tags": [
+              "metric",
+              "derived"
+            ],
+            "labels": {
+              "calculation": "max-minus-min"
+            }
+          },
+          {
+            "name": "avg_market_cap_usd",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "Average market capitalization for the day",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Daily Avg Market Cap",
+            "tags": [
+              "metric",
+              "aggregated"
+            ],
+            "labels": {
+              "aggregation": "average"
+            }
+          },
+          {
+            "name": "avg_volume_24h_usd",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "Average 24h trading volume to avoid double counting",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Daily Avg Volume",
+            "tags": [
+              "metric",
+              "aggregated"
+            ],
+            "labels": {
+              "aggregation": "average"
+            }
+          },
+          {
+            "name": "avg_price_eur",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "Average Bitcoin price for the day (EUR)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Daily Avg Price (EUR)",
+            "tags": [
+              "metric",
+              "aggregated",
+              "currency-conversion"
+            ],
+            "labels": {
+              "aggregation": "average",
+              "currency": "EUR"
+            }
+          },
+          {
+            "name": "avg_price_gbp",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "Average Bitcoin price for the day (GBP)",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Daily Avg Price (GBP)",
+            "tags": [
+              "metric",
+              "aggregated",
+              "currency-conversion"
+            ],
+            "labels": {
+              "aggregation": "average",
+              "currency": "GBP"
+            }
+          },
+          {
+            "name": "data_points",
+            "type": "INT64",
+            "required": true,
+            "description": "Number of price records aggregated for this day",
+            "sensitivity": "internal",
+            "semanticType": "count",
+            "businessName": "Data Point Count",
+            "tags": [
+              "metadata",
+              "quality"
+            ],
+            "labels": {
+              "aggregation": "count"
+            }
+          },
+          {
+            "name": "first_update",
+            "type": "TIMESTAMP",
+            "required": true,
+            "description": "Timestamp of first price update for the day",
+            "sensitivity": "internal",
+            "semanticType": "timestamp",
+            "businessName": "First Update Time",
+            "tags": [
+              "metadata",
+              "audit-trail"
+            ]
+          },
+          {
+            "name": "last_update",
+            "type": "TIMESTAMP",
+            "required": true,
+            "description": "Timestamp of last price update for the day",
+            "sensitivity": "internal",
+            "semanticType": "timestamp",
+            "businessName": "Last Update Time",
+            "tags": [
+              "metadata",
+              "audit-trail"
+            ]
+          }
+        ]
+      },
+      "depends_on": [],
+      "description": "Provision dataset for daily_price_summary"
+    },
+    {
+      "step": 3,
+      "action_id": "schedule_build_0",
+      "action_type": "scheduleTask",
+      "provider": "local",
+      "params": {
+        "buildId": "build_0",
+        "engine": "python",
+        "script": null,
+        "schedule": null
+      },
+      "depends_on": [],
+      "description": "Schedule build task build_0"
+    },
+    {
+      "step": 4,
+      "action_id": "schedule_build_2",
+      "action_type": "scheduleTask",
+      "provider": "local",
+      "params": {
+        "buildId": "build_2",
+        "engine": "dbt",
+        "script": null,
+        "schedule": null
+      },
+      "depends_on": [],
+      "description": "Schedule build task build_2"
+    },
+    {
+      "step": 5,
+      "action_id": "schedule_build_1",
+      "action_type": "scheduleTask",
+      "provider": "local",
+      "params": {
+        "buildId": "build_1",
+        "engine": "dbt",
+        "script": null,
+        "schedule": null
+      },
+      "depends_on": [],
+      "description": "Schedule build task build_1"
+    },
+    {
+      "step": 6,
+      "action_id": "provision_bitcoin_prices_table",
+      "action_type": "provisionDataset",
+      "provider": "gcp",
+      "params": {
+        "exposeId": "bitcoin_prices_table",
+        "kind": "table",
+        "binding": {
+          "platform": "gcp",
+          "format": "bigquery_table",
+          "location": {
+            "project": "dust-labs-485011",
+            "dataset": "crypto_data",
+            "table": "bitcoin_prices",
+            "region": "us-central1"
+          }
+        },
+        "schema": [
+          {
+            "name": "price_timestamp",
+            "type": "TIMESTAMP",
+            "required": true,
+            "description": "When the price was recorded",
+            "sensitivity": "none",
+            "semanticType": "timestamp",
+            "businessName": "Price Timestamp",
+            "tags": [
+              "partition-key",
+              "time-series"
+            ]
+          },
+          {
+            "name": "price_usd",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "Bitcoin price in USD",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Bitcoin Price (USD)",
+            "tags": [
+              "metric",
+              "price-data"
+            ],
+            "labels": {
+              "unit": "usd",
+              "precision": "2-decimals"
+            }
+          },
+          {
+            "name": "price_eur",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "Bitcoin price in EUR",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Bitcoin Price (EUR)",
+            "tags": [
+              "metric",
+              "price-data"
+            ],
+            "labels": {
+              "unit": "eur"
+            }
+          },
+          {
+            "name": "price_gbp",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "Bitcoin price in GBP",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Bitcoin Price (GBP)",
+            "tags": [
+              "metric",
+              "price-data"
+            ],
+            "labels": {
+              "unit": "gbp"
+            }
+          },
+          {
+            "name": "market_cap_usd",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "Total market capitalization in USD",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "Market Capitalization",
+            "tags": [
+              "metric",
+              "market-data"
+            ],
+            "labels": {
+              "aggregation": "sum"
+            }
+          },
+          {
+            "name": "volume_24h_usd",
+            "type": "FLOAT64",
+            "required": true,
+            "description": "24-hour trading volume in USD",
+            "sensitivity": "none",
+            "semanticType": "currency",
+            "businessName": "24h Trading Volume",
+            "tags": [
+              "metric",
+              "volume-data"
+            ],
+            "labels": {
+              "window": "24h"
+            }
+          },
+          {
+            "name": "price_change_24h_percent",
+            "type": "FLOAT64",
+            "required": false,
+            "description": "24-hour price change percentage",
+            "sensitivity": "none",
+            "semanticType": "percentage",
+            "businessName": "24h Price Change",
+            "tags": [
+              "metric",
+              "derived"
+            ],
+            "labels": {
+              "calculation": "percentage-change"
+            }
+          },
+          {
+            "name": "ingestion_timestamp",
+            "type": "TIMESTAMP",
+            "required": true,
+            "description": "When data was ingested into BigQuery",
+            "sensitivity": "internal",
+            "semanticType": "timestamp",
+            "businessName": "Ingestion Timestamp",
+            "tags": [
+              "metadata",
+              "audit-trail"
+            ]
+          }
+        ]
+      },
+      "depends_on": [],
+      "description": "Provision dataset for bitcoin_prices_table"
+    }
+  ],
+  "total_actions": 6,
+  "has_dependencies": false,
+  "dependency_graph": {
+    "nodes": [
+      "provision_price_trends",
+      "provision_daily_price_summary",
+      "schedule_build_0",
+      "schedule_build_2",
+      "schedule_build_1",
+      "provision_bitcoin_prices_table"
+    ],
+    "edges": []
+  }
+}

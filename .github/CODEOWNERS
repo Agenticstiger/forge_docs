@@ -1,0 +1,11 @@
+# CODEOWNERS — FLUID Forge Docs
+
+# Default owner for docs content
+*                               @jeffwatson-ai
+
+# Community and workflow files
+.github/                        @jeffwatson-ai
+
+# Primary docs site content
+docs/                           @jeffwatson-ai
+README.md                       @jeffwatson-ai

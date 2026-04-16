@@ -1,0 +1,19 @@
+bitcoin_tracker:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'dust-labs-485011') }}"
+      dataset: crypto_data
+      location: us-central1
+      threads: 4
+      timeout_seconds: 300
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'dust-labs-485011') }}"
+      dataset: crypto_data
+      location: us-central1
+      threads: 4
+      timeout_seconds: 300

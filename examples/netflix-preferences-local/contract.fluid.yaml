@@ -1,0 +1,352 @@
+fluidVersion: "0.7.1"
+kind: DataProduct
+id: entertainment.netflix_preferences_local
+name: Netflix Customer Preferences - Local
+description: |
+  Netflix customer viewing preferences and analytics built locally using CSV files.
+  Demonstrates local development workflow for analyzing customer behavior and content preferences.
+
+domain: Entertainment
+
+tags:
+  - streaming
+  - customer-analytics
+  - local-dev
+  - preferences
+
+labels:
+  team: data-analytics
+  environment: local
+  cost-center: analytics
+
+metadata:
+  layer: Gold
+  owner:
+    team: customer-analytics
+    email: analytics@netflix.local
+
+# Declarative data transformations using DuckDB SQL
+builds:
+  - id: generate_genre_preferences
+    description: Calculate genre viewing preferences for each customer
+    pattern: embedded-logic
+    engine: sql
+    properties:
+      sql: |
+        SELECT 
+          c.customer_id,
+          c.name as customer_name,
+          v.genre,
+          COUNT(*) as total_views,
+          SUM(v.watch_duration_minutes) as total_minutes,
+          ROUND(AVG(v.completion_percent), 2) as avg_completion,
+          ROUND(AVG(v.rating), 2) as avg_rating
+        FROM read_csv_auto('data/customers.csv') c
+        JOIN read_csv_auto('data/viewing_history.csv') v
+          ON c.customer_id = v.customer_id
+        GROUP BY c.customer_id, c.name, v.genre
+        ORDER BY c.customer_id, total_views DESC
+    outputs:
+      - genre_preferences
+
+  - id: generate_engagement_summary
+    description: Calculate customer engagement metrics and scores
+    pattern: embedded-logic
+    engine: sql
+    properties:
+      sql: |
+        WITH customer_stats AS (
+          SELECT 
+            c.customer_id,
+            c.name as customer_name,
+            c.subscription_tier,
+            COUNT(v.view_id) as total_views,
+            ROUND(SUM(v.watch_duration_minutes) / 60.0, 2) as total_watch_hours,
+            ROUND(AVG(v.completion_percent), 2) as avg_completion_rate,
+            FIRST(v.genre ORDER BY COUNT(*) OVER (PARTITION BY c.customer_id, v.genre) DESC) as favorite_genre
+          FROM read_csv_auto('data/customers.csv') c
+          LEFT JOIN read_csv_auto('data/viewing_history.csv') v
+            ON c.customer_id = v.customer_id
+          GROUP BY c.customer_id, c.name, c.subscription_tier
+        ),
+        max_values AS (
+          SELECT 
+            MAX(total_views) as max_views,
+            MAX(total_watch_hours) as max_hours
+          FROM customer_stats
+        )
+        SELECT 
+          cs.customer_id,
+          cs.customer_name,
+          cs.subscription_tier,
+          cs.total_views,
+          cs.total_watch_hours,
+          cs.avg_completion_rate,
+          cs.favorite_genre,
+          ROUND(
+            (cs.total_views::FLOAT / mv.max_views * 40) +
+            (cs.total_watch_hours::FLOAT / mv.max_hours * 30) +
+            (cs.avg_completion_rate / 100.0 * 30),
+            2
+          ) as engagement_score
+        FROM customer_stats cs
+        CROSS JOIN max_values mv
+        ORDER BY engagement_score DESC
+    outputs:
+      - engagement_summary
+
+exposes:
+  - exposeId: customer_profiles
+    kind: table
+    title: Customer Profiles
+    version: 1.0.0
+    
+    tags:
+      - customer-data
+      - demographics
+    
+    labels:
+      sensitivity: internal
+      retention: 7-years
+    
+    contract:
+      schema:
+        - name: customer_id
+          type: STRING
+          required: true
+          description: Unique customer identifier
+          tags: [identifier, primary-key]
+        
+        - name: email
+          type: STRING
+          required: true
+          description: Customer email address
+          sensitivity: pii
+        
+        - name: name
+          type: STRING
+          required: true
+          description: Customer full name
+          sensitivity: pii
+        
+        - name: country
+          type: STRING
+          required: true
+          description: Customer country code
+        
+        - name: signup_date
+          type: DATE
+          required: true
+          description: Date customer signed up
+        
+        - name: subscription_tier
+          type: STRING
+          required: true
+          description: Subscription level (Basic, Standard, Premium)
+        
+        - name: age
+          type: INTEGER
+          required: false
+          description: Customer age
+        
+        - name: gender
+          type: STRING
+          required: false
+          description: Customer gender
+    
+    binding:
+      platform: local
+      format: csv
+      location:
+        path: ./data/customers.csv
+
+  - exposeId: viewing_history
+    kind: table
+    title: Viewing History
+    version: 1.0.0
+    
+    tags:
+      - behavioral-data
+      - engagement
+    
+    labels:
+      sensitivity: internal
+      update-frequency: daily
+    
+    contract:
+      schema:
+        - name: view_id
+          type: STRING
+          required: true
+          description: Unique viewing session identifier
+          tags: [identifier, primary-key]
+        
+        - name: customer_id
+          type: STRING
+          required: true
+          description: Foreign key to customer
+          tags: [foreign-key]
+        
+        - name: content_id
+          type: STRING
+          required: true
+          description: Content identifier
+        
+        - name: content_title
+          type: STRING
+          required: true
+          description: Title of content watched
+        
+        - name: content_type
+          type: STRING
+          required: true
+          description: Type of content (Movie, Series)
+        
+        - name: genre
+          type: STRING
+          required: true
+          description: Primary genre
+        
+        - name: watch_date
+          type: DATE
+          required: true
+          description: Date content was watched
+        
+        - name: watch_duration_minutes
+          type: INTEGER
+          required: true
+          description: Duration watched in minutes
+        
+        - name: completion_percent
+          type: INTEGER
+          required: true
+          description: Percentage of content completed
+        
+        - name: rating
+          type: INTEGER
+          required: false
+          description: User rating (1-5)
+    
+    binding:
+      platform: local
+      format: csv
+      location:
+        path: ./data/viewing_history.csv
+
+  - exposeId: genre_preferences
+    kind: view
+    title: Genre Preferences by Customer
+    version: 1.0.0
+    
+    tags:
+      - analytics
+      - preferences
+    
+    labels:
+      materialized: "false"
+      derived: "true"
+    
+    contract:
+      schema:
+        - name: customer_id
+          type: STRING
+          required: true
+          description: Customer identifier
+        
+        - name: customer_name
+          type: STRING
+          required: true
+          description: Customer name
+        
+        - name: genre
+          type: STRING
+          required: true
+          description: Genre category
+        
+        - name: total_views
+          type: INTEGER
+          required: true
+          description: Number of views in this genre
+        
+        - name: total_minutes
+          type: INTEGER
+          required: true
+          description: Total minutes watched in this genre
+        
+        - name: avg_completion
+          type: FLOAT
+          required: true
+          description: Average completion percentage
+        
+        - name: avg_rating
+          type: FLOAT
+          required: false
+          description: Average rating for this genre
+    
+    binding:
+      platform: local
+      format: csv
+      location:
+        path: ./output/genre_preferences.csv
+
+  - exposeId: engagement_summary
+    kind: view
+    title: Customer Engagement Summary
+    version: 1.0.0
+    
+    tags:
+      - analytics
+      - engagement
+      - business-metrics
+    
+    labels:
+      materialized: "false"
+      business-critical: "true"
+    
+    contract:
+      schema:
+        - name: customer_id
+          type: STRING
+          required: true
+          description: Customer identifier
+        
+        - name: customer_name
+          type: STRING
+          required: true
+          description: Customer name
+        
+        - name: subscription_tier
+          type: STRING
+          required: true
+          description: Subscription level
+        
+        - name: total_views
+          type: INTEGER
+          required: true
+          description: Total number of views
+        
+        - name: total_watch_hours
+          type: FLOAT
+          required: true
+          description: Total hours watched
+        
+        - name: avg_completion_rate
+          type: FLOAT
+          required: true
+          description: Average completion percentage
+        
+        - name: favorite_genre
+          type: STRING
+          required: true
+          description: Most watched genre
+        
+        - name: engagement_score
+          type: FLOAT
+          required: true
+          description: Calculated engagement score (0-100)
+    
+    binding:
+      platform: local
+      format: csv
+      location:
+        path: ./output/engagement_summary.csv

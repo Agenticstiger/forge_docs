@@ -1,0 +1,20 @@
+Fluid Forge Documentation
+Copyright 2025-2026 Agentics Transformation Pty Ltd
+
+This product includes documentation developed by
+Agentics Transformation Pty Ltd (https://fluidhq.io).
+
+Fluid Forge is a registered trademark of Agentics Transformation Pty Ltd.
+The Fluid Forge name, logo, and associated branding may not be used to endorse
+or promote derivative products without prior written permission from
+Agentics Transformation Pty Ltd.
+
+---
+
+Third-Party Notices
+
+This documentation site is built with the following open-source components:
+
+- VuePress 2 (MIT) — https://v2.vuepress.vuejs.org/
+- Vue.js 3 (MIT) — https://vuejs.org/
+- Vite (MIT) — https://vitejs.dev/

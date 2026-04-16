@@ -1,0 +1,6 @@
+customer_id,email,name,country,signup_date,subscription_tier,age,gender
+CUST001,alice.wonder@email.com,Alice Wonderland,US,2023-01-15,Premium,28,F
+CUST002,bob.builder@email.com,Bob Builder,UK,2023-02-20,Standard,35,M
+CUST003,charlie.brown@email.com,Charlie Brown,CA,2023-03-10,Premium,42,M
+CUST004,diana.prince@email.com,Diana Prince,US,2023-04-05,Basic,31,F
+CUST005,eve.jackson@email.com,Eve Jackson,AU,2023-05-12,Standard,27,F

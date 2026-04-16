@@ -1,0 +1,16 @@
+view_id,customer_id,content_id,content_title,content_type,genre,watch_date,watch_duration_minutes,completion_percent,rating
+VIEW001,CUST001,CONT101,Stranger Things S4,Series,Sci-Fi,2024-01-10,65,85,5
+VIEW002,CUST001,CONT102,The Crown S6,Series,Drama,2024-01-11,58,95,4
+VIEW003,CUST001,CONT103,Glass Onion,Movie,Mystery,2024-01-12,139,100,5
+VIEW004,CUST002,CONT104,Wednesday S1,Series,Comedy,2024-01-10,45,75,4
+VIEW005,CUST002,CONT101,Stranger Things S4,Series,Sci-Fi,2024-01-11,65,90,5
+VIEW006,CUST002,CONT105,The Witcher S3,Series,Fantasy,2024-01-13,52,80,3
+VIEW007,CUST003,CONT106,Breaking Bad,Series,Thriller,2024-01-09,58,100,5
+VIEW008,CUST003,CONT107,Extraction 2,Movie,Action,2024-01-10,111,100,4
+VIEW009,CUST003,CONT108,The Gray Man,Movie,Action,2024-01-14,122,95,4
+VIEW010,CUST004,CONT102,The Crown S6,Series,Drama,2024-01-11,58,100,5
+VIEW011,CUST004,CONT109,Bridgerton S3,Series,Romance,2024-01-12,61,88,5
+VIEW012,CUST004,CONT110,Emily in Paris S4,Series,Comedy,2024-01-13,33,55,3
+VIEW013,CUST005,CONT103,Glass Onion,Movie,Mystery,2024-01-10,139,100,5
+VIEW014,CUST005,CONT111,Love is Blind S5,Series,Reality,2024-01-11,48,90,4
+VIEW015,CUST005,CONT112,Squid Game S2,Series,Thriller,2024-01-15,60,100,5
