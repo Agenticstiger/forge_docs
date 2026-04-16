@@ -106,6 +106,7 @@ export default defineUserConfig({
             '/cli/README.md',
             '/cli/init.md',
             '/cli/forge.md',
+            '/cli/status.md',
             '/cli/validate.md',
             '/cli/plan.md',
             '/cli/apply.md',

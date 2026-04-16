@@ -69,6 +69,22 @@ Supported formats:
 - `odps`
 - `odps-bitol`
 
+#### Shortcut — `fluid export-opds`
+
+For the OPDS format specifically, there is a focused shortcut:
+
+```bash
+fluid export-opds CONTRACT [--env ENV] [--out PATH]
+```
+
+| Option | Description |
+| --- | --- |
+| `CONTRACT` | Path to `contract.fluid.yaml` (positional, required) |
+| `--env ENV` | Apply an environment overlay |
+| `--out PATH` | Output file path (default: `runtime/exports/product.opds.json`) |
+
+Produces the same OPDS JSON as `fluid generate standard --format opds`; choose whichever feels more natural. Both are deterministic — identical contracts yield byte-identical output, so the result is safe to check into version control.
+
 ## Examples
 
 ```bash

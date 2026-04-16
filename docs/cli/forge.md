@@ -58,3 +58,31 @@ fluid forge --blank --target-dir ./out
 - The current promoted syntax is `fluid forge`, not `fluid forge --mode copilot`.
 - Use `--domain` for built-in domain guidance instead of the older `--mode agent` flow shown in some legacy docs.
 - Discovery and memory guides live in the advanced docs: [discovery](/advanced/forge-copilot-discovery) and [memory](/advanced/forge-copilot-memory).
+
+## Industry skills — `fluid skills`
+
+`--domain` gives the copilot a high-level role (finance, healthcare, retail, telco). For deeper domain knowledge — the vocabulary, typical data products, standard fact tables, regulatory constraints of an industry — install an **industry skills pack**. Skills live in `.fluid/skills.yaml` inside the project; the compiled form `.fluid/skills.compiled.json` is what the copilot loads at runtime.
+
+```bash
+fluid skills <action>
+```
+
+### Subcommands
+
+| Subcommand | What it does |
+| --- | --- |
+| `fluid skills install [INDUSTRY]` | Install a bundled skills pack. `INDUSTRY` is one of `telco`, `retail`, `healthcare`, `finance`. Omit for interactive selection. |
+| `fluid skills show` | Display the current industry skills file |
+| `fluid skills compile` | Pre-compile `.fluid/skills.yaml` into `.fluid/skills.compiled.json` for faster copilot runs |
+| `fluid skills update` | Refresh the tools section of `.fluid/skills.yaml` to match the current CLI version |
+
+### Examples
+
+```bash
+fluid skills install telco
+fluid skills show
+fluid skills compile
+fluid skills update
+```
+
+Run `fluid skills compile` after any manual edit to `skills.yaml` to keep the compiled form in sync. `fluid skills update` is the right command after upgrading the CLI — it rewrites the tools list so the copilot sees the newest `fluid_*` entries.
