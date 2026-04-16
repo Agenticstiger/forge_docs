@@ -91,10 +91,10 @@ Compatibility note:
 
 When you are ready to target a provider:
 
-- [GCP guide](/providers/gcp)
-- [AWS guide](/providers/aws)
-- [Snowflake quickstart](/getting-started/snowflake)
-- [Provider overview](/providers/)
+- [GCP guide](/forge_docs/providers/gcp)
+- [AWS guide](/forge_docs/providers/aws)
+- [Snowflake quickstart](/forge_docs/getting-started/snowflake)
+- [Provider overview](/forge_docs/providers/)
 
 ## Troubleshooting
 
@@ -125,9 +125,9 @@ fluid <command> -h
 
 ## Next steps
 
-- [CLI Reference](/cli/)
-- [Local walkthrough](/walkthrough/local)
-- [Vision](/vision)
+- [CLI Reference](/forge_docs/cli/)
+- [Local walkthrough](/forge_docs/walkthrough/local)
+- [Vision](/forge_docs/vision)
 
 ---
 

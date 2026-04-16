@@ -1,0 +1,26 @@
+# Ignore patterns for lychee link-check.
+# One regex per line. Comments start with '#'.
+
+# GitHub edit-page links (lychee can't follow them for unauthenticated checks)
+^https://github\.com/.*?/edit/.*$
+
+# Anchor-only links — handled by --include-fragments on the page
+^#
+
+# Localhost / loopback (never reachable from CI)
+^https?://localhost
+^https?://127\.0\.0\.1
+
+# Mail and tel — not URLs to fetch
+^mailto:
+^tel:
+
+# Twitter / X — aggressive rate-limiting; we trust these manually
+^https?://(www\.)?twitter\.com
+^https?://(www\.)?x\.com
+
+# Discord invites — anti-bot blocks scripted checks
+^https?://discord\.gg/
+
+# Image shields — they 200 even for projects that don't exist; check separately
+^https?://img\.shields\.io/

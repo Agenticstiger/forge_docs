@@ -27,7 +27,7 @@ The Snowflake provider turns a FLUID contract into real Snowflake infrastructure
 
 Use Snowflake in one of these two modes:
 
-- **Enterprise recommended path:** dbt-snowflake plus explicit environment-specific warehouse, database, schema, and role settings. Start with the [`billing_history` example](https://github.com/Agenticstiger/forge-cli/tree/main/examples/snowflake/billing_history) and the [Snowflake quickstart](/getting-started/snowflake).
+- **Enterprise recommended path:** dbt-snowflake plus explicit environment-specific warehouse, database, schema, and role settings. Start with the [`billing_history` example](https://github.com/Agenticstiger/forge-cli/tree/main/examples/snowflake/billing_history) and the [Snowflake quickstart](/forge_docs/getting-started/snowflake).
 - **Minimal starter path:** native SQL with the [`smoke` example](https://github.com/Agenticstiger/forge-cli/tree/main/examples/snowflake/smoke) when you want the smallest contract that still proves `auth`, `validate`, `plan`, `apply`, and `verify`.
 
 For production teams, make these explicit per environment:
@@ -399,7 +399,7 @@ SNOWFLAKE_DATABASE=CRYPTO_DATA
 SNOWFLAKE_SCHEMA=MARKET_DATA
 ```
 
-The [Universal Pipeline](/walkthrough/universal-pipeline) auto-detects this format and sources it into every stage. No provider-specific credential logic.
+The [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline) auto-detects this format and sources it into every stage. No provider-specific credential logic.
 
 ### Local Development
 
@@ -529,7 +529,7 @@ The contract's governance maps naturally to Snowflake's built-in features:
 
 ## CI/CD Pipeline
 
-The Snowflake example uses the exact same Jenkinsfile as GCP and AWS — the [Universal Pipeline](/walkthrough/universal-pipeline). Key stages:
+The Snowflake example uses the exact same Jenkinsfile as GCP and AWS — the [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline). Key stages:
 
 | Stage | Command | What Happens |
 |-------|---------|-------------|
@@ -563,8 +563,8 @@ binding:
 
 ## See Also
 
-- [Snowflake Team Collaboration Walkthrough](/walkthrough/snowflake) - Role-based PR review example for Snowflake teams
-- [Universal Pipeline](/walkthrough/universal-pipeline) — Same Jenkinsfile for every provider
+- [Snowflake Team Collaboration Walkthrough](/forge_docs/walkthrough/snowflake) - Role-based PR review example for Snowflake teams
+- [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline) — Same Jenkinsfile for every provider
 - [AWS Provider](./aws) — Amazon Web Services integration
 - [GCP Provider](./gcp) — Google Cloud Platform integration
-- [CLI Reference](/cli/) — Full command documentation
+- [CLI Reference](/forge_docs/cli/) — Full command documentation

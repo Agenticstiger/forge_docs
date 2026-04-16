@@ -72,10 +72,10 @@ Use `fluid forge` when you want discovery, memory, and LLM-guided scaffolding. U
 
 ## Where to go next
 
-- [Getting Started](/getting-started/) for the local-first path
-- [CLI Reference](/cli/) for the promoted command surface
-- [Providers](/providers/) for platform-specific guidance
-- [Walkthroughs](/walkthrough/local) for end-to-end examples
+- [Getting Started](/forge_docs/getting-started/) for the local-first path
+- [CLI Reference](/forge_docs/cli/) for the promoted command surface
+- [Providers](/forge_docs/providers/) for platform-specific guidance
+- [Walkthroughs](/forge_docs/walkthrough/local) for end-to-end examples
 
 Compatibility note:
 `fluid generate-airflow` is still available, but primary docs now lead with `fluid generate schedule --scheduler airflow`.

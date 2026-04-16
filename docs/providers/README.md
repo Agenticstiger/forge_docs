@@ -62,10 +62,10 @@ Beyond the apply-capable providers above, Fluid Forge can **export** contracts t
 
 | Format | What it is | Reference |
 | --- | --- | --- |
-| OPDS | Open Data Product Specification JSON v1.0 | [`generate standard`](/cli/generate.html#fluid-generate-standard) |
-| ODCS | Open Data Contract Standard v3.1.0 (Bitol.io) | [`generate standard`](/cli/generate.html#fluid-generate-standard) |
-| ODPS | Open Data Product Standard — Bitol variant, input-port lineage | [`generate standard`](/cli/generate.html#fluid-generate-standard) |
-| ODPS-Bitol | ODPS in strict-conformance mode | [`generate standard`](/cli/generate.html#fluid-generate-standard) |
+| OPDS | Open Data Product Specification JSON v1.0 | [`generate standard`](/forge_docs/cli/generate.html#fluid-generate-standard) |
+| ODCS | Open Data Contract Standard v3.1.0 (Bitol.io) | [`generate standard`](/forge_docs/cli/generate.html#fluid-generate-standard) |
+| ODPS | Open Data Product Standard — Bitol variant, input-port lineage | [`generate standard`](/forge_docs/cli/generate.html#fluid-generate-standard) |
+| ODPS-Bitol | ODPS in strict-conformance mode | [`generate standard`](/forge_docs/cli/generate.html#fluid-generate-standard) |
 
 Shortcut: `fluid export-opds contract.fluid.yaml` — equivalent to `fluid generate standard --format opds`.
 
@@ -73,14 +73,14 @@ Shortcut: `fluid export-opds contract.fluid.yaml` — equivalent to `fluid gener
 
 | Catalog | Reference |
 | --- | --- |
-| FLUID Command Center | [`fluid publish`](/cli/publish.html) |
-| Data Mesh Manager / Entropy Data | [`fluid publish` → DMM section](/cli/publish.html#publishing-to-data-mesh-manager-entropy-data) |
+| FLUID Command Center | [`fluid publish`](/forge_docs/cli/publish.html) |
+| Data Mesh Manager / Entropy Data | [`fluid publish` → DMM section](/forge_docs/cli/publish.html#publishing-to-data-mesh-manager-entropy-data) |
 
 ## Notes
 
 - Use [provider-specific guides](./gcp.md) when you need deep target details.
-- Use [CLI Reference](/cli/) for command syntax.
-- Use [Getting Started](/getting-started/) for the local-first workflow.
+- Use [CLI Reference](/forge_docs/cli/) for command syntax.
+- Use [Getting Started](/forge_docs/getting-started/) for the local-first workflow.
 
 ---
 

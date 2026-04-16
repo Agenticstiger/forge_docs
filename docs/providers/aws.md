@@ -320,7 +320,7 @@ AWS_REGION=eu-central-1
 S3_BUCKET=my-fluid-data-bucket
 ```
 
-The [Universal Pipeline](/walkthrough/universal-pipeline) auto-detects this format and sources it into every stage. No provider-specific credential logic.
+The [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline) auto-detects this format and sources it into every stage. No provider-specific credential logic.
 
 ### Local Development
 
@@ -415,7 +415,7 @@ privacy:
 
 ## CI/CD Pipeline
 
-The AWS example uses the exact same Jenkinsfile as GCP and Snowflake — the [Universal Pipeline](/walkthrough/universal-pipeline). Key stages:
+The AWS example uses the exact same Jenkinsfile as GCP and Snowflake — the [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline). Key stages:
 
 | Stage | Command | What Happens |
 |-------|---------|-------------|
@@ -430,7 +430,7 @@ The AWS example uses the exact same Jenkinsfile as GCP and Snowflake — the [Un
 
 ## See Also
 
-- [Universal Pipeline](/walkthrough/universal-pipeline) — Same Jenkinsfile for every provider
+- [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline) — Same Jenkinsfile for every provider
 - [Snowflake Provider](./snowflake) — Snowflake Data Cloud integration
 - [GCP Provider](./gcp) — Google Cloud Platform integration
-- [CLI Reference](/cli/) — Full command documentation
+- [CLI Reference](/forge_docs/cli/) — Full command documentation

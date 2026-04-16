@@ -64,7 +64,7 @@ If your docs change is the companion to a CLI change, link the related `forge-cl
 
 ### Build a Custom Provider
 
-Fluid Forge is designed to be extended. See the [Custom Providers Guide](/providers/custom-providers) for the full walkthrough, but the gist is:
+Fluid Forge is designed to be extended. See the [Custom Providers Guide](/forge_docs/providers/custom-providers) for the full walkthrough, but the gist is:
 
 ```python
 from fluid_provider_sdk import ApplyResult, BaseProvider, ProviderError
