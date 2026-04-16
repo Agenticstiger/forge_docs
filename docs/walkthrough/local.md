@@ -2,6 +2,10 @@
 
 **Time:** 10 minutes | **Difficulty:** Beginner | **Prerequisites:** Python 3.9+, pip
 
+::: warning Compatibility note
+The contract snippet on this page uses `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so this example remains valid. For the current `0.7.2` shape, run `fluid init my-project --quickstart` or `fluid demo` for an end-to-end local example.
+:::
+
 ---
 
 ## Overview

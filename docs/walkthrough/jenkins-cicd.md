@@ -1,6 +1,10 @@
 # Jenkins CI/CD for FLUID Data Products
 
-This walkthrough demonstrates how to implement end-to-end CI/CD for declarative data products using Jenkins and FLUID 0.7.1 framework.
+This walkthrough demonstrates how to implement end-to-end CI/CD for declarative data products using Jenkins and the FLUID framework.
+
+::: warning Compatibility note
+The contracts and pipeline output shown on this page reference FLUID schema `0.7.1`. The CLI validates each contract against its own declared version, so these examples remain valid. For new contracts, prefer the current `0.7.2` shape — run `fluid init my-project --quickstart` to scaffold one, and use [`fluid generate ci --system jenkins`](/cli/generate.html#fluid-generate-ci) to regenerate a matching Jenkinsfile.
+:::
 
 ## 📋 Overview
 
@@ -608,7 +612,7 @@ post {
 **Solution:**
 ```yaml
 # Add at top of contract.fluid.yaml
-fluidVersion: "0.7.1"
+fluidVersion: "0.7.2"
 kind: DataProduct
 ```
 
