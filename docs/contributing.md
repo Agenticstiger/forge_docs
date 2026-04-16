@@ -61,6 +61,34 @@ If your docs change is the companion to a CLI change, link the related `forge-cl
 - Links still work
 - Navigation and headings still make sense
 - `npm run docs:build` passes locally
+- `python scripts/check_cli_docs.py` and `python scripts/check_providers.py` pass against the pinned CLI
+
+### Keeping the docs in sync with the CLI
+
+Every CLI release bumps the supported version in [`docs/.vuepress/cli-version.json`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/.vuepress/cli-version.json). The [`cli-consistency`](https://github.com/Agenticstiger/forge_docs/actions/workflows/cli-consistency.yml) GitHub Actions workflow installs that exact version of `data-product-forge` from PyPI on every PR and verifies:
+
+1. `fluid --version` matches the pinned `supportedCliVersion`.
+2. Every subcommand listed by `fluid --help` has a matching `docs/cli/<name>.md` page.
+3. Every page in `docs/cli/` corresponds to a real CLI command (or sits in `scripts/cli-docs-allowlist.yml` with a comment explaining why).
+4. Every provider returned by `fluid providers --json` has a matching `docs/providers/<name>.md` page.
+
+When a new CLI version ships:
+
+```bash
+# 1. Bump the pin
+$EDITOR docs/.vuepress/cli-version.json
+
+# 2. Install locally and run the consistency checks
+pip install --upgrade "data-product-forge==$(jq -r .supportedCliVersion docs/.vuepress/cli-version.json)"
+python scripts/check_cli_docs.py
+python scripts/check_providers.py
+
+# 3. The scripts will list any newly-added commands or providers — write the
+#    matching docs page (or, if the command should stay hidden, add it to
+#    scripts/cli-docs-allowlist.yml with a one-line reason).
+```
+
+Existing pages follow the layout in [`docs/cli/init.md`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/cli/init.md) — a one-line summary, `## Syntax`, `## Key options`, `## Examples`, `## Notes`. Match that shape for new pages so the reference reads consistently.
 
 ### Build a Custom Provider
 

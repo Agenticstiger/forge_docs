@@ -104,26 +104,58 @@ export default defineUserConfig({
           text: 'CLI Reference',
           children: [
             '/cli/README.md',
+            // Core workflow
             '/cli/init.md',
+            '/cli/demo.md',
             '/cli/forge.md',
+            '/cli/skills.md',
             '/cli/status.md',
             '/cli/validate.md',
             '/cli/plan.md',
             '/cli/apply.md',
+            // Generate & visualize
             '/cli/generate.md',
+            '/cli/generate-airflow.md',
+            '/cli/generate-pipeline.md',
+            '/cli/viz-graph.md',
+            // Standards & interop
+            '/cli/odps.md',
+            '/cli/odps-bitol.md',
+            '/cli/odcs.md',
+            '/cli/export.md',
+            '/cli/export-opds.md',
+            // Integrations
             '/cli/publish.md',
+            '/cli/datamesh-manager.md',
             '/cli/market.md',
             '/cli/import.md',
+            // Quality & governance
             '/cli/policy-check.md',
+            '/cli/policy-compile.md',
+            '/cli/policy-apply.md',
+            '/cli/contract-tests.md',
+            '/cli/contract-validation.md',
             '/cli/diff.md',
             '/cli/test.md',
             '/cli/verify.md',
+            // Project & workspace
+            '/cli/product-new.md',
+            '/cli/product-add.md',
+            '/cli/workspace.md',
+            '/cli/ide.md',
+            '/cli/ai.md',
+            // CI & scaffolding
+            '/cli/scaffold-ci.md',
+            '/cli/scaffold-composer.md',
+            '/cli/docs.md',
+            // Utilities
             '/cli/config.md',
             '/cli/split.md',
             '/cli/bundle.md',
             '/cli/auth.md',
             '/cli/doctor.md',
             '/cli/providers.md',
+            '/cli/provider-init.md',
             '/cli/version.md'
           ]
         },
@@ -156,6 +188,7 @@ export default defineUserConfig({
           text: 'Project',
           children: [
             '/contributing.md',
+            '/RELEASE_NOTES_0.7.11.md',
             '/RELEASE_NOTES_0.7.9.md',
             '/RELEASE_NOTES_0.7.1.md'
           ]
