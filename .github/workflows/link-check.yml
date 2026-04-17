@@ -45,7 +45,7 @@ jobs:
     name: Base-prefix check (catches /cli/ vs /forge_docs/cli/)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Verify all internal absolute links carry the /forge_docs/ base
         run: |
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Run lychee on external links
         id: lychee
