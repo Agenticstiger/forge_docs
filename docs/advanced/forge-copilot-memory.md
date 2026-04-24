@@ -74,4 +74,4 @@ Memory is not a raw session dump. It does not store:
 ## Related guides
 
 - [Forge discovery guide](./forge-copilot-discovery.md)
-- [CLI reference for `fluid forge`](/forge_docs/cli/forge.md)
+- [CLI reference for `fluid forge`](../cli/forge.md)

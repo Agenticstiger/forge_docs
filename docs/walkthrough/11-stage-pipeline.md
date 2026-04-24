@@ -68,7 +68,7 @@ fluid policy apply dist/artifacts/policy/bindings.json --mode enforce --env dev
 fluid verify $CONTRACT --env dev --strict --out runtime/verify-report.json
 
 # Stage 10 — publish (repeatable --target)
-fluid publish $CONTRACT --target datamesh-manager --target command-center --env dev
+fluid publish $CONTRACT --target datamesh-manager --target fluid-command-center
 
 # Stage 11 — schedule-sync (Path A only)
 fluid schedule-sync \
@@ -159,6 +159,8 @@ Reference-only contracts downgrade "table not found" to INFO under `--strict` (e
 
 [`fluid publish`](../cli/publish.md) ships contracts + catalog artifacts to one or more targets. The new `--target <name>[:<endpoint>]` flag is repeatable; one call can publish to multiple catalogs with a per-target result block for partial-failure visibility.
 
+For Data Mesh Manager / Entropy Data, ODPS product-to-product dependencies are published as Access agreements by default. Use `DMM_AUTO_APPROVE_ACCESS=true` or `fluid dmm publish --auto-approve-access` only in environments where those Access agreements should be approved automatically.
+
 ### Stage 11 — schedule-sync (Path A only)
 
 [`fluid schedule-sync`](../cli/schedule-sync.md) pushes DAG files to the scheduler control plane (Airflow / MWAA / Composer / Astronomer / Prefect / Dagster). Path-B engines (EventBridge / Snowflake Tasks) apply their schedules inside stage-7 `apply` via `SchedulePlanner`, so stage 11 is a no-op for those contracts. Self-gated on `dist/artifacts/schedule/` presence.
@@ -171,6 +173,21 @@ The easiest way to run the 11 stages end-to-end is to let `fluid generate ci` em
 fluid generate ci --system jenkins --install-mode pypi
 # emits Jenkinsfile with all 11 stages + per-stage RUN_STAGE_N_X toggles
 ```
+
+For Jenkins jobs that should publish to Entropy Data on the first Pipeline-from-SCM build, generate the defaults directly instead of patching the Jenkinsfile:
+
+```bash
+fluid generate ci contract.fluid.yaml \
+  --system jenkins \
+  --install-mode pypi \
+  --default-publish-target datamesh-manager \
+  --no-verify-strict-default \
+  --publish-stage-default \
+  --no-publish-include-env \
+  --out Jenkinsfile
+```
+
+Those switches set `VERIFY_STRICT=false`, turn Stage 10 publish on by default, omit the Stage 10 `--env` flag, and bake a shell fallback of `${PUBLISH_TARGETS:-datamesh-manager}` into the publish loop. They are Jenkins-only generation controls; other CI systems ignore them.
 
 Supported systems: `jenkins`, `github`, `gitlab`, `azure`, `bitbucket`, `circle`, `tekton`.
 

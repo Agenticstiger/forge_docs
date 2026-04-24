@@ -99,7 +99,7 @@ The promoted orchestration path is `fluid generate schedule --scheduler airflow`
 | Command | What it is for |
 | --- | --- |
 | [`fluid publish`](./publish.md) | Publish to enterprise data catalogs (`--target` repeatable) |
-| [`fluid datamesh-manager`](./datamesh-manager.md) | Publish products and contracts to Entropy Data / Data Mesh Manager |
+| [`fluid datamesh-manager`](./datamesh-manager.md) | Publish products, contracts, and Access lineage to Entropy Data / Data Mesh Manager |
 | [`fluid market`](./market.md) | Search and browse discovered products and blueprints |
 | [`fluid import`](./import.md) | Scan existing projects and generate FLUID contracts |
 
@@ -132,7 +132,7 @@ The promoted orchestration path is `fluid generate schedule --scheduler airflow`
 
 | Command | What it is for |
 | --- | --- |
-| [`fluid generate ci`](./generate.md) | Generate parameterised 11-stage CI pipelines (Jenkins, GitHub Actions, GitLab, Azure DevOps, Bitbucket, CircleCI, Tekton) |
+| [`fluid generate ci`](./generate.md) | Generate parameterised 11-stage CI pipelines, including Jenkins publish/verify defaults |
 | [`fluid scaffold-ci`](./scaffold-ci.md) | Legacy CI/CD scaffolds (superseded by `generate ci` for 11-stage) |
 | [`fluid scaffold-composer`](./scaffold-composer.md) | Generate Cloud Composer scaffolds |
 | [`fluid docs`](./docs.md) | Build / index in-product documentation |

@@ -77,4 +77,4 @@ That work is implementation detail for CLI contributors, not the primary docs pa
 
 - [Forge discovery guide](./forge-copilot-discovery.md)
 - [Forge memory guide](./forge-copilot-memory.md)
-- [`fluid forge` CLI reference](/forge_docs/cli/forge.md)
+- [`fluid forge` CLI reference](../cli/forge.md)

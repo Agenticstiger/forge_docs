@@ -1,4 +1,5 @@
 {
-  "supportedCliVersion": "0.8.0",
+  "supportedCliVersion": "0.8.0a3.dev1",
+  "supportedCliInstallSpec": "git+https://github.com/Agenticstiger/forge-cli.git@497ba410b84756fb3ca0e84411f977f7d1dee84d",
   "supportedFluidContractVersion": "0.7.2"
 }
