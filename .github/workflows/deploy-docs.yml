@@ -3,6 +3,9 @@ name: Deploy Docs to GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request_target:
+    branches: [main]
+    types: [closed]
   workflow_dispatch:
 
 permissions:
@@ -16,12 +19,14 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
