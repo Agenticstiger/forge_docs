@@ -5,10 +5,38 @@ Unified artifact generation from FLUID contracts.
 ## Syntax
 
 ```bash
-fluid generate <transformation|schedule|ci|standard>
+fluid generate <speed-transformation|schedule|ci|standard|artifacts>
 ```
 
 ## Subcommands
+
+### `fluid generate artifacts`
+
+**Stage 3 of the 11-stage pipeline.** Fanout that produces all catalog + execution artifacts for a contract in one call:
+
+- ODCS (v3.1.0) contract files under `odcs/`
+- ODPS-Bitol (v1.0.0) product files under `odps-bitol/`
+- Schedule DAGs under `schedule/` (Airflow / Dagster / Prefect — depending on `orchestration.engine`)
+- Policy bindings under `policy/bindings.json` (IAM / GRANT)
+- A unified `MANIFEST.json` (SHA-256 per file + merkle root) for downstream stage-4 verification
+
+Reference-only contracts (`builds[].pattern: hybrid-reference` / `reference` / `external-reference`) auto-skip the `schedule` and `policies` emitters — those execution artifacts are owned by the team's own dbt/Airflow repo. Catalog artifacts (`odcs/`, `odps-bitol/`) are still emitted.
+
+Key options:
+
+- `CONTRACT` — path to `contract.fluid.yaml` (or a tgz bundle from `fluid bundle --format tgz`)
+- `--out PATH` — output directory (default `dist/artifacts/`)
+- `--emit {odcs,odps-bitol,opds,schedule,policies}[,...]` — explicit emit set; default is everything except the `opds` / `odps` aliases which remain opt-in until the Linux-Foundation emitter shape is fixed
+- `--env ENV` — environment overlay
+- `--no-generate-artifacts` — CI helper: auto-skip this stage when the contract is reference-only (`pattern: hybrid-reference` etc.)
+
+```bash
+fluid generate artifacts contract.fluid.yaml --out dist/artifacts/
+fluid generate artifacts runtime/bundle.tgz --out dist/artifacts/        # tgz input
+fluid generate artifacts contract.fluid.yaml --emit odcs,odps-bitol      # catalog only
+```
+
+Verify the emitted tree with [`fluid validate-artifacts`](./validate-artifacts.md) (stage 4).
 
 ### `fluid generate transformation`
 

@@ -1,6 +1,8 @@
 # `fluid apply`
 
-Execute a FLUID contract or a saved plan end-to-end.
+Stage 7 of the 11-stage pipeline. Execute a FLUID contract (or a saved plan) end-to-end: provision infrastructure, run transformations, apply governance, and publish to configured destinations.
+
+`0.8.0` adds a 6-mode apply matrix (`--mode`) with explicit destruction gating (`--allow-data-loss`) and cryptographic plan-binding (`bundleDigest` / `planDigest` verification).
 
 ## Syntax
 
@@ -8,7 +10,39 @@ Execute a FLUID contract or a saved plan end-to-end.
 fluid apply CONTRACT
 ```
 
-`CONTRACT` can be a FLUID contract file or a saved plan JSON file.
+`CONTRACT` can be:
+
+- A FLUID contract file (e.g. `contract.fluid.yaml`) — plans and applies in one shot.
+- A saved plan JSON file (e.g. `runtime/plan.json`) — applies the already-planned actions, with digest verification.
+
+## Apply mode (stage-7 dispatch)
+
+| `--mode` | What it does |
+| --- | --- |
+| `dry-run` | Render the planned DDL without calling the warehouse. No state mutation. Safe in every environment. |
+| `create-only` | `CREATE … IF NOT EXISTS`, plus a pre-check that fails if the target already exists. Use when a fresh project needs a clean provision. |
+| `amend` *(default)* | `ALTER TABLE ADD COLUMN IF NOT EXISTS`; views `CREATE OR REPLACE`. Data preserved; new columns backfilled NULL. The everyday mode. |
+| `amend-and-build` | Same DDL as `amend`, plus `dbt run` / `dbt test` (or the configured build runner). Transforms refreshed on top of the amended schema. |
+| `replace` | Auto-snapshot the target, then `CREATE OR REPLACE TABLE` (Snowflake / BigQuery) or `DROP+CREATE` in a transaction (Redshift). **Destructive**: requires `--allow-data-loss` in non-dev environments or when the target has rows. |
+| `replace-and-build` | Same as `replace`, plus a full `dbt run --full-refresh` to rebuild everything from sources. **Destructive**. |
+
+The `--build <id>` flag is retained as a deprecation-warned alias for `--mode amend-and-build` for one release window.
+
+## Safety gates
+
+| Option | Description |
+| --- | --- |
+| `--allow-data-loss` | Required to run `replace` / `replace-and-build` when `FLUID_ENV != dev` **or** the target already has rows. Two independent risk surfaces (env + population) → two-factor opt-in. Never default. |
+| `--no-verify-digest` | **Emergency escape hatch.** Skip the `bundleDigest` / `planDigest` verification that stage 7 normally enforces on a saved plan. Logs `WARNING: plan-binding verification was SKIPPED` so audit trails catch it. Use only during documented DR procedures. |
+
+## Plan binding
+
+When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` verifies:
+
+- `bundleDigest` in `plan.json` matches the MANIFEST SHA-256 of the tgz bundle the plan was built from. Mismatch → `PlanBindingError(kind="bundle-mismatch")` before any DDL executes.
+- `planDigest` in `plan.json` matches a re-computed digest of the plan's action list (internal consistency check). Mismatch → `PlanBindingError(kind="plan-tamper")`.
+
+This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryptographically.
 
 ## Key options
 
@@ -16,14 +50,14 @@ fluid apply CONTRACT
 
 | Option | Description |
 | --- | --- |
-| `--env` | Apply an environment overlay |
+| `--env` | Apply an environment overlay (dev / staging / prod / …) |
 
 ### Execution control
 
 | Option | Description |
 | --- | --- |
 | `--yes` | Skip confirmation |
-| `--dry-run` | Show what would be executed |
+| `--dry-run` | Alias for `--mode dry-run` |
 | `--timeout TIMEOUT` | Global timeout in minutes |
 | `--parallel-phases` | Execute independent phases in parallel |
 | `--max-workers MAX_WORKERS` | Maximum workers for parallel execution |
@@ -50,7 +84,7 @@ fluid apply CONTRACT
 
 | Option | Description |
 | --- | --- |
-| `--build`, `--build-id` | Execute a specific build job |
+| `--build`, `--build-id` | Deprecated alias for `--mode amend-and-build`. Kept for one release. |
 | `--delay DELAY` | Seconds between build iterations |
 | `--fail-fast` | Stop on first failure |
 | `--no-output` | Suppress build script output |
@@ -68,14 +102,55 @@ fluid apply CONTRACT
 
 ## Examples
 
+### Everyday dev workflow
+
 ```bash
+# Quickstart — default --mode amend, no destructive action
 fluid apply contract.fluid.yaml --yes
-fluid apply contract.fluid.yaml --dry-run --verbose
-fluid apply contract.fluid.yaml --env production --rollback-strategy immediate
-fluid apply runtime/plan.json --yes
+
+# Preview-only
+fluid apply contract.fluid.yaml --mode dry-run
+fluid apply contract.fluid.yaml --dry-run   # same thing
+```
+
+### Production 11-stage pipeline (plan-bound)
+
+```bash
+# Stage 6 produces the plan with bundleDigest + planDigest
+fluid plan contract.fluid.yaml --out runtime/plan.json
+
+# Stage 7 verifies both digests before executing any DDL
+fluid apply runtime/plan.json --mode amend --env prod --yes
+```
+
+### Destructive modes (explicit opt-in required)
+
+```bash
+# Prod replace — REQUIRES --allow-data-loss (two-factor opt-in)
+fluid apply runtime/plan.json --mode replace --env prod --yes --allow-data-loss
+
+# Full rebuild (dbt --full-refresh + destructive DDL)
+fluid apply runtime/plan.json --mode replace-and-build --env prod --yes --allow-data-loss
+```
+
+After a `replace`, use [`fluid rollback`](./rollback.md) to restore from the auto-snapshot if something goes wrong.
+
+### Build-augmented apply (dbt run)
+
+```bash
+fluid apply runtime/plan.json --mode amend-and-build --env dev --yes
+```
+
+### DR escape hatch (skip digest verification — audit-logged)
+
+```bash
+# Only in documented DR procedures. Emits WARNING to the audit log.
+fluid apply runtime/plan.json --mode amend --no-verify-digest --yes
 ```
 
 ## Notes
 
-- The recommended sequence is `validate -> plan -> apply`.
-- For local-first onboarding, `fluid apply contract.fluid.yaml --yes` is the shortest path after a quickstart scaffold.
+- The recommended sequence is `bundle → validate → plan → apply`.
+- For local-first onboarding, `fluid apply contract.fluid.yaml --yes` is the shortest path after a quickstart scaffold — default `--mode amend` is safe.
+- `--mode replace` / `replace-and-build` **always** create an auto-snapshot before destructive DDL. On Snowflake this is a zero-copy `CLONE`; on BigQuery it's `bq cp --force`; on Redshift it's `CREATE TABLE _backup AS SELECT *`. Snapshot names are recorded in `.fluid/rollback-state.json`.
+- If apply's provider dispatcher logs `unknown_action_op` for your contract's actions, the provider doesn't yet implement the abstract op. This is a known gap for some high-level ops (e.g. `provisionDataset`, `scheduleTask`) and is addressed by a translator layer in `providers/<platform>/`.

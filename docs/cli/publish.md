@@ -1,6 +1,8 @@
 # `fluid publish`
 
-Publish one or more contracts to a configured catalog.
+Stage 10 of the 11-stage pipeline. Publish one or more contracts to one or more catalogs.
+
+`0.8.0` renames the single-valued `--catalog X,Y` flag to the repeatable `--target <name>[:<endpoint>]`. Each `--target` invocation pushes to one catalog; pass the flag multiple times to push to several at once. `--catalog` is kept as a deprecation-aliased surface for one release.
 
 ## Syntax
 
@@ -14,7 +16,8 @@ fluid publish CONTRACT_FILES
 
 | Option | Description |
 | --- | --- |
-| `--catalog`, `-c` | Target catalog name |
+| `--target`, `-t` *(repeatable)* | Target catalog name, with an optional `:<endpoint>` suffix to override the catalog's default URL. Supported names include `command-center`, `data-mesh-manager`, `datahub`, `collibra`, `alation`, `confluent`, `marketplace`, `s3`, `gcs`, `azure`. Pass multiple times to push to several catalogs. |
+| `--catalog`, `-c` | **Deprecated** one-release alias for `--target`. Emits a warning; treat it as historical. |
 | `--list-catalogs` | List configured catalogs |
 | `--dry-run` | Validate and preview without publishing |
 | `--verify-only` | Check whether a contract is already published |
@@ -27,18 +30,48 @@ fluid publish CONTRACT_FILES
 
 ## Examples
 
+### Single target
+
 ```bash
-fluid publish contract.fluid.yaml
-fluid publish customer-*.fluid.yaml
-fluid publish contract.fluid.yaml --catalog fluid-command-center
-fluid publish contract.fluid.yaml --dry-run
-fluid publish contract.fluid.yaml --verify-only
+fluid publish contract.fluid.yaml --target command-center
+```
+
+### Multiple targets in one call
+
+```bash
+fluid publish contract.fluid.yaml \
+  --target command-center \
+  --target data-mesh-manager \
+  --target datahub
+```
+
+The publish report contains a per-target result block, so a partial failure (e.g. DataHub auth problem but DMM succeeded) is distinguishable from a full failure.
+
+### Endpoint override (self-hosted catalogs)
+
+```bash
+fluid publish contract.fluid.yaml \
+  --target command-center:https://cc.internal.acme.com \
+  --target data-mesh-manager:https://dmm.internal.acme.com
+```
+
+### Glob input
+
+```bash
+fluid publish customer-*.fluid.yaml --target data-mesh-manager
+```
+
+### Dry-run preview
+
+```bash
+fluid publish contract.fluid.yaml --target data-mesh-manager --dry-run
 ```
 
 ## Notes
 
-- A typical flow is `validate -> apply -> publish`.
+- A typical flow is `validate → plan → apply → verify → publish`.
 - Use [`fluid market`](./market.md) to verify discoverability after publishing.
+- The legacy form `--catalog a,b,c` (comma-separated) is not equivalent to `--target a --target b --target c`; the new flag is repeatable instead of comma-separated for consistency with kubectl / helm / gh conventions.
 
 ## Publishing to Data Mesh Manager (Entropy Data)
 

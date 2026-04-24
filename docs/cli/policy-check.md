@@ -1,10 +1,16 @@
-# `fluid policy-check`
+# `fluid policy check`
 
-Run governance and compliance checks derived from the contract.
+Static lint of the contract's governance and compliance declarations. No cloud calls, no state mutation — safe to run from any branch, any environment. Pair with [`fluid validate`](./validate.md) in a pre-commit hook or stage-2 CI gate.
+
+`0.8.0` promotes the unified `fluid policy {check,compile,apply}` subcommand group. The legacy `fluid policy-check` form stays registered as a deprecation alias for one release. Both surfaces share the same argument set.
 
 ## Syntax
 
 ```bash
+# New idiomatic form
+fluid policy check CONTRACT
+
+# Legacy alias (same behaviour)
 fluid policy-check CONTRACT
 ```
 
@@ -29,9 +35,23 @@ Available categories include:
 
 ## Examples
 
+### New idiomatic form
+
+```bash
+fluid policy check contract.fluid.yaml
+fluid policy check contract.fluid.yaml --strict
+fluid policy check contract.fluid.yaml --category access_control
+fluid policy check contract.fluid.yaml --format json --output runtime/policy.json
+```
+
+### Legacy hyphenated form (still works)
+
 ```bash
 fluid policy-check contract.fluid.yaml
 fluid policy-check contract.fluid.yaml --strict
-fluid policy-check contract.fluid.yaml --category access_control
-fluid policy-check contract.fluid.yaml --format json --output runtime/policy.json
 ```
+
+## Related
+
+- [`fluid policy compile`](./policy-compile.md) — after the lint passes, compile to `bindings.json`.
+- [`fluid policy apply`](./policy-apply.md) — deploy the compiled bindings (stage 8 of the pipeline).

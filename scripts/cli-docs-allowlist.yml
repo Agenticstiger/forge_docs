@@ -5,10 +5,8 @@
 # Commands the CLI registers but that intentionally have no doc page.
 # Add a one-line comment with the reason — future maintainers will thank you.
 undocumented_ok:
-  - compile          # hidden backward-compat alias for `bundle`
   - context          # hidden backward-compat alias for `config`
   - dmm              # short alias for `datamesh-manager`
-  - execute          # hidden (argparse.SUPPRESS) — deprecated, use `apply --build`
   - marketplace      # deprecated alias for `market`
   - preview          # hidden (argparse.SUPPRESS) — deprecated, use `plan --html`
   - viz-plan         # hidden (argparse.SUPPRESS) — deprecated, use `plan --html`
@@ -21,3 +19,6 @@ docs_only_ok:
                      # bootstrap.py:448 (module="skills", profile="skills_cmd"),
                      # which silently skips registration; doc page is intentional
                      # so the command shows up in the docs once the CLI bug is fixed
+  - generate-artifacts  # subcommand of `generate`, not a top-level command;
+                     # dedicated page because it's the stage-3 surface of the
+                     # 11-stage pipeline and operators look up the full name.
