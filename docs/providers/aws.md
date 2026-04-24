@@ -3,7 +3,7 @@
 Deploy data products to Amazon Web Services — S3, Glue, Athena — using the same contract and CLI commands as every other provider.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.7.9`  
+**Docs Baseline:** CLI `0.8.0`<br>
 **Tested Services:** S3, Glue Data Catalog, Athena, IAM
 
 ::: warning Compatibility note

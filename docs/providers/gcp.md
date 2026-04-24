@@ -1,7 +1,7 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.7.9`  
+**Docs Baseline:** CLI `0.8.0`<br>
 **Services:** BigQuery, Cloud Storage, IAM, Cloud Run, Pub/Sub
 
 ::: warning Compatibility note

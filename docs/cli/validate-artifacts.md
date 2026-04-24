@@ -64,5 +64,5 @@ Stage 4 runs against whatever stage 3 emitted. For `builds[].pattern: hybrid-ref
 ## Notes
 
 - The MANIFEST re-verify is the primary trust boundary: a tampered file is caught before any schema validation runs, so schema errors can't mask content swaps.
-- For the Rego / OPA integration, see [the governance walkthrough](../walkthrough/governance.md) (if present).
+- For the Rego / OPA integration, see [the governance walkthrough](../advanced/governance.md).
 - Report format matches `fluid validate` / `fluid verify` — `{status, issues[], summary}` — so CI dashboards can key off the same shape.

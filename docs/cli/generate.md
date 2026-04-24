@@ -70,13 +70,34 @@ This is the promoted path for orchestration generation.
 
 ### `fluid generate ci`
 
-Generate CI/CD pipeline configuration for GitHub Actions, GitLab CI, or Jenkins.
+Generate CI/CD pipeline configuration for Jenkins, GitHub Actions, GitLab CI, Azure DevOps, Bitbucket, CircleCI, or Tekton.
 
 Key options:
 
-- `contract`
-- `--system`
-- `--out`
+| Option | Description |
+| --- | --- |
+| `contract` | Contract path. Defaults to `contract.fluid.yaml` when omitted. |
+| `--system` | Target CI system: `jenkins`, `github`, `gitlab`, `azure`, `bitbucket`, `circle`, or `tekton`. |
+| `--out PATH` | Override the primary output path. Multi-file systems still write their supporting files to canonical locations. |
+| `--no-generate-artifacts` | Skip transformation/schedule artifact stages for reference-only contracts. Reference-only builds are also auto-detected from `builds[].pattern`. |
+| `--install-mode {pypi,dev-source}` | Jenkins only. `pypi` installs `data-product-forge`; `dev-source` installs from a `/forge-cli-src` bind mount for contributor labs. |
+| `--default-publish-target TARGET` | Jenkins only. Emits a Stage 10 shell fallback of `${PUBLISH_TARGETS:-TARGET}` so the first Pipeline-from-SCM build can publish to the intended catalog before Jenkins exports parameter defaults. |
+| `--[no-]verify-strict-default` | Jenkins only. Controls the generated `VERIFY_STRICT` parameter default. Default is `true`. |
+| `--[no-]publish-stage-default` | Jenkins only. Controls the generated `RUN_STAGE_10_PUBLISH` parameter default. Default is `false`. |
+| `--[no-]publish-include-env` | Jenkins only. Controls whether Stage 10 appends `--env "${FLUID_ENV:-dev}"` to `fluid publish`. Use `--no-publish-include-env` for catalog publish paths that should not receive an environment flag. |
+
+Jenkins example for an Entropy Data / Data Mesh Manager first run:
+
+```bash
+fluid generate ci contract.fluid.yaml \
+  --system jenkins \
+  --install-mode pypi \
+  --default-publish-target datamesh-manager \
+  --no-verify-strict-default \
+  --publish-stage-default \
+  --no-publish-include-env \
+  --out Jenkinsfile
+```
 
 ### `fluid generate standard`
 

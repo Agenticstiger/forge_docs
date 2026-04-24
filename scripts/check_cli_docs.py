@@ -40,6 +40,17 @@ def load_supported_version() -> str:
     return str(version)
 
 
+def load_supported_install_spec() -> str:
+    data = json.loads(VERSION_FILE.read_text(encoding="utf-8"))
+    version = data.get("supportedCliVersion")
+    install_spec = data.get("supportedCliInstallSpec")
+    if install_spec:
+        return str(install_spec)
+    if not version:
+        sys.exit(f"ERROR: {VERSION_FILE} is missing 'supportedCliVersion'")
+    return f"data-product-forge=={version}"
+
+
 def load_allowlist() -> tuple[set[str], set[str]]:
     """Tiny YAML reader covering only the shape we use here.
 
@@ -150,11 +161,12 @@ def check_version_only() -> int:
     expected = load_supported_version()
     actual = installed_cli_version()
     if expected != actual:
+        install_spec = load_supported_install_spec()
         print(
             f"FAIL: supportedCliVersion is {expected!r} but `fluid --version` "
             f"reports {actual!r}.\n"
             f"  Either bump {VERSION_FILE.relative_to(REPO_ROOT)} or "
-            f"`pip install data-product-forge=={expected}`.",
+            f"`pip install {install_spec}`.",
             file=sys.stderr,
         )
         return 1

@@ -36,13 +36,16 @@ jobs:
         id: pin
         run: |
           VERSION=$(python -c "import json; print(json.load(open('docs/.vuepress/cli-version.json'))['supportedCliVersion'])")
+          INSTALL_SPEC=$(python -c "import json; d=json.load(open('docs/.vuepress/cli-version.json')); print(d.get('supportedCliInstallSpec') or 'data-product-forge==' + d['supportedCliVersion'])")
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "install_spec=${INSTALL_SPEC}" >> "$GITHUB_OUTPUT"
           echo "Pinned CLI version: ${VERSION}"
+          echo "Pinned CLI install spec: ${INSTALL_SPEC}"
 
-      - name: Install fluid CLI from PyPI
+      - name: Install fluid CLI
         run: |
           python -m pip install --upgrade pip
-          pip install "data-product-forge==${{ steps.pin.outputs.version }}"
+          pip install "${{ steps.pin.outputs.install_spec }}"
           fluid --version
 
       - name: Verify fluid --version matches pin

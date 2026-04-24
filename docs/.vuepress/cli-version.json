@@ -1,4 +1,5 @@
 {
   "supportedCliVersion": "0.8.0",
+  "supportedCliInstallSpec": "data-product-forge==0.8.0",
   "supportedFluidContractVersion": "0.7.2"
 }
