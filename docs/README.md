@@ -45,7 +45,7 @@ fluid apply contract.fluid.yaml --yes
 
 This docs site currently tracks:
 
-- CLI release `0.7.9`
+- CLI release `0.8.0`
 - Scaffolded contract examples using `fluidVersion: 0.7.2`
 
 `fluid version` and `fluidVersion` are different things. The first is the CLI release you installed. The second is the schema version inside a contract.

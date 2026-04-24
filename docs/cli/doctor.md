@@ -28,4 +28,4 @@ fluid doctor --features-only
 
 ## Notes
 
-- In `0.7.9`, the default doctor experience is self-contained. Use `--extended` when you explicitly want the optional workspace diagnostics path.
+- In current `0.8.0` docs, the default doctor experience is self-contained. Use `--extended` when you explicitly want the optional workspace diagnostics path.

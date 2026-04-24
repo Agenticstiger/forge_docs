@@ -27,5 +27,5 @@ fluid version --short
 
 ## Notes
 
-- `fluid version` reports the CLI release, such as `0.7.9`.
+- `fluid version` reports the CLI release, such as `0.8.0`.
 - That is separate from `fluidVersion` inside `contract.fluid.yaml`.

@@ -4,7 +4,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 ## Docs baseline
 
-- CLI release covered by the primary docs: `0.7.9`
+- CLI release covered by the primary docs: `0.8.0`
 - Current scaffolded contract examples: `fluidVersion: 0.7.2`
 
 Some deep-dive provider pages still preserve older `0.7.1` snippets for backward-compatibility context. Those examples should not be read as “current version” guidance.

@@ -10,13 +10,16 @@ Run your first data product locally in a few minutes, then move to cloud targets
 
 ## Install the CLI
 
-Stable release from PyPI:
+Stable release from PyPI. The current docs baseline is `0.8.0`:
 
 ```bash
-pip install data-product-forge
+pip install --upgrade data-product-forge
+
+# For exact reproducibility with these docs:
+pip install "data-product-forge==0.8.0"
 ```
 
-Pre-release candidates (alpha / beta / rc — ahead of PyPI by one release) live on TestPyPI:
+TestPyPI is for release validation and pre-release candidates. Use it only when you intentionally want to validate the package index flow or try unreleased CLI behavior:
 
 ```bash
 pip install --pre \
@@ -25,7 +28,7 @@ pip install --pre \
   data-product-forge
 ```
 
-The `--extra-index-url` keeps transitive dependencies (pandas, pydantic, dbt-core, …) resolvable from normal PyPI while the CLI itself comes from TestPyPI.
+The `--extra-index-url` keeps transitive dependencies (pandas, pydantic, dbt-core, …) resolvable from normal PyPI while the CLI package itself comes from TestPyPI. The released `0.8.0` wheel is also mirrored there for validation, but normal users should install stable releases from PyPI.
 
 Check the installed CLI and basic system health:
 

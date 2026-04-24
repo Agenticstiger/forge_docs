@@ -39,5 +39,5 @@ fluid validate contract.fluid.yaml --verbose --show-schema
 
 ## Notes
 
-- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.7.9`.
+- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.8.0`.
 - For most users, plain `fluid validate contract.fluid.yaml` is enough. Reach for explicit schema flags when you are debugging compatibility or working across versions.

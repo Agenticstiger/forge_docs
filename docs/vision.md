@@ -115,7 +115,7 @@ fluid market --search "customer analytics"
 
 ## Versioning in the docs
 
-- Current CLI release baseline: `0.7.9`
+- Current CLI release baseline: `0.8.0`
 - Current scaffolded contract examples: `fluidVersion: 0.7.2`
 
 That split is intentional. The CLI release and the contract schema version move on related but different timelines.
@@ -124,7 +124,7 @@ That split is intentional. The CLI release and the contract schema version move 
 
 | Milestone | Notes |
 | --- | --- |
-| `0.7.9` docs baseline | Promoted CLI surface, local-first onboarding, `forge` refresh |
+| `0.8.0` stable baseline | 11-stage production pipeline, signed bundles, rollback, DMM Access lineage, Jenkins generation defaults |
 | `0.8.x` | Azure-related provider work remains on the roadmap |
 | `0.9.x` | Databricks and broader platform integrations remain future work |
 
