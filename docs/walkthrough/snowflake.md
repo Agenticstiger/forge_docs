@@ -1,6 +1,6 @@
 # Walkthrough: Snowflake Team Collaboration
 
-**Time:** 15 minutes | **Difficulty:** Intermediate | **Prerequisites:** Snowflake account, Python 3.9+, git
+**Time:** 15 minutes | **Difficulty:** Intermediate | **Prerequisites:** Snowflake account, Python 3.10+, git
 
 ---
 

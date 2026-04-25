@@ -4,7 +4,7 @@ Run your first data product locally in a few minutes, then move to cloud targets
 
 ## What this guide assumes
 
-- Python `3.9+`
+- Python `3.10+`
 - `pip`
 - No cloud credentials required for the local-first path
 
