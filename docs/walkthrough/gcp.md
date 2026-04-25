@@ -2,7 +2,7 @@
 
 **Time:** 20 minutes  
 **Difficulty:** Intermediate  
-**Prerequisites:** GCP account, gcloud CLI, Python 3.9+
+**Prerequisites:** GCP account, gcloud CLI, Python 3.10+
 
 ::: warning Compatibility note
 The contract snippets on this page use `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so these examples remain valid. For the current `0.7.2` contract shape, run `fluid init my-project --quickstart` or browse the bundled templates with `fluid init --list-templates`.

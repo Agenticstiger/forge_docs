@@ -123,7 +123,7 @@ Credentials → Add Credentials
 
 // 2. Configure tools
 Global Tool Configuration
-  Python: Python 3.9+
+  Python: Python 3.10+
   Git: Latest
 ```
 

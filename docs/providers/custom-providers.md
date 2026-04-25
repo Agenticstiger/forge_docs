@@ -399,7 +399,7 @@ build-backend = "setuptools.build_meta"
 name = "fluid-provider-mydb"
 version = "1.0.0"
 description = "Fluid Forge provider for MyDB"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["data-product-forge>=0.7.0"]
 
 [project.entry-points."fluid_build.providers"]
