@@ -29,7 +29,9 @@ See [Walkthrough → 11-stage pipeline](../walkthrough/11-stage-pipeline.md) for
 | [`fluid init`](./init.md) | Create a new project |
 | [`fluid demo`](./demo.md) | Zero-setup ~30 second customer-360 example on local DuckDB |
 | [`fluid forge`](./forge.md) | AI-assisted scaffolding |
+| [`fluid forge data-model`](../forge-data-model.md) | Forge a reviewable data model from an intent file, DDL, or source catalog |
 | [`fluid skills`](./skills.md) | Industry knowledge packs that augment `fluid forge` |
+| [Source catalogs (V1.5)](./catalogs/README.md) | Forge directly from Snowflake / Unity / BigQuery / Dataplex / Glue / DataHub / DMM metadata |
 | [`fluid validate`](./validate.md) | Check contract syntax and provider rules |
 | [`fluid plan`](./plan.md) | Plan execution (`--html`, `--env`, `--out`) |
 | [`fluid apply`](./apply.md) | Deploy end-to-end (`--mode`, `--yes`, `--dry-run`) |
@@ -127,6 +129,8 @@ The promoted orchestration path is `fluid generate schedule --scheduler airflow`
 | [`fluid workspace`](./workspace.md) | Manage multi-product workspaces |
 | [`fluid ide`](./ide.md) | IDE integration helpers |
 | [`fluid ai`](./ai.md) | AI provider configuration |
+| [`fluid memory`](../advanced/forge-copilot-memory.md) | Inspect and manage forge memory namespaces |
+| [`fluid mcp serve`](../advanced/mcp.md) | Serve forge tools to MCP-compatible clients |
 
 ## CI & Scaffolding
 

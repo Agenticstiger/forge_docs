@@ -85,6 +85,7 @@ export default defineUserConfig({
             '/README.md',
             '/getting-started/',
             '/getting-started/snowflake.md',
+            '/forge-data-model.md',
             '/vision.md'
           ]
         },
@@ -181,7 +182,14 @@ export default defineUserConfig({
             '/advanced/custom-llm-agents.md',
             '/advanced/chatgpt-forge-contract-gpt/',
             '/advanced/forge-copilot-discovery.md',
-            '/advanced/forge-copilot-memory.md'
+            '/advanced/forge-copilot-memory.md',
+            '/advanced/llm-providers.md',
+            '/advanced/mcp.md',
+            '/advanced/credential-resolver.md',
+            '/advanced/cost-tracking.md',
+            '/advanced/agentic-primitives.md',
+            '/advanced/v1.5-architecture.md',
+            '/advanced/v1.5-release-notes.md'
           ]
         },
         {

@@ -60,19 +60,28 @@ fluid forge --llm-provider openai --llm-model gpt-4o-mini
 
 Use `fluid forge` when you want discovery, memory, and LLM-guided scaffolding. Use `fluid init` when you want the fastest deterministic quickstart.
 
+For model-first work, forge from a business intent file and then generate dbt:
+
+```bash
+fluid forge data-model from-intent --example retail > intent.yaml
+fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
+fluid generate transformation customer_orders.fluid.yaml -o ./dbt_customer_orders --dbt-validate
+```
+
 ## Promoted command groups
 
 | Group | Commands |
 | --- | --- |
-| Core Workflow | `init`, `forge`, `validate`, `plan`, `apply` |
+| Core Workflow | `init`, `forge`, `forge data-model`, `validate`, `plan`, `apply` |
 | Generate | `generate transformation`, `generate schedule`, `generate ci`, `generate standard` |
 | Integrations | `publish`, `market`, `import` |
 | Quality & Governance | `policy-check`, `diff`, `test`, `verify` |
-| Utilities | `config`, `split`, `bundle`, `auth`, `doctor`, `providers`, `version` |
+| Utilities | `config`, `split`, `bundle`, `auth`, `doctor`, `providers`, `memory`, `mcp`, `version` |
 
 ## Where to go next
 
 - [Getting Started](/forge_docs/getting-started/) for the local-first path
+- [Forge Data Model](/forge_docs/forge-data-model.html) for intent, DDL, and catalog-driven model generation
 - [CLI Reference](/forge_docs/cli/) for the promoted command surface
 - [Providers](/forge_docs/providers/) for platform-specific guidance
 - [Walkthroughs](/forge_docs/walkthrough/local) for end-to-end examples

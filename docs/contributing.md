@@ -116,6 +116,44 @@ class MyProvider(BaseProvider):
         )
 ```
 
+## Add a Catalog Adapter
+
+Catalog adapters are the **source-side** complement to providers:
+they pull metadata FROM an existing catalog (Snowflake Horizon,
+Databricks Unity, BigQuery, Glue, DataHub, Data Mesh Manager) and
+feed it into the staged forge pipeline. Each adapter is roughly
+200 LOC and follows nine reusable patterns.
+
+A community contributor with a weekend can ship a new one. The
+walkthrough lives in the forge-cli repo at
+[`CONTRIBUTING.md` → "Adding a Catalog Adapter"](https://github.com/Agenticstiger/forge-cli/blob/main/CONTRIBUTING.md#adding-a-catalog-adapter).
+
+The path covers:
+
+1. Subclass `CatalogAdapter` (4 abstract methods).
+2. Honour the nine patterns in `_patterns.py` — soft-fail on
+   optional reads, lazy SDK import, per-call client lifecycle,
+   error translation with next-action suggestions, etc.
+3. Add a typed `*Credentials` Pydantic class with `SecretStr`
+   fields.
+4. Register the optional install extra in `pyproject.toml`.
+5. Wire the dispatch in `cli/forge_data_model.py` and `cli/mcp.py`.
+6. Write the test file (templates: every existing adapter ships
+   with one — copy the closest fit and edit).
+7. Pin the public API in `tests/test_public_api_stability.py`.
+8. Document the new catalog at
+   `forge_docs/docs/cli/catalogs/<name>.md`.
+
+The seven existing adapters
+([snowflake](cli/catalogs/snowflake.md),
+[unity](cli/catalogs/unity.md),
+[bigquery](cli/catalogs/bigquery.md),
+[dataplex](cli/catalogs/dataplex.md),
+[glue](cli/catalogs/glue.md),
+[datahub](cli/catalogs/datahub.md),
+[datamesh-manager](cli/catalogs/datamesh-manager.md)) are working
+templates — read one front-to-back before starting.
+
 ## Docs Standards
 
 A few things that help reviewers focus on what matters in your change:
