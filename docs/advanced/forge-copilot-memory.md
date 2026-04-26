@@ -1,77 +1,90 @@
 # Forge Memory Guide
 
-This guide explains how project-scoped memory works in the current `fluid forge` flow.
+Forge memory now lives in the staged store under `~/.fluid/store/`. The store is shared by forge data-model runs, MCP tools, provider scorecards, and audit/history capture.
 
-## Current public entry point
-
-Use `fluid forge`, not the older `fluid forge --mode copilot` syntax from archived examples.
-
-Examples:
+## CLI entry point
 
 ```bash
-fluid forge --llm-provider openai --llm-model gpt-4o-mini
-fluid forge --no-memory
-fluid forge --show-memory
-fluid forge --reset-memory
+fluid memory status
+fluid memory show project
+fluid memory show semantic
+fluid memory search semantic "customer order model"
+fluid memory clear --ns memory/semantic
 ```
 
-## Memory file location
+The command group is:
 
-Project-scoped memory lives at:
+```bash
+fluid memory <status|show|save|clear|search>
+```
+
+## Store layout
 
 ```text
-runtime/.state/copilot-memory.json
+~/.fluid/store/
+├── llm/
+├── memory/
+│   ├── project/
+│   ├── team/
+│   ├── episodic/
+│   └── semantic/
+├── discovery/
+├── skills/
+├── history/
+└── audit/
 ```
 
-It is:
+| Namespace | What it stores |
+| --- | --- |
+| `memory/project` | Project-scoped preferences and summaries |
+| `memory/team` | Shared team conventions when configured |
+| `memory/episodic` | Time-ordered forge episodes |
+| `memory/semantic` | Similarity-searchable forged model summaries |
+| `history` | Versioned artifact snapshots from write tools |
+| `audit` | Catalog reads, MCP mutations, and forge events |
 
-- repo-local
-- bounded
-- advisory
-- separate from validation
+Semantic memory is opt-in:
+
+```bash
+FLUID_COPILOT_SEMANTIC_MEMORY=1 fluid forge data-model from-intent intent.yaml -o out.fluid.yaml
+```
 
 ## What memory does
 
-When present, memory helps Forge remember stable project conventions such as:
+When enabled, memory helps Forge remember stable preferences such as:
 
-- preferred provider
-- preferred template or scaffold shape
-- domain hints
-- prior build engines
-- binding conventions
-- bounded schema summaries
+- project naming conventions
+- preferred modeling technique
+- prior source/catalog scopes
+- recurring entity vocabulary
+- prior model patterns that can improve later drafts
 
-## Precedence
+Memory remains advisory. Explicit CLI flags, current user input, current catalog/DDL evidence, and validation gates win over saved memory.
 
-Forge treats memory as a soft preference.
+## Privacy and credentials
 
-The effective precedence is:
-
-1. explicit CLI flags and context input
-2. current-run answers
-3. current discovery
-4. saved project memory
-5. built-in defaults
-
-## What is not stored
-
-Memory is not a raw session dump. It does not store:
+Memory is not a raw session dump. It should not contain:
 
 - API keys
 - tokens
 - raw sample rows
-- full SQL
-- full README text
-- full contract bodies
+- full source data extracts
+- private keys
 
-## Saving and bypassing memory
+Catalog credentials live in the OS keyring and `~/.fluid/sources.yaml` references; MCP source-catalog calls pass credential ids, not raw secrets.
 
-- Use `--no-memory` to ignore saved memory for a run
-- Use `--save-memory` to persist memory in non-interactive automation
-- Use `--show-memory` to inspect the remembered summary
-- Use `--reset-memory` to clear the saved file
+## Legacy memory
+
+Older workspaces may still contain:
+
+```text
+.fluid/copilot-memory.json
+```
+
+The current CLI can read that legacy file with a one-time notice, but new writes land in `~/.fluid/store/memory/project/`.
 
 ## Related guides
 
 - [Forge discovery guide](./forge-copilot-discovery.md)
-- [CLI reference for `fluid forge`](../cli/forge.md)
+- [Forge Data Model](../forge-data-model.md)
+- [MCP server](./mcp.md)

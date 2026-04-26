@@ -80,7 +80,7 @@ Provider changes should not force a new mental model. The docs keep the same com
 
 ```bash
 fluid init my-project --quickstart
-fluid forge --llm-provider openai --llm-model gpt-4o-mini
+fluid forge --llm-provider openai --llm-model gpt-4.1-mini
 ```
 
 ### Validate and govern

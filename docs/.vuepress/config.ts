@@ -49,6 +49,7 @@ export default defineUserConfig({
         text: 'Walkthroughs',
         children: [
           { text: 'Local (DuckDB)', link: '/walkthrough/local' },
+          { text: 'AI Forge + Data Models', link: '/walkthrough/ai-forge-data-model' },
           { text: 'GCP (BigQuery)', link: '/walkthrough/gcp' },
           { text: 'Snowflake Team Collaboration', link: '/walkthrough/snowflake' },
           { text: 'Declarative Airflow', link: '/walkthrough/airflow-declarative' },
@@ -85,6 +86,7 @@ export default defineUserConfig({
             '/README.md',
             '/getting-started/',
             '/getting-started/snowflake.md',
+            '/forge-data-model.md',
             '/vision.md'
           ]
         },
@@ -92,6 +94,7 @@ export default defineUserConfig({
           text: 'Walkthroughs',
           children: [
             '/walkthrough/local.md',
+            '/walkthrough/ai-forge-data-model.md',
             '/walkthrough/gcp.md',
             '/walkthrough/snowflake.md',
             '/walkthrough/airflow-declarative.md',
@@ -144,6 +147,8 @@ export default defineUserConfig({
             '/cli/workspace.md',
             '/cli/ide.md',
             '/cli/ai.md',
+            '/cli/memory.md',
+            '/cli/mcp.md',
             // CI & scaffolding
             '/cli/scaffold-ci.md',
             '/cli/scaffold-composer.md',
@@ -156,6 +161,7 @@ export default defineUserConfig({
             '/cli/doctor.md',
             '/cli/providers.md',
             '/cli/provider-init.md',
+            '/cli/roadmap.md',
             '/cli/version.md'
           ]
         },
@@ -181,7 +187,14 @@ export default defineUserConfig({
             '/advanced/custom-llm-agents.md',
             '/advanced/chatgpt-forge-contract-gpt/',
             '/advanced/forge-copilot-discovery.md',
-            '/advanced/forge-copilot-memory.md'
+            '/advanced/forge-copilot-memory.md',
+            '/advanced/llm-providers.md',
+            '/advanced/mcp.md',
+            '/advanced/credential-resolver.md',
+            '/advanced/cost-tracking.md',
+            '/advanced/agentic-primitives.md',
+            '/advanced/v1.5-architecture.md',
+            '/advanced/v1.5-release-notes.md'
           ]
         },
         {

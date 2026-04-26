@@ -5,7 +5,7 @@ Unified artifact generation from FLUID contracts.
 ## Syntax
 
 ```bash
-fluid generate <speed-transformation|schedule|ci|standard|artifacts>
+fluid generate <transformation|speed-transformation|dbt|schedule|ci|standard|artifacts>
 ```
 
 ## Subcommands
@@ -49,8 +49,20 @@ Key options:
 - `--build-index`
 - `--overwrite`
 - `--env`
+- `--dbt-validate`
 - `--list`
 - `--verbose`
+
+When the contract was produced by `fluid forge data-model`, the generator auto-loads the logical sidecar named by `labels.modelSidecar` and emits deterministic SQL from the forged logical model. For dbt output, zero generated `models/**/*.sql` files is a hard failure rather than a quiet success.
+
+A normal dbt output directory includes:
+
+- `dbt_project.yml`
+- `profiles.yml`
+- `models/sources.yml` when source hints are available
+- non-empty SQL models under `models/`
+
+`fluid generate speed-transformation` and `fluid generate dbt` remain aliases for this path.
 
 ### `fluid generate schedule`
 
@@ -163,6 +175,7 @@ Produces the same OPDS JSON as `fluid generate standard --format opds`; choose w
 ```bash
 fluid generate transformation
 fluid generate transformation contract.fluid.yaml -o ./dbt_project
+fluid generate transformation contract.fluid.yaml -o ./dbt_project --dbt-validate
 fluid generate schedule contract.fluid.yaml --scheduler airflow -o dags
 fluid generate ci --system github
 fluid generate standard contract.fluid.yaml --format opds

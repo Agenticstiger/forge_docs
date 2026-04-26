@@ -98,7 +98,7 @@ If you want the CLI to discover local context and scaffold with LLM help, use `f
 ```bash
 fluid forge
 fluid forge --domain finance
-fluid forge --llm-provider openai --llm-model gpt-4o-mini
+fluid forge --llm-provider openai --llm-model gpt-4.1-mini
 ```
 
 Use `fluid init` for the fastest deterministic quickstart. Use `fluid forge` when you want discovery, memory, or domain-guided scaffolding.

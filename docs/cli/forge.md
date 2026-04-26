@@ -49,9 +49,64 @@ fluid forge [OPTIONS]
 fluid forge
 fluid forge --provider gcp
 fluid forge --domain finance
-fluid forge --llm-provider openai --llm-model gpt-4o-mini
+fluid forge --llm-provider openai --llm-model gpt-4.1-mini
+fluid forge --llm-provider gemini --tiered --require-llm
 fluid forge --blank --target-dir ./out
 ```
+
+For a guided walkthrough of every public forge journey, see [AI Forge And Data-Model Journeys](../walkthrough/ai-forge-data-model.md).
+
+## Forging a data model
+
+The model-first path is `fluid forge data-model`. It writes a Fluid contract, a `.model.json` logical sidecar, and a human-readable Mermaid + Markdown model document.
+
+```bash
+fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
+fluid generate transformation customer_orders.fluid.yaml -o ./dbt_customer_orders --dbt-validate
+```
+
+Use `from-intent` for YAML/JSON business intent files, `from-ddl` for SQL DDL, and `from-source` for configured metadata catalogs.
+
+The intent format is discoverable from the CLI:
+
+```bash
+fluid forge data-model from-intent --example
+fluid forge data-model from-intent --example retail
+fluid forge data-model from-intent --example telco
+fluid forge data-model from-intent --example finance
+fluid forge data-model from-intent --schema
+fluid forge data-model from-intent --validate intent.yaml
+```
+
+See the [Forge Data Model guide](../forge-data-model.md) for the field mapping, generated artifacts, deterministic mode, strict LLM mode, and dbt generation flow.
+
+For hosted provider smoke tests, export a provider key in your shell and use `--require-llm`. Do not paste API keys into command examples, contracts, intent files, or docs.
+
+## Forging from a source catalog
+
+If your team already maintains rich metadata (descriptions, tags,
+lineage, classifications) in a data catalog, you can skip the
+intent / DDL inputs entirely and forge **directly from the catalog**:
+
+```bash
+fluid ai setup --source snowflake --name snowflake-prod      # one-time setup
+fluid forge data-model from-source \
+  --source snowflake \
+  --credential-id snowflake-prod \
+  --database BIZ_LAB --schema SEEDED \
+  --technique data-vault-2 \
+  -o biz_lab.fluid.yaml
+```
+
+Seven catalogs are supported — Snowflake Horizon, Databricks Unity,
+BigQuery, Dataplex, AWS Glue, DataHub, Data Mesh Manager. Each
+ships with privilege grant scripts, auth methods, and an
+end-to-end demo. See the **[catalogs index](catalogs/README.md)**
+for the full list.
+
+The same flow is exposed via the MCP `forge_from_source` tool, so
+Claude Code / Cursor agents can drive a catalog forge from inside
+the editor.
 
 ## Notes
 

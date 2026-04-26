@@ -5,8 +5,16 @@ Manage authentication for cloud and data platform providers.
 ## Syntax
 
 ```bash
+fluid auth                                # interactive guide (no verb → friendly panel)
 fluid auth <login|status|logout|list|doctor>
 ```
+
+::: tip Bare invocation is friendly
+Running `fluid auth` with no verb renders a Rich panel listing every action
+with a one-line description and a quick-start.  When local auth state is
+already present the guide highlights `status`; otherwise it highlights
+`login` as the right starting move.
+:::
 
 ## Commands
 

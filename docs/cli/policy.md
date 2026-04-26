@@ -2,15 +2,23 @@
 
 Unified subcommand group for the three policy verbs: `check` (static lint), `compile` (emit IAM bindings), and `apply` (deploy bindings to the warehouse). Added in `0.8.0`.
 
-Before this group, the three verbs lived as top-level hyphenated commands (`policy-check`, `policy-compile`, `policy-apply`). The names differ by one word but do completely different things — `policy-check` is a static lint, `policy-apply` is a destructive deployment — which was exactly the shape of UX mistake that hits in production. `fluid policy` groups them under one umbrella, mirroring `fluid auth {login,status,logout}` / `fluid generate {speed-transformation,schedule,ci,standard,artifacts}`.
+Before this group, the three verbs lived as top-level hyphenated commands (`policy-check`, `policy-compile`, `policy-apply`). The names differ by one word but do completely different things — `policy-check` is a static lint, `policy-apply` is a destructive deployment — which was exactly the shape of UX mistake that hits in production. `fluid policy` groups them under one umbrella, mirroring `fluid auth {login,status,logout}` / `fluid generate {transformation,schedule,ci,standard,artifacts}`.
 
 The legacy hyphenated forms remain registered as deprecation aliases for one release.
 
 ## Syntax
 
 ```bash
+fluid policy                              # interactive guide (no subcommand → friendly panel)
 fluid policy {check|compile|apply} ...
 ```
+
+::: tip Bare invocation is friendly
+Running `fluid policy` with no subcommand renders a Rich panel listing
+`check`, `compile`, and `apply` with one-line descriptions and example
+invocations. When `contract.fluid.yaml` exists in the cwd the guide
+highlights `check` as the right starting move.
+:::
 
 ## Subcommands
 

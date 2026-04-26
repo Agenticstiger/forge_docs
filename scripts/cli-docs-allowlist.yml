@@ -22,3 +22,9 @@ docs_only_ok:
   - generate-artifacts  # subcommand of `generate`, not a top-level command;
                      # dedicated page because it's the stage-3 surface of the
                      # 11-stage pipeline and operators look up the full name.
+  - mcp             # staged forge-cli branch command documented ahead of the
+                    # stable docs pin; remove once promoted to the pinned CLI.
+  - memory          # staged forge-cli branch command documented ahead of the
+                    # stable docs pin; remove once promoted to the pinned CLI.
+  - roadmap         # staged forge-cli branch command documented ahead of the
+                    # stable docs pin; remove once promoted to the pinned CLI.
