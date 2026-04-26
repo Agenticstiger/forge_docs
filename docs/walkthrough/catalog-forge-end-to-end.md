@@ -30,7 +30,7 @@ pip install "data-product-forge[snowflake]"
 ```bash
 fluid ai setup
 # ? Which LLM provider? anthropic
-# ? API key? sk-ant-...
+# ? API key? <paste key into hidden prompt, never into docs>
 # ? Default model? claude-sonnet-4-6
 # ✓ Saved to ~/.fluid/ai_config.json
 ```

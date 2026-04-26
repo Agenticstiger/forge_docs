@@ -49,6 +49,7 @@ export default defineUserConfig({
         text: 'Walkthroughs',
         children: [
           { text: 'Local (DuckDB)', link: '/walkthrough/local' },
+          { text: 'AI Forge + Data Models', link: '/walkthrough/ai-forge-data-model' },
           { text: 'GCP (BigQuery)', link: '/walkthrough/gcp' },
           { text: 'Snowflake Team Collaboration', link: '/walkthrough/snowflake' },
           { text: 'Declarative Airflow', link: '/walkthrough/airflow-declarative' },
@@ -93,6 +94,7 @@ export default defineUserConfig({
           text: 'Walkthroughs',
           children: [
             '/walkthrough/local.md',
+            '/walkthrough/ai-forge-data-model.md',
             '/walkthrough/gcp.md',
             '/walkthrough/snowflake.md',
             '/walkthrough/airflow-declarative.md',
@@ -145,6 +147,8 @@ export default defineUserConfig({
             '/cli/workspace.md',
             '/cli/ide.md',
             '/cli/ai.md',
+            '/cli/memory.md',
+            '/cli/mcp.md',
             // CI & scaffolding
             '/cli/scaffold-ci.md',
             '/cli/scaffold-composer.md',
@@ -157,6 +161,7 @@ export default defineUserConfig({
             '/cli/doctor.md',
             '/cli/providers.md',
             '/cli/provider-init.md',
+            '/cli/roadmap.md',
             '/cli/version.md'
           ]
         },

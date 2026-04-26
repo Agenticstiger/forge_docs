@@ -26,7 +26,7 @@ Built-in LLM providers include:
 ```bash
 fluid forge \
   --llm-provider openai \
-  --llm-model gpt-4o-mini \
+  --llm-model gpt-4.1-mini \
   --discovery-path ./data \
   --context ./forge-context.json
 ```

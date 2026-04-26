@@ -49,9 +49,12 @@ fluid forge [OPTIONS]
 fluid forge
 fluid forge --provider gcp
 fluid forge --domain finance
-fluid forge --llm-provider openai --llm-model gpt-4o-mini
+fluid forge --llm-provider openai --llm-model gpt-4.1-mini
+fluid forge --llm-provider gemini --tiered --require-llm
 fluid forge --blank --target-dir ./out
 ```
+
+For a guided walkthrough of every public forge journey, see [AI Forge And Data-Model Journeys](../walkthrough/ai-forge-data-model.md).
 
 ## Forging a data model
 
@@ -76,6 +79,8 @@ fluid forge data-model from-intent --validate intent.yaml
 ```
 
 See the [Forge Data Model guide](../forge-data-model.md) for the field mapping, generated artifacts, deterministic mode, strict LLM mode, and dbt generation flow.
+
+For hosted provider smoke tests, export a provider key in your shell and use `--require-llm`. Do not paste API keys into command examples, contracts, intent files, or docs.
 
 ## Forging from a source catalog
 

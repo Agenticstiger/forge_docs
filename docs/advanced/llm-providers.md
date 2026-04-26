@@ -19,10 +19,17 @@ fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
 | Provider | Default / common model | Notes |
 | --- | --- | --- |
 | Anthropic | `claude-sonnet-4-6` | Tool-forced structured output and provider-native prompt caching |
-| OpenAI | `gpt-4.1` | Strict JSON Schema output where available; seed support |
+| OpenAI | `gpt-4.1-mini` | Strict JSON Schema output where available; seed support. Tiered runs use `gpt-4.1` for deep logical modeling. |
 | Gemini | `gemini-2.5-pro` | Uses Gemini response schema where suitable and validator repair when needed |
 | Ollama | `FLUID_OLLAMA_MODEL` such as `gemma4:latest` | Local-only; JSON mode is model-gated |
 | Azure OpenAI | `FLUID_AZURE_DEPLOYMENT` | OpenAI-compatible wire shape with deployment names |
+
+Inspect the active catalog with:
+
+```bash
+fluid ai models
+fluid ai models --provider gemini --json
+```
 
 ## Tiered mode
 
@@ -35,6 +42,17 @@ fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
 | fast | routing, clarification, and light evaluation |
 
 If a provider has no distinct tier models configured, the CLI collapses tiered mode to a single-model run and emits a one-line warning. Ollama commonly runs this way unless the local model catalog is configured with separate fast, balanced, and deep models.
+
+The deterministic stages stay deterministic even in tiered mode:
+
+| Stage | Model use |
+| --- | --- |
+| Interview | Fast routing model |
+| Logical modeler | Deep model |
+| Contract forge | No model, deterministic |
+| Transformation | No model, deterministic from `.model.json` |
+| Validator | No model, deterministic |
+| Self-evaluation | Fast routing model |
 
 ## Strict provider testing
 
@@ -73,3 +91,5 @@ fluid forge data-model from-intent intent.yaml \
 | `FLUID_OLLAMA_MODEL` | Ollama model name |
 
 Use `fluid ai setup` for interactive setup and key storage. Provider and model choices are saved in `~/.fluid/ai_config.json`; API keys go to the OS keyring by default. Plaintext API-key persistence requires explicit opt-in with `FLUID_ALLOW_PLAINTEXT_AI_SECRETS=1`.
+
+For complete command journeys, see [AI Forge And Data-Model Journeys](../walkthrough/ai-forge-data-model.md).

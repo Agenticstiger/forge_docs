@@ -38,7 +38,7 @@ Optional AI-assisted scaffolding uses `fluid forge`:
 ```bash
 fluid forge
 fluid forge --domain finance
-fluid forge --llm-provider openai --llm-model gpt-4o-mini
+fluid forge --llm-provider openai --llm-model gpt-4.1-mini
 ```
 
 To forge a reviewable data model from a business intent file:

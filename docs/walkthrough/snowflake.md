@@ -58,7 +58,7 @@ fluid forge \
   --provider snowflake \
   --discovery-path ./data \
   --llm-provider openai \
-  --llm-model gpt-4o-mini
+  --llm-model gpt-4.1-mini
 
 fluid validate contract.fluid.yaml
 fluid plan contract.fluid.yaml --out runtime/plan.json

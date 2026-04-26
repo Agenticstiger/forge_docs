@@ -129,8 +129,8 @@ The promoted orchestration path is `fluid generate schedule --scheduler airflow`
 | [`fluid workspace`](./workspace.md) | Manage multi-product workspaces |
 | [`fluid ide`](./ide.md) | IDE integration helpers |
 | [`fluid ai`](./ai.md) | AI provider configuration |
-| [`fluid memory`](../advanced/forge-copilot-memory.md) | Inspect and manage forge memory namespaces |
-| [`fluid mcp serve`](../advanced/mcp.md) | Serve forge tools to MCP-compatible clients |
+| [`fluid memory`](./memory.md) | Inspect and manage forge memory namespaces |
+| [`fluid mcp serve`](./mcp.md) | Serve forge tools to MCP-compatible clients |
 
 ## CI & Scaffolding
 
@@ -151,6 +151,7 @@ The promoted orchestration path is `fluid generate schedule --scheduler airflow`
 | [`fluid doctor`](./doctor.md) | Run built-in health checks |
 | [`fluid providers`](./providers.md) | List registered providers |
 | [`fluid provider-init`](./provider-init.md) | Initialize provider-specific configuration |
+| [`fluid roadmap`](./roadmap.md) | Print the branch-local roadmap |
 | [`fluid version`](./version.md) | Show CLI version and environment details |
 
 ## Command discovery
