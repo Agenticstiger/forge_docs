@@ -6,11 +6,24 @@
 
 Use `fluid forge data-model` when you want the CLI to create the semantic data-model layer before you generate dbt or other transformation artifacts.
 
+For the full set of user journeys, including AI provider setup, strict hosted-provider smoke tests, Ollama, discovery, memory, DDL, source catalogs, dbt, and scheduling, see [AI Forge And Data-Model Journeys](./walkthrough/ai-forge-data-model.md).
+
 | Input | Command | Best for |
 | --- | --- | --- |
 | YAML/JSON intent | `fluid forge data-model from-intent` | A business-first description of the data product you want |
 | SQL DDL | `fluid forge data-model from-ddl` | Reverse-engineering existing warehouse tables |
 | Catalog metadata | `fluid forge data-model from-source` | Forging from Snowflake, Unity, BigQuery, Dataplex, Glue, DataHub, or DMM metadata |
+
+::: tip Don't know where to start? Just run it bare.
+Typing `fluid forge data-model` with no subcommand renders an interactive
+panel listing every input shape with a one-line description and a
+quick-start example. The guide is cwd-aware: if it sees `intent.yaml` it
+recommends `from-intent`, if it sees `*.sql` files it recommends
+`from-ddl`, and if you have a metadata source configured in
+`~/.fluid/sources.yaml` it recommends `from-source`. The same pattern is
+also wired into `fluid memory`, `fluid auth`, `fluid mcp`, `fluid policy`,
+and `fluid config`.
+:::
 
 ## From an intent file
 
@@ -165,6 +178,22 @@ fluid generate transformation customer_orders.fluid.yaml \
 For dbt output, the generator fails clearly if it produces zero `models/**/*.sql` files. A normal dbt project includes `dbt_project.yml`, `profiles.yml`, `models/sources.yml` when applicable, and non-empty SQL model files under `models/`.
 
 `fluid generate speed-transformation` and `fluid generate dbt` remain aliases, but docs lead with `fluid generate transformation`.
+
+## AI provider runs
+
+Provider keys are never part of the intent file or contract. Export one provider key for the shell session or run `fluid ai setup`:
+
+```bash
+export GOOGLE_API_KEY="<your-gemini-key>"
+
+fluid forge data-model from-intent intent.yaml \
+  -o customer_orders.gemini.fluid.yaml \
+  --llm-provider gemini \
+  --tiered \
+  --require-llm
+```
+
+Use `--require-llm` when you need to prove a hosted provider actually ran. For CI and repeatable production pipelines, commit the forged artifacts and use deterministic `validate`, `generate`, `plan`, and `apply` steps rather than live LLM calls.
 
 ## Deterministic and strict modes
 

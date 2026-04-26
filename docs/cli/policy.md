@@ -9,8 +9,16 @@ The legacy hyphenated forms remain registered as deprecation aliases for one rel
 ## Syntax
 
 ```bash
+fluid policy                              # interactive guide (no subcommand → friendly panel)
 fluid policy {check|compile|apply} ...
 ```
+
+::: tip Bare invocation is friendly
+Running `fluid policy` with no subcommand renders a Rich panel listing
+`check`, `compile`, and `apply` with one-line descriptions and example
+invocations. When `contract.fluid.yaml` exists in the cwd the guide
+highlights `check` as the right starting move.
+:::
 
 ## Subcommands
 
