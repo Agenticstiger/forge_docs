@@ -125,6 +125,10 @@ Choosing dbt as the transformation engine does not imply scheduling. Add a sched
 
 ## Flow 3: Intent To Model Doc To dbt
 
+::: tip See it run
+The 60-second [Fluid Forge in action](/forge_docs/see-it-run.html#_1-the-60-second-walkthrough) reel walks this exact flow against four providers (Anthropic Haiku 4.5, OpenAI gpt-4.1-mini, Gemini 2.5-flash, local Ollama gemma4) — every token count is captured live.
+:::
+
 An intent file is the business request in YAML or JSON. For example:
 
 ```yaml

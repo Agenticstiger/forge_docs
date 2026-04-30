@@ -65,6 +65,10 @@ fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
 fluid generate transformation customer_orders.fluid.yaml -o ./dbt_customer_orders --dbt-validate
 ```
 
+::: tip See it run
+The 60-second [Fluid Forge in action](/forge_docs/see-it-run.html#_1-the-60-second-walkthrough) reel runs exactly this command against four LLM providers and shows the resulting contract — every token count is captured live.
+:::
+
 Use `from-intent` for YAML/JSON business intent files, `from-ddl` for SQL DDL, and `from-source` for configured metadata catalogs.
 
 The intent format is discoverable from the CLI:
