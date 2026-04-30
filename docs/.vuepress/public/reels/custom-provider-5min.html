@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fluid Forge — what's new in the agentic stack</title>
+<title>Custom provider in 5 minutes — Fluid Forge</title>
 <style>
   :root {
     --bg-0: #07090f;
@@ -475,139 +475,196 @@
 
 const SCENES = [
   {
-    kind: "hero",
-    duration: 4500,
-    body: `
-      <div class="brand">FLUID FORGE · AGENTIC STACK</div>
-      <h1>fluid&nbsp;forge</h1>
-      <div class="tag">A <em>lightweight</em>, <em>AI-native</em> data-product compiler.</div>
-      <div class="tag">From <em>business intent</em> → <em>validated FLUID contract</em> in seconds.</div>
-      <div class="badges">
-        <span class="badge">Anthropic · OpenAI · Gemini · Ollama</span>
-        <span class="badge alt">Typed errors · capability warnings · accurate streaming usage</span>
-        <span class="badge good">Pure-Python · zero new runtime deps</span>
-      </div>
-      <div class="meta">every cost figure below is from a real production call</div>
-    `,
+    "kind": "title",
+    "title": "Add a custom provider in 5 minutes",
+    "subtitle": "Subclass FluidProvider, implement 4 methods, register the entry point. Same shape as built-in gcp / aws / snowflake.",
+    "tag": "FluidProvider · entry_points · 4 methods"
   },
   {
-    kind: "term",
-    duration: 8500,
-    title: "customer_orders.intent.yaml",
-    headline: "Describe the data product",
-    sub: "23 lines of YAML — no imperative code, no hand-written DDL.",
-    lines: [
-      { cls: "prompt cmd", text: "cat customer_orders.intent.yaml", typingSpeed: 30 },
-      { cls: "dim spaced", html: '<span class="key">data_product</span>:' },
-      { cls: "dim", html: '  <span class="key">name</span>: customer_orders' },
-      { cls: "dim", html: '  <span class="key">domain</span>: retail' },
-      { cls: "dim", html: '<span class="key">grain</span>:' },
-      { cls: "dim", html: '  <span class="key">entity</span>: order_line' },
-      { cls: "dim", html: '  <span class="key">time_dimension</span>: order_date' },
-      { cls: "dim", html: '<span class="key">dimensions</span>:' },
-      { cls: "dim", html: '  <span class="key">entities</span>: [customer, product, store]' },
-      { cls: "dim", html: '<span class="key">metrics</span>:' },
-      { cls: "dim", html: '  - <span class="key">name</span>: total_revenue' },
-      { cls: "dim", html: '<span class="key">modeling</span>:' },
-      { cls: "dim", html: '  <span class="key">technique</span>: dimensional' },
+    "kind": "terminal",
+    "header": "Step 1 · Scaffold the package",
+    "lines": [
+      {
+        "cmd": "$ fluid provider-init my-warehouse --owner acme"
+      },
+      {
+        "out": "Created: ./fluid-provider-my-warehouse/"
+      },
+      {
+        "out": "  ├── pyproject.toml          (entry-point wired)"
+      },
+      {
+        "out": "  ├── README.md               (doc page template)"
+      },
+      {
+        "out": "  └── src/fluid_provider_my_warehouse/"
+      },
+      {
+        "out": "      ├── __init__.py"
+      },
+      {
+        "out": "      ├── provider.py         (the 4-method class)"
+      },
+      {
+        "out": "      └── tests/test_smoke.py"
+      },
+      {
+        "meta": "✓ scaffold · 0.5 s · provider-init wires the entry point"
+      }
     ],
+    "footer": "fluid provider-init is the same scaffolder our gcp/aws/snowflake plugins use."
   },
   {
-    kind: "term",
-    duration: 12000,
-    title: "anthropic · claude-haiku-4-5",
-    headline: "Forge it — Anthropic Haiku 4.5",
-    sub: "Streaming output, prompt-cache aware, accurate token attribution.",
-    lines: [
-      { cls: "prompt cmd", text: "fluid forge data-model from-intent customer_orders.intent.yaml \\", typingSpeed: 34 },
-      { cls: "cmd", text: "  -o customer_orders.fluid.yaml \\", delay: 80 },
-      { cls: "cmd", text: "  --llm-provider anthropic --llm-model claude-haiku-4-5-20251001", delay: 80 },
-      { cls: "faint spaced", text: "HTTP Request: POST https://api.anthropic.com/v1/messages \"HTTP/1.1 200 OK\"", delay: 380 },
-      { cls: "info", html: '⏵ <span style="color:var(--text)">LogicalAgent</span>     <span class="dim">streaming</span> <span class="tokens-flow"><span class="tok"></span><span class="tok"></span><span class="tok"></span><span class="tok"></span></span>', delay: 280 },
-      { cls: "info", html: '⏵ <span style="color:var(--text)">ContractForgeAgent</span> <span class="dim">deterministic</span>', delay: 200 },
-      { cls: "success spaced", text: "✔ Validation passed (score=10)", delay: 220 },
-      { cls: "dim", text: "Wrote contract     customer_orders.fluid.yaml" },
-      { cls: "dim", text: "Wrote logical sidecar customer_orders.fluid.yaml.model.json" },
-      { cls: "dim", text: "Wrote model document  customer_orders.fluid.yaml.model.md" },
+    "kind": "terminal",
+    "header": "Step 2 · The 4-method contract",
+    "lines": [
+      {
+        "cmd": "$ cat src/fluid_provider_my_warehouse/provider.py"
+      },
+      {
+        "out": "from fluid_build.providers import FluidProvider, ProviderError"
+      },
+      {
+        "out": ""
+      },
+      {
+        "out": "class MyWarehouseProvider(FluidProvider):"
+      },
+      {
+        "out": "    name = \"my-warehouse\""
+      },
+      {
+        "out": ""
+      },
+      {
+        "out": "    def validate(self, contract):  # 1"
+      },
+      {
+        "out": "        ..."
+      },
+      {
+        "out": "    def plan(self, contract, env):  # 2"
+      },
+      {
+        "out": "        ..."
+      },
+      {
+        "out": "    def apply(self, contract, env):  # 3"
+      },
+      {
+        "out": "        ..."
+      },
+      {
+        "out": "    def credentials(self):  # 4"
+      },
+      {
+        "out": "        ..."
+      },
+      {
+        "meta": "→ Built-in providers are the same shape: 4 methods, no inheritance tax."
+      }
     ],
-    callout: "<strong>Cost summary</strong> · <span style='color:var(--text)'>912 in</span> · <span style='color:var(--text)'>5,433 out</span> · <span style='color:var(--good)'>$0.0281</span> &nbsp; <span style='color:var(--text-faint)'>(streamed; usage captured from SSE wire — pre-fix this would have reported \"missing usage\")</span>",
+    "footer": "Errors raise ProviderError / ProviderInternalError — see Custom Providers → Error Handling."
   },
   {
-    kind: "term",
-    duration: 11000,
-    title: "openai · gpt-4.1-mini · same intent",
-    headline: "Switch providers, same command",
-    sub: "Provider abstraction is one flag. Same intent → same valid contract.",
-    lines: [
-      { cls: "prompt cmd", text: "fluid forge data-model from-intent customer_orders.intent.yaml \\", typingSpeed: 36 },
-      { cls: "cmd", html: '  --llm-provider <span class="alt">openai</span> --llm-model gpt-4.1-mini', delay: 60 },
-      { cls: "faint spaced", text: "HTTP Request: POST https://api.openai.com/v1/chat/completions \"HTTP/1.1 200 OK\"", delay: 380 },
-      { cls: "success spaced", text: "✔ Validation passed (score=10)", delay: 240 },
-      { cls: "rule spaced", text: "─────────────────────────────────────────────────────────────────" },
-      { cls: "info", html: 'Cost summary' },
-      { cls: "rule", text: "─────────────────────────────────────────────────────────────────" },
-      { cls: "cmd", html: '  <span class="alt">openai</span> / gpt-4.1-mini      <span class="num">5,647</span> in   <span class="num">1,767</span> out   <span class="num">$0.0019</span>' },
-      { cls: "rule", text: "─────────────────────────────────────────────────────────────────" },
-      { cls: "info spaced", html: 'Per-agent attribution' },
-      { cls: "cmd", html: '  modeler/ModelerAgent       <span class="num">5,647</span> in   <span class="num">1,767</span> out   calls=1' },
+    "kind": "terminal",
+    "header": "Step 3 · Install + verify",
+    "lines": [
+      {
+        "cmd": "$ pip install -e ./fluid-provider-my-warehouse"
+      },
+      {
+        "out": "Successfully installed fluid-provider-my-warehouse-0.1.0"
+      },
+      {
+        "cmd": "$ fluid providers"
+      },
+      {
+        "out": "Registered providers"
+      },
+      {
+        "out": "  ▸ local         (built-in)"
+      },
+      {
+        "out": "  ▸ gcp           (built-in)"
+      },
+      {
+        "out": "  ▸ aws           (built-in)"
+      },
+      {
+        "out": "  ▸ snowflake     (built-in)"
+      },
+      {
+        "out": "  ▸ my-warehouse  (community · 0.1.0)   ← yours"
+      },
+      {
+        "meta": "✓ entry-point discovery · the CLI auto-detects on next run."
+      }
     ],
+    "footer": "Provider lookup is via importlib.metadata.entry_points('fluid.providers')."
   },
   {
-    kind: "term",
-    duration: 11000,
-    title: "ollama · gemma4:31b · local inference",
-    headline: "Run it offline — Ollama gemma4",
-    sub: "Capability warnings fire because the staged-pipeline profile asks for structured output. Run still produces a valid contract, $0 cost.",
-    lines: [
-      { cls: "prompt cmd", text: "fluid forge data-model from-intent customer_orders.intent.yaml \\", typingSpeed: 36 },
-      { cls: "cmd", html: '  --llm-provider <span class="pkg">ollama</span> --llm-model gemma4:31b \\', delay: 60 },
-      { cls: "cmd", text: "  --llm-endpoint http://localhost:11434/v1/chat/completions", delay: 60 },
-      { cls: "warn spaced", text: "⚠ ollama/gemma4:31b does not reliably support structured output — agent runs may produce degraded output." },
-      { cls: "warn", text: "⚠ Note for ollama/gemma4:31b: tool-use accuracy is acceptable for the staged pipeline; the multi-turn agent loop may need more iterations." },
-      { cls: "faint spaced", text: "HTTP Request: POST http://localhost:11434/v1/chat/completions \"HTTP/1.1 200 OK\"", delay: 360 },
-      { cls: "success spaced", text: "✔ Validation passed (score=10)", delay: 220 },
-      { cls: "dim", text: "Wrote contract     ollama_e2e.fluid.yaml" },
+    "kind": "terminal",
+    "header": "Step 4 · Use it like any built-in",
+    "lines": [
+      {
+        "cmd": "$ fluid apply customer_orders.fluid.yaml --provider my-warehouse --yes"
+      },
+      {
+        "out": "▸ Materializing customer-orders → my-warehouse ..."
+      },
+      {
+        "out": "  ▸ resolved credentials via MY_WAREHOUSE_TOKEN"
+      },
+      {
+        "out": "  ▸ stg_orders          ✓ 50,000 rows  (1.4 s)"
+      },
+      {
+        "out": "  ▸ dim_customer        ✓  8,400 rows  (0.9 s)"
+      },
+      {
+        "out": "  ▸ fct_customer_orders ✓ 50,000 rows  (2.1 s)"
+      },
+      {
+        "out": "  ✓ 12 tests passed"
+      },
+      {
+        "meta": "✓ my-warehouse · 4.4 s · same contract, your backend"
+      }
     ],
-    callout: "<strong>Cost summary</strong> · <span style='color:var(--text)'>2,761 in</span> · <span style='color:var(--text)'>1,706 out</span> · <span style='color:var(--good)'>$0.0000</span> &nbsp; <span style='color:var(--text-faint)'>(local inference; gemma4:31b on Ollama 0.22.0)</span>",
+    "footer": "Same flags, same exit codes, same plan/apply lifecycle. CI doesn't know the difference."
   },
   {
-    kind: "term",
-    duration: 10000,
-    title: "fluid validate · all four contracts",
-    headline: "Validate the output",
-    sub: "Same v0.7.2 schema validates Anthropic / OpenAI / Gemini / Ollama. Provider-agnostic correctness.",
-    lines: [
-      { cls: "prompt cmd", text: "for f in customer_orders_*.fluid.yaml; do fluid validate $f; done", typingSpeed: 32 },
-      { cls: "faint spaced", text: "── claude-haiku-4-5 ──", delay: 240 },
-      { cls: "success", text: "✅ Valid FLUID contract (schema v0.7.2)" },
-      { cls: "faint", text: "── gpt-4.1-mini ──" },
-      { cls: "success", text: "✅ Valid FLUID contract (schema v0.7.2)" },
-      { cls: "faint", text: "── gemini-2.5-flash ──" },
-      { cls: "success", text: "✅ Valid FLUID contract (schema v0.7.2)" },
-      { cls: "faint", text: "── ollama / gemma4:31b ──" },
-      { cls: "success", text: "✅ Valid FLUID contract (schema v0.7.2)" },
+    "kind": "summary",
+    "title": "5 minutes, 4 methods, no monkey-patching",
+    "items": [
+      {
+        "label": "Files written by hand",
+        "value": "1 (provider.py)"
+      },
+      {
+        "label": "Methods to implement",
+        "value": "4 (validate, plan, apply, credentials)"
+      },
+      {
+        "label": "Registration mechanism",
+        "value": "entry_points (no plugin manager)"
+      },
+      {
+        "label": "Built-in features lost",
+        "value": "0"
+      },
+      {
+        "label": "Test scaffold",
+        "value": "included"
+      },
+      {
+        "label": "CI inclusion",
+        "value": "automatic on pip install"
+      }
     ],
-  },
-  {
-    kind: "closing",
-    duration: 6500,
-    body: `
-      <h2>One contract. Four providers. Zero glue code.</h2>
-      <div class="scene-sub" style="font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;">
-        Typed-error retries · capability warnings · accurate streaming usage ·
-        <em style="color:var(--accent);font-style:normal">all backed by real production calls.</em>
-      </div>
-      <div class="stats">
-        <div class="stat"><div class="num">4/4</div><div class="lbl">providers verified E2E</div></div>
-        <div class="stat"><div class="num">0</div><div class="lbl">new runtime deps</div></div>
-        <div class="stat"><div class="num">10</div><div class="lbl">CI checks per PR ✓</div></div>
-        <div class="stat"><div class="num">v0.7.2</div><div class="lbl">FLUID contract schema</div></div>
-      </div>
-      <div class="meta" style="margin-top:34px;color:var(--text-faint);font-family:var(--mono);font-size:12px;">
-        ← → step · space pause · r restart
-      </div>
-    `,
-  },
+    "footer": "See Providers → Custom Providers for the full FluidProvider API and the typed-error taxonomy."
+  }
 ];;
 
 // ─────────────────────────────────────────────────────────────────────────

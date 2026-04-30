@@ -45,6 +45,7 @@ export default defineUserConfig({
     navbar: [
       { text: 'Home', link: '/' },
       { text: 'Get Started', link: '/getting-started/' },
+      { text: 'See it run', link: '/see-it-run' },
       {
         text: 'Walkthroughs',
         children: [
@@ -86,6 +87,7 @@ export default defineUserConfig({
             '/README.md',
             '/getting-started/',
             '/getting-started/snowflake.md',
+            '/see-it-run.md',
             '/forge-data-model.md',
             '/vision.md'
           ]

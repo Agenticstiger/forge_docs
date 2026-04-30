@@ -67,6 +67,17 @@ fluid plan contract.fluid.yaml
 fluid apply contract.fluid.yaml --yes
 ```
 
+<iframe
+  src="/forge_docs/reels/quickstart-90s.html"
+  width="100%"
+  height="500"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="Quickstart in 90 seconds — Fluid Forge">
+</iframe>
+
+The reel above walks the same five commands end-to-end: install, scaffold, validate, plan, apply against the local DuckDB target. ~91 seconds, zero cloud setup, zero API keys.
+
 ## Beyond dev — the 11-stage production pipeline
 
 The commands above are the dev on-ramp. For production, `0.8.0` promotes an 11-stage pipeline with cryptographic plan-binding, explicit destruction gating, and supply-chain signing:

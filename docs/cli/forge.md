@@ -65,6 +65,10 @@ fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
 fluid generate transformation customer_orders.fluid.yaml -o ./dbt_customer_orders --dbt-validate
 ```
 
+::: tip See it run
+The 60-second [Fluid Forge in action](/forge_docs/see-it-run.html#the-60-second-walkthrough) reel runs exactly this command against four LLM providers and shows the resulting contract — every token count is captured live.
+:::
+
 Use `from-intent` for YAML/JSON business intent files, `from-ddl` for SQL DDL, and `from-source` for configured metadata catalogs.
 
 The intent format is discoverable from the CLI:
@@ -107,6 +111,26 @@ for the full list.
 The same flow is exposed via the MCP `forge_from_source` tool, so
 Claude Code / Cursor agents can drive a catalog forge from inside
 the editor.
+
+## Multi-turn agent loop — `--agent-loop`
+
+Add `--agent-loop` to use the multi-turn agent loop instead of the single-shot prompt. The LLM discovers your workspace, picks a template, builds and validates the contract iteratively via tool calls. Requires a tool-use-capable model (`gpt-4.1-mini`, `claude-sonnet-4-6`, `gemini-2.5-flash`).
+
+```bash
+fluid forge --agent-loop --domain retail --target-dir ./demo
+fluid forge --agent-loop --llm-provider anthropic --llm-model claude-sonnet-4-6
+```
+
+<iframe
+  src="/forge_docs/reels/agent-loop-live.html"
+  width="100%"
+  height="500"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="Agent loop, live — Fluid Forge">
+</iframe>
+
+The 60-second reel above traces a single `--agent-loop` run turn-by-turn: workspace inspection → template list → template intent read → scaffold → self-validate → done. Six turns, five tool calls, $0.018 cost. See [Agentic primitives](/forge_docs/advanced/agentic-primitives.html) for the underlying framework, [Capability Warnings](/forge_docs/advanced/capability-warnings.html) for the per-model tool-use accuracy notes, and [Forge Tools](/forge_docs/advanced/forge-tools.html) for the `@forge_tool` decorator that powers the tool calls.
 
 ## Notes
 

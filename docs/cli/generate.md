@@ -2,6 +2,17 @@
 
 Unified artifact generation from FLUID contracts.
 
+<iframe
+  src="/forge_docs/reels/generate-transformation-dbt.html"
+  width="100%"
+  height="500"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="Forged contract to runnable dbt — Fluid Forge">
+</iframe>
+
+This 45-second reel runs `fluid generate transformation` against a forged contract and shows that the emitted dbt project parses, runs, and passes its own tests — not a skeleton. Generation itself is deterministic and zero-LLM-cost.
+
 ## Syntax
 
 ```bash

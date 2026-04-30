@@ -4,6 +4,17 @@ This guide walks you through building a custom Fluid Forge provider — from a m
 
 A provider teaches Fluid Forge how to deploy contracts to a new platform. If you can express the deployment as "create these resources, run this SQL, write these outputs," you can build a provider for it.
 
+<iframe
+  src="/forge_docs/reels/custom-provider-5min.html"
+  width="100%"
+  height="480"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="Custom provider in 5 minutes — Fluid Forge">
+</iframe>
+
+The 50-second reel above shows the end-to-end shape: scaffold with `fluid provider-init`, implement four methods, install, register via entry-point, run `fluid apply --provider my-warehouse`. Same lifecycle as the built-in `gcp` / `aws` / `snowflake` plugins.
+
 ::: tip Prerequisites
 You should be familiar with [how the provider system works](./architecture.md) before building one. The key concept: a provider implements `plan()` to convert a contract into actions, and `apply()` to execute those actions.
 :::

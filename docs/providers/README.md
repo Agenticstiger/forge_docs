@@ -1,6 +1,17 @@
 # Providers
 
-Fluid Forge uses one contract format across local and provider-backed execution targets.
+Fluid Forge uses one contract format across local and provider-backed execution targets. The `--provider` flag is the only thing that changes between backends — the contract, the dbt models, and the test suite stay byte-identical.
+
+<iframe
+  src="/forge_docs/reels/multi-target-portability.html"
+  width="100%"
+  height="480"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="One contract, three backends — Fluid Forge">
+</iframe>
+
+This 50-second reel runs the same `customer_orders.fluid.yaml` against DuckDB, BigQuery, and Snowflake. Zero contract edits, twelve tests passing on each.
 
 ## Docs baseline
 
