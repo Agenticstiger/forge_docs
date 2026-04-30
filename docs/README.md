@@ -7,6 +7,9 @@ actions:
   - text: Get Started →
     link: /getting-started/
     type: primary
+  - text: See it run
+    link: /see-it-run
+    type: secondary
   - text: CLI Reference
     link: /cli/
     type: secondary
@@ -43,7 +46,7 @@ A 60-second walkthrough of `fluid forge data-model from-intent` against four LLM
   title="Fluid Forge in action — agentic data-product flow">
 </iframe>
 
-Use ←/→ to step scenes, space to pause, r to restart.
+Use ←/→ to step scenes, space to pause, r to restart. Two more reels — compaction strategies and the capability-warning banner — live on the [See it run](/forge_docs/see-it-run.html) page.
 
 ## Start with the current workflow
 
