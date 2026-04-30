@@ -475,225 +475,219 @@
 
 const SCENES = [
   {
-    "kind": "title",
-    "title": "Quickstart in 90 seconds",
-    "subtitle": "From pip install to first apply — local DuckDB, zero cloud setup.",
-    "tag": "fluid init · validate · plan · apply"
+    "kind": "hero",
+    "duration": 4500,
+    "body": "\n      <div class=\"brand\">FLUID FORGE · QUICKSTART</div>\n      <h1>90 seconds</h1>\n      <div class=\"tag\">From <em>pip install</em> to <em>first apply</em> — local DuckDB.</div>\n      <div class=\"tag\">Zero cloud setup. Zero API keys.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">install · scaffold · validate · plan · apply</span>\n        <span class=\"badge alt\">customer-360 quickstart template</span>\n        <span class=\"badge good\">~91 s end-to-end · $0</span>\n      </div>\n      <div class=\"meta\">latency numbers are representative of v0.8.0 against the customer-360 template</div>\n    "
   },
   {
-    "kind": "terminal",
-    "header": "Step 1 · Install",
+    "kind": "term",
+    "duration": 8500,
+    "title": "step 1 · install",
+    "headline": "pip install data-product-forge",
+    "sub": "Pure Python, no Docker, no system deps.",
     "lines": [
       {
-        "cmd": "$ pip install data-product-forge"
+        "cls": "prompt cmd",
+        "text": "pip install data-product-forge",
+        "typingSpeed": 30
       },
       {
-        "out": "Collecting data-product-forge"
+        "cls": "faint spaced",
+        "text": "Collecting data-product-forge"
       },
       {
-        "out": "  Downloading data_product_forge-0.8.0-py3-none-any.whl (4.2 MB)"
+        "cls": "faint",
+        "text": "  Downloading data_product_forge-0.8.0-py3-none-any.whl (4.2 MB)"
       },
       {
-        "out": "Successfully installed data-product-forge-0.8.0 httpx-0.28 pydantic-2.9 ..."
+        "cls": "dim",
+        "text": "Successfully installed data-product-forge-0.8.0 httpx-0.28 pydantic-2.9 ..."
       },
       {
-        "cmd": "$ fluid version"
+        "cls": "prompt cmd spaced",
+        "text": "fluid version",
+        "typingSpeed": 60,
+        "delay": 200
       },
       {
-        "out": "FLUID Forge CLI v0.8.0"
-      },
-      {
-        "meta": "✓ pip install · 8 seconds"
+        "cls": "success",
+        "text": "FLUID Forge CLI v0.8.0"
       }
     ],
-    "footer": "Pure Python, no Docker, no system deps. Works on macOS / Linux / Windows."
+    "callout": "<strong>≈ 8 s on a warm pip cache</strong> · works on macOS, Linux, Windows."
   },
   {
-    "kind": "terminal",
-    "header": "Step 2 · Scaffold",
+    "kind": "term",
+    "duration": 9500,
+    "title": "step 2 · scaffold",
+    "headline": "fluid init customer-360 --quickstart",
+    "sub": "Working sample data + a valid Fluid contract, no AI required.",
     "lines": [
       {
-        "cmd": "$ fluid init customer-360 --quickstart --yes"
+        "cls": "prompt cmd",
+        "text": "fluid init customer-360 --quickstart --yes",
+        "typingSpeed": 32
       },
       {
-        "out": "📦 Creating from template: customer-360"
+        "cls": "info spaced",
+        "text": "📦 Creating from template: customer-360"
       },
       {
-        "out": "✅ Copied template files from customer-360"
+        "cls": "success",
+        "text": "✅ Copied template files from customer-360"
       },
       {
-        "out": "✅ Created project from customer-360 template"
+        "cls": "success",
+        "text": "✅ Created project from customer-360 template"
       },
       {
-        "out": ""
+        "cls": "dim spaced",
+        "text": "Next steps:"
       },
       {
-        "out": "    fluid validate          check the contract"
+        "cls": "dim",
+        "text": "  fluid validate          check the contract"
       },
       {
-        "out": "    fluid plan --env dev    preview a run"
+        "cls": "dim",
+        "text": "  fluid plan --env dev    preview a run"
       },
       {
-        "out": "    fluid apply             materialize locally"
-      },
-      {
-        "meta": "✓ scaffold · 0.4 s · contract.fluid.yaml + sample data"
+        "cls": "dim",
+        "text": "  fluid apply             materialize locally"
       }
     ],
-    "footer": "Working sample data + a valid Fluid contract, no AI required."
+    "callout": "<strong>0.4 s</strong> · contract.fluid.yaml + sample CSVs (50k orders, 8.4k customers, 2.1k products)"
   },
   {
-    "kind": "terminal",
-    "header": "Step 3 · Validate",
+    "kind": "term",
+    "duration": 7500,
+    "title": "step 3 · validate",
+    "headline": "fluid validate",
+    "sub": "Schema is checked against the pinned fluidVersion (0.7.2 here).",
     "lines": [
       {
-        "cmd": "$ cd customer-360 && fluid validate"
+        "cls": "prompt cmd",
+        "text": "cd customer-360 && fluid validate",
+        "typingSpeed": 28
       },
       {
-        "out": "Starting validate_contract"
+        "cls": "faint spaced",
+        "text": "Starting validate_contract"
       },
       {
-        "out": ""
+        "cls": "dim",
+        "text": "Validating 1 product in workspace 'customer-360'..."
       },
       {
-        "out": "Validating 1 product in workspace 'customer-360'..."
+        "cls": "success spaced",
+        "text": "  ✅ customer-360         no errors"
       },
       {
-        "out": ""
-      },
-      {
-        "out": "  ✅ customer-360         no errors"
-      },
-      {
-        "out": ""
-      },
-      {
-        "out": "Result: 1 passed, 0 failed"
-      },
-      {
-        "meta": "✓ validate · 0.3 s · ready to plan"
+        "cls": "dim spaced",
+        "text": "Result: 1 passed, 0 failed"
       }
     ],
-    "footer": "Schema is checked against the pinned fluidVersion (0.7.2 here)."
+    "callout": "<strong>0.3 s</strong> · ready to plan."
   },
   {
-    "kind": "terminal",
-    "header": "Step 4 · Plan",
+    "kind": "term",
+    "duration": 9000,
+    "title": "step 4 · plan",
+    "headline": "fluid plan contract.fluid.yaml --env dev",
+    "sub": "Plan is read-only. No destructive operations.",
     "lines": [
       {
-        "cmd": "$ fluid plan contract.fluid.yaml --env dev"
+        "cls": "prompt cmd",
+        "text": "fluid plan contract.fluid.yaml --env dev",
+        "typingSpeed": 30
       },
       {
-        "out": "Plan summary"
+        "cls": "info spaced",
+        "text": "Plan summary"
       },
       {
-        "out": "  Provider     : local (DuckDB)"
+        "cls": "dim",
+        "text": "  Provider     : local (DuckDB)"
       },
       {
-        "out": "  Sources      : 3 ingestions  (orders, customers, products)"
+        "cls": "dim",
+        "text": "  Sources      : 3 ingestions  (orders, customers, products)"
       },
       {
-        "out": "  Models       : 4 transformations"
+        "cls": "dim",
+        "text": "  Models       : 4 transformations"
       },
       {
-        "out": "  Outputs      : 1 mart  (fct_customer_orders)"
+        "cls": "dim",
+        "text": "  Outputs      : 1 mart  (fct_customer_orders)"
       },
       {
-        "out": "  Tests        : 12 contract tests"
+        "cls": "dim",
+        "text": "  Tests        : 12 contract tests"
       },
       {
-        "out": ""
-      },
-      {
-        "out": "No destructive operations. Estimated runtime: ~5s on 50k sample rows."
-      },
-      {
-        "meta": "✓ plan · 0.7 s · DAG ready"
+        "cls": "faint spaced",
+        "text": "Estimated runtime: ~5 s on 50k sample rows."
       }
     ],
-    "footer": "Plan is read-only. apply is what actually writes."
+    "callout": "<strong>0.7 s</strong> · DAG ready for apply."
   },
   {
-    "kind": "terminal",
-    "header": "Step 5 · Apply",
+    "kind": "term",
+    "duration": 11000,
+    "title": "step 5 · apply",
+    "headline": "fluid apply contract.fluid.yaml --yes",
+    "sub": "Materialize against the local DuckDB at .fluid/duckdb/dev.duckdb.",
     "lines": [
       {
-        "cmd": "$ fluid apply contract.fluid.yaml --yes"
+        "cls": "prompt cmd",
+        "text": "fluid apply contract.fluid.yaml --yes",
+        "typingSpeed": 30
       },
       {
-        "out": "▸ Materializing customer-360 ..."
+        "cls": "info spaced",
+        "text": "▸ Materializing customer-360 ..."
       },
       {
-        "out": "  ▸ ingest:orders        ✓ 50,000 rows  (0.2 s)"
+        "cls": "dim",
+        "text": "  ▸ ingest:orders        ✓ 50,000 rows  (0.2 s)"
       },
       {
-        "out": "  ▸ ingest:customers     ✓ 8,400 rows   (0.1 s)"
+        "cls": "dim",
+        "text": "  ▸ ingest:customers     ✓ 8,400 rows   (0.1 s)"
       },
       {
-        "out": "  ▸ ingest:products      ✓ 2,150 rows   (0.1 s)"
+        "cls": "dim",
+        "text": "  ▸ ingest:products      ✓ 2,150 rows   (0.1 s)"
       },
       {
-        "out": "  ▸ stg_orders           ✓ 50,000 rows  (0.3 s)"
+        "cls": "dim",
+        "text": "  ▸ stg_orders           ✓ 50,000 rows  (0.3 s)"
       },
       {
-        "out": "  ▸ dim_customer         ✓ 8,400 rows   (0.2 s)"
+        "cls": "dim",
+        "text": "  ▸ dim_customer         ✓ 8,400 rows   (0.2 s)"
       },
       {
-        "out": "  ▸ fct_customer_orders  ✓ 50,000 rows  (0.6 s)"
+        "cls": "dim",
+        "text": "  ▸ fct_customer_orders  ✓ 50,000 rows  (0.6 s)"
       },
       {
-        "out": ""
+        "cls": "success spaced",
+        "text": "  ✓ 12 tests passed"
       },
       {
-        "out": "  ✓ 12 tests passed"
-      },
-      {
-        "out": "  ✓ 1 mart materialized at .fluid/duckdb/dev.duckdb"
-      },
-      {
-        "meta": "✓ apply · 4.8 s · cost $0.00"
+        "cls": "success",
+        "text": "  ✓ 1 mart materialized at .fluid/duckdb/dev.duckdb"
       }
     ],
-    "footer": "Querying the result is a one-liner: duckdb .fluid/duckdb/dev.duckdb"
+    "callout": "<strong>4.8 s</strong> · cost <span style='color:var(--good)'>$0.00</span>. Query with <code>duckdb .fluid/duckdb/dev.duckdb</code>."
   },
   {
-    "kind": "summary",
-    "title": "Total: 91 seconds, $0",
-    "items": [
-      {
-        "label": "pip install",
-        "value": "8 s"
-      },
-      {
-        "label": "fluid init --quickstart",
-        "value": "0.4 s"
-      },
-      {
-        "label": "fluid validate",
-        "value": "0.3 s"
-      },
-      {
-        "label": "fluid plan",
-        "value": "0.7 s"
-      },
-      {
-        "label": "fluid apply (50k rows)",
-        "value": "4.8 s"
-      },
-      {
-        "label": "Cloud setup",
-        "value": "none"
-      },
-      {
-        "label": "API keys",
-        "value": "none"
-      },
-      {
-        "label": "Total",
-        "value": "≈ 91 s"
-      }
-    ],
-    "footer": "Same contract files work against BigQuery, Snowflake, or Athena when you're ready — just `fluid apply --provider gcp`."
+    "kind": "closing",
+    "duration": 6500,
+    "body": "\n      <h2>91 seconds. Zero cloud setup. $0.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        Same contract files work against BigQuery, Snowflake, or Athena when you're ready —\n        just <code>fluid apply --provider gcp</code>.\n      </div>\n      <div class=\"badges\" style=\"margin-top:24px;\">\n        <span class=\"badge\">pip install · 8 s</span>\n        <span class=\"badge\">init · 0.4 s</span>\n        <span class=\"badge\">validate · 0.3 s</span>\n        <span class=\"badge\">plan · 0.7 s</span>\n        <span class=\"badge\">apply (50k) · 4.8 s</span>\n      </div>\n    "
   }
 ];;
 

@@ -475,196 +475,204 @@
 
 const SCENES = [
   {
-    "kind": "title",
-    "title": "One contract, three backends",
-    "subtitle": "The same customer_orders.fluid.yaml against DuckDB, BigQuery, and Snowflake — no rewrites.",
-    "tag": "local · gcp · snowflake"
+    "kind": "hero",
+    "duration": 4500,
+    "body": "\n      <div class=\"brand\">FLUID FORGE · MULTI-TARGET</div>\n      <h1>One contract.<br/>Three backends.</h1>\n      <div class=\"tag\">Same <em>customer_orders.fluid.yaml</em> against DuckDB, BigQuery, and Snowflake.</div>\n      <div class=\"tag\">Zero contract edits. Twelve tests passing on each.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">--provider local</span>\n        <span class=\"badge alt\">--provider gcp</span>\n        <span class=\"badge\">--provider snowflake</span>\n      </div>\n      <div class=\"meta\">latency numbers are representative of v0.8.0 with the customer-360 quickstart shape</div>\n    "
   },
   {
-    "kind": "terminal",
-    "header": "The contract — written once",
+    "kind": "term",
+    "duration": 9500,
+    "title": "the contract — written once",
+    "headline": "Provider-agnostic by design",
+    "sub": "Provider selection happens at apply time, not in the contract.",
     "lines": [
       {
-        "cmd": "$ cat customer_orders.fluid.yaml | head -20"
+        "cls": "prompt cmd",
+        "text": "head -16 customer_orders.fluid.yaml",
+        "typingSpeed": 32
       },
       {
-        "out": "fluidVersion: 0.7.2"
+        "cls": "dim spaced",
+        "html": "<span class=\"key\">fluidVersion</span>: 0.7.2"
       },
       {
-        "out": "kind: DataProduct"
+        "cls": "dim",
+        "html": "<span class=\"key\">kind</span>: DataProduct"
       },
       {
-        "out": "metadata:"
+        "cls": "dim",
+        "html": "<span class=\"key\">metadata</span>:"
       },
       {
-        "out": "  name: customer-orders"
+        "cls": "dim",
+        "html": "  <span class=\"key\">name</span>: customer-orders"
       },
       {
-        "out": "  domain: retail"
+        "cls": "dim",
+        "html": "  <span class=\"key\">domain</span>: retail"
       },
       {
-        "out": "spec:"
+        "cls": "dim",
+        "html": "<span class=\"key\">spec</span>:"
       },
       {
-        "out": "  transform:"
+        "cls": "dim",
+        "html": "  <span class=\"key\">transform</span>:"
       },
       {
-        "out": "    engine: dbt"
+        "cls": "dim",
+        "html": "    <span class=\"key\">engine</span>: dbt"
       },
       {
-        "out": "    models:"
+        "cls": "dim",
+        "html": "    <span class=\"key\">models</span>:"
       },
       {
-        "out": "      - name: fct_customer_orders"
+        "cls": "dim",
+        "html": "      - <span class=\"key\">name</span>: fct_customer_orders"
       },
       {
-        "out": "        columns: [...]"
+        "cls": "dim",
+        "html": "  <span class=\"key\">tests</span>:"
       },
       {
-        "out": "  tests:"
+        "cls": "dim",
+        "html": "    - <span class=\"key\">column</span>: order_id"
       },
       {
-        "out": "    - column: order_id"
-      },
-      {
-        "out": "      test: not_null"
-      },
-      {
-        "meta": "✓ Provider-agnostic by design — no provider blocks here."
+        "cls": "dim",
+        "html": "      <span class=\"key\">test</span>: not_null"
       }
     ],
-    "footer": "Provider selection is at apply time, not in the contract."
+    "callout": "<strong>No provider blocks.</strong> The same contract is portable."
   },
   {
-    "kind": "terminal",
-    "header": "Target 1 · Local DuckDB",
+    "kind": "term",
+    "duration": 9500,
+    "title": "target 1 · local DuckDB",
+    "headline": "fluid apply --provider local",
+    "sub": "The default. No cloud account needed.",
     "lines": [
       {
-        "cmd": "$ fluid apply customer_orders.fluid.yaml --provider local --yes"
+        "cls": "prompt cmd",
+        "text": "fluid apply customer_orders.fluid.yaml --provider local --yes",
+        "typingSpeed": 28
       },
       {
-        "out": "▸ Materializing customer-orders → DuckDB ..."
+        "cls": "info spaced",
+        "text": "▸ Materializing customer-orders → DuckDB ..."
       },
       {
-        "out": "  ▸ stg_orders          ✓ 50,000 rows  (0.3 s)"
+        "cls": "dim",
+        "text": "  ▸ stg_orders          ✓ 50,000 rows  (0.3 s)"
       },
       {
-        "out": "  ▸ dim_customer        ✓  8,400 rows  (0.2 s)"
+        "cls": "dim",
+        "text": "  ▸ dim_customer        ✓  8,400 rows  (0.2 s)"
       },
       {
-        "out": "  ▸ fct_customer_orders ✓ 50,000 rows  (0.6 s)"
+        "cls": "dim",
+        "text": "  ▸ fct_customer_orders ✓ 50,000 rows  (0.6 s)"
       },
       {
-        "out": "  ✓ 12 tests passed"
-      },
-      {
-        "meta": "✓ local · 4.8 s · cost $0.00 · zero credentials"
+        "cls": "success spaced",
+        "text": "  ✓ 12 tests passed"
       }
     ],
-    "footer": "The default. No cloud account needed."
+    "callout": "<strong>local · 4.8 s · $0.00</strong> · zero credentials, file at <code>.fluid/duckdb/dev.duckdb</code>"
   },
   {
-    "kind": "terminal",
-    "header": "Target 2 · GCP BigQuery",
+    "kind": "term",
+    "duration": 10500,
+    "title": "target 2 · GCP BigQuery",
+    "headline": "fluid apply --provider gcp",
+    "sub": "BigQuery dataset and slot management handled by the provider plugin.",
     "lines": [
       {
-        "cmd": "$ fluid apply customer_orders.fluid.yaml --provider gcp \\"
+        "cls": "prompt cmd",
+        "text": "fluid apply customer_orders.fluid.yaml --provider gcp \\",
+        "typingSpeed": 28
       },
       {
-        "cmd": "    --project demo-prod --region us-central1 --yes"
+        "cls": "cmd",
+        "text": "  --project demo-prod --region us-central1 --yes",
+        "delay": 80
       },
       {
-        "out": "▸ Materializing customer-orders → BigQuery ..."
+        "cls": "faint spaced",
+        "text": "▸ resolved credentials via gcloud ADC"
       },
       {
-        "out": "  ▸ resolved credentials via gcloud ADC"
+        "cls": "info",
+        "text": "▸ Materializing customer-orders → BigQuery ..."
       },
       {
-        "out": "  ▸ stg_orders          ✓ 50,000 rows  (1.8 s)"
+        "cls": "dim",
+        "text": "  ▸ stg_orders          ✓ 50,000 rows  (1.8 s)"
       },
       {
-        "out": "  ▸ dim_customer        ✓  8,400 rows  (1.2 s)"
+        "cls": "dim",
+        "text": "  ▸ dim_customer        ✓  8,400 rows  (1.2 s)"
       },
       {
-        "out": "  ▸ fct_customer_orders ✓ 50,000 rows  (2.6 s)"
+        "cls": "dim",
+        "text": "  ▸ fct_customer_orders ✓ 50,000 rows  (2.6 s)"
       },
       {
-        "out": "  ✓ 12 tests passed"
-      },
-      {
-        "meta": "✓ gcp · 7.4 s · 1.2 MB scanned · ≈ $0.0001"
+        "cls": "success spaced",
+        "text": "  ✓ 12 tests passed"
       }
     ],
-    "footer": "Same contract, same dbt models. BigQuery dataset and slot management handled by the provider plugin."
+    "callout": "<strong>gcp · 7.4 s</strong> · 1.2 MB scanned · ≈ <span style='color:var(--good)'>$0.0001</span>"
   },
   {
-    "kind": "terminal",
-    "header": "Target 3 · Snowflake",
+    "kind": "term",
+    "duration": 10500,
+    "title": "target 3 · Snowflake",
+    "headline": "fluid apply --provider snowflake",
+    "sub": "Warehouse sizing, role assumption, and key-pair auth handled by the provider plugin.",
     "lines": [
       {
-        "cmd": "$ fluid apply customer_orders.fluid.yaml --provider snowflake \\"
+        "cls": "prompt cmd",
+        "text": "fluid apply customer_orders.fluid.yaml --provider snowflake \\",
+        "typingSpeed": 28
       },
       {
-        "cmd": "    --project demo_prod --region us-east-1 --yes"
+        "cls": "cmd",
+        "text": "  --project demo_prod --region us-east-1 --yes",
+        "delay": 80
       },
       {
-        "out": "▸ Materializing customer-orders → Snowflake ..."
+        "cls": "faint spaced",
+        "text": "▸ resolved credentials via SNOWFLAKE_AUTH_KEYPAIR"
       },
       {
-        "out": "  ▸ resolved credentials via SNOWFLAKE_AUTH_KEYPAIR"
+        "cls": "info",
+        "text": "▸ Materializing customer-orders → Snowflake ..."
       },
       {
-        "out": "  ▸ stg_orders          ✓ 50,000 rows  (2.1 s)"
+        "cls": "dim",
+        "text": "  ▸ stg_orders          ✓ 50,000 rows  (2.1 s)"
       },
       {
-        "out": "  ▸ dim_customer        ✓  8,400 rows  (1.6 s)"
+        "cls": "dim",
+        "text": "  ▸ dim_customer        ✓  8,400 rows  (1.6 s)"
       },
       {
-        "out": "  ▸ fct_customer_orders ✓ 50,000 rows  (3.2 s)"
+        "cls": "dim",
+        "text": "  ▸ fct_customer_orders ✓ 50,000 rows  (3.2 s)"
       },
       {
-        "out": "  ✓ 12 tests passed"
-      },
-      {
-        "meta": "✓ snowflake · 8.9 s · 1 credit ≈ $0.003"
+        "cls": "success spaced",
+        "text": "  ✓ 12 tests passed"
       }
     ],
-    "footer": "Warehouse sizing, role assumption, and key-pair auth handled by the provider plugin."
+    "callout": "<strong>snowflake · 8.9 s</strong> · 1 credit ≈ <span style='color:var(--good)'>$0.003</span>"
   },
   {
-    "kind": "summary",
-    "title": "Same contract, three backends",
-    "items": [
-      {
-        "label": "Lines of contract changed",
-        "value": "0"
-      },
-      {
-        "label": "dbt models rewritten",
-        "value": "0"
-      },
-      {
-        "label": "Provider abstraction",
-        "value": "--provider flag"
-      },
-      {
-        "label": "Local (DuckDB)",
-        "value": "4.8 s · $0"
-      },
-      {
-        "label": "GCP (BigQuery)",
-        "value": "7.4 s · ≈$0.0001"
-      },
-      {
-        "label": "Snowflake",
-        "value": "8.9 s · ≈$0.003"
-      },
-      {
-        "label": "Tests passed",
-        "value": "12 / 12 on each"
-      }
-    ],
-    "footer": "Build locally with DuckDB, ship to the cloud when you're ready. AWS Athena and Azure Synapse work the same way."
+    "kind": "closing",
+    "duration": 6500,
+    "body": "\n      <h2>Same contract. Three backends. No rewrites.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        Build locally with DuckDB, ship to the cloud when you're ready.\n        AWS Athena and Azure Synapse work the same way.\n      </div>\n      <div class=\"badges\" style=\"margin-top:24px;\">\n        <span class=\"badge\">local · 4.8 s · $0</span>\n        <span class=\"badge alt\">gcp · 7.4 s · ≈$0.0001</span>\n        <span class=\"badge\">snowflake · 8.9 s · ≈$0.003</span>\n        <span class=\"badge good\">12 / 12 tests on each</span>\n      </div>\n    "
   }
 ];;
 

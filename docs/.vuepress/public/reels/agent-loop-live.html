@@ -475,234 +475,223 @@
 
 const SCENES = [
   {
-    "kind": "title",
-    "title": "Agent loop, live",
-    "subtitle": "fluid forge --agent-loop — the LLM discovers, picks a template, builds, and self-validates over multiple turns.",
-    "tag": "anthropic · claude-sonnet-4-6 · 6 tool calls"
+    "kind": "hero",
+    "duration": 4500,
+    "body": "\n      <div class=\"brand\">FLUID FORGE · AGENT LOOP</div>\n      <h1>fluid forge<br/>--agent-loop</h1>\n      <div class=\"tag\">The LLM <em>discovers</em>, <em>picks</em>, <em>builds</em>, and <em>self-validates</em> over multiple turns.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">anthropic · claude-sonnet-4-6</span>\n        <span class=\"badge alt\">6 turns · 5 tool calls</span>\n        <span class=\"badge good\">$0.018 · 14.6 s</span>\n      </div>\n      <div class=\"meta\">tokens, cost, and timing captured from a real production run</div>\n    "
   },
   {
-    "kind": "terminal",
-    "header": "Run · Turn 1 of 6",
+    "kind": "term",
+    "duration": 8500,
+    "title": "turn 1 · workspace inspection",
+    "headline": "list_workspace",
+    "sub": "The agent inspects what's already there before deciding.",
     "lines": [
       {
-        "cmd": "$ fluid forge --agent-loop --domain retail --target-dir ./demo"
+        "cls": "prompt cmd",
+        "text": "fluid forge --agent-loop --domain retail --target-dir ./demo",
+        "typingSpeed": 28
       },
       {
-        "out": "▸ provider=anthropic model=claude-sonnet-4-6"
+        "cls": "faint spaced",
+        "text": "▸ provider=anthropic model=claude-sonnet-4-6"
       },
       {
-        "out": "▸ agent loop active · iteration cap 12 · compaction after 6"
+        "cls": "faint",
+        "text": "▸ agent loop active · iteration cap 12 · compaction after 6"
       },
       {
-        "out": ""
+        "cls": "info spaced",
+        "text": "[turn 1] LLM → tool: list_workspace"
       },
       {
-        "out": "[turn 1] LLM → tool: list_workspace"
+        "cls": "dim",
+        "html": "         args: <span class=\"num\">{\"path\": \".\"}</span>"
       },
       {
-        "out": "         args: {\"path\": \".\"}"
-      },
-      {
-        "out": "         result: 4 files (no fluid contract present)"
-      },
-      {
-        "meta": "→ The agent inspects what's already there before deciding."
+        "cls": "dim",
+        "text": "         result: 4 files (no fluid contract present)"
       }
     ],
-    "footer": "Tools are dispatched via @forge_tool — args validated by Pydantic, errors scrubbed before LLM sees them (S-013)."
+    "callout": "Tools dispatched via <code>@forge_tool</code> · args validated by Pydantic · errors scrubbed before LLM sees them (S-013)."
   },
   {
-    "kind": "terminal",
-    "header": "Run · Turn 2",
+    "kind": "term",
+    "duration": 8500,
+    "title": "turn 2 · template list",
+    "headline": "list_templates(domain=retail)",
+    "sub": "Agent narrows the universe to retail templates only.",
     "lines": [
       {
-        "cmd": "(continuing previous run)"
+        "cls": "info",
+        "text": "[turn 2] LLM → tool: list_templates"
       },
       {
-        "out": "[turn 2] LLM → tool: list_templates"
+        "cls": "dim",
+        "html": "         args: <span class=\"num\">{\"domain\": \"retail\"}</span>"
       },
       {
-        "out": "         args: {\"domain\": \"retail\"}"
+        "cls": "dim",
+        "text": "         result:"
       },
       {
-        "out": "         result:"
+        "cls": "dim",
+        "text": "           - customer-360         (most popular for retail)"
       },
       {
-        "out": "           - customer-360         (most popular for retail)"
+        "cls": "dim",
+        "text": "           - retail-loyalty"
       },
       {
-        "out": "           - retail-loyalty"
+        "cls": "dim",
+        "text": "           - product-catalog"
       },
       {
-        "out": "           - product-catalog"
-      },
-      {
-        "out": "           - inventory-snapshot"
-      },
-      {
-        "meta": "→ Agent narrows the universe to retail templates only."
+        "cls": "dim",
+        "text": "           - inventory-snapshot"
       }
     ],
-    "footer": "Tool results stay in the conversation; compaction kicks in after turn 6."
+    "callout": "Tool results stay in the conversation; compaction kicks in after turn 6."
   },
   {
-    "kind": "terminal",
-    "header": "Run · Turn 3",
+    "kind": "term",
+    "duration": 7500,
+    "title": "turn 3 · template intent",
+    "headline": "read_template_intent(name=customer-360)",
+    "sub": "Agent reads the template's intent before committing.",
     "lines": [
       {
-        "cmd": "(continuing)"
+        "cls": "info",
+        "text": "[turn 3] LLM → tool: read_template_intent"
       },
       {
-        "out": "[turn 3] LLM → tool: read_template_intent"
+        "cls": "dim",
+        "html": "         args: <span class=\"num\">{\"name\": \"customer-360\"}</span>"
       },
       {
-        "out": "         args: {\"name\": \"customer-360\"}"
+        "cls": "dim",
+        "text": "         result: { 'metrics': [...], 'dimensions': [...], 'sources': [...] }"
       },
       {
-        "out": "         result: { 'metrics': [...], 'dimensions': [...], 'sources': [...] }"
-      },
-      {
-        "out": ""
-      },
-      {
-        "out": "         (the agent reasons in chain-of-thought; output omitted)"
-      },
-      {
-        "meta": "→ Agent reads the template's intent before committing."
+        "cls": "faint spaced",
+        "text": "         (the agent reasons in chain-of-thought; output omitted)"
       }
     ],
-    "footer": "Template intents are JSON, so the agent can reason structurally, not just by file inspection."
+    "callout": "Template intents are JSON · the agent reasons structurally, not by file inspection."
   },
   {
-    "kind": "terminal",
-    "header": "Run · Turn 4",
+    "kind": "term",
+    "duration": 9500,
+    "title": "turn 4 · scaffold",
+    "headline": "scaffold_contract(template=customer-360)",
+    "sub": "Agent commits to a template and emits real files.",
     "lines": [
       {
-        "cmd": "(continuing)"
+        "cls": "info",
+        "text": "[turn 4] LLM → tool: scaffold_contract"
       },
       {
-        "out": "[turn 4] LLM → tool: scaffold_contract"
+        "cls": "dim",
+        "html": "         args: <span class=\"num\">{ 'template': 'customer-360', 'name': 'demo-retail-360', 'target_dir': './demo' }</span>"
       },
       {
-        "out": "         args: { 'template': 'customer-360', 'name': 'demo-retail-360', 'target_dir': './demo' }"
+        "cls": "dim",
+        "text": "         result:"
       },
       {
-        "out": "         result:"
+        "cls": "success",
+        "text": "           created: ./demo/contract.fluid.yaml      (10.4 KB)"
       },
       {
-        "out": "           created: ./demo/contract.fluid.yaml      (10.4 KB)"
+        "cls": "success",
+        "text": "           created: ./demo/data/customers.csv        (1.8 MB)"
       },
       {
-        "out": "           created: ./demo/data/customers.csv        (1.8 MB)"
-      },
-      {
-        "out": "           created: ./demo/data/orders.csv           (4.2 MB)"
-      },
-      {
-        "meta": "→ Agent commits to a template and emits real files."
+        "cls": "success",
+        "text": "           created: ./demo/data/orders.csv           (4.2 MB)"
       }
     ],
-    "footer": "scaffold_contract is workspace-confined — paths outside the target dir raise ToolValidationError."
+    "callout": "<code>scaffold_contract</code> is workspace-confined — paths outside the target dir raise <code>ToolValidationError</code>."
   },
   {
-    "kind": "terminal",
-    "header": "Run · Turn 5",
+    "kind": "term",
+    "duration": 7500,
+    "title": "turn 5 · self-validate",
+    "headline": "validate_contract",
+    "sub": "Agent self-validates before reporting done.",
     "lines": [
       {
-        "cmd": "(continuing)"
+        "cls": "info",
+        "text": "[turn 5] LLM → tool: validate_contract"
       },
       {
-        "out": "[turn 5] LLM → tool: validate_contract"
+        "cls": "dim",
+        "html": "         args: <span class=\"num\">{ 'path': './demo/contract.fluid.yaml' }</span>"
       },
       {
-        "out": "         args: { 'path': './demo/contract.fluid.yaml' }"
-      },
-      {
-        "out": "         result: { 'passed': True, 'errors': [], 'warnings': [] }"
-      },
-      {
-        "meta": "→ Agent self-validates before reporting done."
+        "cls": "success",
+        "text": "         result: { 'passed': True, 'errors': [], 'warnings': [] }"
       }
     ],
-    "footer": "If validate had returned errors, the corrective-feedback layer would route them back into the conversation as actionable guidance, not raw exception text."
+    "callout": "If validate had returned errors, the corrective-feedback layer would route them back into the conversation as actionable guidance."
   },
   {
-    "kind": "terminal",
-    "header": "Run · Turn 6 · final",
+    "kind": "term",
+    "duration": 9500,
+    "title": "turn 6 · final",
+    "headline": "Done.",
+    "sub": "Agent reports the run summary; cost and cache hits attributed per turn.",
     "lines": [
       {
-        "cmd": "(continuing)"
+        "cls": "info",
+        "text": "[turn 6] LLM → done"
       },
       {
-        "out": "[turn 6] LLM → done"
+        "cls": "rule spaced",
+        "text": "─────────────────────────────────────────────────────────────────"
       },
       {
-        "out": ""
+        "cls": "info",
+        "text": "Result"
       },
       {
-        "out": "Result"
+        "cls": "rule",
+        "text": "─────────────────────────────────────────────────────────────────"
       },
       {
-        "out": "  workspace            ./demo"
+        "cls": "dim",
+        "text": "  workspace            ./demo"
       },
       {
-        "out": "  template             customer-360"
+        "cls": "dim",
+        "text": "  template             customer-360"
       },
       {
-        "out": "  contract             ./demo/contract.fluid.yaml"
+        "cls": "dim",
+        "text": "  contract             ./demo/contract.fluid.yaml"
       },
       {
-        "out": "  validate             passed (0 errors)"
+        "cls": "dim",
+        "text": "  validate             passed (0 errors)"
       },
       {
-        "out": "  iterations           6 of 12 cap"
+        "cls": "dim",
+        "text": "  iterations           6 of 12 cap"
       },
       {
-        "out": "  cost                 $0.018  (5,210 in / 920 out)"
+        "cls": "dim",
+        "html": "  cost                 <span class=\"num\">$0.018</span>  (5,210 in / 920 out)"
       },
       {
-        "out": "  prompt cache hits    2 / 6 turns"
-      },
-      {
-        "meta": "✓ agent loop · 14.6 s · sub-2¢ run"
+        "cls": "dim",
+        "text": "  prompt cache hits    2 / 6 turns"
       }
     ],
-    "footer": "Streaming usage is captured per turn; prompt-cache hits show up in the cost breakdown."
+    "callout": "<strong>14.6 s · sub-2¢ run.</strong> Streaming usage captured per turn."
   },
   {
-    "kind": "summary",
-    "title": "What the agent did, on its own",
-    "items": [
-      {
-        "label": "Iterations",
-        "value": "6"
-      },
-      {
-        "label": "Tool calls",
-        "value": "5 (list, list, read, scaffold, validate)"
-      },
-      {
-        "label": "Workspace breach attempts",
-        "value": "0"
-      },
-      {
-        "label": "Self-correction cycles",
-        "value": "0 (clean run)"
-      },
-      {
-        "label": "Total tokens",
-        "value": "5,210 in · 920 out"
-      },
-      {
-        "label": "Cost",
-        "value": "$0.018"
-      },
-      {
-        "label": "Wall time",
-        "value": "14.6 s"
-      }
-    ],
-    "footer": "Switch --llm-provider to gemini, openai, or ollama and the same loop runs — capability warnings flag any combo that's degraded."
+    "kind": "closing",
+    "duration": 6500,
+    "body": "\n      <h2>The agent did 5 tool calls. Zero workspace breaches.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        Switch <code>--llm-provider</code> to <em>gemini</em>, <em>openai</em>, or <em>ollama</em>\n        and the same loop runs — capability warnings flag any combo that's degraded.\n      </div>\n      <div class=\"badges\" style=\"margin-top:24px;\">\n        <span class=\"badge\">6 iterations</span>\n        <span class=\"badge\">5 tool calls</span>\n        <span class=\"badge alt\">5,210 in · 920 out</span>\n        <span class=\"badge good\">$0.018 · 14.6 s</span>\n      </div>\n    "
   }
 ];;
 

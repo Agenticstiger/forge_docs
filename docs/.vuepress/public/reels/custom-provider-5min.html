@@ -475,195 +475,204 @@
 
 const SCENES = [
   {
-    "kind": "title",
-    "title": "Add a custom provider in 5 minutes",
-    "subtitle": "Subclass FluidProvider, implement 4 methods, register the entry point. Same shape as built-in gcp / aws / snowflake.",
-    "tag": "FluidProvider · entry_points · 4 methods"
+    "kind": "hero",
+    "duration": 4500,
+    "body": "\n      <div class=\"brand\">FLUID FORGE · CUSTOM PROVIDERS</div>\n      <h1>5 minutes.<br/>4 methods.</h1>\n      <div class=\"tag\">Subclass <em>FluidProvider</em>, implement four methods, register the entry point.</div>\n      <div class=\"tag\">Same shape as built-in <em>gcp</em> / <em>aws</em> / <em>snowflake</em>.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">FluidProvider</span>\n        <span class=\"badge alt\">entry_points</span>\n        <span class=\"badge good\">no plugin manager</span>\n      </div>\n    "
   },
   {
-    "kind": "terminal",
-    "header": "Step 1 · Scaffold the package",
+    "kind": "term",
+    "duration": 9500,
+    "title": "step 1 · scaffold",
+    "headline": "fluid provider-init",
+    "sub": "Same scaffolder our gcp/aws/snowflake plugins use.",
     "lines": [
       {
-        "cmd": "$ fluid provider-init my-warehouse --owner acme"
+        "cls": "prompt cmd",
+        "text": "fluid provider-init my-warehouse --owner acme",
+        "typingSpeed": 28
       },
       {
-        "out": "Created: ./fluid-provider-my-warehouse/"
+        "cls": "info spaced",
+        "text": "Created: ./fluid-provider-my-warehouse/"
       },
       {
-        "out": "  ├── pyproject.toml          (entry-point wired)"
+        "cls": "dim",
+        "text": "  ├── pyproject.toml          (entry-point wired)"
       },
       {
-        "out": "  ├── README.md               (doc page template)"
+        "cls": "dim",
+        "text": "  ├── README.md               (doc page template)"
       },
       {
-        "out": "  └── src/fluid_provider_my_warehouse/"
+        "cls": "dim",
+        "text": "  └── src/fluid_provider_my_warehouse/"
       },
       {
-        "out": "      ├── __init__.py"
+        "cls": "dim",
+        "text": "      ├── __init__.py"
       },
       {
-        "out": "      ├── provider.py         (the 4-method class)"
+        "cls": "dim",
+        "text": "      ├── provider.py         (the 4-method class)"
       },
       {
-        "out": "      └── tests/test_smoke.py"
-      },
-      {
-        "meta": "✓ scaffold · 0.5 s · provider-init wires the entry point"
+        "cls": "dim",
+        "text": "      └── tests/test_smoke.py"
       }
     ],
-    "footer": "fluid provider-init is the same scaffolder our gcp/aws/snowflake plugins use."
+    "callout": "<strong>0.5 s</strong> · entry-point already wired in pyproject.toml."
   },
   {
-    "kind": "terminal",
-    "header": "Step 2 · The 4-method contract",
+    "kind": "term",
+    "duration": 11000,
+    "title": "step 2 · the contract",
+    "headline": "Four methods, no inheritance tax",
+    "sub": "Built-in providers are the same shape.",
     "lines": [
       {
-        "cmd": "$ cat src/fluid_provider_my_warehouse/provider.py"
+        "cls": "prompt cmd",
+        "text": "cat src/fluid_provider_my_warehouse/provider.py",
+        "typingSpeed": 26
       },
       {
-        "out": "from fluid_build.providers import FluidProvider, ProviderError"
+        "cls": "dim spaced",
+        "html": "<span class=\"key\">from</span> fluid_build.providers <span class=\"key\">import</span> FluidProvider, ProviderError"
       },
       {
-        "out": ""
+        "cls": "dim spaced",
+        "html": "<span class=\"key\">class</span> <span class=\"alt\">MyWarehouseProvider</span>(FluidProvider):"
       },
       {
-        "out": "class MyWarehouseProvider(FluidProvider):"
+        "cls": "dim",
+        "html": "    <span class=\"key\">name</span> = <span class=\"num\">\"my-warehouse\"</span>"
       },
       {
-        "out": "    name = \"my-warehouse\""
+        "cls": "dim spaced",
+        "html": "    <span class=\"key\">def</span> <span class=\"alt\">validate</span>(self, contract):  <span class=\"faint\"># 1</span>"
       },
       {
-        "out": ""
+        "cls": "dim",
+        "text": "        ..."
       },
       {
-        "out": "    def validate(self, contract):  # 1"
+        "cls": "dim",
+        "html": "    <span class=\"key\">def</span> <span class=\"alt\">plan</span>(self, contract, env):  <span class=\"faint\"># 2</span>"
       },
       {
-        "out": "        ..."
+        "cls": "dim",
+        "text": "        ..."
       },
       {
-        "out": "    def plan(self, contract, env):  # 2"
+        "cls": "dim",
+        "html": "    <span class=\"key\">def</span> <span class=\"alt\">apply</span>(self, contract, env):  <span class=\"faint\"># 3</span>"
       },
       {
-        "out": "        ..."
+        "cls": "dim",
+        "text": "        ..."
       },
       {
-        "out": "    def apply(self, contract, env):  # 3"
+        "cls": "dim",
+        "html": "    <span class=\"key\">def</span> <span class=\"alt\">credentials</span>(self):  <span class=\"faint\"># 4</span>"
       },
       {
-        "out": "        ..."
-      },
-      {
-        "out": "    def credentials(self):  # 4"
-      },
-      {
-        "out": "        ..."
-      },
-      {
-        "meta": "→ Built-in providers are the same shape: 4 methods, no inheritance tax."
+        "cls": "dim",
+        "text": "        ..."
       }
     ],
-    "footer": "Errors raise ProviderError / ProviderInternalError — see Custom Providers → Error Handling."
+    "callout": "Errors raise <code>ProviderError</code> / <code>ProviderInternalError</code> — see Custom Providers → Error Handling."
   },
   {
-    "kind": "terminal",
-    "header": "Step 3 · Install + verify",
+    "kind": "term",
+    "duration": 8500,
+    "title": "step 3 · install + verify",
+    "headline": "pip install -e + fluid providers",
+    "sub": "Provider lookup is via importlib.metadata.entry_points('fluid.providers').",
     "lines": [
       {
-        "cmd": "$ pip install -e ./fluid-provider-my-warehouse"
+        "cls": "prompt cmd",
+        "text": "pip install -e ./fluid-provider-my-warehouse",
+        "typingSpeed": 26
       },
       {
-        "out": "Successfully installed fluid-provider-my-warehouse-0.1.0"
+        "cls": "success",
+        "text": "Successfully installed fluid-provider-my-warehouse-0.1.0"
       },
       {
-        "cmd": "$ fluid providers"
+        "cls": "prompt cmd spaced",
+        "text": "fluid providers",
+        "typingSpeed": 60,
+        "delay": 200
       },
       {
-        "out": "Registered providers"
+        "cls": "info spaced",
+        "text": "Registered providers"
       },
       {
-        "out": "  ▸ local         (built-in)"
+        "cls": "dim",
+        "text": "  ▸ local         (built-in)"
       },
       {
-        "out": "  ▸ gcp           (built-in)"
+        "cls": "dim",
+        "text": "  ▸ gcp           (built-in)"
       },
       {
-        "out": "  ▸ aws           (built-in)"
+        "cls": "dim",
+        "text": "  ▸ aws           (built-in)"
       },
       {
-        "out": "  ▸ snowflake     (built-in)"
+        "cls": "dim",
+        "text": "  ▸ snowflake     (built-in)"
       },
       {
-        "out": "  ▸ my-warehouse  (community · 0.1.0)   ← yours"
-      },
-      {
-        "meta": "✓ entry-point discovery · the CLI auto-detects on next run."
+        "cls": "success",
+        "html": "  ▸ <span class=\"alt\">my-warehouse</span>  (community · 0.1.0)   ← yours"
       }
     ],
-    "footer": "Provider lookup is via importlib.metadata.entry_points('fluid.providers')."
+    "callout": "Auto-detected on next CLI run."
   },
   {
-    "kind": "terminal",
-    "header": "Step 4 · Use it like any built-in",
+    "kind": "term",
+    "duration": 9500,
+    "title": "step 4 · use it like any built-in",
+    "headline": "fluid apply --provider my-warehouse",
+    "sub": "Same flags, same exit codes, same plan/apply lifecycle.",
     "lines": [
       {
-        "cmd": "$ fluid apply customer_orders.fluid.yaml --provider my-warehouse --yes"
+        "cls": "prompt cmd",
+        "text": "fluid apply customer_orders.fluid.yaml --provider my-warehouse --yes",
+        "typingSpeed": 28
       },
       {
-        "out": "▸ Materializing customer-orders → my-warehouse ..."
+        "cls": "info spaced",
+        "text": "▸ Materializing customer-orders → my-warehouse ..."
       },
       {
-        "out": "  ▸ resolved credentials via MY_WAREHOUSE_TOKEN"
+        "cls": "faint",
+        "text": "  ▸ resolved credentials via MY_WAREHOUSE_TOKEN"
       },
       {
-        "out": "  ▸ stg_orders          ✓ 50,000 rows  (1.4 s)"
+        "cls": "dim",
+        "text": "  ▸ stg_orders          ✓ 50,000 rows  (1.4 s)"
       },
       {
-        "out": "  ▸ dim_customer        ✓  8,400 rows  (0.9 s)"
+        "cls": "dim",
+        "text": "  ▸ dim_customer        ✓  8,400 rows  (0.9 s)"
       },
       {
-        "out": "  ▸ fct_customer_orders ✓ 50,000 rows  (2.1 s)"
+        "cls": "dim",
+        "text": "  ▸ fct_customer_orders ✓ 50,000 rows  (2.1 s)"
       },
       {
-        "out": "  ✓ 12 tests passed"
-      },
-      {
-        "meta": "✓ my-warehouse · 4.4 s · same contract, your backend"
+        "cls": "success spaced",
+        "text": "  ✓ 12 tests passed"
       }
     ],
-    "footer": "Same flags, same exit codes, same plan/apply lifecycle. CI doesn't know the difference."
+    "callout": "<strong>my-warehouse · 4.4 s</strong> · same contract, your backend. CI doesn't know the difference."
   },
   {
-    "kind": "summary",
-    "title": "5 minutes, 4 methods, no monkey-patching",
-    "items": [
-      {
-        "label": "Files written by hand",
-        "value": "1 (provider.py)"
-      },
-      {
-        "label": "Methods to implement",
-        "value": "4 (validate, plan, apply, credentials)"
-      },
-      {
-        "label": "Registration mechanism",
-        "value": "entry_points (no plugin manager)"
-      },
-      {
-        "label": "Built-in features lost",
-        "value": "0"
-      },
-      {
-        "label": "Test scaffold",
-        "value": "included"
-      },
-      {
-        "label": "CI inclusion",
-        "value": "automatic on pip install"
-      }
-    ],
-    "footer": "See Providers → Custom Providers for the full FluidProvider API and the typed-error taxonomy."
+    "kind": "closing",
+    "duration": 6500,
+    "body": "\n      <h2>4 methods. Entry-points. Done.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        See Providers → Custom Providers for the full <em>FluidProvider</em> API\n        and the typed-error taxonomy.\n      </div>\n      <div class=\"badges\" style=\"margin-top:24px;\">\n        <span class=\"badge\">1 file written by hand</span>\n        <span class=\"badge alt\">4 methods to implement</span>\n        <span class=\"badge\">test scaffold included</span>\n        <span class=\"badge good\">CI inclusion automatic</span>\n      </div>\n    "
   }
 ];;
 
