@@ -45,10 +45,12 @@ export default defineUserConfig({
     navbar: [
       { text: 'Home', link: '/' },
       { text: 'Get Started', link: '/getting-started/' },
+      { text: 'See it run', link: '/see-it-run' },
       {
         text: 'Walkthroughs',
         children: [
           { text: 'Local (DuckDB)', link: '/walkthrough/local' },
+          { text: 'Source-Aligned (Postgres → DuckDB)', link: '/walkthrough/source-aligned-postgres-duckdb' },
           { text: 'AI Forge + Data Models', link: '/walkthrough/ai-forge-data-model' },
           { text: 'GCP (BigQuery)', link: '/walkthrough/gcp' },
           { text: 'Snowflake Team Collaboration', link: '/walkthrough/snowflake' },
@@ -86,14 +88,22 @@ export default defineUserConfig({
             '/README.md',
             '/getting-started/',
             '/getting-started/snowflake.md',
+            '/see-it-run.md',
             '/forge-data-model.md',
             '/vision.md'
+          ]
+        },
+        {
+          text: 'Data Products',
+          children: [
+            '/data-products/product-type.md'
           ]
         },
         {
           text: 'Walkthroughs',
           children: [
             '/walkthrough/local.md',
+            '/walkthrough/source-aligned-postgres-duckdb.md',
             '/walkthrough/ai-forge-data-model.md',
             '/walkthrough/gcp.md',
             '/walkthrough/snowflake.md',
@@ -162,7 +172,14 @@ export default defineUserConfig({
             '/cli/providers.md',
             '/cli/provider-init.md',
             '/cli/roadmap.md',
-            '/cli/version.md'
+            '/cli/version.md',
+            // Source-aligned acquisition (next release)
+            '/cli/runs.md',
+            '/cli/retention.md',
+            '/cli/secrets.md',
+            '/cli/stats.md',
+            '/cli/contract.md',
+            '/cli/ship.md'
           ]
         },
         {
@@ -190,12 +207,17 @@ export default defineUserConfig({
             '/advanced/forge-copilot-memory.md',
             '/advanced/llm-providers.md',
             '/advanced/capability-warnings.md',
+            '/advanced/litellm-backend.md',
             '/advanced/mcp.md',
             '/advanced/credential-resolver.md',
             '/advanced/cost-tracking.md',
             '/advanced/agentic-primitives.md',
             '/advanced/typed-errors.md',
+            '/advanced/typed-cli-errors.md',
             '/advanced/forge-tools.md',
+            '/advanced/source-aligned-acquisition.md',
+            '/advanced/api-stability.md',
+            '/advanced/guided-forge-ux.md',
             '/advanced/v1.5-architecture.md',
             '/advanced/v1.5-release-notes.md'
           ]

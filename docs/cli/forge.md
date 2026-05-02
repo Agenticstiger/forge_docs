@@ -108,6 +108,61 @@ The same flow is exposed via the MCP `forge_from_source` tool, so
 Claude Code / Cursor agents can drive a catalog forge from inside
 the editor.
 
+## Mode picker, refine, compose — coming in the next release
+
+::: tip Where this fits
+The 5-mode picker, `--refine`, `--from-product`, slash commands, preview panel, and the streaming contract preview ship on the `feat/source-aligned-acquisition` branch. The pinned 0.8.0 baseline still has the older single-shot interview shape.
+:::
+
+Bare `fluid forge` (TTY, no flags) lands on a 5-mode menu instead of dropping straight into AI:
+
+```text
+What kind of run is this?
+  1. AI Copilot                  — full interview, LLM-driven (default for fresh products)
+  2. Compose from existing       — build on top of products already in the workspace
+  3. Refine a contract           — load a contract, ask 'what to change?'
+  4. Template                    — start from one of the 5 built-in templates
+  5. Blank scaffold              — empty contract, no AI
+```
+
+The picker pre-highlights based on a parallel welcome scan that runs in <50 ms. Skip with `FLUID_FORGE_NO_PICKER=1`.
+
+### `--from-product` — composition
+
+Pick one or more upstream products; Forge resolves them, validates composition rules (SDP rejects upstreams; ADP/CDP accept SDP+ADP — see [Product Types](/forge_docs/data-products/product-type.html#composition-rules)), and pre-fills `consumes[]`:
+
+```bash
+fluid forge --from-product bronze.crm_orders
+fluid forge --from-product bronze.crm_orders --from-product bronze.crm_customers
+fluid forge --from-product-list ./upstreams.json
+```
+
+### `--refine` — load a contract and tweak
+
+```bash
+fluid forge --refine                          # auto-discover from cwd
+fluid forge --refine ./products/orders.fluid.yaml
+```
+
+Loads the contract, asks "what to change?", feeds the contract verbatim to the LLM as the seed. One question, no full interview.
+
+### Slash commands inside the interview
+
+| Command | Effect |
+|---|---|
+| `:ai-setup` | Re-run AI provider setup mid-interview |
+| `:override` | Switch engine / restart / export state |
+| `:show-work` | Toggle live streaming of agent reasoning + tool calls |
+| `:doctor` | Inline `fluid doctor` |
+| `:help` | List commands |
+| `:quit` | Abort gracefully (saves partial state) |
+
+### Pre-write preview panel
+
+Before any file is written, Forge renders a panel showing files, cost, and run-id so users see exactly what they're about to commit to. `--yes` skips the confirmation prompt but the panel still renders. Suppress with `FLUID_FORGE_NO_PREVIEW=1`.
+
+For the full picture see [Guided `fluid forge` UX](/forge_docs/advanced/guided-forge-ux.html).
+
 ## Notes
 
 - The current promoted syntax is `fluid forge`, not `fluid forge --mode copilot`.

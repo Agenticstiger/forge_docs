@@ -7,6 +7,9 @@ actions:
   - text: Get Started →
     link: /getting-started/
     type: primary
+  - text: See it run
+    link: /see-it-run
+    type: secondary
   - text: CLI Reference
     link: /cli/
     type: secondary
@@ -35,15 +38,15 @@ footer: Apache 2.0 Licensed | Documentation for the Fluid Forge CLI
 A 60-second walkthrough of `fluid forge data-model from-intent` against four LLM providers (Anthropic Haiku 4.5, OpenAI gpt-4.1-mini, Gemini 2.5-flash, local Ollama gemma4) — every token count is from a real production call.
 
 <iframe
-  src="/forge_docs/reels/whats-new-pr78-82.html"
+  src="/forge_docs/reels/forge-in-action.html"
   width="100%"
   height="540"
   style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
   loading="lazy"
-  title="Fluid Forge — agentic stack walkthrough">
+  title="Fluid Forge in action — agentic data-product flow">
 </iframe>
 
-Use ←/→ to step scenes, space to pause, r to restart.
+Use ←/→ to step scenes, space to pause, r to restart. **[See all reels →](/forge_docs/see-it-run.html)** — quickstart, source-aligned Bronze, guided forge UX, day-2 ops, and more.
 
 ## Start with the current workflow
 
@@ -89,11 +92,16 @@ For every AI and data-model journey, including hosted provider strict mode, Olla
 
 | Group | Commands |
 | --- | --- |
-| Core Workflow | `init`, `forge`, `forge data-model`, `validate`, `plan`, `apply` |
+| Core Workflow | `init`, `forge`, `forge data-model`, `validate`, `plan`, `apply`, `ship` |
 | Generate | `generate transformation`, `generate schedule`, `generate ci`, `generate standard` |
 | Integrations | `publish`, `market`, `import` |
-| Quality & Governance | `policy-check`, `diff`, `test`, `verify` |
+| Quality & Governance | `policy-check`, `diff`, `test`, `verify`, `contract` |
+| Day-2 Ops | `runs`, `retention`, `secrets`, `stats` |
 | Utilities | `config`, `split`, `bundle`, `auth`, `doctor`, `providers`, `memory`, `mcp`, `version` |
+
+::: tip Coming in the next release — source-aligned acquisition
+The `feat/source-aligned-acquisition` branch lands schema **0.7.3**, the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), public extension API `fluid_build.api` v1.0, and the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel). See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Product Types](/forge_docs/data-products/product-type.html), and [What's coming](/forge_docs/see-it-run.html) for the full picture.
+:::
 
 ## Where to go next
 
