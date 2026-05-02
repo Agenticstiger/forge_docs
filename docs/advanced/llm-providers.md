@@ -106,7 +106,7 @@ Use `fluid ai setup` for interactive setup and key storage. Provider and model c
 
 ## Run-start capability warnings
 
-When you pick a provider/model whose declared capabilities don't satisfy what the run needs (e.g. `gpt-3.5` in agent-loop mode, an Ollama model with no tool-use support, or a model not yet in the capability catalog), the CLI prints a one-paragraph warning at the start of `fluid forge data-model from-intent` and continues with degraded behaviour. See [Capability Warnings](capability-warnings.md) for the matrix and a worked example reel.
+When you pick a provider/model whose declared capabilities don't satisfy what the run needs (e.g. `gpt-3.5` in agent-loop mode, an Ollama model with no tool-use support, or a model not yet in the capability catalog), the CLI prints a one-paragraph warning at the start of `fluid forge data-model from-intent` and continues with degraded behaviour. See [Capability Warnings](capability-warnings.md) for the full matrix and the exact banner shape.
 
 ## Operator-facing errors
 

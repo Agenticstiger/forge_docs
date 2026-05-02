@@ -1,6 +1,6 @@
 # See Fluid Forge in action
 
-Six short, self-contained reels covering the moments most likely to make or break adoption — the agentic stack, source-aligned ingestion, the guided forge UX, and day-2 operations.
+Five short, self-contained reels covering the moments most likely to make or break adoption — the agentic stack, source-aligned ingestion, the guided forge UX, day-2 operations, and agent-loop tuning.
 
 Every reel is HTML/CSS/JS only, no video, no analytics, no autoplay surprise. Use **←/→** to step scenes, **space** to pause, **r** to restart.
 
@@ -12,7 +12,6 @@ Every reel is HTML/CSS/JS only, no video, no analytics, no autoplay surprise. Us
 | Curious about source-aligned ingestion | [Source-aligned Bronze in 60 s](#source-aligned-bronze-in-60-seconds) | 60 s |
 | Comparing the new `fluid forge` UX | [Guided forge UX](#guided-forge-ux) | 50 s |
 | Operator: what comes after first apply | [Day-2 ops](#day-2-ops) | 60 s |
-| Operator: provider/model selection | [Capability-warning banner](#capability-warning-banner) | 20 s |
 | Operator: agent-loop tuning | [Compaction strategies](#compaction-strategies) | 30 s |
 
 ---
@@ -76,21 +75,6 @@ Inspect run records, scope logs by component, diff schema between runs, sweep re
 </iframe>
 
 Pairs with [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge_docs/cli/retention.html), [`fluid secrets`](/forge_docs/cli/secrets.html), and [`fluid stats`](/forge_docs/cli/stats.html). [Open standalone](/forge_docs/reels/day2-ops.html)
-
-## Capability-warning banner
-
-The same run on a degraded `(provider, model)` combo (`openai/o1-mini`) prints a one-paragraph warning at start; the supported combo (`openai/gpt-4.1-mini`) is silent. Three scenes, no narration needed.
-
-<iframe
-  src="/forge_docs/reels/capability-warning-fires.html"
-  width="100%"
-  height="440"
-  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
-  loading="lazy"
-  title="Capability warning fires — worked example">
-</iframe>
-
-Pairs with [Capability Warnings](/forge_docs/advanced/capability-warnings.html). [Open standalone](/forge_docs/reels/capability-warning-fires.html)
 
 ## Compaction strategies
 

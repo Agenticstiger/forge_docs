@@ -4,15 +4,6 @@ When you start a `fluid forge data-model from-intent` run, the CLI checks the (p
 
 This page tells you what those warnings mean, what to do about them, and which (provider, model) combos are catalogued.
 
-<iframe
-  src="/forge_docs/reels/capability-warning-fires.html"
-  width="100%"
-  height="400"
-  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
-  loading="lazy"
-  title="Capability warning fires — worked example">
-</iframe>
-
 ## What the banner looks like
 
 A typical run on a degraded combo prints something like this just after the v2-preview banner:
