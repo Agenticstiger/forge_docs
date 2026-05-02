@@ -8,17 +8,17 @@ Use **←/→** to step scenes, **space** to pause, **r** to restart.
 
 | Your pain | Watch this | Time | Punchline |
 |---|---|---|---|
-| Writing 200 lines of Python per data source | [Skip the glue code](#skip-the-glue-code) | 60 s | $0.03 average. Free on Ollama. |
-| Six months to set up Airbyte for one Postgres | [Skip the cluster](#skip-the-cluster) | 60 s | Six engines. One contract. Zero clusters. |
-| Most CLIs ask 27 questions before they help | [Skip the questions](#skip-the-questions) | 50 s | 47 ms scan. 4 / 5 questions auto-resolved. |
+| Writing 200 lines of Python per data source | [$0.03 per data product](#_0-03-per-data-product) | 60 s | Three providers. Same contract. Free on Ollama. |
+| Six months to set up Airbyte for one Postgres | [Six months → sixty seconds](#six-months-sixty-seconds) | 60 s | Six engines. One contract. Zero clusters. |
+| Most CLIs ask 27 questions before they help | [23 questions, skipped](#_23-questions-skipped) | 50 s | 47 ms scan. 4 of 5 questions auto-resolved. |
 | 3am Slack ping: pipeline broke, who knows why | [Skip the panic](#skip-the-panic) | 60 s | 3am incident → ship in 90 seconds. |
-| Your agent loop quietly spent $0.50 on tool history | [Skip the runaway bill](#skip-the-runaway-bill) | 30 s | One env var. 10× cheaper agent loops. |
+| Your agent loop quietly spent $0.50 on tool history | [$0.50 → $0.05](#_0-50-0-05) | 30 s | One env var. 10× cheaper agent loops. |
 
 ---
 
-## Skip the glue code
+## $0.03 per data product
 
-Most data teams write 200 lines of Python per source. Or 8 lines of YAML and let the AI build the contract — same intent, three providers, real production cost figures on screen.
+Most data teams write 200 lines of Python per source. Or 8 lines of YAML and let the AI build the contract — same intent, three providers (Anthropic Haiku 4.5, OpenAI gpt-4.1-mini, local Ollama gemma4), real production cost figures on screen. Switch providers any time. The contract stays portable.
 
 <iframe
   src="/forge_docs/reels/forge-in-action.html"
@@ -31,9 +31,9 @@ Most data teams write 200 lines of Python per source. Or 8 lines of YAML and let
 
 [Open standalone](/forge_docs/reels/forge-in-action.html). Pairs with [Forge Data Model](/forge_docs/forge-data-model.html) and [LLM Providers](/forge_docs/advanced/llm-providers.html).
 
-## Skip the cluster
+## Six months → sixty seconds
 
-Six months of Airbyte. Two weeks of Airflow DAGs. For one source. Or `fluid init --discover postgres://…` and a 60-second flight to a working Bronze contract — switch `engine:` between `duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium` when you outgrow embedded mode.
+Six months of Airbyte. Two weeks of Airflow DAGs. JVM heap tuning. For one Postgres source. Or `fluid init --discover postgres://…` and a 60-second flight to a working Bronze contract — switch `engine:` between `duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium` when you outgrow embedded mode.
 
 <iframe
   src="/forge_docs/reels/source-aligned-bronze.html"
@@ -46,9 +46,9 @@ Six months of Airbyte. Two weeks of Airflow DAGs. For one source. Or `fluid init
 
 [Open standalone](/forge_docs/reels/source-aligned-bronze.html). Pairs with [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html), and [`fluid init --discover`](/forge_docs/cli/init.html#discover).
 
-## Skip the questions
+## 23 questions, skipped
 
-Most CLIs ask 27 questions before they help you. Forge skips the 23 it can already answer — 50 ms welcome scan, 5-mode picker, inferences-first interview, slash commands at every prompt, cost-cap progress prefix that shows you what you're spending in real time, and a pre-write panel so nothing surprises you.
+Most CLIs ask 27 questions before they help you. Forge asks four — the rest, it already knows. 47 ms welcome scan, 5-mode picker, inferences-first interview, slash commands at every prompt, cost-cap progress prefix in real time, and a pre-write panel so nothing surprises you.
 
 <iframe
   src="/forge_docs/reels/guided-forge-ux.html"
@@ -76,9 +76,9 @@ It's 3am. Pipeline broke. You have 90 seconds. `fluid runs status` (where), `flu
 
 [Open standalone](/forge_docs/reels/day2-ops.html). Pairs with [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge_docs/cli/retention.html), [`fluid secrets`](/forge_docs/cli/secrets.html), [`fluid stats`](/forge_docs/cli/stats.html), and [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html).
 
-## Skip the runaway bill
+## $0.50 → $0.05
 
-Long agent loops accumulate tool results. Without compaction, your bill grows super-linearly. Three strategies — `truncate` (free, default), `summarize` (LLM-backed, high recall), `hybrid` (cheap path first, summariser as safety net) — pick yours, set one env var, watch the bill drop 10×.
+Long agent loops accumulate tool results — every turn rides on top of the last one. Without compaction, your bill grows super-linearly. Three strategies — `truncate` (free, default), `summarize` (LLM-backed, high recall), `hybrid` (cheap path first, summariser as safety net) — pick yours, set one env var, watch the bill drop 10×.
 
 <iframe
   src="/forge_docs/reels/compaction-and-warnings.html"
