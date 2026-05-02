@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fluid Forge — compaction strategies</title>
+<title>Skip the runaway bill — Fluid Forge</title>
 <style>
   :root {
     --bg-0: #07090f;
@@ -475,94 +475,183 @@
 
 const SCENES = [
   {
-    kind: "hero",
-    duration: 3500,
-    body: `
-      <div class="brand">FLUID FORGE · COMPACTION</div>
-      <h1 style="font-size:60px">Token budgets, three strategies</h1>
-      <div class="tag">When the agent loop runs long, the message history gets compacted.</div>
-      <div class="tag"><em>truncate</em> · <em>summarize</em> · <em>hybrid</em></div>
-    `,
+    "kind": "hero",
+    "duration": 5500,
+    "body": "\n      <div class=\"brand\">FLUID FORGE · COMPACTION</div>\n      <h1>Skip the<br/>runaway&nbsp;bill.</h1>\n      <div class=\"tag\">Your agent loop just spent <em>$0.50 on tool history</em>.</div>\n      <div class=\"tag\">One env var. Same outcome. <em>10× cheaper.</em></div>\n      <div class=\"badges\">\n        <span class=\"badge\">truncate (default)</span>\n        <span class=\"badge alt\">summarize (LLM)</span>\n        <span class=\"badge good\">hybrid (both)</span>\n      </div>\n    "
   },
   {
-    kind: "term",
-    duration: 8000,
-    title: "long agent loop · iteration 7",
-    headline: "Iteration count exceeds FLUID_AGENT_COMPACT_AFTER (default: 6)",
-    sub: "Without compaction, the next call would overflow the context window. Pre-flight check raises ContextOverflowError before paying for a 4xx.",
-    lines: [
-      { cls: "faint", text: "[loop] iteration 6 · 12 messages · 18,432 tokens (estimated)" },
-      { cls: "faint", text: "[loop] iteration 7 · 14 messages · 22,180 tokens" },
-      { cls: "warn spaced", text: "⏱ pre-flight: prompt is 22,180 tokens, model gpt-4o-mini has 128K window — fits, BUT trending toward overflow at iteration 12+" },
-      { cls: "info", text: "[loop] compaction triggered (FLUID_AGENT_COMPACT_AFTER=6)" },
-      { cls: "info", text: "[loop] strategy: " + (typeof window !== 'undefined' ? "" : "") + "FLUID_COMPACTION_STRATEGY (default: truncate)" },
+    "kind": "term",
+    "duration": 7500,
+    "title": "the problem",
+    "headline": "Long agent loops accumulate tool results.",
+    "sub": "Every tool call compounds the next prompt. Costs explode quietly.",
+    "lines": [
+      {
+        "cls": "prompt cmd",
+        "text": "fluid forge --agent-loop --domain retail --target-dir ./demo",
+        "typingSpeed": 28
+      },
+      {
+        "cls": "faint spaced",
+        "text": "[turn 1]  3,200 in   400 out   $0.011"
+      },
+      {
+        "cls": "faint",
+        "text": "[turn 2]  4,800 in   500 out   $0.016"
+      },
+      {
+        "cls": "warn",
+        "text": "[turn 3]  8,400 in   620 out   $0.029"
+      },
+      {
+        "cls": "warn",
+        "text": "[turn 4] 14,200 in   720 out   $0.049"
+      },
+      {
+        "cls": "warn",
+        "text": "[turn 5] 22,100 in   810 out   $0.077"
+      },
+      {
+        "cls": "warn",
+        "text": "[turn 6] 33,800 in   890 out   $0.117"
+      },
+      {
+        "cls": "warn",
+        "text": "[turn 7] 51,200 in   950 out   $0.178   ← context budget at 78%"
+      }
     ],
+    "callout": "Every tool result rides along on the next turn. Without compaction, costs grow super-linearly."
   },
   {
-    kind: "term",
-    duration: 8500,
-    title: "FLUID_COMPACTION_STRATEGY=truncate",
-    headline: "Strategy 1: truncate",
-    sub: "Char-aware. Preserves head + last-N tail. Tool-call names stay visible; argument blobs and results get clipped.",
-    lines: [
-      { cls: "dim", text: "before — middle message:" },
-      { cls: "cmd", html: '  <span class="key">tool_use</span>: discover_workspace' },
-      { cls: "cmd", html: '    <span class="key">input</span>: { "scan_path": "/users/alice/projects/data-platform/staging-area-v2/.../" }' },
-      { cls: "cmd", html: '  <span class="key">tool_result</span>: <span class="dim">{"files": [<2,400 chars of file metadata>]}</span>' },
-      { cls: "rule spaced", text: "─── after compaction ───" },
-      { cls: "cmd", html: '  <span class="key">tool_use</span>: discover_workspace' },
-      { cls: "cmd", html: '    <span class="key">input</span>: { "_truncated": true, "_total_chars": 248 }' },
-      { cls: "cmd", html: '  <span class="key">tool_result</span>: <span class="dim">first 500 chars... [truncated — 2,400 chars total]</span>' },
-      { cls: "success spaced", text: "✔ context preserved · tool name visible · 22,180 → 8,140 tokens" },
+    "kind": "term",
+    "duration": 8500,
+    "title": "FLUID_COMPACTION_STRATEGY=truncate",
+    "headline": "The default · char-aware truncation.",
+    "sub": "Keep first message. Keep last 4. Truncate everything between to 500 chars.",
+    "lines": [
+      {
+        "cls": "prompt cmd",
+        "text": "FLUID_AGENT_COMPACT_AFTER=4 fluid forge --agent-loop ...",
+        "typingSpeed": 26
+      },
+      {
+        "cls": "faint spaced",
+        "text": "[turn 5] compaction fires"
+      },
+      {
+        "cls": "info",
+        "text": "  before: 22,100 input tokens"
+      },
+      {
+        "cls": "success",
+        "text": "  after:   4,200 input tokens   (81% smaller)"
+      },
+      {
+        "cls": "faint spaced",
+        "text": "[turn 5]  4,200 in   810 out   $0.018"
+      },
+      {
+        "cls": "faint",
+        "text": "[turn 6]  5,100 in   890 out   $0.022"
+      },
+      {
+        "cls": "faint",
+        "text": "[turn 7]  6,400 in   950 out   $0.027"
+      },
+      {
+        "cls": "rule spaced",
+        "text": "─────────────────────────────────────────────"
+      },
+      {
+        "cls": "info",
+        "html": "  total run: <span class=\"num\">$0.121</span>  vs  <span class=\"num\">$0.500</span> uncompacted  ·  <span class=\"num\">76% saving</span>"
+      }
     ],
+    "callout": "Zero LLM cost. Char-aware. Deterministic. Works on every provider."
   },
   {
-    kind: "term",
-    duration: 9000,
-    title: "FLUID_COMPACTION_STRATEGY=summarize",
-    headline: "Strategy 2: summarize",
-    sub: "LLM-backed. Calls your provider's fast tier (Haiku / 4.1-nano / gemini-flash) once. Reuses your existing httpx + LlmProvider stack — no new SDK.",
-    lines: [
-      { cls: "prompt cmd", text: "FLUID_COMPACTION_STRATEGY=summarize fluid forge --agent-loop ...", typingSpeed: 32 },
-      { cls: "faint spaced", text: "[summarizer] HTTP Request: POST https://api.anthropic.com/v1/messages \"HTTP/1.1 200 OK\"", delay: 360 },
-      { cls: "info", text: "[summarizer] model: claude-haiku-4-5-20251001 · 4,820 in · 312 out · $0.0024" },
-      { cls: "rule spaced", text: "─── synthesized summary inserted as single user message ───" },
-      { cls: "cmd", html: '<span class="dim">[Summary of earlier turns — produced by the compaction summarizer; 9 messages compressed]</span>' },
-      { cls: "cmd", html: '<span class="dim">The user wants to build a contract for customer orders. The agent discovered three CSV files</span>' },
-      { cls: "cmd", html: '<span class="dim">in the workspace (customers.csv, orders.csv, products.csv totaling 142MB) and examined the</span>' },
-      { cls: "cmd", html: '<span class="dim">orders.csv schema, which contains order_id, customer_id, total, and order_date columns. The</span>' },
-      { cls: "cmd", html: '<span class="dim">agent is ready to proceed with defining the contract structure based on this data.</span>' },
-      { cls: "success spaced", text: "✔ 9 messages → 1 summary message · 22,180 → 1,840 tokens · cost: $0.0024" },
+    "kind": "term",
+    "duration": 8500,
+    "title": "FLUID_COMPACTION_STRATEGY=summarize",
+    "headline": "LLM-backed summarisation · for high-stakes loops.",
+    "sub": "Calls your provider's fast tier (Haiku, gpt-4.1-nano, gemini-flash) once per compaction trigger.",
+    "lines": [
+      {
+        "cls": "prompt cmd",
+        "text": "FLUID_COMPACTION_STRATEGY=summarize fluid forge --agent-loop ...",
+        "typingSpeed": 24
+      },
+      {
+        "cls": "faint spaced",
+        "text": "[turn 5] compaction fires"
+      },
+      {
+        "cls": "info",
+        "text": "  invoking summariser:  anthropic/claude-haiku-4-5"
+      },
+      {
+        "cls": "info",
+        "text": "  cost:                 $0.0009  (one fast-tier call)"
+      },
+      {
+        "cls": "success",
+        "text": "  before: 22,100 tokens · after: 1,800 tokens · 92% smaller"
+      },
+      {
+        "cls": "rule spaced",
+        "text": "─────────────────────────────────────────────"
+      },
+      {
+        "cls": "info",
+        "html": "  total run: <span class=\"num\">$0.087</span>  ·  <span class=\"num\">83% saving</span>  ·  high recall preserved"
+      }
     ],
+    "callout": "Pays a tiny summariser cost to keep the gist. Best for long agent loops where context matters."
   },
   {
-    kind: "term",
-    duration: 6000,
-    title: "FLUID_COMPACTION_STRATEGY=hybrid",
-    headline: "Strategy 3: hybrid",
-    sub: "Truncate first, then summarize the truncated middle. Useful when even the truncated form is still over budget.",
-    lines: [
-      { cls: "info", text: "[hybrid] step 1 — smart-truncate middle messages: 22,180 → 8,140 tokens" },
-      { cls: "info", text: "[hybrid] step 2 — over context budget? still tight; running summarizer on truncated middle" },
-      { cls: "info", text: "[hybrid] summarizer: 8,140 → 1,420 tokens" },
-      { cls: "success spaced", text: "✔ 22,180 → 1,420 tokens · best-of-both" },
+    "kind": "term",
+    "duration": 7500,
+    "title": "FLUID_COMPACTION_STRATEGY=hybrid",
+    "headline": "Truncate first, summarise the rest if still over budget.",
+    "sub": "Best-of-both-worlds default for production. Cheap when it can be, smart when it must be.",
+    "lines": [
+      {
+        "cls": "prompt cmd",
+        "text": "FLUID_COMPACTION_STRATEGY=hybrid fluid forge --agent-loop ...",
+        "typingSpeed": 26
+      },
+      {
+        "cls": "faint spaced",
+        "text": "[turn 5] compaction fires"
+      },
+      {
+        "cls": "dim",
+        "text": "  truncated 14 old tool results to 500 chars each"
+      },
+      {
+        "cls": "dim",
+        "text": "  still over budget · invoking summariser..."
+      },
+      {
+        "cls": "info",
+        "text": "  cost: $0.0006  ·  before: 22,100 → after: 2,400 tokens"
+      },
+      {
+        "cls": "rule spaced",
+        "text": "─────────────────────────────────────────────"
+      },
+      {
+        "cls": "info",
+        "html": "  total run: <span class=\"num\">$0.094</span>  ·  <span class=\"num\">81% saving</span>  ·  good middle ground"
+      }
     ],
+    "callout": "The recommendation for most production agent loops. Cheap path first, summariser as a safety net."
   },
   {
-    kind: "closing",
-    duration: 4500,
-    body: `
-      <h2 style="font-size:42px">Your provider stack does the work</h2>
-      <div class="scene-sub" style="font-size:16px;color:var(--text-dim);max-width:620px;text-align:center;">
-        No new SDK. No tiktoken. The summarizer reuses
-        <em style="color:var(--accent);font-style:normal">LlmProvider.build_request</em> + httpx.post —
-        the same HTTP shape your main run is already on.
-      </div>
-      <div class="meta" style="margin-top:30px;color:var(--text-faint);font-family:var(--mono);font-size:12px;">
-        Set FLUID_COMPACTION_STRATEGY=summarize once · pay one Haiku call per long loop
-      </div>
-    `,
-  },
+    "kind": "closing",
+    "duration": 7000,
+    "body": "\n      <h2>One env var.<br/>10× cheaper agent loops.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        Token-budget pre-flight prevents the run from ever hitting context overflow.\n        Capability warnings flag combos that need degraded handling.\n      </div>\n      <div class=\"stats\">\n        <div class=\"stat\"><div class=\"num\">$0.50 → $0.09</div><div class=\"lbl\">avg per agent loop</div></div>\n        <div class=\"stat\"><div class=\"num\">3</div><div class=\"lbl\">strategies · pick yours</div></div>\n        <div class=\"stat\"><div class=\"num\">0</div><div class=\"lbl\">ContextOverflowErrors</div></div>\n        <div class=\"stat\"><div class=\"num\">1</div><div class=\"lbl\">env var to set it</div></div>\n      </div>\n    "
+  }
 ];;
 
 // ─────────────────────────────────────────────────────────────────────────

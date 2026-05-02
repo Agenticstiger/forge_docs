@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Source-aligned Bronze in 60 seconds — Fluid Forge</title>
+<title>Skip the cluster — Fluid Forge</title>
 <style>
   :root {
     --bg-0: #07090f;
@@ -476,15 +476,15 @@
 const SCENES = [
   {
     "kind": "hero",
-    "duration": 4500,
-    "body": "\n      <div class=\"brand\">FLUID FORGE · SOURCE-ALIGNED ACQUISITION</div>\n      <h1>Postgres → DuckDB<br/>in 60 seconds.</h1>\n      <div class=\"tag\">No Airflow. No Airbyte cluster. No infra setup.</div>\n      <div class=\"tag\">DuckDB does the ingestion in-process — <em>fluid validate</em> → <em>fluid apply</em>.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">schema 0.7.3 · acquisition pattern</span>\n        <span class=\"badge alt\">engine: duckdb · embedded</span>\n        <span class=\"badge good\">Bronze ↔ SDP</span>\n      </div>\n      <div class=\"meta\">numbers from a real run against the included examples/source-aligned-postgres-duckdb fixture</div>\n    "
+    "duration": 5500,
+    "body": "\n      <div class=\"brand\">FLUID FORGE · INGESTION</div>\n      <h1>Skip the<br/>cluster.</h1>\n      <div class=\"tag\">Six months to set up Airbyte. Two weeks of Airflow DAGs. <em>For one source.</em></div>\n      <div class=\"tag\">Or <em>60 seconds</em> with <code>fluid init --discover</code>.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">no Airflow</span>\n        <span class=\"badge alt\">no Airbyte cluster</span>\n        <span class=\"badge good\">no Helm chart</span>\n      </div>\n    "
   },
   {
     "kind": "term",
     "duration": 9500,
-    "title": "step 1 · scaffold from a live Postgres",
+    "title": "step 1 · point at a Postgres",
     "headline": "fluid init --discover",
-    "sub": "Introspect the source; emit a deterministic 0.7.3 Bronze (SDP) contract per discovered table.",
+    "sub": "Forge introspects the schema. Emits a contract per table. Redacts the password.",
     "lines": [
       {
         "cls": "prompt cmd",
@@ -493,108 +493,33 @@ const SCENES = [
       },
       {
         "cls": "faint spaced",
-        "text": "▸ connecting · public.orders, public.customers, public.products"
+        "text": "▸ connecting"
       },
       {
         "cls": "info",
-        "text": "▸ inferred metadata.layer=Bronze + metadata.productType=SDP"
+        "text": "▸ found 3 tables: public.orders · public.customers · public.products"
       },
       {
         "cls": "info",
-        "text": "▸ secrets redacted to ${PGPASSWORD} placeholders"
+        "text": "▸ inferred metadata.layer=Bronze · metadata.productType=SDP"
+      },
+      {
+        "cls": "info",
+        "text": "▸ password redacted to ${PGPASSWORD}"
       },
       {
         "cls": "success spaced",
-        "text": "✓ wrote public.orders.fluid.yaml         (engine: duckdb)"
-      },
-      {
-        "cls": "success",
-        "text": "✓ wrote public.customers.fluid.yaml      (engine: duckdb)"
-      },
-      {
-        "cls": "success",
-        "text": "✓ wrote public.products.fluid.yaml       (engine: duckdb)"
+        "text": "✓ wrote 3 acquisition contracts"
       }
     ],
-    "callout": "<strong>3 contracts in 1.2 s.</strong> Safe to commit — passwords are placeholders."
-  },
-  {
-    "kind": "term",
-    "duration": 9500,
-    "title": "step 2 · the contract",
-    "headline": "head -25 public.orders.fluid.yaml",
-    "sub": "Both medallion (Bronze) and Data Mesh (SDP) vocabularies — either alone is sufficient.",
-    "lines": [
-      {
-        "cls": "prompt cmd",
-        "text": "head -25 public.orders.fluid.yaml",
-        "typingSpeed": 38
-      },
-      {
-        "cls": "dim spaced",
-        "html": "<span class=\"key\">fluidVersion</span>: \"0.7.3\""
-      },
-      {
-        "cls": "dim",
-        "html": "<span class=\"key\">id</span>: bronze.crm_orders"
-      },
-      {
-        "cls": "dim",
-        "html": "<span class=\"key\">metadata</span>:"
-      },
-      {
-        "cls": "dim",
-        "html": "  <span class=\"key\">layer</span>: Bronze"
-      },
-      {
-        "cls": "dim",
-        "html": "  <span class=\"key\">productType</span>: SDP"
-      },
-      {
-        "cls": "dim",
-        "html": "  <span class=\"key\">classification</span>: confidential"
-      },
-      {
-        "cls": "dim",
-        "html": "<span class=\"key\">builds</span>:"
-      },
-      {
-        "cls": "dim",
-        "html": "  - <span class=\"key\">id</span>: ingest_orders"
-      },
-      {
-        "cls": "dim",
-        "html": "    <span class=\"key\">pattern</span>: <span class=\"alt\">acquisition</span>"
-      },
-      {
-        "cls": "dim",
-        "html": "    <span class=\"key\">engine</span>: <span class=\"pkg\">duckdb</span>"
-      },
-      {
-        "cls": "dim",
-        "html": "    <span class=\"key\">properties</span>:"
-      },
-      {
-        "cls": "dim",
-        "html": "      <span class=\"key\">source</span>: { kind: postgres, ... }"
-      },
-      {
-        "cls": "dim",
-        "html": "      <span class=\"key\">sink</span>: { format: parquet }"
-      },
-      {
-        "cls": "dim",
-        "html": "      <span class=\"key\">preLand</span>: [dlp_scan, quality_gate]"
-      }
-    ],
-    "callout": "Provider-agnostic — switch to <code>engine: airbyte</code> / <code>kafka-connect</code> / <code>debezium</code> with no other changes."
+    "callout": "<strong>1.2 s · 3 contracts · safe to commit.</strong> Passwords are placeholders."
   },
   {
     "kind": "term",
     "duration": 8500,
-    "title": "step 3 · validate",
-    "headline": "fluid validate",
-    "sub": "Schema 0.7.3 + Bronze ↔ SDP consistency check. Pure schema, no network.",
+    "title": "step 2 · validate + apply",
+    "headline": "DuckDB does the ingestion in-process.",
+    "sub": "No Airbyte server. No Kafka cluster. No JVM. Just DuckDB's postgres_scan.",
     "lines": [
       {
         "cls": "prompt cmd",
@@ -602,59 +527,20 @@ const SCENES = [
         "typingSpeed": 28
       },
       {
-        "cls": "faint spaced",
-        "text": "Validating 1 product..."
-      },
-      {
         "cls": "success",
         "text": "  ✅ bronze.crm_orders         no errors"
-      },
-      {
-        "cls": "dim spaced",
-        "text": "Result: 1 passed, 0 failed"
       },
       {
         "cls": "prompt cmd spaced",
-        "text": "fluid validate public.orders.fluid.yaml --probe",
-        "typingSpeed": 28
-      },
-      {
-        "cls": "faint spaced",
-        "text": "Validating 1 product (with live source probe)..."
-      },
-      {
-        "cls": "info",
-        "text": "  ⏵ probing postgres://acme@localhost:5432/acme..."
-      },
-      {
-        "cls": "success",
-        "text": "  ✓ source reachable · 8 rows in public.orders"
-      },
-      {
-        "cls": "success",
-        "text": "  ✅ bronze.crm_orders         no errors"
-      }
-    ],
-    "callout": "<code>--probe</code> adds live source-connectivity tests — useful in CI on environments that can reach the source."
-  },
-  {
-    "kind": "term",
-    "duration": 11000,
-    "title": "step 4 · apply",
-    "headline": "fluid apply",
-    "sub": "DuckDB loads the postgres extension, reads via postgres_scan, lands as Parquet.",
-    "lines": [
-      {
-        "cls": "prompt cmd",
         "text": "fluid apply --build ingest_orders public.orders.fluid.yaml --yes",
         "typingSpeed": 26
       },
       {
         "cls": "info spaced",
-        "text": "▸ Materializing bronze.crm_orders → ingest_orders ..."
+        "text": "▸ Materializing bronze.crm_orders ..."
       },
       {
-        "cls": "faint",
+        "cls": "dim",
         "text": "  ▸ acquired schema   public.orders (5 columns, 8 rows)"
       },
       {
@@ -663,33 +549,83 @@ const SCENES = [
       },
       {
         "cls": "dim",
-        "text": "  ▸ wrote Parquet     ./out/orders.parquet (1 file, 1.2 KB)"
-      },
-      {
-        "cls": "dim",
-        "text": "  ▸ persisted run     .fluid/runs/bronze.crm_orders/ingest_orders/runs/..."
-      },
-      {
-        "cls": "dim",
-        "text": "  ▸ emitted lineage   OpenLineage RunEvent"
+        "text": "  ▸ wrote Parquet     ./out/orders.parquet"
       },
       {
         "cls": "success spaced",
         "text": "  ✓ 1 build applied · 0 errors · 2.4 s"
       }
     ],
-    "callout": "<strong>2.4 s end-to-end.</strong> Same shape works for the other 5 engines (dlt, meltano, airbyte, kafka-connect, debezium)."
+    "callout": "<strong>2.4 s end-to-end.</strong> No infra to maintain. Lineage emitted. DLP scanned."
   },
   {
     "kind": "term",
-    "duration": 8500,
-    "title": "step 5 · day-2 ops",
+    "duration": 9500,
+    "title": "step 3 · need scale? change one word.",
+    "headline": "engine: duckdb → engine: airbyte → engine: debezium",
+    "sub": "Same contract. Same day-2 ops. Pick the engine that matches your scale.",
+    "lines": [
+      {
+        "cls": "rule spaced",
+        "text": "─────── duckdb ───────"
+      },
+      {
+        "cls": "dim",
+        "text": "  embedded · zero infra · CSV / Parquet / Postgres / MySQL / SQLite / HTTP"
+      },
+      {
+        "cls": "rule spaced",
+        "text": "─────── dlt ──────────"
+      },
+      {
+        "cls": "dim",
+        "text": "  Python-native sources · @dlt.source modules · verified sources"
+      },
+      {
+        "cls": "rule spaced",
+        "text": "─────── meltano ──────"
+      },
+      {
+        "cls": "dim",
+        "text": "  Singer protocol · 600+ taps unlock with one runner"
+      },
+      {
+        "cls": "rule spaced",
+        "text": "─────── airbyte ──────"
+      },
+      {
+        "cls": "dim",
+        "text": "  REST control · Cosign image signature verification"
+      },
+      {
+        "cls": "rule spaced",
+        "text": "─────── kafka-connect ─"
+      },
+      {
+        "cls": "dim",
+        "text": "  full connector lifecycle · JDBC / S3 / Snowflake / BigQuery"
+      },
+      {
+        "cls": "rule spaced",
+        "text": "─────── debezium ─────"
+      },
+      {
+        "cls": "dim",
+        "text": "  CDC · Postgres / MySQL / Mongo / SQL Server / Oracle"
+      }
+    ],
+    "callout": "Six engines. Same contract shape. Same `fluid runs status` works on every one."
+  },
+  {
+    "kind": "term",
+    "duration": 7500,
+    "title": "step 4 · day-2 is automatic",
     "headline": "fluid runs status",
-    "sub": "Inspect run records, check freshness, diff schema between runs.",
+    "sub": "Run history, freshness, error rate — same surface across all six engines.",
     "lines": [
       {
         "cls": "prompt cmd",
-        "text": "fluid runs status bronze.crm_orders --last 3",
+        "text": "fluid runs status bronze.crm_orders",
         "typingSpeed": 28
       },
       {
@@ -698,35 +634,35 @@ const SCENES = [
       },
       {
         "cls": "rule",
-        "text": "─────────────────────────────────────────────────────────────"
+        "text": "─────────────────────────────────────────────"
       },
       {
         "cls": "dim",
-        "text": "  2026-04-30T14-22-08    success    8 rows    2.4 s    duckdb"
+        "text": "  2026-04-30T14:22  success  8 rows  2.4 s"
       },
       {
         "cls": "dim",
-        "text": "  2026-04-30T10-22-08    success    8 rows    2.6 s    duckdb"
+        "text": "  2026-04-30T10:22  success  8 rows  2.6 s"
       },
       {
         "cls": "dim",
-        "text": "  2026-04-30T06-22-08    success    7 rows    2.3 s    duckdb"
+        "text": "  2026-04-30T06:22  success  7 rows  2.3 s"
       },
       {
         "cls": "rule",
-        "text": "─────────────────────────────────────────────────────────────"
+        "text": "─────────────────────────────────────────────"
       },
       {
         "cls": "info",
         "text": "Freshness: 145 s  ·  Error rate (24h): 0.0%"
       }
     ],
-    "callout": "<code>fluid runs logs</code>, <code>fluid runs diff</code>, <code>fluid retention sweep</code> all work uniformly across all six engines."
+    "callout": "DLP. Quality gates. Lineage. Cosign verification. All built in."
   },
   {
     "kind": "closing",
-    "duration": 6500,
-    "body": "\n      <h2>One contract. Six engines. Zero glue code.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        Switch <code>engine:</code> from <em>duckdb</em> to <em>dlt</em>, <em>meltano</em>, <em>airbyte</em>,\n        <em>kafka-connect</em>, or <em>debezium</em> — same contract shape, same day-2 ops.\n      </div>\n      <div class=\"badges\" style=\"margin-top:24px;\">\n        <span class=\"badge\">init --discover · 1.2 s</span>\n        <span class=\"badge\">validate · 0.4 s</span>\n        <span class=\"badge alt\">apply · 2.4 s</span>\n        <span class=\"badge good\">total ≈ 4 s · $0</span>\n      </div>\n    "
+    "duration": 7000,
+    "body": "\n      <h2>Six engines. One contract.<br/>Zero clusters.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        Start with DuckDB on your laptop. Switch <code>engine:</code> to Airbyte\n        / Meltano / Debezium when you outgrow it. Contract stays portable.\n      </div>\n      <div class=\"stats\">\n        <div class=\"stat\"><div class=\"num\">60s</div><div class=\"lbl\">discover → apply</div></div>\n        <div class=\"stat\"><div class=\"num\">6</div><div class=\"lbl\">engines · 1 contract</div></div>\n        <div class=\"stat\"><div class=\"num\">0</div><div class=\"lbl\">infra to set up</div></div>\n        <div class=\"stat\"><div class=\"num\">$0</div><div class=\"lbl\">on the laptop path</div></div>\n      </div>\n    "
   }
 ];;
 

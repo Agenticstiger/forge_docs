@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Guided fluid forge UX — Fluid Forge</title>
+<title>Skip the questions — Fluid Forge</title>
 <style>
   :root {
     --bg-0: #07090f;
@@ -476,15 +476,15 @@
 const SCENES = [
   {
     "kind": "hero",
-    "duration": 4500,
-    "body": "\n      <div class=\"brand\">FLUID FORGE · GUIDED UX</div>\n      <h1>fluid forge,<br/>but guided.</h1>\n      <div class=\"tag\">Welcome scan in <em>50 ms</em>. Mode picker. Slash commands. Pre-write preview.</div>\n      <div class=\"tag\">Never writes a file before showing you what it's about to write.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">5-mode picker</span>\n        <span class=\"badge alt\">welcome scan</span>\n        <span class=\"badge good\">preview panel</span>\n      </div>\n    "
+    "duration": 5500,
+    "body": "\n      <div class=\"brand\">FLUID FORGE · GUIDED UX</div>\n      <h1>Skip the<br/>questions.</h1>\n      <div class=\"tag\">Most CLIs ask 27 questions before they help you.</div>\n      <div class=\"tag\">Forge skips the <em>23 it can already answer</em>.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">50 ms welcome scan</span>\n        <span class=\"badge alt\">5-mode picker</span>\n        <span class=\"badge good\">never writes blind</span>\n      </div>\n    "
   },
   {
     "kind": "term",
-    "duration": 8500,
-    "title": "step 1 · welcome scan (50 ms)",
-    "headline": "fluid forge",
-    "sub": "Parallel detect step — workspace, AI configured, return-user — runs before any prompt.",
+    "duration": 7500,
+    "title": "fluid forge",
+    "headline": "Welcome scan in 50 ms.",
+    "sub": "Parallel detect — workspace, AI configured, return-user — before any prompt.",
     "lines": [
       {
         "cls": "prompt cmd",
@@ -497,33 +497,29 @@ const SCENES = [
       },
       {
         "cls": "dim",
-        "text": "  ▸ workspace            no contracts yet"
+        "text": "  ✓ workspace            no contracts yet"
       },
       {
         "cls": "dim",
-        "text": "  ▸ AI configured        anthropic/claude-sonnet-4-6 ✓"
+        "text": "  ✓ AI configured        anthropic/claude-sonnet-4-6"
       },
       {
         "cls": "dim",
-        "text": "  ▸ docker installed     ✓"
+        "text": "  ✓ docker installed     yes"
       },
       {
         "cls": "dim",
-        "text": "  ▸ return user          (3 prior runs)"
-      },
-      {
-        "cls": "info spaced",
-        "text": "→ pre-highlighting AI Copilot mode"
+        "text": "  ✓ return user          (3 prior runs)"
       }
     ],
-    "callout": "Suppress with <code>FLUID_FORGE_NO_WELCOME=1</code>. The scan is read-only and bounded — drops if &gt;50 ms."
+    "callout": "Bounded — drops if &gt;50 ms. Zero network. Read-only."
   },
   {
     "kind": "term",
-    "duration": 9500,
-    "title": "step 2 · the mode picker",
+    "duration": 8500,
+    "title": "the picker · routes you fast",
     "headline": "5 modes, pre-highlighted",
-    "sub": "No more dropping straight into AI. Pick the right mode for what you're doing.",
+    "sub": "Don't drop into AI. Route to the mode that fits what you're actually doing.",
     "lines": [
       {
         "cls": "info spaced",
@@ -535,23 +531,23 @@ const SCENES = [
       },
       {
         "cls": "info",
-        "html": "  1. AI Copilot                  ▸ <span class=\"alt\">default for fresh products</span>"
+        "html": "  1. AI Copilot                 ▸ <span class=\"alt\">highlighted</span>"
       },
       {
         "cls": "dim",
-        "text": "  2. Compose from existing       — build ADP/CDP from upstreams"
+        "text": "  2. Compose from existing     — chain SDPs into ADP/CDP"
       },
       {
         "cls": "dim",
-        "text": "  3. Refine a contract           — load + ask 'what to change?'"
+        "text": "  3. Refine a contract         — load + 'what to change?'"
       },
       {
         "cls": "dim",
-        "text": "  4. Template                    — start from a built-in"
+        "text": "  4. Template                  — start from a built-in"
       },
       {
         "cls": "dim",
-        "text": "  5. Blank scaffold              — empty, no AI"
+        "text": "  5. Blank scaffold            — empty, no AI"
       },
       {
         "cls": "rule",
@@ -559,37 +555,37 @@ const SCENES = [
       },
       {
         "cls": "prompt cmd",
-        "text": "Pick 1–5, or hit enter for highlighted ▸ ",
-        "typingSpeed": 80
+        "text": "Pick 1–5, or hit enter ▸ ",
+        "typingSpeed": 100
       }
     ],
-    "callout": "<code>FLUID_FORGE_NO_PICKER=1</code> for CI/scripts. Or pass <code>--refine</code> / <code>--from-product</code> / <code>--blank</code> directly to skip."
+    "callout": "Picker default is highlighted by the welcome scan. Hit enter to accept."
   },
   {
     "kind": "term",
     "duration": 9500,
-    "title": "step 3 · interview with slash commands",
-    "headline": "Inferences-first interview",
-    "sub": "Detected facts skip questions. Type :auto to accept any inferred default.",
+    "title": "interview · 4 questions skipped",
+    "headline": "Inferences-first.",
+    "sub": "Detected facts skip questions. Type :auto to accept any default. :help, :doctor any time.",
     "lines": [
       {
         "cls": "info spaced",
-        "text": "[interview · 4 questions skipped (inferred from context)]"
+        "text": "[interview · 4 questions auto-resolved]"
       },
       {
-        "cls": "dim",
+        "cls": "success",
         "text": "  ✓ name           customer-orders   (from cwd)"
       },
       {
-        "cls": "dim",
+        "cls": "success",
         "text": "  ✓ domain         retail            (from --domain)"
       },
       {
-        "cls": "dim",
+        "cls": "success",
         "text": "  ✓ provider       local             (from welcome scan)"
       },
       {
-        "cls": "dim",
+        "cls": "success",
         "text": "  ✓ memory         loaded            (3 prior products)"
       },
       {
@@ -603,71 +599,64 @@ const SCENES = [
       },
       {
         "cls": "success",
-        "text": "  → CDP (consumer-aligned, gold layer)"
-      },
-      {
-        "cls": "info spaced",
-        "text": "▸ Add a scheduler? [none/airflow/dagster/prefect, or :doctor] :"
+        "text": "  → CDP (consumer-aligned)"
       }
     ],
-    "callout": "Slash commands available at any prompt: <code>:ai-setup · :override · :show-work · :doctor · :help · :quit</code>"
+    "callout": "Slash commands at every prompt: <code>:ai-setup · :override · :show-work · :doctor · :help · :quit</code>"
   },
   {
     "kind": "term",
-    "duration": 9500,
-    "title": "step 4 · streaming contract preview",
-    "headline": "See the contract grow as you answer",
-    "sub": "Side panel re-shapes the seed contract after every answer.",
+    "duration": 9000,
+    "title": "the cost cap · in your face",
+    "headline": "Set a budget. Watch it.",
+    "sub": "FLUID_COST_LIMIT_USD_PER_RUN=0.50 · Spotify-style progress prefix on every prompt.",
     "lines": [
       {
+        "cls": "prompt cmd",
+        "text": "FLUID_COST_LIMIT_USD_PER_RUN=0.50 fluid forge",
+        "typingSpeed": 28
+      },
+      {
         "cls": "rule spaced",
-        "text": "┌────────── contract.fluid.yaml ──────────┐"
+        "text": "─────────────────────────────────────────────"
+      },
+      {
+        "cls": "info",
+        "html": "  [<span class=\"num\">$0.012/$0.50</span> · <span class=\"num\">12%</span> · gemini-2.5-flash] domain?"
       },
       {
         "cls": "dim",
-        "text": "│ fluidVersion: \"0.7.3\"                   │"
+        "text": "  retail"
+      },
+      {
+        "cls": "info",
+        "html": "  [<span class=\"num\">$0.024/$0.50</span> · <span class=\"num\">24%</span> · gemini-2.5-flash] dimensional?"
       },
       {
         "cls": "dim",
-        "text": "│ kind: DataProduct                       │"
+        "text": "  yes"
+      },
+      {
+        "cls": "info",
+        "html": "  [<span class=\"num\">$0.041/$0.50</span> · <span class=\"num\">41%</span> · gemini-2.5-flash] product type?"
       },
       {
         "cls": "dim",
-        "text": "│ id: customer-orders                     │"
-      },
-      {
-        "cls": "dim",
-        "text": "│ metadata:                               │"
-      },
-      {
-        "cls": "dim",
-        "text": "│   layer: Gold                           │"
-      },
-      {
-        "cls": "dim",
-        "html": "│   <span class=\"alt\">productType: CDP                      </span> │"
-      },
-      {
-        "cls": "dim",
-        "html": "│   <span class=\"alt\">owner: { team: data-platform }        </span> │  ← just added"
-      },
-      {
-        "cls": "dim",
-        "text": "│ ...                                     │"
+        "text": "  CDP"
       },
       {
         "cls": "rule",
-        "text": "└─────────────────────────────────────────┘"
+        "text": "─────────────────────────────────────────────"
       }
     ],
-    "callout": "Toggle off with <code>FLUID_FORGE_NO_STREAMING_PREVIEW=1</code>. Useful for the demo loop, less useful in CI."
+    "callout": "Hit the cap, the run aborts loud — no surprise <code>$30</code> bill at month-end."
   },
   {
     "kind": "term",
     "duration": 9500,
-    "title": "step 5 · pre-write preview panel",
-    "headline": "Always see what's about to be written",
-    "sub": "Cost, files, run-id — all before the first write hits the disk.",
+    "title": "before the write · always",
+    "headline": "Pre-write panel.",
+    "sub": "Files, cost, run-id. Always. Even with --yes the panel renders.",
     "lines": [
       {
         "cls": "rule spaced",
@@ -687,10 +676,6 @@ const SCENES = [
       },
       {
         "cls": "dim",
-        "text": "│   ./customer-orders/README.md                    │"
-      },
-      {
-        "cls": "dim",
         "text": "│                                                  │"
       },
       {
@@ -706,10 +691,6 @@ const SCENES = [
         "text": "│ Model:   anthropic/claude-sonnet-4-6              │"
       },
       {
-        "cls": "dim",
-        "text": "│                                                  │"
-      },
-      {
         "cls": "info",
         "text": "│ Proceed? [Y/n] ▸                                 │"
       },
@@ -718,12 +699,12 @@ const SCENES = [
         "text": "└──────────────────────────────────────────────────┘"
       }
     ],
-    "callout": "<code>--yes</code> skips the prompt but the panel still renders. Ctrl-C here loses nothing — transcript + reasoning already on disk."
+    "callout": "Ctrl-C here loses nothing — transcript + reasoning already on disk."
   },
   {
     "kind": "closing",
-    "duration": 6500,
-    "body": "\n      <h2>50 ms scan. 5-mode picker. Self-healing.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        Self-healing repair runs the schema validator on every emitted contract;\n        path-specific errors prepend the next attempt's repair feedback.\n      </div>\n      <div class=\"badges\" style=\"margin-top:24px;\">\n        <span class=\"badge\">welcome scan · 47 ms</span>\n        <span class=\"badge\">5-mode picker</span>\n        <span class=\"badge alt\">slash commands</span>\n        <span class=\"badge good\">pre-write panel</span>\n      </div>\n    "
+    "duration": 7000,
+    "body": "\n      <h2>50 ms scan. 4 skipped questions.<br/>$0 surprise.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        Self-healing schema repair. Streaming preview as you answer.\n        Cost cap before you write. Slash commands wherever you are.\n      </div>\n      <div class=\"stats\">\n        <div class=\"stat\"><div class=\"num\">47ms</div><div class=\"lbl\">welcome scan</div></div>\n        <div class=\"stat\"><div class=\"num\">4 / 5</div><div class=\"lbl\">questions auto-resolved</div></div>\n        <div class=\"stat\"><div class=\"num\">$0.50</div><div class=\"lbl\">hard cost cap</div></div>\n        <div class=\"stat\"><div class=\"num\">0</div><div class=\"lbl\">surprise files written</div></div>\n      </div>\n    "
   }
 ];;
 

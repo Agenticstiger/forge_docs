@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Day-2 ops — Fluid Forge</title>
+<title>Skip the panic — Fluid Forge</title>
 <style>
   :root {
     --bg-0: #07090f;
@@ -476,15 +476,15 @@
 const SCENES = [
   {
     "kind": "hero",
-    "duration": 4500,
-    "body": "\n      <div class=\"brand\">FLUID FORGE · DAY-2 OPS</div>\n      <h1>What happens<br/>after first apply.</h1>\n      <div class=\"tag\"><em>fluid runs</em>. <em>fluid retention</em>. <em>fluid secrets</em>. <em>fluid stats</em>.</div>\n      <div class=\"tag\">Day-2 introspection across all six ingestion engines, uniform shape.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">runs · status / logs / diff</span>\n        <span class=\"badge alt\">retention · sweep</span>\n        <span class=\"badge good\">secrets · login / verify / rotate</span>\n      </div>\n    "
+    "duration": 5500,
+    "body": "\n      <div class=\"brand\">FLUID FORGE · DAY-2</div>\n      <h1>Skip the<br/>panic.</h1>\n      <div class=\"tag\">It's <em>3am</em>. Pipeline broke. You have <em>90 seconds</em>.</div>\n      <div class=\"tag\">Day-1 ships. Day-2 doesn't surprise.</div>\n      <div class=\"badges\">\n        <span class=\"badge\">runs · status / logs / diff</span>\n        <span class=\"badge alt\">retention sweep</span>\n        <span class=\"badge good\">secrets · keychain</span>\n      </div>\n    "
   },
   {
     "kind": "term",
-    "duration": 9500,
-    "title": "fluid runs status",
-    "headline": "Last N runs, with freshness + error rate",
-    "sub": "Same shape across duckdb / dlt / meltano / airbyte / kafka-connect / debezium engines.",
+    "duration": 7500,
+    "title": "second 0 — what happened?",
+    "headline": "fluid runs status",
+    "sub": "Last N runs in a glance. Freshness, error rate, partial rate — all up front.",
     "lines": [
       {
         "cls": "prompt cmd",
@@ -492,104 +492,90 @@ const SCENES = [
         "typingSpeed": 28
       },
       {
-        "cls": "info spaced",
-        "text": "Recent runs · bronze.crm_orders / ingest_orders"
-      },
-      {
-        "cls": "rule",
-        "text": "─────────────────────────────────────────────────────────────"
+        "cls": "rule spaced",
+        "text": "─────────────────────────────────────────────"
       },
       {
         "cls": "dim",
-        "text": "  2026-04-30T14-22-08    success    8 rows    2.4 s   duckdb"
+        "text": "  14:22    success    8 rows    2.4 s"
       },
       {
         "cls": "dim",
-        "text": "  2026-04-30T10-22-08    success    8 rows    2.6 s   duckdb"
+        "text": "  10:22    success    8 rows    2.6 s"
       },
       {
         "cls": "warn",
-        "text": "  2026-04-30T06-22-08    partial    7 rows    2.3 s   duckdb"
+        "text": "  06:22    PARTIAL    1 row     2.3 s   ← here"
       },
       {
         "cls": "dim",
-        "text": "  2026-04-30T02-22-08    success    7 rows    2.5 s   duckdb"
+        "text": "  02:22    success    7 rows    2.5 s"
       },
       {
         "cls": "dim",
-        "text": "  2026-04-29T22-22-08    success    7 rows    2.4 s   duckdb"
+        "text": "  Apr-29   success    7 rows    2.4 s"
       },
       {
         "cls": "rule",
-        "text": "─────────────────────────────────────────────────────────────"
+        "text": "─────────────────────────────────────────────"
       },
       {
         "cls": "info",
-        "text": "Freshness: 145 s  ·  Error rate (24h): 0.0%  ·  Partial rate: 20%"
+        "html": "Error rate (24h): <span class=\"num\">0.0%</span>  ·  Partial rate: <span class=\"num\">20%</span>"
       }
     ],
-    "callout": "<code>--json</code> for CI consumption. <code>--build</code> if there are multiple builds in the product."
+    "callout": "<strong>2 seconds in.</strong> You know which run, you know it's partial, you know it's recent."
   },
   {
     "kind": "term",
     "duration": 8500,
-    "title": "fluid runs logs",
-    "headline": "Component-scoped logs, regex filter",
-    "sub": "Pick the component (build/infra/server/worker/dlq), filter with --grep.",
+    "title": "second 30 — why?",
+    "headline": "fluid runs logs --component dlq",
+    "sub": "Component-scoped logs. Grep at the CLI. The DLQ is a first-class component.",
     "lines": [
       {
         "cls": "prompt cmd",
-        "text": "fluid runs logs bronze.crm_orders --component dlq --grep 'schema_drift'",
-        "typingSpeed": 26
+        "text": "fluid runs logs bronze.crm_orders --component dlq --grep schema_drift",
+        "typingSpeed": 24
       },
       {
         "cls": "warn spaced",
-        "text": "  2026-04-30T06:22:11Z  schema_drift_detected"
+        "text": "  06:22:11  schema_drift_detected"
       },
       {
         "cls": "warn",
-        "text": "                          column 'loyalty_tier' added in source"
+        "text": "                column 'loyalty_tier' added in source"
       },
       {
         "cls": "warn",
-        "text": "                          policy=strict — refusing additive change"
+        "text": "                policy=strict — refusing additive change"
       },
       {
         "cls": "warn",
-        "text": "                          7 of 8 records routed to DLQ"
+        "text": "                7 of 8 records routed to DLQ"
       },
       {
         "cls": "dim spaced",
         "text": "  --- 1 result ---"
       }
     ],
-    "callout": "DLQ is a first-class component — same logs surface as build / infra / worker."
+    "callout": "<strong>30 seconds in.</strong> Source schema drifted. <code>policy=strict</code>, run protected your downstream."
   },
   {
     "kind": "term",
-    "duration": 9500,
-    "title": "fluid runs diff",
-    "headline": "Schema + row-count delta between two runs",
-    "sub": "Pin two run-ids, see what changed structurally.",
+    "duration": 8500,
+    "title": "second 60 — exactly what changed?",
+    "headline": "fluid runs diff",
+    "sub": "Schema and row-count delta between any two runs. Pin them by ID.",
     "lines": [
       {
         "cls": "prompt cmd",
-        "text": "fluid runs diff bronze.crm_orders \\",
+        "text": "fluid runs diff bronze.crm_orders --build ingest_orders \\",
         "typingSpeed": 28
       },
       {
         "cls": "cmd",
-        "text": "  --build ingest_orders \\",
-        "delay": 60
-      },
-      {
-        "cls": "cmd",
-        "text": "  --run-a 2026-04-30T02-22-08 \\",
-        "delay": 60
-      },
-      {
-        "cls": "cmd",
-        "text": "  --run-b 2026-04-30T06-22-08",
+        "text": "  --run-a 02:22 --run-b 06:22",
         "delay": 60
       },
       {
@@ -601,30 +587,67 @@ const SCENES = [
         "text": "  + loyalty_tier (string, nullable)"
       },
       {
-        "cls": "dim",
+        "cls": "info spaced",
         "text": "Row-count delta:"
       },
       {
         "cls": "dim",
-        "text": "  rows_read:    8 → 8     (+0)"
+        "html": "  rows_read:    <span class=\"num\">8</span> → <span class=\"num\">8</span>     (+0)"
       },
       {
         "cls": "dim",
-        "text": "  rows_written: 8 → 1     (-7)"
+        "html": "  rows_written: <span class=\"num\">8</span> → <span class=\"num\">1</span>     (-7)"
       },
       {
         "cls": "dim",
-        "text": "  rows_to_dlq:  0 → 7     (+7)"
+        "html": "  rows_to_dlq:  <span class=\"num\">0</span> → <span class=\"num\">7</span>     (+7)"
       }
     ],
-    "callout": "Combined with <code>--component dlq</code>, you have a complete picture of what changed and why."
+    "callout": "<strong>60 seconds in.</strong> One column added upstream. 7 rows quarantined. Rest of stack untouched."
   },
   {
     "kind": "term",
     "duration": 8500,
-    "title": "fluid retention sweep",
-    "headline": "Honor the retention block",
-    "sub": "Reads contract.retention.{runState,runLogs,lineage,dlq} and deletes anything past horizon.",
+    "title": "second 90 — fix it. ship.",
+    "headline": "Update policy → re-apply.",
+    "sub": "Bump schemaEvolution.policy=evolve_safe — additive changes accepted. One commit.",
+    "lines": [
+      {
+        "cls": "prompt cmd",
+        "text": "sed -i 's/policy: strict/policy: evolve_safe/' contract.fluid.yaml",
+        "typingSpeed": 26
+      },
+      {
+        "cls": "prompt cmd spaced",
+        "text": "fluid validate contract.fluid.yaml",
+        "typingSpeed": 60
+      },
+      {
+        "cls": "success",
+        "text": "  ✅ no errors"
+      },
+      {
+        "cls": "prompt cmd spaced",
+        "text": "fluid ship --yes",
+        "typingSpeed": 60
+      },
+      {
+        "cls": "info spaced",
+        "text": "▸ validate → bundle → plan → apply"
+      },
+      {
+        "cls": "success",
+        "text": "  ✓ 8 rows written, 0 to DLQ, 0 errors"
+      }
+    ],
+    "callout": "<strong>90 seconds.</strong> Diagnosed, fixed, re-shipped. No 3am Slack panic."
+  },
+  {
+    "kind": "term",
+    "duration": 7500,
+    "title": "the receipts — and the cleanup",
+    "headline": "fluid retention sweep · fluid stats",
+    "sub": "Honor the retention block. Aggregate cost. Rotate the secrets that pipelines depend on.",
     "lines": [
       {
         "cls": "prompt cmd",
@@ -632,152 +655,46 @@ const SCENES = [
         "typingSpeed": 32
       },
       {
-        "cls": "dim spaced",
-        "text": "{"
+        "cls": "dim",
+        "html": "  swept: { runState: <span class=\"num\">12</span>, runLogs: <span class=\"num\">47</span>, dlq: <span class=\"num\">3</span> }"
       },
       {
         "cls": "dim",
-        "html": "  \"swept\": {"
-      },
-      {
-        "cls": "dim",
-        "html": "    \"runState\":  { \"deletedCount\": <span class=\"num\">12</span>, \"freedBytes\": <span class=\"num\">48230</span> },"
-      },
-      {
-        "cls": "dim",
-        "html": "    \"runLogs\":   { \"deletedCount\": <span class=\"num\">47</span>, \"freedBytes\": <span class=\"num\">211893</span> },"
-      },
-      {
-        "cls": "dim",
-        "html": "    \"lineage\":   { \"deletedCount\": <span class=\"num\">0</span>,  \"freedBytes\": <span class=\"num\">0</span> },"
-      },
-      {
-        "cls": "dim",
-        "html": "    \"dlq\":       { \"deletedCount\": <span class=\"num\">3</span>,  \"freedBytes\": <span class=\"num\">9120</span> }"
-      },
-      {
-        "cls": "dim",
-        "text": "  },"
-      },
-      {
-        "cls": "dim",
-        "html": "  \"totalDeleted\": <span class=\"num\">62</span>,"
-      },
-      {
-        "cls": "dim",
-        "html": "  \"totalFreedBytes\": <span class=\"num\">269243</span>"
-      },
-      {
-        "cls": "dim",
-        "text": "}"
-      }
-    ],
-    "callout": "Use <code>--dry-run</code> to preview. Schedule via cron / k8s CronJob."
-  },
-  {
-    "kind": "term",
-    "duration": 8500,
-    "title": "fluid secrets · pipeline credentials",
-    "headline": "OS keychain backend, probe-before-rotate",
-    "sub": "Distinct from fluid auth (cloud creds) and fluid ai setup (LLM keys).",
-    "lines": [
-      {
-        "cls": "prompt cmd",
-        "text": "fluid secrets login postgres.prod.password",
-        "typingSpeed": 28
-      },
-      {
-        "cls": "faint",
-        "text": "Enter value (hidden): ********"
-      },
-      {
-        "cls": "success",
-        "text": "✓ stored postgres.prod.password (keychain)"
-      },
-      {
-        "cls": "prompt cmd spaced",
-        "text": "fluid secrets verify postgres.prod.password --json",
-        "typingSpeed": 28
-      },
-      {
-        "cls": "dim",
-        "text": "{ \"exists\": true, \"ref\": \"postgres.prod.password\" }"
+        "html": "  total deleted: <span class=\"num\">62</span> · freed: <span class=\"num\">269 KB</span>"
       },
       {
         "cls": "prompt cmd spaced",
         "text": "fluid secrets rotate postgres.prod.password",
-        "typingSpeed": 28
+        "typingSpeed": 26
       },
       {
         "cls": "faint",
-        "text": "▸ probing keychain for current value..."
+        "text": "▸ probing keychain · accepting rotation"
       },
       {
         "cls": "success",
-        "text": "✓ probe ok · accepting rotation"
+        "text": "✓ rotated · key-pair version bumped"
       },
       {
-        "cls": "faint",
-        "text": "Enter new value (hidden): ********"
-      },
-      {
-        "cls": "success",
-        "text": "✓ rotated postgres.prod.password"
-      }
-    ],
-    "callout": "Probe-before-rotate prevents typos in the secretRef from creating orphan records."
-  },
-  {
-    "kind": "term",
-    "duration": 8500,
-    "title": "fluid stats · cost across runs",
-    "headline": "Aggregate .fluid/agents/*/cost.json",
-    "sub": "Group by provider, productType, engine, or run.",
-    "lines": [
-      {
-        "cls": "prompt cmd",
+        "cls": "prompt cmd spaced",
         "text": "fluid stats --by provider --since 7d",
-        "typingSpeed": 28
-      },
-      {
-        "cls": "info spaced",
-        "text": "fluid stats — last 7 days"
-      },
-      {
-        "cls": "rule",
-        "text": "─────────────────────────────────────────────────────────"
+        "typingSpeed": 26
       },
       {
         "cls": "dim",
-        "html": "  anthropic/claude-sonnet     <span class=\"num\">14</span>   28,440 / 5,120     <span class=\"num\">$0.273</span>"
+        "html": "  anthropic   <span class=\"num\">14</span> runs   <span class=\"num\">$0.273</span>"
       },
       {
         "cls": "dim",
-        "html": "  openai/gpt-4.1-mini          <span class=\"num\">8</span>    9,210 / 1,890      <span class=\"num\">$0.043</span>"
-      },
-      {
-        "cls": "dim",
-        "html": "  gemini/gemini-2.5-flash      <span class=\"num\">3</span>      820 /   240      <span class=\"num\">$0.005</span>"
-      },
-      {
-        "cls": "dim",
-        "html": "  ollama/gemma4:31b            <span class=\"num\">5</span>    7,230 / 1,540      <span class=\"num\">$0.000</span>"
-      },
-      {
-        "cls": "rule",
-        "text": "─────────────────────────────────────────────────────────"
-      },
-      {
-        "cls": "info",
-        "html": "  Total                       <span class=\"num\">30</span>   45,700 / 8,790     <span class=\"num\">$0.321</span>"
+        "html": "  openai       <span class=\"num\">8</span> runs   <span class=\"num\">$0.043</span>"
       }
     ],
-    "callout": "LiteLLM-backed runs report accurate per-call cost (no heuristic). See <code>FLUID_LLM_BACKEND=litellm</code>."
+    "callout": "Same uniform shape across all 6 ingestion engines. CI matrices stay simple."
   },
   {
     "kind": "closing",
-    "duration": 6500,
-    "body": "\n      <h2>Day-1 ships. Day-2 doesn't surprise.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        14 typed CLI errors with stable JSON shapes. Same exit-code contract across all six engines.\n        CI matrices stay simple.\n      </div>\n      <div class=\"badges\" style=\"margin-top:24px;\">\n        <span class=\"badge\">runs status / logs / diff</span>\n        <span class=\"badge\">retention sweep</span>\n        <span class=\"badge alt\">secrets · keychain</span>\n        <span class=\"badge good\">stats · cost agg</span>\n      </div>\n    "
+    "duration": 7000,
+    "body": "\n      <h2>Day-1 ships.<br/>Day-2 doesn't surprise.</h2>\n      <div class=\"scene-sub\" style=\"font-size:18px;color:var(--text-dim);max-width:680px;text-align:center;\">\n        14 typed CLI errors with stable JSON shapes. Same exit-code contract.\n        DLQ is a first-class component. Schema drift never silently drops rows.\n      </div>\n      <div class=\"stats\">\n        <div class=\"stat\"><div class=\"num\">90s</div><div class=\"lbl\">3am incident → ship</div></div>\n        <div class=\"stat\"><div class=\"num\">14</div><div class=\"lbl\">typed CLI errors</div></div>\n        <div class=\"stat\"><div class=\"num\">0</div><div class=\"lbl\">silently dropped rows</div></div>\n        <div class=\"stat\"><div class=\"num\">5</div><div class=\"lbl\">log components scoped</div></div>\n      </div>\n    "
   }
 ];;
 
