@@ -2,6 +2,17 @@
 
 Day-2 introspection for acquisition (and other) runs. `fluid runs` is the umbrella for inspecting the state files Forge writes under `.fluid/runs/<product>/<build>/runs/`. Distinct from `fluid status` (workspace overview), `fluid doctor` (system diagnostic), and `fluid auth` (cloud credentials) — those serve different purposes.
 
+<iframe
+  src="/forge_docs/reels/day2-ops.html"
+  width="100%"
+  height="500"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="Skip the panic — Fluid Forge day-2 ops">
+</iframe>
+
+3am Slack ping: pipeline broke. Ninety seconds later, you've shipped the fix. The reel above walks `runs status` → `runs logs --component dlq` → `runs diff` → policy fix → `fluid ship`. Pairs with [`fluid retention`](./retention.html), [`fluid secrets`](./secrets.html), and [`fluid stats`](./stats.html).
+
 ::: tip Where this fits
 `fluid runs` ships with the source-aligned acquisition stack on the `feat/source-aligned-acquisition` branch (schema 0.7.3). The pinned 0.8.0 docs baseline doesn't include it yet; this page documents the surface ahead of release.
 :::

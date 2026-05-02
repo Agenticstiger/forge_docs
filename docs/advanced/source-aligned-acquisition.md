@@ -2,6 +2,17 @@
 
 Schema **0.7.3** introduces a first-class `acquisition` build pattern for source-aligned (Bronze / SDP) data products. Instead of writing imperative ingestion code or stitching together a 200-line Airflow DAG, you describe **what** to ingest and **how** to deliver it; Forge picks the right engine and runs it under a uniform protocol.
 
+<iframe
+  src="/forge_docs/reels/source-aligned-bronze.html"
+  width="100%"
+  height="500"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="Six months → sixty seconds — Fluid Forge source-aligned Bronze">
+</iframe>
+
+Six months of Airbyte cluster setup, or sixty seconds of `fluid init --discover`. The reel above shows the full flow; this page covers the framework underneath.
+
 ::: tip Where this fits
 This page covers the framework that makes source-aligned ingestion declarative — engines, deployment modes, delivery guarantees, schema evolution, quality gates, and lineage emission. Pair it with [Product Types](/forge_docs/data-products/product-type.html) (the SDP/ADP/CDP vocabulary) and the [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) (a worked example).
 :::

@@ -2,6 +2,17 @@
 
 A minimal end-to-end walkthrough of a source-aligned Bronze (`SDP`) data product. We'll start a local Postgres with seeded data, run `fluid validate` and `fluid apply` against the included contract, and verify the output Parquet file. No Airbyte cluster, no Airflow, no cloud setup — DuckDB does the ingestion in-process.
 
+<iframe
+  src="/forge_docs/reels/source-aligned-bronze.html"
+  width="100%"
+  height="500"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="Six months → sixty seconds — Fluid Forge source-aligned Bronze">
+</iframe>
+
+The 60-second reel above runs the exact flow this walkthrough documents: `fluid init --discover postgres://…` → `fluid validate --probe` → `fluid apply` → `fluid runs status`.
+
 ::: tip Where this walkthrough lives
 The exact contract, docker-compose, seed SQL, Makefile, and verification script for this walkthrough live in the `forge-cli` repo at [`examples/source-aligned-postgres-duckdb/`](https://github.com/Agenticstiger/forge-cli/tree/main/examples/source-aligned-postgres-duckdb). Schema 0.7.3 is delivered on the `feat/source-aligned-acquisition` branch — install from that branch (or wait for the next release) to follow along.
 :::

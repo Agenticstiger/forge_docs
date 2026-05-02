@@ -2,6 +2,17 @@
 
 The `feat/source-aligned-acquisition` branch overhauls `fluid forge` end-to-end. The new flow is detect-first, mode-aware, slash-command-friendly, and never writes a file before showing you what it's about to write.
 
+<iframe
+  src="/forge_docs/reels/guided-forge-ux.html"
+  width="100%"
+  height="500"
+  style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
+  loading="lazy"
+  title="23 questions, skipped — Fluid Forge guided UX">
+</iframe>
+
+Most CLIs ask 27 questions before they help. Forge asks four — the rest, it already knows. The reel above walks the welcome scan, mode picker, slash-command interview, streaming preview, and pre-write panel.
+
 ::: tip Where this fits
 This page covers the new forge UX layer. The pinned 0.8.0 docs baseline has the older `fluid forge` shape (single-shot interview, no mode picker, no preview panel). This page documents the next-release surface.
 :::
