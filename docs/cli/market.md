@@ -62,3 +62,22 @@ fluid market --layer gold --min-quality 0.9
 fluid market --product-id customer-360-v2 --detailed
 fluid market --blueprints
 ```
+
+## Command Center integration
+
+`fluid market` auto-detects a FLUID Command Center instance to enrich its discovery results with cross-organization catalog data. Detection is automatic and silent — you don't need to configure anything for the local-only path to work.
+
+For enterprise integrators pointing `fluid market` at a specific Command Center deployment, two environment variables override auto-detection:
+
+| Env var | Purpose |
+| --- | --- |
+| `FLUID_COMMAND_CENTER_URL` | Explicit Command Center URL (overrides config file + default). Strips trailing slash. |
+| `FLUID_DISABLE_CC_DETECTION` | `1` / `true` / `yes` to disable detection entirely (forces local-only operation). Useful for air-gapped environments. |
+
+Detection priority order:
+
+1. `FLUID_COMMAND_CENTER_URL` env var
+2. `~/.fluid/config.yaml` `command_center.url` key
+3. Default `http://localhost:8000`
+
+If none reach a healthy endpoint, `fluid market` falls back to local catalog discovery.
