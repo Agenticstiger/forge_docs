@@ -1,0 +1,175 @@
+// =====================================================================
+// Fluid Forge — brand palette
+// =====================================================================
+// VuePress 2 default-theme variable overrides. Keep this file in sync
+// with the brand guidelines (or, in the absence of guidelines, with the
+// existing logo's blue+amber forge motif).
+//
+// Light mode and dark mode variants are both defined; the default theme
+// switches between them via the `[data-theme]` attribute on <html>.
+// =====================================================================
+
+@use "sass:color";
+
+// ---------------------------------------------------------------------
+// Brand primitives — change once, ripples through every other variable.
+// ---------------------------------------------------------------------
+$ff-blue-50:  #eff6ff;
+$ff-blue-100: #dbeafe;
+$ff-blue-200: #bfdbfe;
+$ff-blue-300: #93c5fd;
+$ff-blue-400: #60a5fa;
+$ff-blue-500: #3b82f6;
+$ff-blue-600: #2563eb;   // primary
+$ff-blue-700: #1d4ed8;
+$ff-blue-800: #1e40af;
+$ff-blue-900: #1e3a8a;
+
+$ff-amber-50:  #fffbeb;
+$ff-amber-100: #fef3c7;
+$ff-amber-200: #fde68a;
+$ff-amber-300: #fcd34d;
+$ff-amber-400: #fbbf24;   // accent (forge fire)
+$ff-amber-500: #f59e0b;
+$ff-amber-600: #d97706;
+$ff-amber-700: #b45309;
+$ff-amber-800: #92400e;
+$ff-amber-900: #78350f;
+
+$ff-slate-50:  #f8fafc;
+$ff-slate-100: #f1f5f9;
+$ff-slate-200: #e2e8f0;
+$ff-slate-300: #cbd5e1;
+$ff-slate-400: #94a3b8;
+$ff-slate-500: #64748b;
+$ff-slate-600: #475569;
+$ff-slate-700: #334155;
+$ff-slate-800: #1e293b;
+$ff-slate-900: #0f172a;
+
+// ---------------------------------------------------------------------
+// VuePress 2 default-theme variable overrides — light mode
+// (dark variants below under [data-theme="dark"])
+// ---------------------------------------------------------------------
+:root {
+  // Brand
+  --vp-c-accent:        #{$ff-blue-600};
+  --vp-c-accent-hover:  #{$ff-blue-500};
+  --vp-c-accent-bg:     #{$ff-blue-600};
+  --vp-c-accent-text:   #ffffff;
+  --vp-c-accent-soft:   #{$ff-blue-100};
+
+  // Forge accent (used for callouts, badges, the "warm" half of the gradient)
+  --ff-c-accent:        #{$ff-amber-500};
+  --ff-c-accent-hover:  #{$ff-amber-400};
+  --ff-c-accent-soft:   #{$ff-amber-100};
+
+  // Surfaces
+  --vp-c-bg:            #ffffff;
+  --vp-c-bg-alt:        #{$ff-slate-50};
+  --vp-c-bg-elv:        #ffffff;
+  --vp-c-bg-elv-up:     #ffffff;
+
+  // Text
+  --vp-c-text:          #{$ff-slate-900};
+  --vp-c-text-mute:     #{$ff-slate-600};
+  --vp-c-text-subtle:   #{$ff-slate-500};
+
+  // Borders / dividers
+  --vp-c-divider:       #{$ff-slate-200};
+  --vp-c-border:        #{$ff-slate-200};
+  --vp-c-border-hard:   #{$ff-slate-300};
+  --vp-c-gutter:        #{$ff-slate-100};
+
+  // Code
+  --vp-c-code-bg:       #{$ff-slate-100};
+  --code-bg-color:      #{$ff-slate-900};   // dark code blocks even in light mode
+  --code-c-text:        #{$ff-slate-100};
+
+  // Badge colors (used by the default theme's tip/warning/danger badges,
+  // distinct from custom-container background colors above).
+  --badge-c-tip-text:    #{$ff-blue-700};
+  --badge-c-tip-bg:      #{$ff-blue-100};
+  --badge-c-warning-text:#{$ff-amber-600};
+  --badge-c-warning-bg:  #{$ff-amber-100};
+  --badge-c-danger-text: #b91c1c;
+  --badge-c-danger-bg:   #fee2e2;
+
+  // Tip / warning / danger backgrounds (callouts)
+  --vp-c-tip-bg:        #{$ff-blue-50};
+  --vp-c-tip-text:      #{$ff-blue-700};
+  --vp-c-tip-border:    #{$ff-blue-300};
+
+  --vp-c-warning-bg:    #{$ff-amber-50};
+  --vp-c-warning-text:  #{$ff-amber-600};
+  --vp-c-warning-border:#{$ff-amber-300};
+
+  --vp-c-danger-bg:     #fef2f2;
+  --vp-c-danger-text:   #b91c1c;
+  --vp-c-danger-border: #fca5a5;
+
+  // Brand gradient (used on hero, 404, marketing surfaces).
+  // 135deg = top-left → bottom-right; blue → amber feels like "code → forge".
+  --ff-hero-gradient: linear-gradient(135deg,
+    #{$ff-blue-600} 0%,
+    #{$ff-blue-500} 35%,
+    #{$ff-amber-500} 100%);
+
+  --ff-hero-gradient-soft: linear-gradient(135deg,
+    #{$ff-blue-50} 0%,
+    #{$ff-amber-50} 100%);
+}
+
+// ---------------------------------------------------------------------
+// Dark mode
+// ---------------------------------------------------------------------
+[data-theme="dark"] {
+  --vp-c-accent:        #{$ff-blue-400};
+  --vp-c-accent-hover:  #{$ff-blue-300};
+  --vp-c-accent-bg:     #{$ff-blue-500};
+  --vp-c-accent-text:   #ffffff;
+  --vp-c-accent-soft:   #{$ff-blue-900};
+
+  --ff-c-accent:        #{$ff-amber-400};
+  --ff-c-accent-hover:  #{$ff-amber-300};
+  --ff-c-accent-soft:   #{color.change($ff-amber-400, $alpha: 0.15)};
+
+  --vp-c-bg:            #{$ff-slate-900};
+  --vp-c-bg-alt:        #{$ff-slate-800};
+  --vp-c-bg-elv:        #{$ff-slate-800};
+  --vp-c-bg-elv-up:     #{$ff-slate-700};
+
+  --vp-c-text:          #{$ff-slate-100};
+  --vp-c-text-mute:     #{$ff-slate-300};
+  --vp-c-text-subtle:   #{$ff-slate-400};
+
+  --vp-c-divider:       #{$ff-slate-700};
+  --vp-c-border:        #{$ff-slate-700};
+  --vp-c-border-hard:   #{$ff-slate-600};
+  --vp-c-gutter:        #{$ff-slate-800};
+
+  --vp-c-code-bg:       #{$ff-slate-800};
+  --code-bg-color:      #{$ff-slate-900};
+  --code-c-text:        #{$ff-slate-100};
+
+  --vp-c-tip-bg:        #{color.change($ff-blue-500, $alpha: 0.1)};
+  --vp-c-tip-text:      #{$ff-blue-300};
+  --vp-c-tip-border:    #{$ff-blue-700};
+
+  --vp-c-warning-bg:    #{color.change($ff-amber-500, $alpha: 0.1)};
+  --vp-c-warning-text:  #{$ff-amber-300};
+  --vp-c-warning-border:#{$ff-amber-700};
+
+  --vp-c-danger-bg:     rgba(220, 38, 38, 0.1);
+  --vp-c-danger-text:   #f87171;
+  --vp-c-danger-border: #b91c1c;
+
+  --ff-hero-gradient: linear-gradient(135deg,
+    #{$ff-blue-700} 0%,
+    #{$ff-blue-600} 35%,
+    #{$ff-amber-600} 100%);
+
+  --ff-hero-gradient-soft: linear-gradient(135deg,
+    #{$ff-slate-800} 0%,
+    #{$ff-slate-700} 100%);
+}

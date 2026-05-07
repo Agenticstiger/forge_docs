@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fluid Forge — Open Graph card
+  ============================================================
+  1200×630 social-share image referenced via og:image and
+  twitter:image meta tags. Pure SVG so it renders identically
+  on every social platform without raster compression.
+
+  Design notes:
+    - background: brand gradient (blue → amber, 135°)
+    - hero text: 64px Inter Bold, white with subtle text-shadow
+    - sub-tagline: 28px Inter Regular, 80% opacity
+    - bottom strip: a "1 file. 4 clouds. 0 rewrites." stat slug
+      so the image stands alone on a Twitter timeline without
+      needing the link preview to load
+    - bottom-right: small "fluid-forge.dev" hint (the canonical
+      docs URL — readers can paste this directly)
+
+  Slack/Twitter/LinkedIn all crop to 1200×630, so we keep critical
+  content within the central 1080×570 "safe zone" with a 60px
+  padding ring.
+  ============================================================
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="35%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+
+    <linearGradient id="card" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.15)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0.05)" />
+    </linearGradient>
+
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" />
+      <feOffset dx="0" dy="6" result="shadow" />
+      <feFlood flood-color="#0f172a" flood-opacity="0.35" />
+      <feComposite in2="shadow" operator="in" />
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)" />
+
+  <!-- Decorative grid in the background (subtle) -->
+  <g opacity="0.08" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="105" x2="1200" y2="105" />
+    <line x1="0" y1="210" x2="1200" y2="210" />
+    <line x1="0" y1="315" x2="1200" y2="315" />
+    <line x1="0" y1="420" x2="1200" y2="420" />
+    <line x1="0" y1="525" x2="1200" y2="525" />
+    <line x1="200" y1="0" x2="200" y2="630" />
+    <line x1="400" y1="0" x2="400" y2="630" />
+    <line x1="600" y1="0" x2="600" y2="630" />
+    <line x1="800" y1="0" x2="800" y2="630" />
+    <line x1="1000" y1="0" x2="1000" y2="630" />
+  </g>
+
+  <!-- Wordmark -->
+  <text x="600" y="170" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+        font-size="40" font-weight="700"
+        fill="#ffffff" letter-spacing="6"
+        opacity="0.95">FLUID&#160;FORGE</text>
+
+  <!-- Hero tagline -->
+  <text x="600" y="280" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+        font-size="64" font-weight="700"
+        fill="#ffffff"
+        filter="url(#softShadow)">
+    Declarative Data Products.
+  </text>
+  <text x="600" y="354" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+        font-size="34" font-weight="500"
+        fill="#ffffff" opacity="0.92">
+    Write YAML. Deploy Anywhere.
+  </text>
+
+  <!-- Stat row -->
+  <g transform="translate(140, 442)">
+    <rect width="920" height="84" rx="14" fill="url(#card)" stroke="rgba(255,255,255,0.25)" stroke-width="1" />
+    <text x="80" y="52" text-anchor="middle"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+          font-size="36" font-weight="700" fill="#ffffff">1</text>
+    <text x="80" y="74" text-anchor="middle"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+          font-size="13" font-weight="500" fill="#ffffff" opacity="0.8" letter-spacing="2">FILE</text>
+
+    <text x="280" y="52" text-anchor="middle"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+          font-size="36" font-weight="700" fill="#ffffff">4</text>
+    <text x="280" y="74" text-anchor="middle"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+          font-size="13" font-weight="500" fill="#ffffff" opacity="0.8" letter-spacing="2">CLOUDS</text>
+
+    <text x="480" y="52" text-anchor="middle"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+          font-size="36" font-weight="700" fill="#ffffff">0</text>
+    <text x="480" y="74" text-anchor="middle"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+          font-size="13" font-weight="500" fill="#ffffff" opacity="0.8" letter-spacing="2">REWRITES</text>
+
+    <text x="720" y="52" text-anchor="middle"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+          font-size="36" font-weight="700" fill="#ffffff">30s</text>
+    <text x="720" y="74" text-anchor="middle"
+          font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+          font-size="13" font-weight="500" fill="#ffffff" opacity="0.8" letter-spacing="2">TO DEPLOY</text>
+
+    <!-- column dividers -->
+    <line x1="180" y1="22" x2="180" y2="62" stroke="rgba(255,255,255,0.25)" />
+    <line x1="380" y1="22" x2="380" y2="62" stroke="rgba(255,255,255,0.25)" />
+    <line x1="580" y1="22" x2="580" y2="62" stroke="rgba(255,255,255,0.25)" />
+
+    <!-- right-side phrase -->
+    <text x="855" y="50" text-anchor="middle"
+          font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', Consolas, monospace"
+          font-size="14" font-weight="500" fill="#ffffff" opacity="0.85">platform: gcp</text>
+    <text x="855" y="70" text-anchor="middle"
+          font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', Consolas, monospace"
+          font-size="14" font-weight="500" fill="#fbbf24">platform: aws</text>
+  </g>
+
+  <!-- Bottom-right canonical URL hint -->
+  <text x="1140" y="595" text-anchor="end"
+        font-family="ui-monospace, 'SF Mono', 'JetBrains Mono', Consolas, monospace"
+        font-size="18" font-weight="500"
+        fill="#ffffff" opacity="0.75">
+    agentics-rising.github.io/forge_docs
+  </text>
+
+  <!-- Bottom-left tagline -->
+  <text x="60" y="595" text-anchor="start"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif"
+        font-size="16" font-weight="500"
+        fill="#ffffff" opacity="0.7" letter-spacing="2">
+    OPEN SOURCE · APACHE 2.0
+  </text>
+</svg>

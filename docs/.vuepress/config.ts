@@ -1,6 +1,10 @@
 import { defineUserConfig } from 'vuepress'
 import { defaultTheme } from '@vuepress/theme-default'
 import { viteBundler } from '@vuepress/bundler-vite'
+import { copyCodePlugin } from '@vuepress/plugin-copy-code'
+import { searchPlugin } from '@vuepress/plugin-search'
+import { sitemapPlugin } from '@vuepress/plugin-sitemap'
+import { markdownChartPlugin } from '@vuepress/plugin-markdown-chart'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -33,16 +37,26 @@ export default defineUserConfig({
 
   head: [
     ['link', { rel: 'icon', href: '/forge_docs/logo.png' }],
-    ['meta', { name: 'theme-color', content: '#1a73e8' }],
+    ['meta', { name: 'theme-color', content: '#2563eb' }], // brand blue (Phase 2A foundation)
     ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
     ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }],
-    ['meta', { property: 'og:title', content: 'Fluid Forge' }],
-    ['meta', { property: 'og:description', content: 'Write contracts, validate locally, and deploy data products with the Fluid Forge CLI.' }],
+
+    // Open Graph — full social card (Phase 2A polish)
+    ['meta', { property: 'og:title', content: 'Fluid Forge — Declarative Data Products' }],
+    ['meta', { property: 'og:description', content: 'Write YAML, deploy anywhere. One contract, every cloud. What Terraform did for infrastructure, Fluid Forge does for data products.' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:url', content: 'https://agenticstiger.github.io/forge_docs/' }],
+    ['meta', { property: 'og:image', content: 'https://agenticstiger.github.io/forge_docs/og-card.png' }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { property: 'og:site_name', content: 'Fluid Forge' }],
+
+    // Twitter / X
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'Fluid Forge' }],
-    ['meta', { name: 'twitter:description', content: 'Contract-first data product delivery with Fluid Forge.' }],
+    ['meta', { name: 'twitter:title', content: 'Fluid Forge — Declarative Data Products' }],
+    ['meta', { name: 'twitter:description', content: 'Write YAML, deploy anywhere. One contract, every cloud.' }],
+    ['meta', { name: 'twitter:image', content: 'https://agenticstiger.github.io/forge_docs/og-card.png' }],
+
     ['meta', { name: 'keywords', content: 'fluid forge, data products, declarative data engineering, duckdb, bigquery, snowflake, aws, cli' }],
   ],
 
@@ -252,4 +266,27 @@ export default defineUserConfig({
     lastUpdated: true,
     contributors: true
   }),
+
+  // Phase 2A foundation plugins.
+  // - copy-code: one-click copy on every fenced code block
+  // - search: client-side fuzzy search (Cmd+K / "/" hotkey). DocSearch
+  //   was the original target; client-side keeps us free of external
+  //   indexing dependencies and works offline in dev.
+  // - sitemap: writes /sitemap.xml at build time using the canonical URL
+  // - markdown-chart: renders ```mermaid blocks at build time so they
+  //   show on the live site (without this plugin Mermaid only renders
+  //   on github.com READMEs).
+  plugins: [
+    copyCodePlugin({}),
+    searchPlugin({
+      maxSuggestions: 12,
+      hotKeys: ['s', '/'],
+    }),
+    sitemapPlugin({
+      hostname: 'https://agenticstiger.github.io/forge_docs/',
+    }),
+    markdownChartPlugin({
+      mermaid: true,
+    }),
+  ],
 })

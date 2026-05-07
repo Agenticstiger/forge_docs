@@ -1,0 +1,17 @@
+// =====================================================================
+// Fluid Forge — self-hosted typography
+// =====================================================================
+// Using fontsource-variable so we ship a single variable font file per
+// family instead of 6+ static weight files. Smaller bundle, smoother
+// weight transitions, no Google Fonts CDN privacy concerns.
+//
+// Requires deps in package.json:
+//   "@fontsource-variable/inter": "^5"
+//   "@fontsource-variable/jetbrains-mono": "^5"
+// =====================================================================
+
+// Body — Inter, optimized for legibility at small sizes
+@use "@fontsource-variable/inter";
+
+// Code — JetBrains Mono, optimized for source code (clear 0/O, l/1/I, etc.)
+@use "@fontsource-variable/jetbrains-mono";
