@@ -7,10 +7,6 @@ description: Watch every Fluid Forge workflow in motion. 8 short asciinema-rende
 
 Eight short demos, each under 30 seconds, showing what the canonical workflow looks like end-to-end. Click play on any cast — the SVG only animates after you opt in (no autoplay, no JS).
 
-::: tip How these were made
-All 8 casts are **scripted** at full fidelity to the real CLI's output shape — frame-perfect for documentation. Each runs through the same pipeline: cast generator → asciinema-format conversion → secret scrubber (strips any leaked `AIza…` / `sk-…` / JWT / `KEY=…` patterns) → svg-term renderer → SVG. Real-capture variants of `forge-gemini` and `snowflake-real` exist alongside as `forge_gemini_real_capture.py` and `snowflake_real_capture.py` — run them against your env when you want to record a literal session against the live APIs.
-:::
-
 ---
 
 ## Install + run, locally
