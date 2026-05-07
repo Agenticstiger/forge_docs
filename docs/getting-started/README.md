@@ -2,6 +2,14 @@
 
 Run your first data product locally in a few minutes, then move to cloud targets when you are ready.
 
+<CliCast
+  src="/forge_docs/demos/local-quickstart.svg"
+  title="fluid init my-project --quickstart  →  validate  →  plan  →  apply"
+  caption="Click play above for the full local quickstart in 30 seconds. Or follow along step-by-step below."
+  width="920"
+  insight="30 seconds. No cloud account. No credit card. | The contract.fluid.yaml you wrote is the contract that ran. | Local DuckDB + Parquet artifact — exactly what production produces, but offline."
+/>
+
 ## What this guide assumes
 
 - Python `3.10+`

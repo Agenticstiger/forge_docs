@@ -6,6 +6,14 @@ Deploy data products to Amazon Web Services — S3, Glue, Athena — using the s
 **Docs Baseline:** CLI `0.8.0`<br>
 **Tested Services:** S3, Glue Data Catalog, Athena, IAM
 
+<CliCast
+  src="/forge_docs/demos/aws-quickstart.svg"
+  title="AWS quickstart — S3 + Glue + Athena in 30 seconds"
+  caption="Same contract as the local quickstart, with binding.platform swapped to aws. Glue catalog auto-created, Athena workgroup wired up, IAM resource policies applied — all from one fluid apply."
+  width="920"
+  insight="Same contract. New cloud. S3 + Glue + Athena from one YAML. | IAM resource policies compiled from accessPolicy.grants — no console clicks. | Drop in --env staging or --env prod for environment promotion."
+/>
+
 ::: warning Compatibility note
 This page preserves some older `0.7.1` contract snippets for backward-compatibility context. Current scaffolds emit `fluidVersion: 0.7.2`, and orchestration guidance now prefers `fluid generate schedule --scheduler airflow`.
 :::

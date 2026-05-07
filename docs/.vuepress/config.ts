@@ -1,6 +1,10 @@
 import { defineUserConfig } from 'vuepress'
 import { defaultTheme } from '@vuepress/theme-default'
 import { viteBundler } from '@vuepress/bundler-vite'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export default defineUserConfig({
   lang: 'en-US',
@@ -8,6 +12,9 @@ export default defineUserConfig({
   description: 'Declarative data products for local and multi-cloud delivery with a contract-first CLI.',
 
   base: '/forge_docs/',
+
+  // Loads client.ts so <CliCast> is registered globally for markdown pages.
+  clientConfigFile: resolve(__dirname, './client.ts'),
 
   bundler: viteBundler({
     viteOptions: {
@@ -61,6 +68,7 @@ export default defineUserConfig({
         ]
       },
       { text: 'CLI Reference', link: '/cli/' },
+      { text: 'Demos', link: '/demos/' },
       {
         text: 'Providers',
         children: [

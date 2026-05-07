@@ -2,6 +2,14 @@
 
 **Time:** 15 minutes | **Difficulty:** Intermediate | **Prerequisites:** Snowflake account, Python 3.10+, git
 
+<CliCast
+  src="/forge_docs/demos/snowflake-real.svg"
+  title="validate → plan → apply --mode dry-run → policy-apply --mode check"
+  caption="The flow at full fidelity: live env credentials sourced, validate --strict, plan against the live account, apply --mode dry-run rendering DDL without firing it, and policy-apply --mode check over the compiled IAM bindings. No DDL fires, no RBAC mutates — exactly what you'd run in a PR review before approving the merge."
+  width="920"
+  insight="4 commands. Live auth. Zero mutations. The PR pre-flight you wish you had. | DDL rendered, RBAC bindings checked, drift detected — without touching production. | Flip --mode dry-run → --mode enforce when the diff is clean and reviewed."
+/>
+
 ---
 
 ## Overview

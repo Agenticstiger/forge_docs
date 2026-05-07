@@ -4,6 +4,14 @@
 **Difficulty:** Intermediate  
 **Prerequisites:** GCP account, gcloud CLI, Python 3.10+
 
+<CliCast
+  src="/forge_docs/demos/gcp-quickstart.svg"
+  title="The same contract on BigQuery — swap one line, redeploy"
+  caption="From the local DuckDB contract to a fully-deployed BigQuery table with IAM grants applied. Click play above for the 30-second highlight; the walkthrough below covers each step with hands-on auth + contract editing."
+  width="920"
+  insight="Same contract. One line changed (platform: local → platform: gcp). | BigQuery dataset, table, IAM grants — all created from the YAML you already had. | Schema, dq.rules, agentPolicy, sovereignty — byte-identical to the local run."
+/>
+
 ::: warning Compatibility note
 The contract snippets on this page use `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so these examples remain valid. For the current `0.7.2` contract shape, run `fluid init my-project --quickstart` or browse the bundled templates with `fluid init --list-templates`.
 :::

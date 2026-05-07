@@ -1,5 +1,13 @@
 # Snowflake Quickstart
 
+<CliCast
+  src="/forge_docs/demos/snowflake-quickstart.svg"
+  title="Snowflake quickstart — env, validate, plan, apply --mode dry-run"
+  caption="The dry version: source the env file, validate --strict, plan against the account, render DDL via apply --mode dry-run. Click play above; full step-by-step below."
+  width="920"
+  insight="Snowflake-ready in 4 commands. Live auth, real DDL, zero side effects. | Use --mode dry-run for pre-flight on every PR; drop it for production. | RBAC grants from accessPolicy.grants compile to native GRANT statements."
+/>
+
 This is the canonical first-time Snowflake path for Fluid Forge.
 
 Use it in two stages:

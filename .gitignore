@@ -25,3 +25,11 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+
+# Asciinema cast working files — only the scrubbed SVGs in
+# docs/.vuepress/public/demos/ are committed; the .cast intermediates
+# are generated under /tmp/casts/ and removed at the end of each render.
+/tmp/casts/
+*.cast.raw
+*.cast.tmp
+docs/.vuepress/public/demos/*.cast
