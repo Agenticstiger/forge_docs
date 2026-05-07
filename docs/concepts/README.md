@@ -5,7 +5,7 @@ description: The conceptual model behind Fluid Forge — learn-once reference fo
 
 # 📒 Concepts
 
-Everything in this section is **learn-once reference**. If you've already shipped a contract, you can skip ahead to the [CLI Reference](/cli/) or [Walkthroughs](/walkthrough/local). If you're new, read these in order — each builds on the last.
+Everything in this section is **learn-once reference**. If you've already shipped a contract, you can skip ahead to the [CLI Reference](/forge_docs/cli/) or [Walkthroughs](/forge_docs/walkthrough/local). If you're new, read these in order — each builds on the last.
 
 ## In this section
 

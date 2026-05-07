@@ -60,8 +60,8 @@ That's the smallest contract Fluid Forge will accept. Save it as `contract.fluid
 ## Where to look next
 
 - [Builds, Exposes, Bindings](./builds-exposes-bindings.md) — the three core blocks that turn a stub into a real product.
-- [Local walkthrough](/walkthrough/local) — build a Netflix analytics contract from scratch.
-- [Validate command](/cli/validate) — what schema rules are checked, and what error messages mean.
+- [Local walkthrough](/forge_docs/walkthrough/local) — build a Netflix analytics contract from scratch.
+- [Validate command](/forge_docs/cli/validate) — what schema rules are checked, and what error messages mean.
 
 ---
 

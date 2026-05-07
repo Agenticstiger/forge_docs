@@ -9,11 +9,11 @@ A growing collection of common questions. Each answer either resolves the questi
 
 ## How is Fluid Forge different from dbt / Terraform / Airflow / OPA?
 
-Short answer: it unifies the four contracts (schema + infra + orchestration + policy) into one YAML so they can't drift. Long answer: see [Concepts → vs alternatives](/concepts/vs-alternatives.md) — there's a side-by-side ownership table.
+Short answer: it unifies the four contracts (schema + infra + orchestration + policy) into one YAML so they can't drift. Long answer: see [Concepts → vs alternatives](/forge_docs/concepts/vs-alternatives.md) — there's a side-by-side ownership table.
 
 ## Why do I see `pip install fluid-forge` in some old docs and `pip install data-product-forge` in new docs?
 
-The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge`** (the older `fluid-forge` listing is frozen at 0.7.9 and won't receive new releases). [Getting Started](/getting-started/) has the up-to-date install instructions.
+The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge`** (the older `fluid-forge` listing is frozen at 0.7.9 and won't receive new releases). [Getting Started](/forge_docs/getting-started/) has the up-to-date install instructions.
 
 ## What's the difference between `fluidVersion` and the CLI version?
 
@@ -46,7 +46,7 @@ Schema migrations are backward-compatible by default — the latest CLI reads ol
 
 ## Where's the playground?
 
-[`/playground/`](/playground/) — Monaco editor pre-loaded with four canonical contracts. No install needed.
+[`/playground/`](/forge_docs/playground/) — Monaco editor pre-loaded with four canonical contracts. No install needed.
 
 ---
 
