@@ -54,6 +54,11 @@ SAFE_DEMOS=(
   "forge-blank         py-script  scripts/demos/forge_blank.py         92 22"
   "policy-flow         py-script  scripts/demos/policy_flow.py         92 22"
   "agent-policy        py-script  scripts/demos/agent_policy.py        92 26"
+  "forge-multi-provider py-script scripts/demos/forge_multi_provider.py 92 30"
+  "source-aligned-bronze py-script scripts/demos/source_aligned_bronze.py 92 26"
+  "guided-forge-ux       py-script scripts/demos/guided_forge_ux.py       92 28"
+  "day2-ops              py-script scripts/demos/day2_ops.py              92 28"
+  "agent-compaction      py-script scripts/demos/agent_compaction.py      92 26"
 )
 
 LIVE_DEMOS=(
