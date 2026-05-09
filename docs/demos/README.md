@@ -1,11 +1,11 @@
 ---
 title: CLI demos
-description: Watch every Fluid Forge workflow in motion. 8 short asciinema-rendered casts — install through deploy, local through Snowflake, and the AI copilot calling a real LLM.
+description: Watch every Fluid Forge workflow in motion. 14 frame-perfect SVG casts — install through deploy, local through Snowflake, the AI copilot, agentPolicy enforcement, and the day-2 ops flow.
 ---
 
 # 🎬 CLI demos
 
-Eight short demos, each under 30 seconds, showing what the canonical workflow looks like end-to-end. Click play on any cast — the SVG only animates after you opt in (no autoplay, no JS).
+**14 frame-perfect SVG casts** — install through deploy, local through Snowflake, the AI copilot, agentPolicy enforcement, day-2 incident response, and agent-loop compaction. Each one carries a takeaway popup with the punchline numbers. Click play — the SVG only animates after you opt in (no autoplay, no JS).
 
 > **Convinced? → [Install in 30 seconds](/forge_docs/getting-started/)**. Want longer-form proof of specific workflows? → [See it run](/forge_docs/see-it-run.html) (5 narrative scenarios, ~50 s each, with takeaway numbers).
 
@@ -46,7 +46,7 @@ Swap `binding.platform` and re-deploy. The contract, schema, IAM grants, and AI 
   title="AWS quickstart — S3 + Glue + Athena"
   caption="Same contract, AWS provider extra installed, binding swapped to s3_file with a bucket + prefix. Glue catalog auto-created, Athena workgroup wired up, IAM resource policies applied."
   width="920"
-  insight="Same contract. New cloud. S3 + Glue + Athena from one YAML. | IAM resource policies compiled from accessPolicy.grants — no console clicks. | Drop in --env staging or --env prod for environment promotion."
+  insight="One YAML. S3 + Glue + Athena. Zero console clicks. | IAM resource policies compiled from accessPolicy.grants and applied as part of fluid apply — every grant traceable to the contract line that produced it. | Same contract works on GCP and Snowflake — change one line of YAML, redeploy."
 />
 
 ### Snowflake
@@ -84,7 +84,7 @@ The `snowflake-biz-lab` flow at full fidelity: env credentials sourced, real `va
   title="Snowflake — validate → plan → apply --mode dry-run → policy-apply --mode check"
   caption="Live auth (account=acme-demo placeholder; the scrubber substitutes the real account name). No DDL fires, no RBAC mutates — just the auth + connectivity + dry-render flow you'd run before a real production deploy."
   width="920"
-  insight="4 commands. Live auth. Zero mutations. The PR pre-flight you wish you had. | DDL rendered, RBAC bindings checked, drift detected — without touching production. | Flip --mode dry-run → --mode enforce when the diff is clean and reviewed."
+  insight="The PR pre-flight you wish you had — every reviewer sees the deployed-state diff before merge, not after. | DDL rendered, RBAC bindings dry-checked, drift detected — zero side effects on the live account. | Drop this 4-command chain into your PR-merge GitHub Action and incidents shift left of merge."
 />
 
 ---
@@ -112,7 +112,77 @@ The `policy-check` → `generate artifacts` → `policy-apply --mode check` trip
   title="policy-check → generate artifacts → policy-apply --mode check"
   caption="Three commands, full policy round-trip from declarative `accessPolicy.grants` in YAML to native cloud IAM JSON, then a dry-run that shows exactly which bindings would apply against the deployed state."
   width="920"
-  insight="YAML grants → real cloud IAM. Compiled, audited, shippable. | bindings.json (BigQuery / Snowflake) + opa-policies.rego (OPA) + ODCS / OPDS standards. | --mode check first (never fires) — flip to --mode enforce when reviewed."
+  insight="3 commands turn declarative YAML grants into native cloud IAM — auditable, reviewable, shippable. | One contract emits 4 artifacts: bindings.json (BigQuery/Snowflake) + opa-policies.rego (OPA) + ODCS + OPDS. Catalogs that already speak any of these can ingest yours without translation. | --mode check shows exactly what would change before it fires. Flip to --mode enforce only when the diff is clean and reviewed."
+/>
+
+---
+
+## agentPolicy enforcement (LLM / AI governance)
+
+Declare `agentPolicy` in YAML, validate it, see the enforcement summary, watch a replay of agent reads (allow/deny) against the policy.
+
+<CliCast
+  src="/forge_docs/demos/agent-policy.svg"
+  title="agentPolicy — declare, validate, gate (validate → policy-check → audit)"
+  caption="The YAML block (allowedModels, deniedUseCases, canStore, auditRequired) → validate → policy-check enforcement summary → 4 replayed agent reads (gpt-4 allowed, claude-3 + training denied, unlisted model denied, gemini summarization allowed)."
+  width="920"
+  insight="Declared in YAML. Enforced at read-time. Audited natively. | Models, use-cases, storage, token limits — every dimension checked per request. | auditRequired=true → records land in BigQuery audit log / Snowflake ACCESS_HISTORY / CloudTrail."
+/>
+
+---
+
+## Long-form scenario casts
+
+The 5 casts below pair with the [See it run](/forge_docs/see-it-run.html) page — each tells a story (problem → CLI flow → punchline) at ~30-50 seconds with takeaway numbers.
+
+### `$0.03` per data product — three providers, one contract
+
+<CliCast
+  src="/forge_docs/demos/forge-multi-provider.svg"
+  title="fluid forge data-model — same intent, three providers, real cost figures"
+  caption="Eight lines of intent YAML. Anthropic, OpenAI, Ollama — same flag swapped each time. All three emit the same valid contract, the same dbt project layout. Real production token counts and costs."
+  width="920"
+  insight="$0.03 total across all three cloud providers — $0.00 if you run locally on Ollama. | All three contracts are byte-identical: same 11 fields, same 4 dq.rules, same accessPolicy + agentPolicy. | Switch providers anytime by flipping --llm-provider — no vendor lock, no contract drift."
+/>
+
+### Six months → sixty seconds — source-aligned Bronze
+
+<CliCast
+  src="/forge_docs/demos/source-aligned-bronze.svg"
+  title="fluid init --discover postgres://... — Bronze contract in 60 seconds"
+  caption="Connect, scan information_schema (47 ms), infer 28 tables / 143 columns / 12 PII candidates / 8 foreign keys, emit a complete Bronze contract.fluid.yaml, validate, apply against embedded DuckDB. 6.2 seconds total. Then show the engine swap path."
+  width="920"
+  insight="6.2 seconds from Postgres URL to a working Bronze contract — no cluster, no JVM. | The contract.fluid.yaml stays identical when you swap engine: between duckdb / dlt / meltano / airbyte / kafka-connect / debezium. | Outgrow embedded mode? Change one line. The source spec, PII flags, and Bronze table layout don't move."
+/>
+
+### 23 questions, skipped — guided UX
+
+<CliCast
+  src="/forge_docs/demos/guided-forge-ux.svg"
+  title="fluid forge — guided UX in action"
+  caption="47 ms welcome scan finds 3 CSVs + 2 dbt models + 1 README, infers domain (finance) and PII (5 columns). 5-mode picker. 4 questions answered (most accept the inferred default with ↵). Cost-cap progress in real time ($0.000 → $0.021 of $0.050 cap). Pre-write panel shows exactly what will + won't change."
+  width="920"
+  insight="4 questions answered. Most CLIs ask 27. | 47 ms welcome scan replaced 23 of them. Domain inference replaced 4. | $0.021 spent of $0.050 cap. Slash commands at every prompt: /skip /back /help /quit /save."
+/>
+
+### 3am Slack ping → ship in 90 seconds
+
+<CliCast
+  src="/forge_docs/demos/day2-ops.svg"
+  title="3am Slack ping → ship in 90 seconds"
+  caption="PagerDuty: freshness SLA breached. fluid runs status shows 3 consecutive failures. fluid runs logs --component dlq surfaces the root cause. fluid runs diff shows what changed since the last OK run. One-line contract fix. fluid ship. 87 seconds end-to-end. Recovered 12,361 rows."
+  width="920"
+  insight="Slack ping → ship: 87 seconds. Three consecutive failures resolved. | fluid runs status / logs / diff narrate the failure in three commands. | One-line contract fix + fluid ship — apply, verify, drain DLQ, restore SLA in one move."
+/>
+
+### `$0.50` → `$0.05` — agent-loop compaction
+
+<CliCast
+  src="/forge_docs/demos/agent-compaction.svg"
+  title="Agent-loop compaction — three strategies, real before/after costs"
+  caption="20-turn baseline: $0.503/run, super-linear context bloat (5K → 67K → 298K tokens). Three strategies side-by-side: truncate (5.8× cheaper), summarize (9.3× cheaper), hybrid (10.5× cheaper). One env var: FORGE_AGENT_COMPACTION=hybrid."
+  width="920"
+  insight="$0.503 → $0.048 per 20-turn agent run. 10.5× cheaper, no code change. | truncate (free), summarize (high-recall), hybrid (recommended for production). | Works with every --llm-provider. Same contract. Same agent. Just smarter context window management."
 />
 
 ---
