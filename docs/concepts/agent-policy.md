@@ -75,8 +75,8 @@ The exact masking behavior depends on the target platform's capabilities (BigQue
 |---------|-------------------------------|
 | **`fluid policy-check`** | Validates the contract surface against the agentPolicy block. Catches malformed enums, missing `auditRequired` on regulated products, contradictions between allowed/denied lists. |
 | **`fluid policy-apply`** | Maps `allowedModels` / `deniedModels` to provider-specific row-level security where supported. Emits an audit-trail subscription for the platform's native audit log. |
-| **`fluid agent-audit`** | Read-time enforcement. Either run inline in the agent's runtime (MCP-style) or as a side-car that intercepts the platform's read operations. See "Enforcement modes" below. |
-| **Native audit trail** | When `auditRequired: true`, every read is logged through BigQuery audit log / Snowflake `ACCESS_HISTORY` / CloudTrail with the agent identity, model, use-case, and audit-id. |
+| **`fluid mcp serve`** | Read-time enforcement when agents speak MCP. Every MCP read passes through the agentPolicy gate before returning rows. See "Enforcement modes" below. |
+| **Native audit trail** | When `auditRequired: true`, every read is logged through BigQuery audit log / Snowflake `ACCESS_HISTORY` / CloudTrail with the agent identity, model, use-case. |
 
 ## Enforcement modes
 
@@ -110,9 +110,9 @@ Side-cars are platform-specific; the agentPolicy contract stays the same. Forge 
 
 ### 3. Application-level (when neither MCP nor side-car is feasible)
 
-Your application can call `fluid agent-check --contract X --model Y --use-case Z` from its own code path before issuing the read. Returns `200 ALLOW` or `403 DENY` with reason. The CLI does not block the actual read — the application is responsible for honouring the result.
+For agents that read directly via SQL/HTTP and *can't* migrate to MCP or use platform-level enforcement, the application owns the gate. The pattern: load the contract via the FLUID Python SDK (`from fluid_build.contract import load_contract`), inspect `contract.agentPolicy`, and decide allow/deny in your own code path before issuing the read.
 
-This is the weakest mode but useful for legacy agent code that can't be migrated to MCP or side-car patterns.
+This is the weakest mode (the application is the trust boundary) but useful when migrating legacy agent code incrementally.
 
 ## Audit event schema
 

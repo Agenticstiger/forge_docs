@@ -65,22 +65,9 @@ dq:
       severity: error               # blocks deploy if violated
 ```
 
-For columns that are *required for mature rows* but optional for young ones (e.g., 30-day rolling metrics), use the `where:` clause:
+For columns that are *required for mature rows* but optional for young ones (e.g., 30-day rolling metrics), the schema doesn't carry a `where:` clause on the rule itself — handle the lifecycle in the SQL build, then check completeness on the populated column. See [Concepts → Quality, SLAs & Lineage → Common rule patterns](/forge_docs/concepts/quality-sla-lineage#common-rule-patterns) for the full pattern, including the production code that fixed the 3am incident in the [day2-ops demo](/forge_docs/see-it-run.html#skip-the-panic).
 
-```yaml
-dq:
-  rules:
-    - id: arpu_30d_not_null
-      type: completeness
-      selector: arpu_30d_eur
-      where: customer_age_days >= 30      # ← conditional NOT NULL
-      threshold: 0.99
-      operator: ">="
-      severity: error
-      fallback: zero                      # safe default for partial-window rows
-```
-
-This pattern is what the [day2-ops demo](/forge_docs/see-it-run.html#skip-the-panic) uses to fix the 3am incident.
+The shorter version: emit `NULL` from the SQL when the row isn't ready, set the rule's `threshold` below 1.0, and the rule passes for partial-window data without a fake `where:` field.
 
 ## Step 3 — add a freshness rule
 
@@ -90,13 +77,26 @@ dq:
     - id: hourly_freshness
       type: freshness
       window: PT1H                  # ISO-8601 duration: max 1h stale
-      grace: PT15M                  # warn at 1h; critical at 1h15m
       severity: warn
-      escalate_after: PT15M
-      escalate_severity: critical
 ```
 
-Freshness is evaluated against the deployed table's last write timestamp. Wire it to your `slas[].monitoring` schedule so `verify` runs every 15 minutes against the breach threshold.
+Freshness is evaluated against the deployed table's last write timestamp. The schema doesn't carry a `grace:` field — for a two-tier severity (warn at 1h, critical at 1h15m), declare two rules:
+
+```yaml
+dq:
+  rules:
+    - id: freshness_warn_1h
+      type: freshness
+      window: PT1H
+      severity: warn
+
+    - id: freshness_critical_75min
+      type: freshness
+      window: PT75M
+      severity: critical
+```
+
+Wire scheduled `fluid verify` runs (every 15 minutes via your CI / orchestrator) so both rules evaluate against the actual deployed-table state.
 
 ## Step 4 — add a schema-stability rule
 
@@ -108,7 +108,7 @@ dq:
       severity: critical
 ```
 
-This rule fails the deploy if a column was added, removed, or retyped without an explicit `exposes[].version` bump. The CLI requires a `--allow-schema-change` flag to override.
+This rule fails the deploy if a column was added, removed, or retyped without an explicit `exposes[].version` bump.
 
 ## Step 5 — add valid_values for enums
 
@@ -118,13 +118,13 @@ dq:
     - id: country_valid_iso
       type: valid_values
       selector: country
-      values_source: file:./refs/iso_3166_alpha2.csv      # or values: [US, CA, GB, ...]
       threshold: 1.0
       operator: ">="
       severity: error
+      description: "country must be in ISO 3166 alpha-2 (US, CA, GB, ...)"
 ```
 
-External `values_source` files are checked into git alongside the contract. The CLI tracks their hash so a values-file change triggers a `plan` diff.
+For richer enum enforcement, gate it in the SQL build's `WHERE` clause (rejecting non-conforming rows to a quarantine table). The contract's `dq.rule` then verifies that `valid_values` holds against the cleaned product.
 
 ## Step 6 — validate that the rules are well-formed
 
@@ -161,18 +161,34 @@ fluid verify contract.fluid.yaml --strict
 
 `verify` runs against the **deployed state** (not a sample). It's the post-deploy gate: confirm that the live table actually has the schema, freshness, and quality the contract promised.
 
-For continuous monitoring, schedule `verify` via your orchestrator or via Forge's `slas[].monitoring`:
+For continuous monitoring, declare your SLA targets on the expose's `qos` block:
 
 ```yaml
-slas:
-  - name: production_freshness
-    metric: freshness
-    threshold: PT1H
-    monitoring:
-      schedule: "*/15 * * * *"             # every 15 min
-      breach_action: alert
-      breach_target: pagerduty:data-oncall
+exposes:
+  - exposeId: customer_360_table
+    qos:
+      availability: 99.5
+      freshnessSLO: PT1H              # ISO 8601 duration
+      completenessTarget: 0.99
+      latencyP95: PT500MS
+      errorBudget: 0.01
 ```
+
+Then schedule `fluid verify` via your CI / orchestrator (the contract declares the *target*; scheduling lives in the runtime layer):
+
+```yaml
+# .github/workflows/verify-fast.yml
+on:
+  schedule:
+    - cron: "*/15 * * * *"            # every 15 min
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - run: fluid verify contract.fluid.yaml --strict --env prod
+```
+
+Wire alerting to whatever your CI / orchestrator emits on a non-zero exit (PagerDuty webhook, Slack notification, etc.) — `fluid verify` exits non-zero on breach.
 
 ## Severity → CI behaviour
 

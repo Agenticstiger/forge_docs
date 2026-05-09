@@ -145,44 +145,53 @@ WHERE event_date >= '2026-01-01';
 
 ### Option C — Application-level (last resort)
 
+For agents that read directly via SQL/HTTP and *can't* migrate to MCP or use platform-level enforcement, the application owns the gate. Load the contract via the FLUID Python SDK and inspect `contract.agentPolicy` in your own code path:
+
 ```python
-# In your app code, before issuing the read:
-result = subprocess.run(
-    ["fluid", "agent-check", "--contract", "contract.fluid.yaml",
-     "--model", "gpt-4", "--use-case", "analysis"],
-    capture_output=True
-)
-if result.returncode != 0:
-    raise PermissionError(result.stderr)
-# ...proceed with the read
+from fluid_build.contract import load_contract
+
+contract = load_contract("contract.fluid.yaml")
+policy = contract.agentPolicy
+
+if "training" in policy.deniedUseCases and use_case == "training":
+    raise PermissionError("agentPolicy.deniedUseCases includes 'training'")
+
+if model not in policy.allowedModels:
+    raise PermissionError(f"model {model!r} not in agentPolicy.allowedModels")
+
+# ... proceed with the read
 ```
 
-The CLI returns `200 ALLOW` or `403 DENY` with a reason. The application is responsible for honouring the result. This mode is the weakest gate — use it only when neither MCP nor side-car is feasible.
+The application is the trust boundary in this mode (the weakest gate). Use it only when neither MCP nor platform-level enforcement is feasible.
 
 ## Step 6 — replay agent reads from audit log
 
-Once `auditRequired: true` is in effect, every read produces an audit record. To replay them (e.g., for a compliance audit):
+Once `auditRequired: true` is in effect, every read produces a record in the platform's native audit channel:
 
-```bash
-fluid agent-audit --replay --product gold.finance.customer_360_v1 --last 24h
+| Platform | Where audit records land |
+|---|---|
+| **GCP / BigQuery** | BigQuery audit log (`cloudaudit.googleapis.com/data_access`) — query via Cloud Logging or export to a BigQuery sink |
+| **Snowflake** | `SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY` view — query directly with SQL |
+| **AWS / Athena** | CloudTrail data event records — query via CloudTrail Lake or Athena over the trail S3 export |
+
+Example query against Snowflake's `ACCESS_HISTORY` to find all agent reads of this product in the last 24h:
+
+```sql
+SELECT
+  query_start_time,
+  user_name,
+  query_text,
+  base_objects_accessed
+FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
+WHERE query_start_time >= DATEADD(hour, -24, CURRENT_TIMESTAMP())
+  AND ARRAY_CONTAINS(
+    'PROD.GOLD.CUSTOMER_360_V1'::variant,
+    ARRAY_AGG(base_objects_accessed:objectName::string)
+  )
+ORDER BY query_start_time DESC;
 ```
 
-```
-🤖 Simulated agent reads (last 24h)
-─────────────────────────────────────────────────────
-✓ ALLOW  gpt-4 · use-case=analysis · 312 tokens
-            agent=svc:bi-dashboard · audit-id=aud_8f2…
-✗ DENY   claude-3-opus · use-case=training
-            reason: use-case in agentPolicy.deniedUseCases
-            agent=svc:research-pipeline · audit-id=aud_8f3…
-✗ DENY   mixtral-8x7b · use-case=qa
-            reason: model not in agentPolicy.allowedModels
-            agent=svc:experimental-bot · audit-id=aud_8f4…
-✓ ALLOW  gemini-2.5-flash · use-case=summarization · 1102 tokens
-            agent=svc:weekly-digest · audit-id=aud_8f5…
-─────────────────────────────────────────────────────
-Last 24 h:  4,182 allow  ·  21 deny  ·  0 unaudited
-```
+The MCP server (Option A) tags each read with the agent identity, model, and use-case in the `query_text` so you can filter further. The platform's native audit format is the authoritative record — Forge does not duplicate it.
 
 ## Common patterns
 

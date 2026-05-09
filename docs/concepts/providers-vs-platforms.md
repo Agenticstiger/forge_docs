@@ -92,7 +92,7 @@ Every provider translates cloud-specific errors into typed CLI errors so the ope
 | `403 Forbidden: bigquery.datasets.create` | `FluidIAMError`: "Service principal lacks BigQuery Data Editor role on project `prod`. Grant via …" | 64 (configuration) |
 | `409 Conflict: dataset already exists` | (translated to a no-op create — no error) | 0 |
 | `400 Bad Request: invalid schema` | `FluidSchemaError`: "Field `customer.id` declared as STRING in contract but BigQuery has it as INT64. Migration needed via …" | 65 (data) |
-| `Quota exceeded: query bytes` | `FluidQuotaError`: "Project `prod` exceeded daily query bytes quota. See gcloud cost limits or `fluid limits set …`" | 66 (resource) |
+| `Quota exceeded: query bytes` | `FluidQuotaError`: "Project `prod` exceeded daily query bytes quota. See [GCP custom cost controls](https://cloud.google.com/bigquery/docs/custom-quotas)." | 66 (resource) |
 
 See [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) for the full taxonomy.
 

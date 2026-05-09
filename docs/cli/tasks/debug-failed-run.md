@@ -16,7 +16,7 @@ fluid runs status --product gold.finance.customer_360_v1
 fluid runs logs <run-id> --component dlq --tail
 fluid runs diff <last-ok-run> <first-fail-run>
 # ...edit one line in contract.fluid.yaml...
-fluid ship --reason 'arpu_30d_eur partial-window safe default' --yes
+fluid ship contract.fluid.yaml --strict --env prod --yes
 ```
 
 A frame-perfect cast of this exact flow is in the [day2-ops demo](/forge_docs/see-it-run.html#skip-the-panic) — bookmark it.
@@ -97,27 +97,48 @@ Now you have the full picture:
 
 The fix is *not* removing the rule — it's making the rule respect the lifecycle.
 
-## Step 4 — fix (one line in `contract.fluid.yaml`)
+## Step 4 — fix (build SQL + rule threshold)
 
-Change the rule from unconditional NOT_NULL to **NOT_NULL_WHERE customer_age_days >= 30** with a `zero` fallback for partial-window customers:
+The schema's `dq.rule` shape doesn't carry a `where:` clause — instead, push the lifecycle logic into the SQL build (where it belongs) and relax the rule's threshold to acknowledge that some partial-window rows will be NULL by design.
+
+**4a. Update the build's SQL** to emit `NULL` for customers younger than 30 days:
 
 ```yaml
 # contract.fluid.yaml
+builds:
+  - id: customer_metrics
+    pattern: embedded-logic
+    engine: sql
+    properties:
+      sql: |
+        SELECT
+          customer_id,
+          customer_age_days,
+          -- Only emit arpu_30d_eur once the customer has 30 days of history
+          CASE
+            WHEN customer_age_days >= 30 THEN COALESCE(arpu_30d_eur_raw, 0)
+            ELSE NULL
+          END AS arpu_30d_eur
+        FROM raw.customers c
+        LEFT JOIN raw.transactions t USING (customer_id)
+```
+
+**4b. Relax the rule's threshold** so partial-window rows don't fail the gate:
+
+```yaml
 exposes:
   - exposeId: customer_360_table
     contract:
       dq:
         rules:
-          - id: arpu_30d_eur_required
+          - id: arpu_30d_eur_completeness
             type: completeness
             selector: arpu_30d_eur
-            #-- where: (omitted) — the bad version
-            #-- threshold: 1.0
-            where: customer_age_days >= 30        # ← new: conditional
-            threshold: 0.99                       # 99% of qualifying rows
+            # threshold: 1.0  ← the bad version (failed on every <30-day customer)
+            threshold: 0.85    # ← new: 85% of all rows have non-null arpu
             operator: ">="
             severity: error
-            fallback: zero                        # safe default for young customers
+            description: "arpu_30d_eur is intentionally NULL for customers younger than 30 days; 85% threshold accommodates the partial-window cohort"
 ```
 
 `fluid validate` confirms the rule still parses:
@@ -132,7 +153,7 @@ fluid validate contract.fluid.yaml --strict
 ## Step 5 — `ship` (apply + verify + drain DLQ + restore SLA)
 
 ```bash
-fluid ship --reason 'arpu_30d_eur partial-window safe default' --yes
+fluid ship contract.fluid.yaml --strict --env prod --yes
 ```
 
 `ship` is the canonical "I'm fixing an incident, do all the right things" command:
@@ -148,19 +169,19 @@ fluid ship --reason 'arpu_30d_eur partial-window safe default' --yes
 ✓ Ship complete in 87 seconds — incident closed
 ```
 
-What `ship` did, in order:
+What `ship` did, in order (per the canonical 4-stage chain — see [`fluid ship`](/forge_docs/cli/ship)):
 1. `validate` (schema check)
-2. `plan` (deterministic, plan-bound)
-3. `apply` (idempotent re-application of the contract)
-4. **DLQ drain** (re-runs the quarantined rows from the failed run with the new rule)
-5. `verify` (runtime check that SLA + dq.rules are now satisfied)
-6. Audit record written with the `--reason` you provided (this is what SOX-compliant teams need)
+2. `bundle` (skipped here via `--skip-bundle` if you don't need a snapshot)
+3. `plan` (deterministic, plan-bound)
+4. `apply` (idempotent re-application of the contract)
 
-`--reason` is mandatory for `ship` — it ends up in the audit log alongside the run ID. Make it specific.
+After apply, the runtime drains the DLQ from the failed run and re-runs `verify` against the deployed state. Audit records ship to the platform's native audit channel (BigQuery audit log / Snowflake `ACCESS_HISTORY` / CloudTrail) with the run ID, the contract checksum, and the deployed bindings.
+
+For SOX-grade change tracking, commit the contract change behind a PR — the merged commit is the audit record. `git log contract.fluid.yaml` is the change history; `fluid runs status` is the runtime evidence.
 
 ## What about the 47 still in DLQ?
 
-Those rows had `customer_age_days >= 30` AND null `arpu_30d_eur` — a real data quality issue. The `fallback: zero` won't apply (the `where:` clause says they should have a value). They stay in DLQ for human review.
+Those rows had `customer_age_days >= 30` AND null `arpu_30d_eur_raw` — a real data quality issue (mature customer, missing transactions). The new build emits `0` only via `COALESCE(arpu_30d_eur_raw, 0)`, but only when there's no `transactions` row at all; if the row exists with `NULL` already, the COALESCE returns 0 and the rule passes. The 47 are likely transactions-missing-for-the-customer cases — fix upstream or accept as a known quality miss.
 
 Run:
 

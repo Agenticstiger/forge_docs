@@ -70,26 +70,45 @@ The exact output paths and viewer formats depend on the CLI version + provider. 
 
 ## Common rule patterns
 
-These are the rule shapes most production data products end up with. Copy them as a starting point.
+These are the rule shapes most production data products end up with. Copy them as a starting point. **Each example uses only fields defined in `fluid-schema-0.7.2.json`.**
 
-### NOT NULL with conditional fallback
+### Conditional completeness via the build, not the rule
 
-For columns that are required for "mature" rows but optional for early-stage ones (e.g., 30-day rolling metrics on customers younger than 30 days):
+The schema's `dqRule` shape (`id`, `type`, `selector`, `threshold`, `operator`, `window`, `severity`, `description`, `tags`, `labels`) intentionally doesn't carry a `where:` clause. The recommended pattern when a column is *required for some rows but not others* is to handle it in the SQL build, then check completeness on the fully-populated column:
+
+```yaml
+builds:
+  - id: customer_metrics
+    pattern: embedded-logic
+    engine: sql
+    properties:
+      sql: |
+        SELECT
+          customer_id,
+          customer_age_days,
+          -- arpu is non-null only when 30 days of history exists
+          CASE
+            WHEN customer_age_days >= 30 THEN COALESCE(arpu_30d_eur_raw, 0)
+            ELSE NULL
+          END AS arpu_30d_eur
+        FROM raw.customers c
+        LEFT JOIN raw.transactions t USING (customer_id)
+```
+
+Then the rule is plain completeness, scoped to the rows you care about via the `selector`'s downstream filter (or simply tolerated at threshold < 1.0):
 
 ```yaml
 dq:
   rules:
-    - id: arpu_30d_not_null
+    - id: arpu_30d_completeness
       type: completeness
       selector: arpu_30d_eur
-      where: customer_age_days >= 30      # ← conditional NOT NULL
-      threshold: 0.99                     # 99% of qualifying rows
+      threshold: 0.85         # 85% of all rows have non-null arpu (the 15% are < 30 days)
       operator: ">="
       severity: error
-      fallback: zero                      # safe default for partial-window rows
 ```
 
-This pattern is what saved the 3am incident in the [day2-ops demo](/forge_docs/see-it-run.html#skip-the-panic). A pure `NOT NULL` rule fails on every new EU signup; the conditional version respects the data lifecycle.
+This pattern keeps the rule schema clean and pushes the lifecycle logic into SQL where it belongs.
 
 ### Drift detection on schema or distribution
 
@@ -99,33 +118,41 @@ dq:
     - id: schema_stability
       type: schema
       severity: critical              # block deploy on schema change without explicit version bump
-      
+
     - id: revenue_distribution_drift
       type: drift_detection
       selector: weekly_revenue
-      window: P14D                    # 14-day rolling baseline
-      threshold: 0.20                 # alert if >20% Wasserstein distance from baseline
+      window: P14D                    # 14-day rolling baseline (ISO 8601 duration)
+      threshold: 0.20                 # alert if drift score exceeds threshold
       operator: "<="
       severity: warn
 ```
 
-`drift_detection` requires the `verify` command running on a schedule against a baseline window. Set up via the `slas[].monitoring` block.
+`drift_detection` requires the `verify` command running on a schedule against a baseline window. Schedule `fluid verify` via your CI / orchestrator (Airflow, Dagster, GitHub Actions cron) — the `qos` block on the expose declares the *target*, but scheduling lives in the runtime layer.
 
-### Freshness with grace period
+### Freshness with two-tier severity
+
+The schema has no `grace` / `escalate_after` field — declare two separate rules with different windows + severities to express the same intent:
 
 ```yaml
 dq:
   rules:
-    - id: hourly_freshness
+    - id: freshness_hourly_warn
       type: freshness
-      window: PT1H                    # max 1 hour stale
-      grace: PT15M                    # warn at 1h, critical at 1h15m
+      window: PT1H
       severity: warn
-      escalate_after: PT15M
-      escalate_severity: critical
+
+    - id: freshness_75min_critical
+      type: freshness
+      window: PT75M
+      severity: critical
 ```
 
-### Valid values from a known set
+CI runs `fluid verify`; both rules evaluate against the same deployed-table last-write timestamp; whichever crosses first fires.
+
+### Valid values
+
+The schema's `valid_values` rule type takes a `selector` plus a `threshold` + `operator` — the actual allowed set is enforced by the build's filtering (or the schema field's `description`). Common pattern:
 
 ```yaml
 dq:
@@ -133,36 +160,54 @@ dq:
     - id: country_valid_iso
       type: valid_values
       selector: country
-      values_source: file:./refs/iso_3166_alpha2.csv     # external reference
       threshold: 1.0
       operator: ">="
       severity: error
+      description: "country must be in ISO 3166 alpha-2 (US, CA, GB, ...)"
 ```
+
+For richer enum enforcement, gate it in the build's `WHERE` clause (rejecting non-conforming rows to a quarantine table) or use the schema field's `description` to document the allowed set.
 
 ## Multi-window monitoring
 
-`slas[].monitoring` schedules `verify` runs at multiple cadences:
+The schema doesn't provide a built-in scheduling block — `qos` declares targets, runtime declares schedules. Pattern:
 
-```yaml
-slas:
-  - name: production_freshness
-    metric: freshness
-    threshold: PT1H
-    monitoring:
-      schedule: "*/15 * * * *"        # every 15 min
-      breach_action: alert
-      breach_target: pagerduty:data-oncall
-      
-  - name: weekly_quality_audit
-    metric: dq.completeness.overall
-    threshold: 0.999
-    monitoring:
-      schedule: "0 8 * * MON"         # Monday 08:00
-      breach_action: email
-      breach_target: data-team@company.com
+1. **Targets** live on `exposes[].qos`:
+   ```yaml
+   exposes:
+     - exposeId: customer_360_table
+       qos:
+         availability: 99.5
+         freshnessSLO: PT1H              # ISO 8601 duration
+         latencyP95: PT500MS
+         completenessTarget: 0.99
+         errorBudget: 0.01
+   ```
+
+2. **Schedules** live in your CI / orchestrator (Airflow / Dagster / GitHub Actions cron). For example:
+   ```yaml
+   # .github/workflows/verify-fast.yml
+   on:
+     schedule:
+       - cron: "*/15 * * * *"          # every 15 min
+   jobs:
+     verify:
+       runs-on: ubuntu-latest
+       steps:
+         - run: fluid verify contract.fluid.yaml --strict --env prod
+
+   # .github/workflows/verify-weekly-audit.yml
+   on:
+     schedule:
+       - cron: "0 8 * * MON"           # Monday 08:00
+   jobs:
+     audit:
+       runs-on: ubuntu-latest
+       steps:
+         - run: fluid verify contract.fluid.yaml --strict --env prod --json | tee audit.log
 ```
 
-The fast schedule catches stale-data incidents; the slow schedule catches creeping quality issues that the fast one wouldn't notice (because each individual breach is below the per-rule threshold).
+The fast schedule catches stale-data incidents (against `freshnessSLO`); the slow audit catches creeping quality drift (against `completenessTarget`). Both invoke `fluid verify` against the same contract; the contract is the source of truth.
 
 ## Lineage emission formats
 
