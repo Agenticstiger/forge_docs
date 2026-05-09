@@ -3,7 +3,7 @@
 The `fluid_build.api` package is the **stable extension surface** that out-of-tree runners, providers, catalog registrars, lineage emitters, and pre-land hooks target. Anything outside this package is internal and may change without notice.
 
 ::: tip Where this fits
-The public API ships with the source-aligned acquisition stack on the `feat/source-aligned-acquisition` branch. It's pinned at version `1.0` (`__api_version__ = "1.0"`).
+The public API ships with the source-aligned acquisition stack in the upcoming `0.7.3` release. It's pinned at version `1.0` (`__api_version__ = "1.0"`).
 :::
 
 ## SemVer policy

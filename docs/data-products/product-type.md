@@ -3,7 +3,7 @@
 Schema **0.7.3** introduces a Data Mesh-aligned classification, `metadata.productType`, that runs alongside the existing medallion `metadata.layer`. Both vocabularies are first-class. You can use either one, or both together. When both are set, the validator enforces the canonical pairing.
 
 ::: tip Where this fits
-Schema 0.7.3 ships in the `feat/source-aligned-acquisition` branch and is not yet on PyPI. Existing 0.7.2 contracts validate unchanged — the new fields are purely additive.
+Schema 0.7.3 ships in the upcoming `0.7.3` release and is not yet on PyPI. Existing 0.7.2 contracts validate unchanged — the new fields are purely additive.
 :::
 
 ## The vocabulary

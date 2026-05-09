@@ -16,7 +16,7 @@ fluid init NAME
 | `--blank` | Create an empty project skeleton |
 | `--template NAME` | Create from a named template |
 | `--list-templates` | Show available templates and exit |
-| `--discover URI` | Introspect a source (`postgres://`, `mysql://`, `file://`, `s3://`) and emit a Bronze acquisition contract per discovered stream. **Coming on the source-aligned-acquisition branch — schema 0.7.3.** |
+| `--discover URI` | Introspect a source (`postgres://`, `mysql://`, `file://`, `s3://`) and emit a Bronze acquisition contract per discovered stream. **Coming in the `0.7.3` release.** |
 | `--provider` | Target provider, defaulting to local |
 | `--yes`, `-y` | Skip confirmation prompts |
 | `--dry-run` | Preview what would be created |
@@ -37,7 +37,7 @@ fluid init my-project --provider snowflake
 ## `--discover` — introspect a source into a Bronze contract
 
 ::: tip Coming in the next release
-`--discover` ships on the `feat/source-aligned-acquisition` branch as part of schema 0.7.3. The pinned 0.8.0 baseline doesn't include it yet.
+`--discover` ships in the upcoming `0.7.3` release as part of schema 0.7.3. The pinned 0.8.0 baseline doesn't include it yet.
 :::
 
 Instead of writing the acquisition block by hand, point `fluid init` at a source URI and it emits a deterministic 0.7.3 Bronze (SDP) contract per discovered stream:

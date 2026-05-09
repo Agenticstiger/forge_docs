@@ -111,7 +111,7 @@ the editor.
 ## Mode picker, refine, compose — coming in the next release
 
 ::: tip Where this fits
-The 5-mode picker, `--refine`, `--from-product`, slash commands, preview panel, and the streaming contract preview ship on the `feat/source-aligned-acquisition` branch. The pinned 0.8.0 baseline still has the older single-shot interview shape.
+The 5-mode picker, `--refine`, `--from-product`, slash commands, preview panel, and the streaming contract preview ship in the upcoming `0.7.3` release. The pinned 0.8.0 baseline still has the older single-shot interview shape.
 :::
 
 Bare `fluid forge` (TTY, no flags) lands on a 5-mode menu instead of dropping straight into AI:

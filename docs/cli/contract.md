@@ -3,7 +3,7 @@
 Manipulate FLUID contracts — apply AI-suggested edits with provenance gating, and migrate older contracts to the schema 0.7.3 productType vocabulary.
 
 ::: tip Where this fits
-`fluid contract` ships with the source-aligned acquisition stack on the `feat/source-aligned-acquisition` branch. The pinned 0.8.0 docs baseline doesn't include it yet; this page documents the surface ahead of release.
+`fluid contract` ships with the source-aligned acquisition stack in the upcoming `0.7.3` release. The pinned 0.8.0 docs baseline doesn't include it yet; this page documents the surface ahead of release.
 :::
 
 ## Syntax

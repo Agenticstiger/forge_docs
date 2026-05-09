@@ -14,7 +14,7 @@ Day-2 introspection for acquisition (and other) runs. `fluid runs` is the umbrel
 3am Slack ping: pipeline broke. Ninety seconds later, you've shipped the fix. The reel above walks `runs status` → `runs logs --component dlq` → `runs diff` → policy fix → `fluid ship`. Pairs with [`fluid retention`](./retention.html), [`fluid secrets`](./secrets.html), and [`fluid stats`](./stats.html).
 
 ::: tip Where this fits
-`fluid runs` ships with the source-aligned acquisition stack on the `feat/source-aligned-acquisition` branch (schema 0.7.3). The pinned 0.8.0 docs baseline doesn't include it yet; this page documents the surface ahead of release.
+`fluid runs` ships with the source-aligned acquisition stack in the upcoming `0.7.3` release (schema 0.7.3). The pinned 0.8.0 docs baseline doesn't include it yet; this page documents the surface ahead of release.
 :::
 
 ## Syntax

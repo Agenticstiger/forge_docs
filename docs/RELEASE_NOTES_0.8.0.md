@@ -13,7 +13,7 @@
 
 ## Notable CLI context
 
-CLI `0.8.0` is the first stable release of the 0.8 line. It promotes the production pipeline and catalog-publish work that the docs were already tracking from the release-candidate branch:
+CLI `0.8.0` is the first stable release of the 0.8 line. It promotes the production pipeline and catalog-publish work that the docs were already tracking from the release-candidate cycle:
 
 - **11-stage CI pipeline** — `fluid generate ci` emits Jenkins and other CI templates for bundle, validate, generate-artifacts, validate-artifacts, diff, plan, apply, policy-apply, verify, publish, and schedule-sync.
 - **Supply-chain controls** — bundle digests, plan binding, signed bundle verification, and SLSA-style attestation docs are part of the promoted surface.

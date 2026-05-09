@@ -115,7 +115,7 @@ For every AI and data-model journey, including hosted provider strict mode, Olla
 | Utilities | `config`, `split`, `bundle`, `auth`, `doctor`, `providers`, `memory`, `mcp`, `version` |
 
 ::: tip Coming in the next release — source-aligned acquisition
-The `feat/source-aligned-acquisition` branch lands schema **0.7.3**, the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), public extension API `fluid_build.api` v1.0, and the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel). See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Product Types](/forge_docs/data-products/product-type.html), and [What's coming](/forge_docs/see-it-run.html) for the full picture.
+The upcoming `0.7.3` release lands schema **0.7.3**, the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), public extension API `fluid_build.api` v1.0, and the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel). See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Product Types](/forge_docs/data-products/product-type.html), and [What's coming](/forge_docs/see-it-run.html) for the full picture.
 :::
 
 ## Where to go next

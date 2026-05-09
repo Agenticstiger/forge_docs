@@ -14,7 +14,7 @@ A minimal end-to-end walkthrough of a source-aligned Bronze (`SDP`) data product
 The 60-second reel above runs the exact flow this walkthrough documents: `fluid init --discover postgres://…` → `fluid validate --probe` → `fluid apply` → `fluid runs status`.
 
 ::: tip Where this walkthrough lives
-The exact contract, docker-compose, seed SQL, Makefile, and verification script for this walkthrough live in the `forge-cli` repo at [`examples/source-aligned-postgres-duckdb/`](https://github.com/Agenticstiger/forge-cli/tree/main/examples/source-aligned-postgres-duckdb). Schema 0.7.3 is delivered on the `feat/source-aligned-acquisition` branch — install from that branch (or wait for the next release) to follow along.
+The exact contract, docker-compose, seed SQL, Makefile, and verification script for this walkthrough live in the `forge-cli` repo at [`examples/source-aligned-postgres-duckdb/`](https://github.com/Agenticstiger/forge-cli/tree/main/examples/source-aligned-postgres-duckdb). Schema 0.7.3 is delivered in the upcoming `0.7.3` release — install the `0.7.3` prerelease (or wait for the stable cut) to follow along.
 :::
 
 ## What you'll build
@@ -32,7 +32,7 @@ Total wall time on the included fixture: under 3 seconds.
 
 - Docker (for the Postgres container)
 - `make` (for the Makefile shortcuts)
-- Fluid Forge installed from the `feat/source-aligned-acquisition` branch (schema 0.7.3 not yet on PyPI)
+- Fluid Forge `0.7.3` (the upcoming release; schema 0.7.3 — install the prerelease from PyPI or wait for the stable cut)
 
 ## The contract
 

@@ -12,7 +12,7 @@ fluid doctor
 
 | Option | Description |
 | --- | --- |
-| `--scope {authoring\|pipeline\|ingestion\|infra\|catalog\|all}` | Restrict checks to one scope (or run them all). **Coming on the source-aligned-acquisition branch.** Default `authoring`. |
+| `--scope {authoring\|pipeline\|ingestion\|infra\|catalog\|all}` | Restrict checks to one scope (or run them all). **Coming in the `0.7.3` release.** Default `authoring`. |
 | `--out-dir` | Output directory for diagnostics |
 | `--features-only` | Only check FLUID feature availability |
 | `--extended`, `--comprehensive` | Run optional extended diagnostics |
@@ -33,7 +33,7 @@ fluid doctor --scope all --json      # CI-friendly full report
 ## `--scope` — what each scope checks
 
 ::: tip Coming in the next release
-The `--scope` flag ships on the `feat/source-aligned-acquisition` branch. The pinned 0.8.0 baseline runs the equivalent of `--scope authoring` only.
+The `--scope` flag ships in the upcoming `0.7.3` release. The pinned 0.8.0 baseline runs the equivalent of `--scope authoring` only.
 :::
 
 | Scope | What it checks |

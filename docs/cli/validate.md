@@ -26,7 +26,7 @@ fluid validate CONTRACT
 | `--format` | `text` or `json` |
 | `--list-versions` | List available schema versions |
 | `--show-schema` | Show the schema used for validation |
-| `--probe` | Run live external connectivity probes for sources / sinks declared in `acquisition` builds. **Coming on the source-aligned-acquisition branch — schema 0.7.3.** |
+| `--probe` | Run live external connectivity probes for sources / sinks declared in `acquisition` builds. **Coming in the `0.7.3` release.** |
 | `--report PATH` | Write the structured validation report to a file (in addition to stdout) |
 
 ## Examples
@@ -42,7 +42,7 @@ fluid validate contract.fluid.yaml --verbose --show-schema
 ## `--probe` — live external connectivity checks
 
 ::: tip Coming in the next release
-The `--probe` flag ships on the `feat/source-aligned-acquisition` branch as part of schema 0.7.3 acquisition support.
+The `--probe` flag ships in the upcoming `0.7.3` release as part of schema 0.7.3 acquisition support.
 :::
 
 By default `fluid validate` is **pure schema validation** — no network. Set `--probe` to additionally test connectivity for every source / sink declared in `acquisition` builds:
@@ -65,5 +65,5 @@ Use `--probe` in CI for any environment that has network access to the declared 
 
 ## Notes
 
-- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.8.0`. Schema 0.7.3 ships on the source-aligned-acquisition branch.
+- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.8.0`. Schema 0.7.3 ships in the upcoming `0.7.3` release.
 - For most users, plain `fluid validate contract.fluid.yaml` is enough. Reach for explicit schema flags when you are debugging compatibility or working across versions.

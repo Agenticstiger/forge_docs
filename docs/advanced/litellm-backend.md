@@ -1,6 +1,6 @@
 # LiteLLM Backend (opt-in)
 
-The `feat/source-aligned-acquisition` branch ships an opt-in `LiteLLMProvider` that routes every LLM call through [LiteLLM](https://github.com/BerriAI/litellm) instead of Forge's native per-provider HTTP shapes. Enable it for unified routing, accurate per-call cost attribution, and access to LiteLLM's broader provider catalog.
+The upcoming `0.7.3` release ships an opt-in `LiteLLMProvider` that routes every LLM call through [LiteLLM](https://github.com/BerriAI/litellm) instead of Forge's native per-provider HTTP shapes. Enable it for unified routing, accurate per-call cost attribution, and access to LiteLLM's broader provider catalog.
 
 ::: tip Where this fits
 LiteLLM is a routing-layer alternative to the native provider stack documented at [LLM Providers](/forge_docs/advanced/llm-providers.html). Both stacks share the same `LlmProvider` base class — switching between them is a one-env-var flip.
