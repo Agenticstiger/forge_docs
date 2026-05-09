@@ -7,6 +7,8 @@ description: Short, copy-pasteable solutions to common Fluid Forge tasks.
 
 Short, copy-pasteable solutions to common tasks. Each recipe is self-contained and answers exactly one question.
 
+> **Looking for narrative walkthroughs instead of one-pagers?** → [CLI by task](/forge_docs/cli/tasks/). Looking for the conceptual model? → [Concepts](/forge_docs/concepts/).
+
 ## Available recipes
 
 | Recipe | Time | What it solves |

@@ -23,13 +23,8 @@ Everything in this section is **learn-once reference**. If you've already shippe
 The single most important concept is **the contract is the source of truth**. Everything Fluid Forge does — schema validation, IAM compilation, SLA checks, lineage extraction — is derived from one YAML file you control. Everything else is mechanism.
 :::
 
----
+## What's next
 
-::: warning These pages are stubs
-Each concept page in this folder ships with:
-- a one-paragraph definition
-- a tiny example
-- pointers to the canonical existing content (walkthroughs, CLI reference, schema files)
-
-Full long-form treatments are tracked in [GitHub issues](https://github.com/Agentics-Rising/forge_docs/issues?q=is%3Aopen+label%3Adocs-content) — a great place to contribute. Pick a stub, write it up, open a PR.
-:::
+- **First time here?** Read [What is a Contract](./contract.md) → [Builds, Exposes, Bindings](./builds-exposes-bindings.md) in order. ~15 minutes.
+- **Comparing tools?** Skip to [Forge vs dbt / Dagster / Terraform / Snowpark](./vs-alternatives.md) for the honest breakdown.
+- **Ready to build?** Drop into [Get Started](/forge_docs/getting-started/) and ship a real product locally in 30 seconds.

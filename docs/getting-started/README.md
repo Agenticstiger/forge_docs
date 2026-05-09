@@ -10,6 +10,18 @@ Run your first data product locally in a few minutes, then move to cloud targets
   insight="30 seconds. No cloud account. No credit card. | The contract.fluid.yaml you wrote is the contract that ran. | Local DuckDB + Parquet artifact — exactly what production produces, but offline."
 />
 
+## What you skip with Fluid Forge
+
+You're about to ship a working data product in 30 seconds. The four-tool stack you'd otherwise need: **gone**.
+
+- **No Airflow DAG to write or maintain.** `fluid generate schedule --scheduler airflow|dagster|prefect` emits the right artifact.
+- **No JVM, no cluster, no heap tuning.** `engine: duckdb` runs embedded.
+- **No Snowflake permission sprawl.** `accessPolicy.grants` compiles to native `GRANT` statements.
+- **No Terraform for data IAM.** `policy-apply` emits BigQuery / Snowflake / S3 IAM bindings from the same contract.
+- **No 27 questions before you ship.** `fluid forge` infers from your local files; you answer 4.
+
+→ See the full comparison: [Forge vs dbt / Dagster / Terraform / Snowpark](/forge_docs/concepts/vs-alternatives.html).
+
 ## What this guide assumes
 
 - Python `3.10+`
@@ -74,6 +86,16 @@ fluid validate contract.fluid.yaml
 fluid plan contract.fluid.yaml
 fluid apply contract.fluid.yaml --yes
 ```
+
+::: tip 🎉 You just shipped a data product
+That output at `runtime/out/bitcoin_prices.parquet` is real. It has a schema, a contract, a validated SQL transformation, declared owners, and a deployment record. **You shipped a versioned data product on your laptop in under a minute.**
+
+**Three things you can do right now:**
+
+1. **Switch clouds with one line** — change `binding.platform: local` to `binding.platform: gcp` in `contract.fluid.yaml`, run `fluid apply` again. Same data product, on BigQuery. ([GCP walkthrough](/forge_docs/walkthrough/gcp))
+2. **Add an AI policy in 5 lines** — append an `agentPolicy` block (`allowedModels`, `deniedUseCases`, `auditRequired`). Now `fluid policy-check` enforces who can read this from an LLM. ([Agent policy guide](/forge_docs/concepts/agent-policy))
+3. **Tweet your win** — [share this on X](https://twitter.com/intent/tweet?text=I%20just%20shipped%20a%20data%20product%20in%2030%20seconds%20with%20Fluid%20Forge%20%F0%9F%9A%80&url=https%3A//agenticstiger.github.io/forge_docs/&hashtags=dataproducts,DataOps) — paste the `fluid apply` output if you want to flex 😉
+:::
 
 ## Beyond dev — the 11-stage production pipeline
 

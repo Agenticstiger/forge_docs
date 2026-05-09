@@ -7,6 +7,8 @@ description: Watch every Fluid Forge workflow in motion. 8 short asciinema-rende
 
 Eight short demos, each under 30 seconds, showing what the canonical workflow looks like end-to-end. Click play on any cast — the SVG only animates after you opt in (no autoplay, no JS).
 
+> **Convinced? → [Install in 30 seconds](/forge_docs/getting-started/)**. Want longer-form proof of specific workflows? → [See it run](/forge_docs/see-it-run.html) (5 narrative scenarios, ~50 s each, with takeaway numbers).
+
 ---
 
 ## Install + run, locally

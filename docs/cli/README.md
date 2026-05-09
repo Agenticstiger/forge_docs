@@ -2,6 +2,10 @@
 
 This section tracks the promoted command surface shown by `fluid --help` in `forge-cli` `0.8.0`.
 
+::: tip Looking up *how to do something* (not *what a command does*)?
+The page you actually want is [**CLI by task →**](./tasks/) — narrative walkthroughs organized around things you might be trying to accomplish, like "deploy to a new cloud", "add quality rules", "debug a failed run", or "add agent governance". Each task page links to the relevant commands. **This** page is the alphabetical command reference — better for lookup, worse for onboarding.
+:::
+
 ## Read this first
 
 - CLI release examples in this section use `0.8.0`

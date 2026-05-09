@@ -58,8 +58,59 @@ my-cloud = "my_provider:MyProvider"
 
 After `pip install my-fluid-provider`, `fluid providers` will list it automatically and contracts can use `platform: my-cloud`.
 
----
+## The provider lifecycle
 
-::: warning This page is a stub
-Full provider authoring guide lives at [/providers/custom-providers](/forge_docs/providers/custom-providers). The conceptual long-form (provider lifecycle, action semantics, error translation patterns, version compatibility) is tracked in [docs-content #concepts-providers](https://github.com/Agentics-Rising/forge_docs/issues?q=is%3Aopen+label%3Adocs-content).
-:::
+Each of the four methods is called at a specific point in the canonical 11-stage pipeline:
+
+| Method | Called by | Pipeline stage | What it must do |
+|---|---|---|---|
+| `plan(contract)` | `fluid plan` | Stage 6 — *Plan* | Return a list of `Action` objects describing what would change. **Must be deterministic** — the same contract + same deployed state always emit the same actions. The CLI's plan binding (stage 6 ↔ stage 7) refuses to apply if the plan was tampered with. |
+| `apply(actions)` | `fluid apply` | Stage 7 — *Apply* | Execute the actions against the target cloud. Idempotent. Returns success/failure per action. |
+| `verify(contract)` | `fluid verify` | Stage 9 — *Verify* | Read the deployed state back, compare against the contract, fail on drift. Examples: schema drift, missing dq.rules, expected IAM bindings absent. |
+| `policy_compile(contract)` | `fluid policy-apply` | Stage 8 — *Policy-apply* | Translate `accessPolicy.grants` and `agentPolicy` into the cloud's native IAM/RBAC format and return a list of bindings to apply. |
+
+Each method must be **side-effect-free** when called with `--mode dry-run` — that's how the canonical pipeline does pre-flight checks without touching production.
+
+## Action semantics
+
+`plan()` returns `Action` objects in three categories:
+
+| Category | Examples | Apply behaviour |
+|---|---|---|
+| **Create** | `+ create table foo`, `+ create dataset bar`, `+ grant role/dataViewer to group:x` | Idempotent — re-applying a create that already happened is a no-op |
+| **Modify** | `~ alter table foo add column bar`, `~ update grants for table foo` | Best-effort idempotent — providers may need to detect drift and reconcile |
+| **Destructive** | `- drop table foo`, `- revoke grant from group:x` | **Gated by `--allow-destroy`**. The plan emits these but `apply` refuses unless the operator opts in explicitly. |
+
+The destructive gate is the single most important safety property of the planner. Schema migrations that would drop a column require the operator to acknowledge the loss.
+
+## Error translation
+
+Every provider translates cloud-specific errors into typed CLI errors so the operator gets a useful message rather than a stack trace. Examples from the GCP provider:
+
+| Cloud error | Translated to | Exit code |
+|---|---|---|
+| `403 Forbidden: bigquery.datasets.create` | `FluidIAMError`: "Service principal lacks BigQuery Data Editor role on project `prod`. Grant via …" | 64 (configuration) |
+| `409 Conflict: dataset already exists` | (translated to a no-op create — no error) | 0 |
+| `400 Bad Request: invalid schema` | `FluidSchemaError`: "Field `customer.id` declared as STRING in contract but BigQuery has it as INT64. Migration needed via …" | 65 (data) |
+| `Quota exceeded: query bytes` | `FluidQuotaError`: "Project `prod` exceeded daily query bytes quota. See gcloud cost limits or `fluid limits set …`" | 66 (resource) |
+
+See [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) for the full taxonomy.
+
+## Version compatibility
+
+Each provider declares the contract schema versions it can handle:
+
+```python
+class MyProvider(BaseProvider):
+    name = "my-cloud"
+    supported_schemas = ["0.5.7", "0.7.1", "0.7.2"]
+```
+
+`fluid validate` cross-checks the contract's `fluidVersion` against every installed provider's `supported_schemas`. Mismatch is a hard failure at validate time — the CLI refuses to load a contract that no installed provider can plan.
+
+## Where to look next
+
+- [Custom Providers walkthrough](/forge_docs/providers/custom-providers) — full step-by-step for shipping your own provider
+- [Provider Architecture](/forge_docs/providers/architecture) — interface details, action types, error categories
+- [Universal pipeline](/forge_docs/walkthrough/universal-pipeline) — where each provider method lands in the 11-stage flow
+- [Builds, Exposes, Bindings](./builds-exposes-bindings.md) — the contract surface providers consume

@@ -33,6 +33,21 @@ footer: Apache 2.0 Licensed | Documentation for the Fluid Forge CLI
 
 > **Fluid Forge is for data engineers who want to write a data product contract once and deploy it anywhere.** Build and test locally with DuckDB, then push the same contract to BigQuery, Athena, or Snowflake — no pipeline glue code to maintain.
 
+## What you don't need to do
+
+Fluid Forge replaces the four-tool stack most data teams currently maintain. With one `contract.fluid.yaml`:
+
+- **No Airflow DAG to write or maintain.** `fluid generate schedule --scheduler airflow|dagster|prefect` emits the right artifact.
+- **No JVM heap tuning.** `engine: duckdb` runs embedded for dev; swap to `dlt` / `meltano` / `airbyte` / `kafka-connect` / `debezium` only when you need them.
+- **No Snowflake permission sprawl.** `accessPolicy.grants` compiles to native `GRANT` statements.
+- **No Terraform for data-product IAM.** `policy-apply` emits BigQuery IAM bindings, Snowflake roles, S3 bucket policies — same source.
+- **No 27 questions before you ship.** `fluid forge` infers from your local files; you answer 4.
+- **No dbt project layout decisions.** Forge wraps dbt; you write the contract, dbt does what it does best.
+- **No AI access surprises.** `agentPolicy` declares which LLMs can read what, with audit logs, before any model gets a row.
+- **No vendor lock.** `binding.platform: snowflake` → `binding.platform: bigquery` is the only line that moves.
+
+→ See the comparison page: [Forge vs dbt / Dagster / Terraform / Snowpark](/forge_docs/concepts/vs-alternatives.html) for the honest breakdown of when Forge does and doesn't fit.
+
 ## See it run
 
 A 60-second walkthrough of `fluid forge data-model from-intent` against four LLM providers (Anthropic Haiku 4.5, OpenAI gpt-4.1-mini, Gemini 2.5-flash, local Ollama gemma4) — every token count is from a real production call.

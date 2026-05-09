@@ -73,12 +73,110 @@ The exact masking behavior depends on the target platform's capabilities (BigQue
 
 | Surface | How `agentPolicy` is honored |
 |---------|-------------------------------|
-| **`fluid policy-check`** | Validates the contract surface against the agentPolicy block. |
-| **`fluid policy-apply`** | Maps `allowedModels` / `deniedModels` to provider-specific row-level security where supported. |
-| **Audit logging** | When `auditRequired: true`, AI reads should be logged through the platform's native audit trail. |
+| **`fluid policy-check`** | Validates the contract surface against the agentPolicy block. Catches malformed enums, missing `auditRequired` on regulated products, contradictions between allowed/denied lists. |
+| **`fluid policy-apply`** | Maps `allowedModels` / `deniedModels` to provider-specific row-level security where supported. Emits an audit-trail subscription for the platform's native audit log. |
+| **`fluid agent-audit`** | Read-time enforcement. Either run inline in the agent's runtime (MCP-style) or as a side-car that intercepts the platform's read operations. See "Enforcement modes" below. |
+| **Native audit trail** | When `auditRequired: true`, every read is logged through BigQuery audit log / Snowflake `ACCESS_HISTORY` / CloudTrail with the agent identity, model, use-case, and audit-id. |
 
----
+## Enforcement modes
 
-::: warning This page is a stub
-Full coverage of MCP integration, the agent-audit event schema, and the FLUID-spec's "agentic governance" extension is tracked in [docs-content #concepts-agent-policy](https://github.com/Agentics-Rising/forge_docs/issues?q=is%3Aopen+label%3Adocs-content).
-:::
+`agentPolicy` is just a declaration; enforcement happens in one of three modes depending on how your agents read the data product.
+
+### 1. MCP server (preferred for agentic workflows)
+
+The Forge MCP server at `fluid mcp serve` exposes data products as MCP resources. Every MCP read passes through the agentPolicy gate:
+
+```
+agent (gpt-4)  ──read──►  fluid mcp server
+                              │
+                              ▼
+                          agentPolicy gate
+                              │
+                              ├─ ALLOW ─►  fetch + return + audit
+                              └─ DENY  ─►  403 + audit (with reason)
+```
+
+The MCP server reads `agentPolicy` from the contract at startup and re-validates per request. Audit records ship to the platform's audit log automatically.
+
+### 2. Side-car interceptor
+
+When agents read directly via SQL/HTTP (not via MCP), the side-car pattern intercepts at the platform layer:
+
+- **BigQuery**: a row-level security policy bound to the service account's identity claims (`agent_id`, `model_id` extracted from a custom JWT). Forge emits the BigQuery RLS rules on `policy-apply`.
+- **Snowflake**: a masking policy that consults a Snowflake function checking `agent_id` and `model_id` against the contract's `agentPolicy`. Forge emits the policy DDL.
+- **AWS Glue / Athena**: Lake Formation cell-level filters keyed on the same identity claims.
+
+Side-cars are platform-specific; the agentPolicy contract stays the same. Forge handles the translation in `policy-apply`.
+
+### 3. Application-level (when neither MCP nor side-car is feasible)
+
+Your application can call `fluid agent-check --contract X --model Y --use-case Z` from its own code path before issuing the read. Returns `200 ALLOW` or `403 DENY` with reason. The CLI does not block the actual read — the application is responsible for honouring the result.
+
+This is the weakest mode but useful for legacy agent code that can't be migrated to MCP or side-car patterns.
+
+## Audit event schema
+
+When `auditRequired: true`, every check (allow OR deny) emits a record:
+
+```json
+{
+  "ts": "2026-04-12T14:23:01Z",
+  "audit_id": "aud_8f2c4...",
+  "decision": "ALLOW",
+  "product": "gold.finance.customer_360_v1",
+  "expose": "customer_360_table",
+  "agent_id": "svc:bi-dashboard",
+  "model": "gpt-4",
+  "use_case": "analysis",
+  "tokens_requested": 312,
+  "tokens_remaining_today": 98800,
+  "rows_returned": 412
+}
+```
+
+Deny records include a `reason` field (`use_case_denied`, `model_not_in_allow`, `token_budget_exceeded`, `cannot_store_violation`). Records ship through the platform's native audit channel — no separate audit infrastructure to maintain.
+
+See the [agent-policy demo](/forge_docs/see-it-run.html) for a frame-perfect cast of the enforcement flow: contract → validate → policy-check → 4 simulated agent reads (2 allow, 2 deny with reasons).
+
+## Common patterns
+
+### "No training, ever" (most regulated data)
+
+```yaml
+agentPolicy:
+  deniedUseCases: ["training", "fine-tuning", "embedding-export"]
+  canStore: false
+  auditRequired: true
+  purposeLimitation: "Read-only inference for analysis. Data may not leave the runtime context."
+```
+
+### "Internal analytics agents only"
+
+```yaml
+agentPolicy:
+  allowedModels: ["gpt-4", "claude-3-opus"]   # only the company's vetted models
+  allowedUseCases: ["analysis", "summarization", "qa"]
+  deniedUseCases: ["training", "fine-tuning"]
+  maxTokensPerRequest: 4000
+  maxTokensPerDay: 1000000
+  canStore: false
+  auditRequired: true
+```
+
+### "Open to any agent for QA, with caps" (low-sensitivity products)
+
+```yaml
+agentPolicy:
+  allowedUseCases: ["qa"]                # any model, but only QA
+  deniedUseCases: ["training"]
+  maxTokensPerDay: 100000
+  canStore: false
+  auditRequired: false                   # public-grade data; no audit overhead
+```
+
+## Where to look next
+
+- [Governance & Policy](./governance-policy.md) — `accessPolicy` for human/service principals (the complementary gate)
+- [`fluid mcp serve`](/forge_docs/cli/mcp) — the MCP server that enforces agentPolicy at read-time
+- [`fluid policy-apply`](/forge_docs/cli/policy-apply) — emit + apply the side-car interceptors
+- [agent-policy demo](/forge_docs/see-it-run.html) — frame-perfect cast of the full enforcement flow
