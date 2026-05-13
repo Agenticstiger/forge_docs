@@ -29,6 +29,7 @@ SKIP_CLI_PROVIDERS = {
     "odps",              # documented in docs/cli/odps.md
     "odps_standard",     # documented in docs/cli/odps-bitol.md
     "odcs",              # documented in docs/cli/odcs.md
+    "redshift",          # new in 0.8.3rc1; dedicated docs/providers/redshift.md is a follow-up
 }
 
 # Map CLI provider names to docs filename stems when they differ.
