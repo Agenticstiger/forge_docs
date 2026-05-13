@@ -3,7 +3,7 @@
 Schema **0.7.3** introduces a first-class `acquisition` build pattern for source-aligned (Bronze / SDP) data products. Instead of writing imperative ingestion code or stitching together a 200-line Airflow DAG, you describe **what** to ingest and **how** to deliver it; Forge picks the right engine and runs it under a uniform protocol.
 
 <iframe
-  src="/forge_docs/reels/source-aligned-bronze.html"
+  src="/reels/source-aligned-bronze.html"
   width="100%"
   height="500"
   style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
@@ -14,7 +14,7 @@ Schema **0.7.3** introduces a first-class `acquisition` build pattern for source
 Six months of Airbyte cluster setup, or sixty seconds of `fluid init --discover`. The reel above shows the full flow; this page covers the framework underneath.
 
 ::: tip Where this fits
-This page covers the framework that makes source-aligned ingestion declarative — engines, deployment modes, delivery guarantees, schema evolution, quality gates, and lineage emission. Pair it with [Product Types](/forge_docs/data-products/product-type.html) (the SDP/ADP/CDP vocabulary) and the [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) (a worked example).
+This page covers the framework that makes source-aligned ingestion declarative — engines, deployment modes, delivery guarantees, schema evolution, quality gates, and lineage emission. Pair it with [Product Types](/data-products/product-type.html) (the SDP/ADP/CDP vocabulary) and the [Postgres → DuckDB walkthrough](/walkthrough/source-aligned-postgres-duckdb.html) (a worked example).
 :::
 
 ## The acquisition build pattern
@@ -66,7 +66,7 @@ The schema constraints, sub-defs, and engine-specific properties are catalogued 
 
 ## Six ingestion engines, one protocol
 
-All six engines conform to the public `Runner` Protocol in `fluid_build.api.runner` (see [API Stability](/forge_docs/advanced/api-stability.html)). They share the same `validate → plan → apply` lifecycle, the same exit-code contract, and the same run-record JSON shape, so day-2 ops (`fluid runs status`, `fluid runs logs`, `fluid runs diff`) work identically across all of them.
+All six engines conform to the public `Runner` Protocol in `fluid_build.api.runner` (see [API Stability](/advanced/api-stability.html)). They share the same `validate → plan → apply` lifecycle, the same exit-code contract, and the same run-record JSON shape, so day-2 ops (`fluid runs status`, `fluid runs logs`, `fluid runs diff`) work identically across all of them.
 
 | Engine | Best for | Ships with |
 |---|---|---|
@@ -164,7 +164,7 @@ cost:
     label: ingestion-team
 ```
 
-Every run records cost in the run-record JSON (`fluid_build.api.cost.CostTracker`). `fluid stats` ([page](/forge_docs/cli/stats.html)) aggregates across runs by provider, type, or engine. The monthly budget is enforced at run start — if the projected total would exceed budget and `onExceed: fail`, the run aborts with `BudgetExceededError`.
+Every run records cost in the run-record JSON (`fluid_build.api.cost.CostTracker`). `fluid stats` ([page](/cli/stats.html)) aggregates across runs by provider, type, or engine. The monthly budget is enforced at run start — if the projected total would exceed budget and `onExceed: fail`, the run aborts with `BudgetExceededError`.
 
 Chargeback labels propagate into cloud tags and catalog metadata for finance teams to slice cost by team.
 
@@ -247,7 +247,7 @@ retention:
   dlq: 14d
 ```
 
-Sweep with [`fluid retention sweep`](/forge_docs/cli/retention.html). The sweeper deletes any record older than its respective horizon and emits a structured summary.
+Sweep with [`fluid retention sweep`](/cli/retention.html). The sweeper deletes any record older than its respective horizon and emits a structured summary.
 
 ## Authoring an acquisition contract
 
@@ -261,14 +261,14 @@ fluid init --discover file:///path/to/csv-tree
 
 Discover introspects the source — runs `\dt` on Postgres, `SHOW TABLES` on MySQL, walks the directory tree for filesystem sources — and emits a deterministic, valid 0.7.3 SDP contract per discovered stream. Secrets are auto-redacted to `${ENV_VAR}` placeholders.
 
-For migrating existing tooling, [`fluid import`](/forge_docs/cli/import.html) converts Meltano projects, Airbyte workspaces, dlt pipelines, or Singer tap configs into FLUID acquisition contracts.
+For migrating existing tooling, [`fluid import`](/cli/import.html) converts Meltano projects, Airbyte workspaces, dlt pipelines, or Singer tap configs into FLUID acquisition contracts.
 
 ## See also
 
-- [Product Types — SDP, ADP, CDP](/forge_docs/data-products/product-type.html) — the vocabulary that gates composition
-- [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) — end-to-end worked example
-- [`fluid init --discover`](/forge_docs/cli/init.html#discover) — flagship onboarding for source-aligned ingestion
-- [`fluid import`](/forge_docs/cli/import.html) — Meltano / Airbyte / dlt / Singer importers
-- [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge_docs/cli/retention.html), [`fluid secrets`](/forge_docs/cli/secrets.html) — day-2 ops for acquisition pipelines
-- [API Stability](/forge_docs/advanced/api-stability.html) — `fluid_build.api` v1.0 surface for out-of-tree runners and registrars
-- [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) — error catalog (CapabilityMismatchError, SchemaDriftError, BudgetExceededError, etc.)
+- [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary that gates composition
+- [Postgres → DuckDB walkthrough](/walkthrough/source-aligned-postgres-duckdb.html) — end-to-end worked example
+- [`fluid init --discover`](/cli/init.html#discover) — flagship onboarding for source-aligned ingestion
+- [`fluid import`](/cli/import.html) — Meltano / Airbyte / dlt / Singer importers
+- [`fluid runs`](/cli/runs.html), [`fluid retention`](/cli/retention.html), [`fluid secrets`](/cli/secrets.html) — day-2 ops for acquisition pipelines
+- [API Stability](/advanced/api-stability.html) — `fluid_build.api` v1.0 surface for out-of-tree runners and registrars
+- [Typed CLI Errors](/advanced/typed-cli-errors.html) — error catalog (CapabilityMismatchError, SchemaDriftError, BudgetExceededError, etc.)

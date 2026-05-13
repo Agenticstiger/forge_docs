@@ -151,5 +151,5 @@ Records ship to whichever sink your platform uses by default — BigQuery audit 
 
 - [Agent Policy](./agent-policy.md) — declarative LLM/agent access boundaries
 - [Quality, SLAs & Lineage](./quality-sla-lineage.md) — the rule sets `dq.rules` enforces alongside policy
-- [`fluid policy-check`](/forge_docs/cli/policy-check) — pre-deploy linting
-- [`fluid policy-apply`](/forge_docs/cli/policy-apply) — emit + apply IAM bindings
+- [`fluid policy-check`](/cli/policy-check) — pre-deploy linting
+- [`fluid policy-apply`](/cli/policy-apply) — emit + apply IAM bindings

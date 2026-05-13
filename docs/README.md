@@ -46,14 +46,14 @@ Fluid Forge replaces the four-tool stack most data teams currently maintain. Wit
 - **No AI access surprises.** `agentPolicy` declares which LLMs can read what, with audit logs, before any model gets a row.
 - **No vendor lock.** `binding.platform: snowflake` → `binding.platform: bigquery` is the only line that moves.
 
-→ See the comparison page: [Forge vs dbt / Dagster / Terraform / Snowpark](/forge_docs/concepts/vs-alternatives.html) for the honest breakdown of when Forge does and doesn't fit.
+→ See the comparison page: [Forge vs dbt / Dagster / Terraform / Snowpark](/concepts/vs-alternatives.html) for the honest breakdown of when Forge does and doesn't fit.
 
 ## See it run
 
 A 60-second walkthrough of `fluid forge data-model from-intent` against four LLM providers (Anthropic Haiku 4.5, OpenAI gpt-4.1-mini, Gemini 2.5-flash, local Ollama gemma4) — every token count is from a real production call.
 
 <iframe
-  src="/forge_docs/reels/forge-in-action.html"
+  src="/reels/forge-in-action.html"
   width="100%"
   height="540"
   style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
@@ -61,7 +61,7 @@ A 60-second walkthrough of `fluid forge data-model from-intent` against four LLM
   title="Fluid Forge in action — agentic data-product flow">
 </iframe>
 
-Use ←/→ to step scenes, space to pause, r to restart. **[See all reels →](/forge_docs/see-it-run.html)** — quickstart, source-aligned Bronze, guided forge UX, day-2 ops, and more.
+Use ←/→ to step scenes, space to pause, r to restart. **[See all reels →](/see-it-run.html)** — quickstart, source-aligned Bronze, guided forge UX, day-2 ops, and more.
 
 ## Start with the current workflow
 
@@ -78,8 +78,8 @@ fluid apply contract.fluid.yaml --yes
 
 This docs site currently tracks:
 
-- CLI release `0.8.0`
-- Scaffolded contract examples using `fluidVersion: 0.7.2`
+- CLI release `0.8.3`
+- Scaffolded contract examples using `fluidVersion: 0.7.3` (older `0.7.2` contracts remain valid)
 
 `fluid version` and `fluidVersion` are different things. The first is the CLI release you installed. The second is the schema version inside a contract.
 
@@ -101,7 +101,7 @@ fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
 fluid generate transformation customer_orders.fluid.yaml -o ./dbt_customer_orders --dbt-validate
 ```
 
-For every AI and data-model journey, including hosted provider strict mode, Ollama, DDL, source catalogs, review/diff/learn, and scheduling, see [AI Forge And Data-Model Journeys](/forge_docs/walkthrough/ai-forge-data-model.html).
+For every AI and data-model journey, including hosted provider strict mode, Ollama, DDL, source catalogs, review/diff/learn, and scheduling, see [AI Forge And Data-Model Journeys](/walkthrough/ai-forge-data-model.html).
 
 ## Promoted command groups
 
@@ -114,18 +114,19 @@ For every AI and data-model journey, including hosted provider strict mode, Olla
 | Day-2 Ops | `runs`, `retention`, `secrets`, `stats` |
 | Utilities | `config`, `split`, `bundle`, `auth`, `doctor`, `providers`, `memory`, `mcp`, `version` |
 
-::: tip Coming in the next release — source-aligned acquisition
-The upcoming `0.7.3` release lands schema **0.7.3**, the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), public extension API `fluid_build.api` v1.0, and the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel). See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Product Types](/forge_docs/data-products/product-type.html), and [What's coming](/forge_docs/see-it-run.html) for the full picture.
+::: tip New in 0.8.3 — source-aligned acquisition + SDK & Plugins
+`0.8.3` lands schema **0.7.3** GA, the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), and the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel). It also ships **three plugin extension points** (`fluid_build.commands` / `fluid_build.extension_validators` / `fluid_build.apply_hooks`) and a companion **SDK** (`data-product-forge-sdk`). See [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html), [Product Types](/data-products/product-type.html), and [SDK & Plugins](/sdk-and-plugins/) for the full picture.
 :::
 
 ## Where to go next
 
-- [Getting Started](/forge_docs/getting-started/) for the local-first path
-- [Forge Data Model](/forge_docs/forge-data-model.html) for intent, DDL, and catalog-driven model generation
-- [AI Forge And Data-Model Journeys](/forge_docs/walkthrough/ai-forge-data-model.html) for end-to-end AI-assisted and deterministic flows
-- [CLI Reference](/forge_docs/cli/) for the promoted command surface
-- [Providers](/forge_docs/providers/) for platform-specific guidance
-- [Walkthroughs](/forge_docs/walkthrough/local) for end-to-end examples
+- [Getting Started](/getting-started/) for the local-first path
+- [SDK & Plugins](/sdk-and-plugins/) — extend the CLI with your own scaffolds, validators, and apply-hooks
+- [Forge Data Model](/forge-data-model.html) for intent, DDL, and catalog-driven model generation
+- [AI Forge And Data-Model Journeys](/walkthrough/ai-forge-data-model.html) for end-to-end AI-assisted and deterministic flows
+- [CLI Reference](/cli/) for the promoted command surface
+- [Providers](/providers/) for platform-specific guidance
+- [Walkthroughs](/walkthrough/local) for end-to-end examples
 
 Compatibility note:
 `fluid generate-airflow` is still available, but primary docs now lead with `fluid generate schedule --scheduler airflow`.

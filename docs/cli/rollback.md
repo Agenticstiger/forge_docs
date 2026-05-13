@@ -54,11 +54,11 @@ Every time `fluid apply --mode replace*` runs, the pipeline auto-snapshots the t
 }
 ```
 
-Per-provider snapshot technique:
+Per-provider snapshot technique. Snowflake clones are **table-level**, not database-level — the snapshot's `ddl[]` array is the source of truth, and limiting clones to the tables actually being changed avoids overwriting unrelated tables in the same database during restore.
 
 | Provider | Snapshot | Restore |
 | --- | --- | --- |
-| **Snowflake** | `CREATE DATABASE <backup> CLONE <src>` (zero-copy) | `CREATE OR REPLACE DATABASE <src> CLONE <backup>` |
+| **Snowflake** | `CREATE OR REPLACE TABLE <db>.<sch>.<tbl>__backup CLONE <db>.<sch>.<tbl>` (per-table, zero-copy) | `CREATE OR REPLACE TABLE <db>.<sch>.<tbl> CLONE <db>.<sch>.<tbl>__backup` |
 | **BigQuery** | `bq cp --force <src> <backup>` per table | `bq cp --force <backup> <src>` per table |
 | **Redshift** | `CREATE TABLE <backup> AS SELECT * FROM <src>` (slow but correct) | `TRUNCATE <src>; INSERT INTO <src> SELECT * FROM <backup>` in a transaction |
 

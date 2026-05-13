@@ -167,4 +167,4 @@ For SQL builds (`engine: sql`), the runtime is the warehouse itself (BigQuery, S
 - [Providers vs platforms](./providers-vs-platforms.md) — how `binding.platform` resolves to actual cloud SDKs
 - [Quality, SLAs & Lineage](./quality-sla-lineage.md) — the `dq.rules`, `slas`, and `lineage` blocks
 - [Governance & Policy](./governance-policy.md) — the `accessPolicy` and `agentPolicy` blocks
-- [`fluid plan` walkthrough](/forge_docs/cli/plan) — what the planner emits per binding
+- [`fluid plan` walkthrough](/cli/plan) — what the planner emits per binding

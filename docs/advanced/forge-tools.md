@@ -308,4 +308,4 @@ Before opening a PR for a new tool:
 - [Typed Errors](typed-errors.md) — what `ToolValidationError`, `SchemaValidationError`, and the corrective-feedback flow look like
 - [Capability Warnings](capability-warnings.md) — which (provider, model) combos can call tools reliably
 - [Agentic Primitives](agentic-primitives.md) — the staged-pipeline model your tool plugs into
-- [Contributing Guide → Contribute a Forge Tool](/forge_docs/contributing#contribute-a-forge-tool-forge-tool) — the short version of this page
+- [Contributing Guide → Contribute a Forge Tool](/contributing#contribute-a-forge-tool-forge-tool) — the short version of this page

@@ -7,7 +7,7 @@ Deploy data products to Amazon Web Services — S3, Glue, Athena — using the s
 **Tested Services:** S3, Glue Data Catalog, Athena, IAM
 
 <CliCast
-  src="/forge_docs/demos/aws-quickstart.svg"
+  src="/demos/aws-quickstart.svg"
   title="AWS quickstart — S3 + Glue + Athena in 30 seconds"
   caption="Same contract as the local quickstart, with binding.platform swapped to aws. Glue catalog auto-created, Athena workgroup wired up, IAM resource policies applied — all from one fluid apply."
   width="920"
@@ -328,7 +328,7 @@ AWS_REGION=eu-central-1
 S3_BUCKET=my-fluid-data-bucket
 ```
 
-The [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline) auto-detects this format and sources it into every stage. No provider-specific credential logic.
+The [Universal Pipeline](/walkthrough/universal-pipeline) auto-detects this format and sources it into every stage. No provider-specific credential logic.
 
 ### Local Development
 
@@ -423,7 +423,7 @@ privacy:
 
 ## CI/CD Pipeline
 
-The AWS example uses the exact same Jenkinsfile as GCP and Snowflake — the [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline). Key stages:
+The AWS example uses the exact same Jenkinsfile as GCP and Snowflake — the [Universal Pipeline](/walkthrough/universal-pipeline). Key stages:
 
 | Stage | Command | What Happens |
 |-------|---------|-------------|
@@ -438,7 +438,7 @@ The AWS example uses the exact same Jenkinsfile as GCP and Snowflake — the [Un
 
 ## See Also
 
-- [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline) — Same Jenkinsfile for every provider
+- [Universal Pipeline](/walkthrough/universal-pipeline) — Same Jenkinsfile for every provider
 - [Snowflake Provider](./snowflake) — Snowflake Data Cloud integration
 - [GCP Provider](./gcp) — Google Cloud Platform integration
-- [CLI Reference](/forge_docs/cli/) — Full command documentation
+- [CLI Reference](/cli/) — Full command documentation

@@ -78,5 +78,5 @@ fluid policy-apply contract.fluid.yaml      # apply the compiled IAM
 
 ## See also
 
-- [Concepts → Governance & Policy](/forge_docs/concepts/governance-policy.md) — full sovereignty + accessPolicy schema.
-- [Concepts → Agent Policy](/forge_docs/concepts/agent-policy.md) — every `agentPolicy` field.
+- [Concepts → Governance & Policy](/concepts/governance-policy.md) — full sovereignty + accessPolicy schema.
+- [Concepts → Agent Policy](/concepts/agent-policy.md) — every `agentPolicy` field.

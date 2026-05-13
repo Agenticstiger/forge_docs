@@ -3,7 +3,7 @@
 **Time:** 15 minutes | **Difficulty:** Intermediate | **Prerequisites:** Snowflake account, Python 3.10+, git
 
 <CliCast
-  src="/forge_docs/demos/snowflake-real.svg"
+  src="/demos/snowflake-real.svg"
   title="validate → plan → apply --mode dry-run → policy-apply --mode check"
   caption="The flow at full fidelity: live env credentials sourced, validate --strict, plan against the live account, apply --mode dry-run rendering DDL without firing it, and policy-apply --mode check over the compiled IAM bindings. No DDL fires, no RBAC mutates — exactly what you'd run in a PR review before approving the merge."
   width="920"
@@ -23,7 +23,7 @@ This walkthrough shows how three engineers collaborate on one Fluid Forge projec
 
 The scenario is a Snowflake BI/reporting data product called `customer_orders_weekly_revenue`. The team wants a clean analytics mart for finance dashboards without exposing unnecessary PII.
 
-If you want the first successful Snowflake deployment rather than the review workflow, start with the [Snowflake quickstart](/forge_docs/getting-started/snowflake). This walkthrough assumes the team already has Snowflake access and is reviewing a contract in a normal PR process.
+If you want the first successful Snowflake deployment rather than the review workflow, start with the [Snowflake quickstart](/getting-started/snowflake). This walkthrough assumes the team already has Snowflake access and is reviewing a contract in a normal PR process.
 
 For shared environments, assume the team is using explicit environment-specific warehouse, database, schema, and role settings, plus secure authentication for automation. In practice that means key-pair or OAuth in CI, with browser SSO reserved for interactive local work.
 
@@ -385,6 +385,6 @@ Copilot mode shortens the first-draft cycle even more. Instead of starting from 
 
 ## See Also
 
-- [Snowflake Provider](/forge_docs/providers/snowflake) - Snowflake deployment reference
-- [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline) - Same CI/CD flow across GCP, AWS, and Snowflake
-- [CLI Reference](/forge_docs/cli/) - Full command reference for `validate`, `plan`, `apply`, and policy commands
+- [Snowflake Provider](/providers/snowflake) - Snowflake deployment reference
+- [Universal Pipeline](/walkthrough/universal-pipeline) - Same CI/CD flow across GCP, AWS, and Snowflake
+- [CLI Reference](/cli/) - Full command reference for `validate`, `plan`, `apply`, and policy commands

@@ -137,7 +137,7 @@ Same pattern — change `binding.platform` to `aws` (or `snowflake`), re-`apply`
 
 ## See also
 
-- [GCP walkthrough](/forge_docs/walkthrough/gcp) — full GCP-specific deployment guide
-- [Snowflake walkthrough](/forge_docs/walkthrough/snowflake) — Snowflake team collaboration flow
-- [Providers vs platforms](/forge_docs/concepts/providers-vs-platforms) — how the abstraction works
-- [Same contract demo](/forge_docs/see-it-run.html#_0-03-per-data-product) — frame-perfect cast of this exact swap on screen
+- [GCP walkthrough](/walkthrough/gcp) — full GCP-specific deployment guide
+- [Snowflake walkthrough](/walkthrough/snowflake) — Snowflake team collaboration flow
+- [Providers vs platforms](/concepts/providers-vs-platforms) — how the abstraction works
+- [Same contract demo](/see-it-run.html#_0-03-per-data-product) — frame-perfect cast of this exact swap on screen

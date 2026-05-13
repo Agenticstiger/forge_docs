@@ -225,5 +225,5 @@ Pick whichever your existing catalog speaks. The contract is the source of truth
 
 - [Governance & Policy](./governance-policy.md) — `accessPolicy` and `agentPolicy` complementing `dq.rules`
 - [Builds, Exposes, Bindings](./builds-exposes-bindings.md) — where `dq.rules` lives in the schema
-- [`fluid verify`](/forge_docs/cli/verify) — runtime drift detection
-- [`fluid test`](/forge_docs/cli/test) — pre-deploy quality gates
+- [`fluid verify`](/cli/verify) — runtime drift detection
+- [`fluid test`](/cli/test) — pre-deploy quality gates

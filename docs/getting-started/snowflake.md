@@ -1,7 +1,7 @@
 # Snowflake Quickstart
 
 <CliCast
-  src="/forge_docs/demos/snowflake-quickstart.svg"
+  src="/demos/snowflake-quickstart.svg"
   title="Snowflake quickstart — env, validate, plan, apply --mode dry-run"
   caption="The dry version: source the env file, validate --strict, plan against the account, render DDL via apply --mode dry-run. Click play above; full step-by-step below."
   width="920"
@@ -112,6 +112,6 @@ Use the commands this way:
 
 ## Where To Go Next
 
-- Provider reference: [Snowflake Provider](/forge_docs/providers/snowflake)
-- Team review flow: [Snowflake Team Collaboration](/forge_docs/walkthrough/snowflake)
-- Local-first onboarding: [Getting Started](/forge_docs/getting-started/)
+- Provider reference: [Snowflake Provider](/providers/snowflake)
+- Team review flow: [Snowflake Team Collaboration](/walkthrough/snowflake)
+- Local-first onboarding: [Getting Started](/getting-started/)

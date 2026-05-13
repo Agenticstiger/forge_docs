@@ -16,7 +16,7 @@ fluid init NAME
 | `--blank` | Create an empty project skeleton |
 | `--template NAME` | Create from a named template |
 | `--list-templates` | Show available templates and exit |
-| `--discover URI` | Introspect a source (`postgres://`, `mysql://`, `file://`, `s3://`) and emit a Bronze acquisition contract per discovered stream. **Coming in the `0.7.3` release.** |
+| `--discover URI` | Introspect a source (`postgres://`, `mysql://`, `file://`, `s3://`) and emit a Bronze acquisition contract per discovered stream. |
 | `--provider` | Target provider, defaulting to local |
 | `--yes`, `-y` | Skip confirmation prompts |
 | `--dry-run` | Preview what would be created |
@@ -36,8 +36,8 @@ fluid init my-project --provider snowflake
 
 ## `--discover` — introspect a source into a Bronze contract
 
-::: tip Coming in the next release
-`--discover` ships in the upcoming `0.7.3` release as part of schema 0.7.3. The pinned 0.8.0 baseline doesn't include it yet.
+::: tip Available in 0.8.3
+`--discover` ships in `0.8.3` as part of schema 0.7.3. Earlier releases don't include it.
 :::
 
 Instead of writing the acquisition block by hand, point `fluid init` at a source URI and it emits a deterministic 0.7.3 Bronze (SDP) contract per discovered stream:
@@ -53,7 +53,7 @@ What it does:
 
 - Connects to the source (read-only — `\dt` for Postgres, `SHOW TABLES` for MySQL, directory walk for filesystem)
 - Emits one acquisition contract per discovered table or stream
-- Sets `metadata.layer: Bronze` AND `metadata.productType: SDP` (both vocabularies — see [Product Types](/forge_docs/data-products/product-type.html))
+- Sets `metadata.layer: Bronze` AND `metadata.productType: SDP` (both vocabularies — see [Product Types](/data-products/product-type.html))
 - **Auto-redacts secrets** from the connection string into `${ENV_VAR}` placeholders (so the emitted contract is safe to commit)
 - Picks `engine: duckdb` by default for embedded ingestion (no Airbyte cluster required)
 
@@ -67,12 +67,12 @@ my-project/
 └── .fluid/
 ```
 
-You can then `fluid validate` and `fluid apply` immediately, or open the files and tweak the engine choice / quality rules / retention horizons. See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) for the full framework, or [the Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) for an end-to-end example.
+You can then `fluid validate` and `fluid apply` immediately, or open the files and tweak the engine choice / quality rules / retention horizons. See [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) for the full framework, or [the Postgres → DuckDB walkthrough](/walkthrough/source-aligned-postgres-duckdb.html) for an end-to-end example.
 
 ## Notes
 
 - The promoted newcomer path is `fluid init ... --quickstart`, then `validate`, `plan`, and `apply`.
-- Current scaffolds emit contracts using `fluidVersion: 0.7.2`. The `--discover` path emits `fluidVersion: 0.7.3`.
+- As of `0.8.3`, scaffolds emit contracts using `fluidVersion: 0.7.3`. `--discover` also emits `0.7.3`. Older `0.7.2` contracts remain valid.
 - If you want AI-assisted scaffolding instead, use [`fluid forge`](./forge.md).
 
 ## Fastest path — `fluid demo`

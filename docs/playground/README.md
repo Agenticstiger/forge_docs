@@ -39,4 +39,4 @@ $ fluid plan contract.fluid.yaml
 $ fluid apply contract.fluid.yaml --yes
 ```
 
-[Full quickstart →](/forge_docs/getting-started/) · [CLI reference →](/forge_docs/cli/)
+[Full quickstart →](/getting-started/) · [CLI reference →](/cli/)

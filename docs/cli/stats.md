@@ -3,7 +3,7 @@
 Aggregate cost across forge runs. Walks `.fluid/agents/*/cost.json` records and groups by provider, product type, engine, or run.
 
 ::: tip Where this fits
-`fluid stats` ships with the guided forge UX in the upcoming `0.7.3` release. The pinned 0.8.0 docs baseline doesn't include it yet.
+`fluid stats` ships with the guided forge UX in `0.8.3`.
 :::
 
 ## Syntax
@@ -81,10 +81,10 @@ Total                       30   45,700 / 8,790        $0.321
 
 Every `fluid forge` run writes `.fluid/agents/<run-id>/cost.json` containing the per-call cost breakdown. `fluid stats` reads those files; nothing leaves the workspace.
 
-For LiteLLM-backed runs (`FLUID_LLM_BACKEND=litellm`), the cost field comes directly from LiteLLM's per-call attribution, not from the heuristic estimator. See [LiteLLM Backend](/forge_docs/advanced/litellm-backend.html) for accuracy notes.
+For LiteLLM-backed runs (`FLUID_LLM_BACKEND=litellm`), the cost field comes directly from LiteLLM's per-call attribution, not from the heuristic estimator. See [LiteLLM Backend](/advanced/litellm-backend.html) for accuracy notes.
 
 ## See also
 
-- [Cost Tracking](/forge_docs/advanced/cost-tracking.html) — how the cost figures are computed
-- [LiteLLM Backend](/forge_docs/advanced/litellm-backend.html) — accurate per-call cost via LiteLLM
-- [`fluid forge`](/forge_docs/cli/forge.html) — the runs that produce these records
+- [Cost Tracking](/advanced/cost-tracking.html) — how the cost figures are computed
+- [LiteLLM Backend](/advanced/litellm-backend.html) — accurate per-call cost via LiteLLM
+- [`fluid forge`](/cli/forge.html) — the runs that produce these records

@@ -154,3 +154,13 @@ fluid apply runtime/plan.json --mode amend --no-verify-digest --yes
 - For local-first onboarding, `fluid apply contract.fluid.yaml --yes` is the shortest path after a quickstart scaffold — default `--mode amend` is safe.
 - `--mode replace` / `replace-and-build` **always** create an auto-snapshot before destructive DDL. On Snowflake this is a zero-copy `CLONE`; on BigQuery it's `bq cp --force`; on Redshift it's `CREATE TABLE _backup AS SELECT *`. Snapshot names are recorded in `.fluid/rollback-state.json`.
 - If apply's provider dispatcher logs `unknown_action_op` for your contract's actions, the provider doesn't yet implement the abstract op. This is a known gap for some high-level ops (e.g. `provisionDataset`, `scheduleTask`) and is addressed by a translator layer in `providers/<platform>/`.
+
+## Extension point: apply hooks
+
+As of `0.8.3`, `fluid apply` runs any **apply hook** plugins registered via Python entry-points before invoking the providers. Use apply hooks to enforce runtime invariants that can't be checked at validate time — required env vars, image signatures, bundle-digest drift, business-hours gating, anything that depends on the deploy environment rather than the contract content.
+
+A hook that appends an error aborts the apply with exit code 1. Pass `--force-pattern-drift` to downgrade all hook errors to WARNINGs (audit-logged) and let the apply proceed.
+
+- Author a hook: [SDK & Plugins → Apply hook journey](/sdk-and-plugins/journeys/apply-hook.md)
+- Reference: [Entry points → `fluid_build.apply_hooks`](/sdk-and-plugins/reference/entry-points.md)
+- Example: [`prod-key-guard`](/sdk-and-plugins/examples/apply-hook-prod-key-guard.md)

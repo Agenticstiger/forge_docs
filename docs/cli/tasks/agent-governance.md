@@ -238,8 +238,8 @@ agentPolicy:
 
 ## See also
 
-- [Agent Policy concept](/forge_docs/concepts/agent-policy) — full conceptual treatment + audit event schema
-- [Agent policy demo](/forge_docs/see-it-run.html) — frame-perfect cast of validate → policy-check → audit replay
-- [`fluid mcp serve`](/forge_docs/cli/mcp) — the MCP server
-- [`fluid policy-apply`](/forge_docs/cli/policy-apply) — emit + apply the side-car interceptors
-- [Governance & Policy](/forge_docs/concepts/governance-policy) — `accessPolicy` for human/service principals (the complementary gate)
+- [Agent Policy concept](/concepts/agent-policy) — full conceptual treatment + audit event schema
+- [Agent policy demo](/see-it-run.html) — frame-perfect cast of validate → policy-check → audit replay
+- [`fluid mcp serve`](/cli/mcp) — the MCP server
+- [`fluid policy-apply`](/cli/policy-apply) — emit + apply the side-car interceptors
+- [Governance & Policy](/concepts/governance-policy) — `accessPolicy` for human/service principals (the complementary gate)

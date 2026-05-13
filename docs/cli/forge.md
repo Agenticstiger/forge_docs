@@ -108,10 +108,10 @@ The same flow is exposed via the MCP `forge_from_source` tool, so
 Claude Code / Cursor agents can drive a catalog forge from inside
 the editor.
 
-## Mode picker, refine, compose — coming in the next release
+## Mode picker, refine, compose
 
-::: tip Where this fits
-The 5-mode picker, `--refine`, `--from-product`, slash commands, preview panel, and the streaming contract preview ship in the upcoming `0.7.3` release. The pinned 0.8.0 baseline still has the older single-shot interview shape.
+::: tip Available in 0.8.3
+The 5-mode picker, `--refine`, `--from-product`, slash commands, preview panel, and the streaming contract preview ship in `0.8.3` (schema `0.7.3`). Pre-0.8.3 releases had the older single-shot interview shape.
 :::
 
 Bare `fluid forge` (TTY, no flags) lands on a 5-mode menu instead of dropping straight into AI:
@@ -129,7 +129,7 @@ The picker pre-highlights based on a parallel welcome scan that runs in <50 ms. 
 
 ### `--from-product` — composition
 
-Pick one or more upstream products; Forge resolves them, validates composition rules (SDP rejects upstreams; ADP/CDP accept SDP+ADP — see [Product Types](/forge_docs/data-products/product-type.html#composition-rules)), and pre-fills `consumes[]`:
+Pick one or more upstream products; Forge resolves them, validates composition rules (SDP rejects upstreams; ADP/CDP accept SDP+ADP — see [Product Types](/data-products/product-type.html#composition-rules)), and pre-fills `consumes[]`:
 
 ```bash
 fluid forge --from-product bronze.crm_orders
@@ -161,13 +161,13 @@ Loads the contract, asks "what to change?", feeds the contract verbatim to the L
 
 Before any file is written, Forge renders a panel showing files, cost, and run-id so users see exactly what they're about to commit to. `--yes` skips the confirmation prompt but the panel still renders. Suppress with `FLUID_FORGE_NO_PREVIEW=1`.
 
-For the full picture see [Guided `fluid forge` UX](/forge_docs/advanced/guided-forge-ux.html).
+For the full picture see [Guided `fluid forge` UX](/advanced/guided-forge-ux.html).
 
 ## Notes
 
 - The current promoted syntax is `fluid forge`, not `fluid forge --mode copilot`.
 - Use `--domain` for built-in domain guidance instead of the older `--mode agent` flow shown in some legacy docs.
-- Discovery and memory guides live in the advanced docs: [discovery](/forge_docs/advanced/forge-copilot-discovery) and [memory](/forge_docs/advanced/forge-copilot-memory).
+- Discovery and memory guides live in the advanced docs: [discovery](/advanced/forge-copilot-discovery) and [memory](/advanced/forge-copilot-memory).
 
 ## Industry skills — `fluid skills`
 

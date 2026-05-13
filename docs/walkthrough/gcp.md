@@ -5,7 +5,7 @@
 **Prerequisites:** GCP account, gcloud CLI, Python 3.10+
 
 <CliCast
-  src="/forge_docs/demos/gcp-quickstart.svg"
+  src="/demos/gcp-quickstart.svg"
   title="The same contract on BigQuery — swap one line, redeploy"
   caption="From the local DuckDB contract to a fully-deployed BigQuery table with IAM grants applied. Click play above for the 30-second highlight; the walkthrough below covers each step with hands-on auth + contract editing."
   width="920"
@@ -939,7 +939,7 @@ For production use, the example includes an enhanced DAG with:
 - Email alerts on failures
 - Execution metrics tracking
 
-See the complete guide: **[Declarative Airflow Integration](/forge_docs/walkthrough/airflow-declarative)**
+See the complete guide: **[Declarative Airflow Integration](/walkthrough/airflow-declarative)**
 
 #### Deploy to Cloud Composer
 
@@ -969,7 +969,7 @@ The enhanced DAG includes:
 - **Email Alerts:** Notifies on failures
 
 For detailed Airflow setup, deployment options, and troubleshooting, see:
-📖 **[Declarative Airflow Integration](/forge_docs/walkthrough/airflow-declarative)**
+📖 **[Declarative Airflow Integration](/walkthrough/airflow-declarative)**
 
 ---
 
@@ -1357,10 +1357,10 @@ You've successfully deployed a **production-grade Bitcoin price tracking data pr
 - 📈 Analytical views and trends
 
 **Ready for more?**
-- [CLI Reference](/forge_docs/cli/) - Master all Fluid Forge commands
-- [GCP Provider Guide](/forge_docs/providers/gcp) - Deep dive into GCP features
-- [Local Walkthrough](/forge_docs/walkthrough/local) - Test locally with DuckDB first
-- [Blueprints](/forge_docs/advanced/blueprints) - Pre-built templates
+- [CLI Reference](/cli/) - Master all Fluid Forge commands
+- [GCP Provider Guide](/providers/gcp) - Deep dive into GCP features
+- [Local Walkthrough](/walkthrough/local) - Test locally with DuckDB first
+- [Blueprints](/advanced/blueprints) - Pre-built templates
 
 ---
 

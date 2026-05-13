@@ -107,5 +107,5 @@ Use multiple `exposes[]` entries on one contract — one per audience — each w
 - [Builds, Exposes, Bindings](./builds-exposes-bindings.md) — the three core blocks that turn a stub into a real product.
 - [Governance & Policy](./governance-policy.md) — how `accessPolicy`, `agentPolicy`, and `sovereignty` work together.
 - [Quality, SLAs & Lineage](./quality-sla-lineage.md) — how `dq.rules`, `slas`, and lineage emit artifacts.
-- [Local walkthrough](/forge_docs/walkthrough/local) — build a Netflix analytics contract from scratch.
-- [Validate command](/forge_docs/cli/validate) — what schema rules are checked, and what error messages mean.
+- [Local walkthrough](/walkthrough/local) — build a Netflix analytics contract from scratch.
+- [Validate command](/cli/validate) — what schema rules are checked, and what error messages mean.

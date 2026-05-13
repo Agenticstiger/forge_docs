@@ -82,6 +82,19 @@ export default defineUserConfig({
         ]
       },
       { text: 'CLI Reference', link: '/cli/' },
+      {
+        text: 'SDK & Plugins',
+        children: [
+          { text: 'Overview', link: '/sdk-and-plugins/' },
+          { text: 'Quickstart', link: '/sdk-and-plugins/quickstart' },
+          { text: 'Examples', link: '/sdk-and-plugins/examples/' },
+          { text: 'Your own CI', link: '/sdk-and-plugins/journeys/your-own-ci' },
+          { text: 'Your own scaffolding', link: '/sdk-and-plugins/journeys/your-own-scaffolding' },
+          { text: 'Custom validator', link: '/sdk-and-plugins/journeys/custom-validator' },
+          { text: 'Apply hook', link: '/sdk-and-plugins/journeys/apply-hook' },
+          { text: 'Reference', link: '/sdk-and-plugins/reference/' }
+        ]
+      },
       { text: 'Demos', link: '/demos/' },
       {
         text: 'Providers',
@@ -205,6 +218,53 @@ export default defineUserConfig({
           ]
         },
         {
+          text: 'SDK & Plugins',
+          children: [
+            '/sdk-and-plugins/README.md',
+            '/sdk-and-plugins/quickstart.md',
+            {
+              text: 'Examples',
+              children: [
+                '/sdk-and-plugins/examples/README.md',
+                '/sdk-and-plugins/examples/hello-scaffold.md',
+                '/sdk-and-plugins/examples/gitlab-ci-scaffold.md',
+                '/sdk-and-plugins/examples/steward-validator.md',
+                '/sdk-and-plugins/examples/apply-hook-prod-key-guard.md'
+              ]
+            },
+            {
+              text: 'Journeys',
+              children: [
+                '/sdk-and-plugins/journeys/README.md',
+                {
+                  text: 'Your own CI/CD',
+                  children: [
+                    '/sdk-and-plugins/journeys/your-own-ci.md',
+                    '/sdk-and-plugins/journeys/your-own-ci-gitlab.md',
+                    '/sdk-and-plugins/journeys/your-own-ci-github.md',
+                    '/sdk-and-plugins/journeys/your-own-ci-jenkins.md',
+                    '/sdk-and-plugins/journeys/your-own-ci-circleci.md'
+                  ]
+                },
+                '/sdk-and-plugins/journeys/your-own-scaffolding.md',
+                '/sdk-and-plugins/journeys/custom-validator.md',
+                '/sdk-and-plugins/journeys/apply-hook.md'
+              ]
+            },
+            {
+              text: 'Reference',
+              children: [
+                '/sdk-and-plugins/reference/README.md',
+                '/sdk-and-plugins/reference/roles.md',
+                '/sdk-and-plugins/reference/entry-points.md',
+                '/sdk-and-plugins/reference/trust-model.md',
+                '/sdk-and-plugins/reference/packaging.md',
+                '/sdk-and-plugins/reference/companion-packages.md'
+              ]
+            }
+          ]
+        },
+        {
           text: 'Providers',
           children: [
             '/providers/README.md',
@@ -248,6 +308,7 @@ export default defineUserConfig({
           text: 'Project',
           children: [
             '/contributing.md',
+            '/RELEASE_NOTES_0.8.3.md',
             '/RELEASE_NOTES_0.8.0.md',
             '/RELEASE_NOTES_0.7.11.md',
             '/RELEASE_NOTES_0.7.9.md',

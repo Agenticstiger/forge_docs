@@ -33,11 +33,11 @@ The schema enum also includes engines and runtime targets that aren't cloud prov
 |-------|------|-------|
 | `kafka`      | Streaming engine | Use with `format: kafka_topic`. Topic creation handled by your existing Kafka cluster, not by Fluid Forge — it just emits the binding contract. |
 | `kubernetes` | Runtime target  | For long-running services / consumers, not for table-backed products. |
-| `other`      | Escape hatch    | Lets you bind a contract to a custom provider you've registered via the [Provider SDK](/forge_docs/providers/custom-providers). |
+| `other`      | Escape hatch    | Lets you bind a contract to a custom provider you've registered via the [Provider SDK](/providers/custom-providers). |
 
 ## The provider plugin contract
 
-Building a custom provider for an unsupported platform is supported — see [Custom Providers](/forge_docs/providers/custom-providers). The plugin must implement four methods:
+Building a custom provider for an unsupported platform is supported — see [Custom Providers](/providers/custom-providers). The plugin must implement four methods:
 
 ```python
 class MyProvider(BaseProvider):
@@ -94,7 +94,7 @@ Every provider translates cloud-specific errors into typed CLI errors so the ope
 | `400 Bad Request: invalid schema` | `FluidSchemaError`: "Field `customer.id` declared as STRING in contract but BigQuery has it as INT64. Migration needed via …" | 65 (data) |
 | `Quota exceeded: query bytes` | `FluidQuotaError`: "Project `prod` exceeded daily query bytes quota. See [GCP custom cost controls](https://cloud.google.com/bigquery/docs/custom-quotas)." | 66 (resource) |
 
-See [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) for the full taxonomy.
+See [Typed CLI Errors](/advanced/typed-cli-errors.html) for the full taxonomy.
 
 ## Version compatibility
 
@@ -110,7 +110,7 @@ class MyProvider(BaseProvider):
 
 ## Where to look next
 
-- [Custom Providers walkthrough](/forge_docs/providers/custom-providers) — full step-by-step for shipping your own provider
-- [Provider Architecture](/forge_docs/providers/architecture) — interface details, action types, error categories
-- [Universal pipeline](/forge_docs/walkthrough/universal-pipeline) — where each provider method lands in the 11-stage flow
+- [Custom Providers walkthrough](/providers/custom-providers) — full step-by-step for shipping your own provider
+- [Provider Architecture](/providers/architecture) — interface details, action types, error categories
+- [Universal pipeline](/walkthrough/universal-pipeline) — where each provider method lands in the 11-stage flow
 - [Builds, Exposes, Bindings](./builds-exposes-bindings.md) — the contract surface providers consume

@@ -4,6 +4,25 @@ This guide walks you through building a custom Fluid Forge provider — from a m
 
 A provider teaches Fluid Forge how to deploy contracts to a new platform. If you can express the deployment as "create these resources, run this SQL, write these outputs," you can build a provider for it.
 
+::: tip Two provider base classes exist — pick the right one
+There are two cloud-provider base classes you may run into:
+
+- **`BaseProvider`** from `fluid_provider_sdk` — the legacy class the in-tree providers (AWS, GCP, Snowflake, Local) extend. This page documents `BaseProvider` in detail; it's the authoritative reference for the existing provider surface.
+- **`InfraProvider`** from `fluid_sdk` — the new role-typed class shipped in the SDK rename. For a **new** plugin provider you're packaging for PyPI, prefer `InfraProvider` and the SDK conformance harness — see [SDK & Plugins → Roles → InfraProvider](/sdk-and-plugins/reference/roles.md#infraprovider).
+
+Both classes register through the same `[project.entry-points."fluid_build.providers"]` group, so swapping one for the other is just a class-name change.
+:::
+
+::: tip Looking for something other than a cloud provider?
+This page (and the SDK's `InfraProvider`) is for adding support for a new cloud, warehouse, or query engine to `fluid apply`. As of `0.8.3` there are three other plugin roles for the more common extension cases:
+
+- **`CustomScaffold`** — generate files from a contract (CI configs, app code, IaC stacks). For "we have our own CI templates," see [SDK & Plugins → Your own CI](/sdk-and-plugins/journeys/your-own-ci.md).
+- **`Validator`** — governance/compliance rules at `fluid validate`. For "we have rules every contract must follow," see [SDK & Plugins → Custom validator](/sdk-and-plugins/journeys/custom-validator.md).
+- **Apply hooks** — runtime invariants at `fluid apply`. For "fail the deploy if X isn't true," see [SDK & Plugins → Apply hook](/sdk-and-plugins/journeys/apply-hook.md).
+
+The [SDK & Plugins](/sdk-and-plugins/) section is the integrated overview.
+:::
+
 ::: tip Prerequisites
 You should be familiar with [how the provider system works](./architecture.md) before building one. The key concept: a provider implements `plan()` to convert a contract into actions, and `apply()` to execute those actions.
 :::
@@ -324,7 +343,7 @@ Operators may see them in CLI output when something goes wrong:
 | `SchemaValidationError` | LLM returned output that failed Pydantic / JSON-schema validation. The agent loop routes corrective feedback to the LLM instead of retrying the same prompt. |
 | `ToolValidationError` | A tool call's args didn't match the tool's input schema. |
 
-See the [Typed Errors reference](/forge_docs/advanced/typed-errors.md) for what each class carries, the corrective-feedback flow, and the SECURITY_REVIEW S-013 invariant that scrubs raw exception text before it round-trips into the LLM context.
+See the [Typed Errors reference](/advanced/typed-errors.md) for what each class carries, the corrective-feedback flow, and the SECURITY_REVIEW S-013 invariant that scrubs raw exception text before it round-trips into the LLM context.
 
 ## Testing Your Provider
 

@@ -3,7 +3,7 @@
 Manipulate FLUID contracts — apply AI-suggested edits with provenance gating, and migrate older contracts to the schema 0.7.3 productType vocabulary.
 
 ::: tip Where this fits
-`fluid contract` ships with the source-aligned acquisition stack in the upcoming `0.7.3` release. The pinned 0.8.0 docs baseline doesn't include it yet; this page documents the surface ahead of release.
+`fluid contract` ships with the source-aligned acquisition stack in `0.8.3` (schema `0.7.3`). Earlier releases don't include it.
 :::
 
 ## Syntax
@@ -116,6 +116,6 @@ If both fields are already set and disagree, the migrator emits an error and exi
 
 ## See also
 
-- [Product Types — SDP, ADP, CDP](/forge_docs/data-products/product-type.html) — the vocabulary the migrator normalizes
-- [`fluid forge --refine`](/forge_docs/cli/forge.html) — produces suggestion files via AI-aided refinement
-- [`fluid validate`](/forge_docs/cli/validate.html) — what catches inconsistent contracts the migrator refused to fix
+- [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary the migrator normalizes
+- [`fluid forge --refine`](/cli/forge.html) — produces suggestion files via AI-aided refinement
+- [`fluid validate`](/cli/validate.html) — what catches inconsistent contracts the migrator refused to fix

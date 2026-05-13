@@ -3,7 +3,7 @@
 The upcoming `0.7.3` release ships an opt-in `LiteLLMProvider` that routes every LLM call through [LiteLLM](https://github.com/BerriAI/litellm) instead of Forge's native per-provider HTTP shapes. Enable it for unified routing, accurate per-call cost attribution, and access to LiteLLM's broader provider catalog.
 
 ::: tip Where this fits
-LiteLLM is a routing-layer alternative to the native provider stack documented at [LLM Providers](/forge_docs/advanced/llm-providers.html). Both stacks share the same `LlmProvider` base class — switching between them is a one-env-var flip.
+LiteLLM is a routing-layer alternative to the native provider stack documented at [LLM Providers](/advanced/llm-providers.html). Both stacks share the same `LlmProvider` base class — switching between them is a one-env-var flip.
 :::
 
 ## Enabling
@@ -53,13 +53,13 @@ tracker.record_call(
 )
 ```
 
-`fluid stats` ([page](/forge_docs/cli/stats.html)) and the per-run `cost.json` show the LiteLLM-reported figure when `FLUID_LLM_BACKEND=litellm`. Older runs (or runs on the native stack) keep using the heuristic estimate.
+`fluid stats` ([page](/cli/stats.html)) and the per-run `cost.json` show the LiteLLM-reported figure when `FLUID_LLM_BACKEND=litellm`. Older runs (or runs on the native stack) keep using the heuristic estimate.
 
 ## Capability warnings
 
 The capability catalog at `fluid_build/copilot/agents/capability_catalog.py` covers the native-stack provider/model combinations. When you switch to LiteLLM, the catalog still applies (LiteLLM is just a router) but the warnings reflect the underlying model — `litellm + claude-sonnet-4-6` warns identically to `anthropic + claude-sonnet-4-6`.
 
-If you point LiteLLM at a model not in the catalog, the run-start banner says "model X is not in the capability catalog" and the run continues with conservative defaults. See [Capability Warnings](/forge_docs/advanced/capability-warnings.html#unknown-provider-model).
+If you point LiteLLM at a model not in the catalog, the run-start banner says "model X is not in the capability catalog" and the run continues with conservative defaults. See [Capability Warnings](/advanced/capability-warnings.html#unknown-provider-model).
 
 ## When to use LiteLLM vs. native
 
@@ -76,11 +76,11 @@ The two stacks coexist safely — you can flip `FLUID_LLM_BACKEND` per run witho
 
 - LiteLLM is an extra at install time (`pip install 'data-product-forge[litellm]'`). Without it, setting `FLUID_LLM_BACKEND=litellm` raises `MissingExtraError` at run start.
 - Tool-use behaviour matches LiteLLM's wrapper, not the native shape. If you've been depending on Anthropic's exact tool-use response shape (rare), switching to LiteLLM may surface differences.
-- The agent-layer typed errors (`RateLimitError`, `ContextOverflowError`, etc. — see [Typed Errors](/forge_docs/advanced/typed-errors.html)) still fire under LiteLLM; the classifier handles both wire shapes.
+- The agent-layer typed errors (`RateLimitError`, `ContextOverflowError`, etc. — see [Typed Errors](/advanced/typed-errors.html)) still fire under LiteLLM; the classifier handles both wire shapes.
 
 ## See also
 
-- [LLM Providers](/forge_docs/advanced/llm-providers.html) — the native stack
-- [Capability Warnings](/forge_docs/advanced/capability-warnings.html) — what the capability catalog enforces under both stacks
-- [Cost Tracking](/forge_docs/advanced/cost-tracking.html) — how cost figures land in `.fluid/agents/<run-id>/cost.json`
-- [`fluid stats`](/forge_docs/cli/stats.html) — aggregating cost across runs
+- [LLM Providers](/advanced/llm-providers.html) — the native stack
+- [Capability Warnings](/advanced/capability-warnings.html) — what the capability catalog enforces under both stacks
+- [Cost Tracking](/advanced/cost-tracking.html) — how cost figures land in `.fluid/agents/<run-id>/cost.json`
+- [`fluid stats`](/cli/stats.html) — aggregating cost across runs

@@ -5,7 +5,7 @@ description: The conceptual model behind Fluid Forge — learn-once reference fo
 
 # 📒 Concepts
 
-Everything in this section is **learn-once reference**. If you've already shipped a contract, you can skip ahead to the [CLI Reference](/forge_docs/cli/) or [Walkthroughs](/forge_docs/walkthrough/local). If you're new, read these in order — each builds on the last.
+Everything in this section is **learn-once reference**. If you've already shipped a contract, you can skip ahead to the [CLI Reference](/cli/) or [Walkthroughs](/walkthrough/local). If you're new, read these in order — each builds on the last.
 
 ## In this section
 
@@ -27,4 +27,4 @@ The single most important concept is **the contract is the source of truth**. Ev
 
 - **First time here?** Read [What is a Contract](./contract.md) → [Builds, Exposes, Bindings](./builds-exposes-bindings.md) in order. ~15 minutes.
 - **Comparing tools?** Skip to [Forge vs dbt / Dagster / Terraform / Snowpark](./vs-alternatives.md) for the honest breakdown.
-- **Ready to build?** Drop into [Get Started](/forge_docs/getting-started/) and ship a real product locally in 30 seconds.
+- **Ready to build?** Drop into [Get Started](/getting-started/) and ship a real product locally in 30 seconds.

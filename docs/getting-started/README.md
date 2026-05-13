@@ -3,7 +3,7 @@
 Run your first data product locally in a few minutes, then move to cloud targets when you are ready.
 
 <CliCast
-  src="/forge_docs/demos/local-quickstart.svg"
+  src="/demos/local-quickstart.svg"
   title="fluid init my-project --quickstart  →  validate  →  plan  →  apply"
   caption="Click play above for the full local quickstart in 30 seconds. Or follow along step-by-step below."
   width="920"
@@ -20,7 +20,7 @@ You're about to ship a working data product in 30 seconds. The four-tool stack y
 - **No Terraform for data IAM.** `policy-apply` emits BigQuery / Snowflake / S3 IAM bindings from the same contract.
 - **No 27 questions before you ship.** `fluid forge` infers from your local files; you answer 4.
 
-→ See the full comparison: [Forge vs dbt / Dagster / Terraform / Snowpark](/forge_docs/concepts/vs-alternatives.html).
+→ See the full comparison: [Forge vs dbt / Dagster / Terraform / Snowpark](/concepts/vs-alternatives.html).
 
 ## What this guide assumes
 
@@ -30,25 +30,21 @@ You're about to ship a working data product in 30 seconds. The four-tool stack y
 
 ## Install the CLI
 
-Stable release from PyPI. The current docs baseline is `0.8.0`:
+Stable release from PyPI. The current docs baseline is `0.8.3`:
 
 ```bash
 pip install --upgrade data-product-forge
 
 # For exact reproducibility with these docs:
-pip install "data-product-forge==0.8.0"
+pip install "data-product-forge==0.8.3"
 ```
 
-TestPyPI is for release validation and pre-release candidates. Use it only when you intentionally want to validate the package index flow or try unreleased CLI behavior:
+Want to try the next release line before it goes stable? Pre-releases (e.g. `0.8.4rc1`) ship to PyPI as PEP 440 pre-releases — `pip install` skips them by default. Opt in explicitly:
 
 ```bash
-pip install --pre \
-  --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple/ \
-  data-product-forge
+pip install --pre data-product-forge       # latest pre-release
+pip install data-product-forge==0.8.4rc1   # exact pin
 ```
-
-The `--extra-index-url` keeps transitive dependencies (pandas, pydantic, dbt-core, …) resolvable from normal PyPI while the CLI package itself comes from TestPyPI. The released `0.8.0` wheel is also mirrored there for validation, but normal users should install stable releases from PyPI.
 
 Check the installed CLI and basic system health:
 
@@ -57,7 +53,9 @@ fluid version
 fluid doctor
 ```
 
-This docs set tracks CLI release `0.8.0`. Docs updates land in lockstep with each release; if you're on an older CLI, some `--mode` / `--target` flags mentioned here won't be present yet — see the [CLI index](../cli/README.md) for what maps to what.
+This docs set tracks CLI release `0.8.3`. Docs updates land in lockstep with each release; if you're on an older CLI, some `--mode` / `--target` flags mentioned here won't be present yet — see the [CLI index](../cli/README.md) for what maps to what.
+
+> **Extending the CLI?** `0.8.3` ships three plugin extension points and a companion SDK on PyPI. If your team has its own CI templates, scaffolding standards, or governance rules, see **[SDK & Plugins](../sdk-and-plugins/)**.
 
 > Stuck on install? Jump to [Troubleshooting](#troubleshooting) further down, or [open an issue](https://github.com/Agenticstiger/forge-cli/issues) — happy to help.
 
@@ -65,10 +63,10 @@ This docs set tracks CLI release `0.8.0`. Docs updates land in lockstep with eac
 
 You will see two different version concepts in the docs:
 
-- `fluid version` reports the installed CLI release, such as `0.8.0`
-- `fluidVersion` inside `contract.fluid.yaml` selects the contract schema version, such as `0.7.2`
+- `fluid version` reports the installed CLI release, such as `0.8.3`
+- `fluidVersion` inside `contract.fluid.yaml` selects the contract schema version, such as `0.7.3`
 
-Current scaffolds in `forge-cli` emit `fluidVersion: 0.7.2`.
+Current scaffolds in `forge-cli` emit `fluidVersion: 0.7.3` (the GA version that ships with `0.8.3`). The CLI still accepts contracts with `fluidVersion` `0.4.0`, `0.5.7`, `0.7.1`, `0.7.2`, and `0.7.3` — run `fluid version` for the authoritative compatibility list.
 
 ## Quickstart with `fluid init`
 
@@ -92,14 +90,14 @@ That output at `runtime/out/bitcoin_prices.parquet` is real. It has a schema, a 
 
 **Three things you can do right now:**
 
-1. **Switch clouds with one line** — change `binding.platform: local` to `binding.platform: gcp` in `contract.fluid.yaml`, run `fluid apply` again. Same data product, on BigQuery. ([GCP walkthrough](/forge_docs/walkthrough/gcp))
-2. **Add an AI policy in 5 lines** — append an `agentPolicy` block (`allowedModels`, `deniedUseCases`, `auditRequired`). Now `fluid policy-check` enforces who can read this from an LLM. ([Agent policy guide](/forge_docs/concepts/agent-policy))
+1. **Switch clouds with one line** — change `binding.platform: local` to `binding.platform: gcp` in `contract.fluid.yaml`, run `fluid apply` again. Same data product, on BigQuery. ([GCP walkthrough](/walkthrough/gcp))
+2. **Add an AI policy in 5 lines** — append an `agentPolicy` block (`allowedModels`, `deniedUseCases`, `auditRequired`). Now `fluid policy-check` enforces who can read this from an LLM. ([Agent policy guide](/concepts/agent-policy))
 3. **Tweet your win** — [share this on X](https://twitter.com/intent/tweet?text=I%20just%20shipped%20a%20data%20product%20in%2030%20seconds%20with%20Fluid%20Forge%20%F0%9F%9A%80&url=https%3A//agenticstiger.github.io/forge_docs/&hashtags=dataproducts,DataOps) — paste the `fluid apply` output if you want to flex 😉
 :::
 
 ## Beyond dev — the 11-stage production pipeline
 
-The commands above are the dev on-ramp. For production, `0.8.0` promotes an 11-stage pipeline with cryptographic plan-binding, explicit destruction gating, and supply-chain signing:
+The commands above are the dev on-ramp. For production, `0.8.3` promotes an 11-stage pipeline with cryptographic plan-binding, explicit destruction gating, and supply-chain signing:
 
 ```
 1. bundle → 2. validate → 3. generate-artifacts → 4. validate-artifacts
@@ -149,10 +147,10 @@ Compatibility note:
 
 When you are ready to target a provider:
 
-- [GCP guide](/forge_docs/providers/gcp)
-- [AWS guide](/forge_docs/providers/aws)
-- [Snowflake quickstart](/forge_docs/getting-started/snowflake)
-- [Provider overview](/forge_docs/providers/)
+- [GCP guide](/providers/gcp)
+- [AWS guide](/providers/aws)
+- [Snowflake quickstart](/getting-started/snowflake)
+- [Provider overview](/providers/)
 
 ## Troubleshooting
 
@@ -183,9 +181,9 @@ fluid <command> -h
 
 ## Next steps
 
-- [CLI Reference](/forge_docs/cli/)
-- [Local walkthrough](/forge_docs/walkthrough/local)
-- [Vision](/forge_docs/vision)
+- [CLI Reference](/cli/)
+- [Local walkthrough](/walkthrough/local)
+- [Vision](/vision)
 
 ---
 

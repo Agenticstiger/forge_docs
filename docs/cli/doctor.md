@@ -12,7 +12,7 @@ fluid doctor
 
 | Option | Description |
 | --- | --- |
-| `--scope {authoring\|pipeline\|ingestion\|infra\|catalog\|all}` | Restrict checks to one scope (or run them all). **Coming in the `0.7.3` release.** Default `authoring`. |
+| `--scope {authoring\|pipeline\|ingestion\|infra\|catalog\|all}` | Restrict checks to one scope (or run them all). Default `authoring`. |
 | `--out-dir` | Output directory for diagnostics |
 | `--features-only` | Only check FLUID feature availability |
 | `--extended`, `--comprehensive` | Run optional extended diagnostics |
@@ -32,8 +32,8 @@ fluid doctor --scope all --json      # CI-friendly full report
 
 ## `--scope` — what each scope checks
 
-::: tip Coming in the next release
-The `--scope` flag ships in the upcoming `0.7.3` release. The pinned 0.8.0 baseline runs the equivalent of `--scope authoring` only.
+::: tip Available in 0.8.3
+The `--scope` flag is part of the 0.8.3 release. Earlier releases ran the equivalent of `--scope authoring` only.
 :::
 
 | Scope | What it checks |
@@ -45,8 +45,8 @@ The `--scope` flag ships in the upcoming `0.7.3` release. The pinned 0.8.0 basel
 | `catalog` | Catalog connectivity — DataHub, OpenMetadata, Unity, Glue, Snowflake Horizon, Data Mesh Manager — only checks the ones declared in any contract under cwd |
 | `all` | Run every scope in sequence |
 
-Per-check output is the same five-field shape ([Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html)) — name, severity, detail, fix hint, doc URL. The full-scope run still completes in under 3 seconds even on a fresh laptop.
+Per-check output is the same five-field shape ([Typed CLI Errors](/advanced/typed-cli-errors.html)) — name, severity, detail, fix hint, doc URL. The full-scope run still completes in under 3 seconds even on a fresh laptop.
 
 ## Notes
 
-- In current `0.8.0` docs, the default doctor experience is self-contained. Use `--extended` when you explicitly want the optional workspace diagnostics path.
+- In `0.8.3`, the default doctor experience is self-contained. Use `--extended` when you explicitly want the optional workspace diagnostics path.

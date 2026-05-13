@@ -3,7 +3,7 @@
 **Time:** 10 minutes | **Difficulty:** Beginner | **Prerequisites:** Python 3.10+, pip
 
 <CliCast
-  src="/forge_docs/demos/local-quickstart.svg"
+  src="/demos/local-quickstart.svg"
   title="The same flow, in 30 seconds — install through deploy"
   caption="Install with the [local] extra, scaffold a Bitcoin tracker contract from the quickstart template, validate, preview the plan, and apply against the local DuckDB provider. The walkthrough below covers the same flow with hands-on contract editing in the middle."
   width="920"
@@ -521,6 +521,6 @@ fluid apply contract.fluid.yaml --provider local
 
 ## Ready for Production?
 
-👉 **[Deploy to GCP →](/forge_docs/walkthrough/gcp)**
+👉 **[Deploy to GCP →](/walkthrough/gcp)**
 
 Learn how to deploy to BigQuery, set up scheduled ingestion, and implement governance policies.
