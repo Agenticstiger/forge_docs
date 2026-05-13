@@ -246,12 +246,12 @@ Vote for providers or request new ones:
 ## Next Steps
 
 **Available Now:**
-- **[GCP Provider](/providers/gcp)** - Production ready
-- **[Local Provider](/providers/local)** - Development & testing
+- **[GCP Provider](/forge_docs/providers/gcp)** - Production ready
+- **[Local Provider](/forge_docs/providers/local)** - Development & testing
 
 **Get Started:**
-- **[GCP Walkthrough](/walkthrough/gcp)** - Deploy to Google Cloud
-- **[Local Walkthrough](/walkthrough/local)** - Try it locally first
+- **[GCP Walkthrough](/forge_docs/walkthrough/gcp)** - Deploy to Google Cloud
+- **[Local Walkthrough](/forge_docs/walkthrough/local)** - Try it locally first
 
 ---
 

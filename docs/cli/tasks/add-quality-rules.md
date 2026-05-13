@@ -210,5 +210,5 @@ Wire alerting to whatever your CI / orchestrator emits on a non-zero exit (Pager
 
 - [Quality, SLAs & Lineage](/concepts/quality-sla-lineage) — full conceptual treatment
 - [Recipe: Add a quality rule](/recipes/add-a-quality-rule) — the 1-page copy-paste version
-- [`fluid test`](/cli/test) — the pre-deploy gate command
-- [`fluid verify`](/cli/verify) — runtime drift detection
+- [`fluid test`](/forge_docs/cli/test) — the pre-deploy gate command
+- [`fluid verify`](/forge_docs/cli/verify) — runtime drift detection

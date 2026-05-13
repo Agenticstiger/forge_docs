@@ -90,7 +90,7 @@ That output at `runtime/out/bitcoin_prices.parquet` is real. It has a schema, a 
 
 **Three things you can do right now:**
 
-1. **Switch clouds with one line** — change `binding.platform: local` to `binding.platform: gcp` in `contract.fluid.yaml`, run `fluid apply` again. Same data product, on BigQuery. ([GCP walkthrough](/walkthrough/gcp))
+1. **Switch clouds with one line** — change `binding.platform: local` to `binding.platform: gcp` in `contract.fluid.yaml`, run `fluid apply` again. Same data product, on BigQuery. ([GCP walkthrough](/forge_docs/walkthrough/gcp))
 2. **Add an AI policy in 5 lines** — append an `agentPolicy` block (`allowedModels`, `deniedUseCases`, `auditRequired`). Now `fluid policy-check` enforces who can read this from an LLM. ([Agent policy guide](/concepts/agent-policy))
 3. **Tweet your win** — [share this on X](https://twitter.com/intent/tweet?text=I%20just%20shipped%20a%20data%20product%20in%2030%20seconds%20with%20Fluid%20Forge%20%F0%9F%9A%80&url=https%3A//agenticstiger.github.io/forge_docs/&hashtags=dataproducts,DataOps) — paste the `fluid apply` output if you want to flex 😉
 :::
@@ -147,10 +147,10 @@ Compatibility note:
 
 When you are ready to target a provider:
 
-- [GCP guide](/providers/gcp)
-- [AWS guide](/providers/aws)
-- [Snowflake quickstart](/getting-started/snowflake)
-- [Provider overview](/providers/)
+- [GCP guide](/forge_docs/providers/gcp)
+- [AWS guide](/forge_docs/providers/aws)
+- [Snowflake quickstart](/forge_docs/getting-started/snowflake)
+- [Provider overview](/forge_docs/providers/)
 
 ## Troubleshooting
 
@@ -181,9 +181,9 @@ fluid <command> -h
 
 ## Next steps
 
-- [CLI Reference](/cli/)
-- [Local walkthrough](/walkthrough/local)
-- [Vision](/vision)
+- [CLI Reference](/forge_docs/cli/)
+- [Local walkthrough](/forge_docs/walkthrough/local)
+- [Vision](/forge_docs/vision)
 
 ---
 

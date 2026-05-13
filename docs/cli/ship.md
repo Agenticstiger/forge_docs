@@ -58,7 +58,7 @@ fluid ship contract.fluid.yaml --dry-run
 | In CI on a PR-merge / push to main | You need stage-specific flags `ship` doesn't expose (per-stage `--out` paths, `bundle --format`, `plan --html`) |
 | For demo / quickstart speed | You want to inspect plan.json before apply |
 
-For the production-grade 11-stage pipeline (with cryptographic plan-binding, drift gating, supply-chain signing), use [`fluid generate ci`](/cli/generate.html#fluid-generate-ci) to emit the full pipeline for your CI system instead of `fluid ship`.
+For the production-grade 11-stage pipeline (with cryptographic plan-binding, drift gating, supply-chain signing), use [`fluid generate ci`](/forge_docs/cli/generate.html#fluid-generate-ci) to emit the full pipeline for your CI system instead of `fluid ship`.
 
 ## Exit codes
 
@@ -73,6 +73,6 @@ Stage logs are written to stdout / stderr unmodified — the macro doesn't buffe
 
 ## See also
 
-- [`fluid validate`](/cli/validate.html), [`fluid bundle`](/cli/bundle.html), [`fluid plan`](/cli/plan.html), [`fluid apply`](/cli/apply.html) — the stages `ship` chains
-- [`fluid generate ci`](/cli/generate.html#fluid-generate-ci) — production-grade 11-stage pipeline generator
-- [11-stage pipeline walkthrough](/walkthrough/11-stage-pipeline.html) — when you need more than the four core stages
+- [`fluid validate`](/forge_docs/cli/validate.html), [`fluid bundle`](/forge_docs/cli/bundle.html), [`fluid plan`](/forge_docs/cli/plan.html), [`fluid apply`](/forge_docs/cli/apply.html) — the stages `ship` chains
+- [`fluid generate ci`](/forge_docs/cli/generate.html#fluid-generate-ci) — production-grade 11-stage pipeline generator
+- [11-stage pipeline walkthrough](/forge_docs/walkthrough/11-stage-pipeline.html) — when you need more than the four core stages

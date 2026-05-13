@@ -72,10 +72,10 @@ In dry-run mode the same shape is returned, but the entries report `wouldDelete*
 
 ## Scheduling the sweeper
 
-A Forge-emitted CI job typically schedules `fluid retention sweep` on a daily or weekly cron. For Kubernetes deployments, the `managed` infra layer can emit a `CronJob` running the same command on the cluster. See [Source-Aligned Acquisition → Three deployment modes](/advanced/source-aligned-acquisition.html#three-deployment-modes).
+A Forge-emitted CI job typically schedules `fluid retention sweep` on a daily or weekly cron. For Kubernetes deployments, the `managed` infra layer can emit a `CronJob` running the same command on the cluster. See [Source-Aligned Acquisition → Three deployment modes](/forge_docs/advanced/source-aligned-acquisition.html#three-deployment-modes).
 
 ## See also
 
-- [Source-Aligned Acquisition → Top-level retention](/advanced/source-aligned-acquisition.html#top-level-retention) — declaring the horizons
-- [`fluid runs`](/cli/runs.html) — what the run records look like before they get swept
-- [Typed CLI Errors](/advanced/typed-cli-errors.html) — `LockHeldError`, `StaleReplayError`
+- [Source-Aligned Acquisition → Top-level retention](/forge_docs/advanced/source-aligned-acquisition.html#top-level-retention) — declaring the horizons
+- [`fluid runs`](/forge_docs/cli/runs.html) — what the run records look like before they get swept
+- [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) — `LockHeldError`, `StaleReplayError`

@@ -59,7 +59,7 @@ What it checks:
 - **Airbyte / Kafka Connect endpoints** — health check on the cluster URL
 - **Debezium connectors** — Kafka cluster reachable
 
-Probe failures emit `ConnectivityProbeError` ([typed CLI errors](/advanced/typed-cli-errors.html#connectivity-secrets)) with the source coordinate, the underlying network error, and a fix hint. Probes time out at 5 seconds per target so a misconfigured source doesn't hang validation.
+Probe failures emit `ConnectivityProbeError` ([typed CLI errors](/forge_docs/advanced/typed-cli-errors.html#connectivity-secrets)) with the source coordinate, the underlying network error, and a fix hint. Probes time out at 5 seconds per target so a misconfigured source doesn't hang validation.
 
 Use `--probe` in CI for any environment that has network access to the declared sources; skip it when you're validating offline or on a build agent without source access (the default behavior — pure schema — works there).
 

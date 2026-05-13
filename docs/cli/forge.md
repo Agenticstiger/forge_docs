@@ -161,13 +161,13 @@ Loads the contract, asks "what to change?", feeds the contract verbatim to the L
 
 Before any file is written, Forge renders a panel showing files, cost, and run-id so users see exactly what they're about to commit to. `--yes` skips the confirmation prompt but the panel still renders. Suppress with `FLUID_FORGE_NO_PREVIEW=1`.
 
-For the full picture see [Guided `fluid forge` UX](/advanced/guided-forge-ux.html).
+For the full picture see [Guided `fluid forge` UX](/forge_docs/advanced/guided-forge-ux.html).
 
 ## Notes
 
 - The current promoted syntax is `fluid forge`, not `fluid forge --mode copilot`.
 - Use `--domain` for built-in domain guidance instead of the older `--mode agent` flow shown in some legacy docs.
-- Discovery and memory guides live in the advanced docs: [discovery](/advanced/forge-copilot-discovery) and [memory](/advanced/forge-copilot-memory).
+- Discovery and memory guides live in the advanced docs: [discovery](/forge_docs/advanced/forge-copilot-discovery) and [memory](/forge_docs/advanced/forge-copilot-memory).
 
 ## Industry skills — `fluid skills`
 

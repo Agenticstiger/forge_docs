@@ -169,7 +169,7 @@ fluid ship contract.fluid.yaml --strict --env prod --yes
 ✓ Ship complete in 87 seconds — incident closed
 ```
 
-What `ship` did, in order (per the canonical 4-stage chain — see [`fluid ship`](/cli/ship)):
+What `ship` did, in order (per the canonical 4-stage chain — see [`fluid ship`](/forge_docs/cli/ship)):
 1. `validate` (schema check)
 2. `bundle` (skipped here via `--skip-bundle` if you don't need a snapshot)
 3. `plan` (deterministic, plan-bound)
@@ -209,6 +209,6 @@ fluid runs logs r-<ship-run-id> --component dlq
 ## See also
 
 - [Day-2 ops demo](/see-it-run.html#skip-the-panic) — frame-perfect cast of this exact flow
-- [`fluid runs`](/cli/runs) — the full command reference
-- [`fluid ship`](/cli/ship) — incident-response apply
-- [Typed CLI Errors](/advanced/typed-cli-errors) — the error taxonomy you'll see in logs
+- [`fluid runs`](/forge_docs/cli/runs) — the full command reference
+- [`fluid ship`](/forge_docs/cli/ship) — incident-response apply
+- [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors) — the error taxonomy you'll see in logs

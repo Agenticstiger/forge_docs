@@ -185,6 +185,6 @@ agentPolicy:
 ## Where to look next
 
 - [Governance & Policy](./governance-policy.md) — `accessPolicy` for human/service principals (the complementary gate)
-- [`fluid mcp serve`](/cli/mcp) — the MCP server that enforces agentPolicy at read-time
-- [`fluid policy-apply`](/cli/policy-apply) — emit + apply the side-car interceptors
+- [`fluid mcp serve`](/forge_docs/cli/mcp) — the MCP server that enforces agentPolicy at read-time
+- [`fluid policy-apply`](/forge_docs/cli/policy-apply) — emit + apply the side-car interceptors
 - [agent-policy demo](/see-it-run.html) — frame-perfect cast of the full enforcement flow

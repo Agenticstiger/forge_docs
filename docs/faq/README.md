@@ -13,7 +13,7 @@ Short answer: it unifies the four contracts (schema + infra + orchestration + po
 
 ## Why do I see `pip install fluid-forge` in some old docs and `pip install data-product-forge` in new docs?
 
-The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge`** (the older `fluid-forge` listing is frozen at 0.7.9 and won't receive new releases). [Getting Started](/getting-started/) has the up-to-date install instructions for the current `0.8.3` release.
+The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge`** (the older `fluid-forge` listing is frozen at 0.7.9 and won't receive new releases). [Getting Started](/forge_docs/getting-started/) has the up-to-date install instructions for the current `0.8.3` release.
 
 ## What's the difference between `fluidVersion` and the CLI version?
 

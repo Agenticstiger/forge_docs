@@ -123,7 +123,7 @@ fluid runs diff bronze.crm_orders \
 
 ## See also
 
-- [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) — what produces these run records
-- [`fluid retention`](/cli/retention.html) — sweep run records past their horizon
-- [`fluid stats`](/cli/stats.html) — aggregate cost across runs
-- [Typed CLI Errors](/advanced/typed-cli-errors.html) — error catalog (PartialFailureError, StaleReplayError, etc.)
+- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — what produces these run records
+- [`fluid retention`](/forge_docs/cli/retention.html) — sweep run records past their horizon
+- [`fluid stats`](/forge_docs/cli/stats.html) — aggregate cost across runs
+- [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) — error catalog (PartialFailureError, StaleReplayError, etc.)

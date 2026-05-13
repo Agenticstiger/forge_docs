@@ -88,7 +88,7 @@ Three reasons it's the world-class choice on Jenkins:
 
 ## Jenkins-specific install-mode (pypi vs. dev-source)
 
-If your Jenkins doesn't have internet egress, the forge-cli has a built-in [Jenkinsfile-generator](/cli/scaffold-ci.md) with two install modes:
+If your Jenkins doesn't have internet egress, the forge-cli has a built-in [Jenkinsfile-generator](/forge_docs/cli/scaffold-ci.html) with two install modes:
 
 - `--install-mode pypi` (production) — uses 4 build-time Jenkins parameters: `FLUID_PACKAGE_SPEC`, `FLUID_PIP_INDEX_URL`, `FLUID_PIP_EXTRA_INDEX_URL`, `FLUID_ALLOW_PRERELEASE`.
 - `--install-mode dev-source` (lab) — uses `PYTHONPATH=/forge-cli-src` and fails loud if the mount is missing.

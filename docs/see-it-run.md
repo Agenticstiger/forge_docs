@@ -31,7 +31,7 @@ Most data teams write 200 lines of Python per source. Or 8 lines of YAML and let
   insight="$0.03 total across all three cloud providers — $0.00 if you run locally on Ollama. | All three contracts are byte-identical: same 11 fields, same 4 dq.rules, same accessPolicy + agentPolicy. | Switch providers anytime by flipping --llm-provider — no vendor lock, no contract drift."
 />
 
-Pairs with [Forge Data Model](/forge-data-model.html) and [LLM Providers](/advanced/llm-providers.html). Long-form animated reel preserved at [`/reels/forge-in-action.html`](/reels/forge-in-action.html).
+Pairs with [Forge Data Model](/forge-data-model.html) and [LLM Providers](/forge_docs/advanced/llm-providers.html). Long-form animated reel preserved at [`/reels/forge-in-action.html`](/reels/forge-in-action.html).
 
 ---
 
@@ -47,7 +47,7 @@ Six months of Airbyte. Two weeks of Airflow DAGs. JVM heap tuning. For one Postg
   insight="6.2 seconds from Postgres URL to a working Bronze contract — no cluster, no JVM. | The contract.fluid.yaml stays identical when you swap engine: between duckdb / dlt / meltano / airbyte / kafka-connect / debezium. | Outgrow embedded mode? Change one line. The source spec, PII flags, and Bronze table layout don't move."
 />
 
-Pairs with [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html), [Postgres → DuckDB walkthrough](/walkthrough/source-aligned-postgres-duckdb.html), and [`fluid init --discover`](/cli/init.html#discover). Long-form animated reel preserved at [`/reels/source-aligned-bronze.html`](/reels/source-aligned-bronze.html).
+Pairs with [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html), and [`fluid init --discover`](/forge_docs/cli/init.html#discover). Long-form animated reel preserved at [`/reels/source-aligned-bronze.html`](/reels/source-aligned-bronze.html).
 
 ---
 
@@ -63,7 +63,7 @@ Most CLIs ask 27 questions before they help you. Forge asks four — the rest, i
   insight="4 questions answered. Most CLIs ask 27. | 47 ms welcome scan replaced 23 of them. Domain inference replaced 4. | $0.021 spent of $0.050 cap. Slash commands at every prompt: /skip /back /help /quit /save."
 />
 
-Pairs with [Guided `fluid forge` UX](/advanced/guided-forge-ux.html) and the [`fluid forge`](/cli/forge.html) reference. Long-form animated reel preserved at [`/reels/guided-forge-ux.html`](/reels/guided-forge-ux.html).
+Pairs with [Guided `fluid forge` UX](/forge_docs/advanced/guided-forge-ux.html) and the [`fluid forge`](/forge_docs/cli/forge.html) reference. Long-form animated reel preserved at [`/reels/guided-forge-ux.html`](/reels/guided-forge-ux.html).
 
 ---
 
@@ -79,7 +79,7 @@ It's 3am. Pipeline broke. You have 90 seconds. `fluid runs status` (where), `flu
   insight="Slack ping → ship: 87 seconds. Three consecutive failures resolved. | fluid runs status / logs / diff narrate the failure in three commands. | One-line contract fix (NOT_NULL → NOT_NULL_WHERE) + fluid ship — apply, verify, drain DLQ, restore SLA in one move."
 />
 
-Pairs with [`fluid runs`](/cli/runs.html), [`fluid retention`](/cli/retention.html), [`fluid secrets`](/cli/secrets.html), [`fluid stats`](/cli/stats.html), and [Typed CLI Errors](/advanced/typed-cli-errors.html). Long-form animated reel preserved at [`/reels/day2-ops.html`](/reels/day2-ops.html).
+Pairs with [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge_docs/cli/retention.html), [`fluid secrets`](/forge_docs/cli/secrets.html), [`fluid stats`](/forge_docs/cli/stats.html), and [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html). Long-form animated reel preserved at [`/reels/day2-ops.html`](/reels/day2-ops.html).
 
 ---
 
@@ -95,7 +95,7 @@ Long agent loops accumulate tool results — every turn rides on top of the last
   insight="$0.503 → $0.048 per 20-turn agent run. 10.5× cheaper, no code change. | truncate (free), summarize (high-recall), hybrid (recommended for production) — pick one, set FORGE_AGENT_COMPACTION. | Works with every --llm-provider. Same contract. Same agent. Just smarter context window management."
 />
 
-Pairs with [Agentic primitives → Token-budget pre-flight & compaction](/advanced/agentic-primitives.html#token-budget-preflight-and-compaction). Long-form animated reel preserved at [`/reels/compaction-and-warnings.html`](/reels/compaction-and-warnings.html).
+Pairs with [Agentic primitives → Token-budget pre-flight & compaction](/forge_docs/advanced/agentic-primitives.html#token-budget-preflight-and-compaction). Long-form animated reel preserved at [`/reels/compaction-and-warnings.html`](/reels/compaction-and-warnings.html).
 
 ---
 
@@ -117,8 +117,8 @@ The full library — 9 frame-perfect SVG casts covering AWS, Snowflake live-auth
 
 ## See also
 
-- [Get Started](/getting-started/) — install, scaffold, validate, run locally
-- [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) — the framework powering the Bronze cast
+- [Get Started](/forge_docs/getting-started/) — install, scaffold, validate, run locally
+- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the framework powering the Bronze cast
 - [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary used throughout
-- [Guided `fluid forge` UX](/advanced/guided-forge-ux.html) — the architecture behind the guided UX cast
-- [Capability Warnings](/advanced/capability-warnings.html) — the per-model coverage matrix
+- [Guided `fluid forge` UX](/forge_docs/advanced/guided-forge-ux.html) — the architecture behind the guided UX cast
+- [Capability Warnings](/forge_docs/advanced/capability-warnings.html) — the per-model coverage matrix

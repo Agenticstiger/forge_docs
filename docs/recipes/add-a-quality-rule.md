@@ -87,4 +87,4 @@ fluid apply contract.fluid.yaml --yes   # ← aborts on any rule with severity: 
 ## See also
 
 - All 8 rule types: [Concepts → Quality, SLAs & Lineage](/concepts/quality-sla-lineage.html#data-quality-rules-dq-rules)
-- Live data testing: [`fluid test --output json`](/cli/)
+- Live data testing: [`fluid test --output json`](/forge_docs/cli/)

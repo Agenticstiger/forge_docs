@@ -67,7 +67,7 @@ my-project/
 └── .fluid/
 ```
 
-You can then `fluid validate` and `fluid apply` immediately, or open the files and tweak the engine choice / quality rules / retention horizons. See [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) for the full framework, or [the Postgres → DuckDB walkthrough](/walkthrough/source-aligned-postgres-duckdb.html) for an end-to-end example.
+You can then `fluid validate` and `fluid apply` immediately, or open the files and tweak the engine choice / quality rules / retention horizons. See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) for the full framework, or [the Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) for an end-to-end example.
 
 ## Notes
 

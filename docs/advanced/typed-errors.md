@@ -141,4 +141,4 @@ OpenAI's strict `response_format = json_schema` mode requires every object node 
 - [Agentic Primitives → Token-budget pre-flight & compaction](agentic-primitives.md#token-budget-preflight-and-compaction) — what `ContextOverflowError` is preventing
 - [Capability Warnings](capability-warnings.md) — the run-start banner that catches degraded combos before they fail
 - [LLM Providers → Environment variables](llm-providers.md#environment-variables) — `FLUID_OPENAI_STRICT_SCHEMA`, `FLUID_AGENT_COMPACT_AFTER`, etc.
-- [Custom Providers → Error Handling](/providers/custom-providers#error-handling) — how infrastructure-provider errors (`ProviderError`, `ProviderInternalError`) relate to (and are distinct from) these copilot-layer errors
+- [Custom Providers → Error Handling](/forge_docs/providers/custom-providers#error-handling) — how infrastructure-provider errors (`ProviderError`, `ProviderInternalError`) relate to (and are distinct from) these copilot-layer errors

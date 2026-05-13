@@ -425,7 +425,7 @@ All use the same Jenkins Secret File credential type. The pipeline auto-detects 
 
 ## See Also
 
-- [AWS Provider](/providers/aws) — S3, Glue, Athena deployment
-- [Snowflake Provider](/providers/snowflake) — Snowflake Data Cloud deployment
-- [GCP Provider](/providers/gcp) — BigQuery, GCS deployment
-- [CLI Reference](/cli/) — Full command docs
+- [AWS Provider](/forge_docs/providers/aws) — S3, Glue, Athena deployment
+- [Snowflake Provider](/forge_docs/providers/snowflake) — Snowflake Data Cloud deployment
+- [GCP Provider](/forge_docs/providers/gcp) — BigQuery, GCS deployment
+- [CLI Reference](/forge_docs/cli/) — Full command docs

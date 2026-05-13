@@ -56,7 +56,7 @@ What each importer does:
 | `dlt` | `@dlt.source` modules in the pipeline | One `engine: dlt` acquisition contract per source |
 | `singer` | Tap + target config files | One `engine: meltano` acquisition contract (Meltano runs Singer protocol) |
 
-**Secrets are auto-redacted** to `${ENV_VAR}` placeholders so the emitted contracts are safe to commit. Run [`fluid secrets login`](/cli/secrets.html) afterward to populate the keychain backend.
+**Secrets are auto-redacted** to `${ENV_VAR}` placeholders so the emitted contracts are safe to commit. Run [`fluid secrets login`](/forge_docs/cli/secrets.html) afterward to populate the keychain backend.
 
 ### Example — migrating from Meltano
 
@@ -66,7 +66,7 @@ fluid validate *.fluid.yaml
 fluid apply contract.tap_postgres.fluid.yaml --yes
 ```
 
-The generated contract preserves Meltano's tap selections and the `state`/`incremental` mode mapping. See [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) for engine-specific properties.
+The generated contract preserves Meltano's tap selections and the `state`/`incremental` mode mapping. See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) for engine-specific properties.
 
 ## Notes
 

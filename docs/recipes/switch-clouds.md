@@ -97,4 +97,4 @@ fluid apply contract.fluid.yaml --yes
 ## See also
 
 - [Concepts → Builds, Exposes, Bindings](/concepts/builds-exposes-bindings.md) — full `binding.platform` and `binding.format` enums.
-- [Walkthroughs](/walkthrough/local) — step-by-step deploy guides per cloud.
+- [Walkthroughs](/forge_docs/walkthrough/local) — step-by-step deploy guides per cloud.

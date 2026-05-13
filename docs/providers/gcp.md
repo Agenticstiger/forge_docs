@@ -565,10 +565,10 @@ WHERE job_id = 'YOUR_JOB_ID'
 
 ## Next Steps
 
-- **[Getting Started](/getting-started/)** - First GCP deployment
-- **[GCP Walkthrough](/walkthrough/gcp)** - Hands-on tutorial  
-- **[CLI Reference](/cli/)** - GCP-specific commands
-- **[Governance Guide](/advanced/governance)** - Security deep-dive
+- **[Getting Started](/forge_docs/getting-started/)** - First GCP deployment
+- **[GCP Walkthrough](/forge_docs/walkthrough/gcp)** - Hands-on tutorial  
+- **[CLI Reference](/forge_docs/cli/)** - GCP-specific commands
+- **[Governance Guide](/forge_docs/advanced/governance)** - Security deep-dive
 
 ---
 

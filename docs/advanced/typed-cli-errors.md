@@ -3,7 +3,7 @@
 The upcoming `0.7.3` release introduces a 14-class typed-error catalog at `fluid_build.cli._errors`. Every user-facing CLI error renders the same five-field shape: **what**, **where**, **why**, **fix**, **doc**. JSON output is stable so CI log parsers and IDE integrations can consume it without regex.
 
 ::: tip Where this fits
-This is the **CLI-level** error catalog, distinct from the **agent-layer** typed errors (`RateLimitError`, `ContextOverflowError`, etc.) documented at [Typed Errors](/advanced/typed-errors.html). CLI errors fire from user-facing commands; agent errors fire inside the LLM provider stack.
+This is the **CLI-level** error catalog, distinct from the **agent-layer** typed errors (`RateLimitError`, `ContextOverflowError`, etc.) documented at [Typed Errors](/forge_docs/advanced/typed-errors.html). CLI errors fire from user-facing commands; agent errors fire inside the LLM provider stack.
 :::
 
 ## The five-field shape
@@ -128,7 +128,7 @@ except FluidUserError as e:
 
 ## See also
 
-- [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) — the framework these errors guard
-- [Typed Errors](/advanced/typed-errors.html) — the **agent-layer** typed errors (LLM-side; distinct catalog)
-- [`fluid validate --probe`](/cli/validate.html#probe) — what triggers `ConnectivityProbeError`
-- [`fluid retention sweep`](/cli/retention.html) — what `StaleReplayError` is preventing
+- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the framework these errors guard
+- [Typed Errors](/forge_docs/advanced/typed-errors.html) — the **agent-layer** typed errors (LLM-side; distinct catalog)
+- [`fluid validate --probe`](/forge_docs/cli/validate.html#probe) — what triggers `ConnectivityProbeError`
+- [`fluid retention sweep`](/forge_docs/cli/retention.html) — what `StaleReplayError` is preventing

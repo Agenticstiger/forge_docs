@@ -78,8 +78,8 @@ fluid apply contract.fluid.yaml --yes
 
 ## See Also
 
-- [init command](/cli/init) — create projects from scratch or blueprints
-- [forge command](/cli/) — AI-powered project generation
-- [Getting Started](/getting-started/) — install and run your first project
-- [Custom LLM Agents](/advanced/custom-llm-agents) — AI-powered project generation with your own models
-- [Contributing](/contributing) — contribute new blueprints
+- [init command](/forge_docs/cli/init) — create projects from scratch or blueprints
+- [forge command](/forge_docs/cli/) — AI-powered project generation
+- [Getting Started](/forge_docs/getting-started/) — install and run your first project
+- [Custom LLM Agents](/forge_docs/advanced/custom-llm-agents) — AI-powered project generation with your own models
+- [Contributing](/forge_docs/contributing) — contribute new blueprints

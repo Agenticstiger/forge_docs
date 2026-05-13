@@ -68,7 +68,7 @@ If both are set, they MUST agree — `Silver + ADP`, `Gold + CDP`, `Bronze + SDP
 
 ## Composition rules
 
-The product type controls what a contract can `consumes:`. The composition rule is enforced both at validation time (via [`fluid validate`](/cli/validate.html)) and during AI-assisted forging (via `fluid forge --from-product`):
+The product type controls what a contract can `consumes:`. The composition rule is enforced both at validation time (via [`fluid validate`](/forge_docs/cli/validate.html)) and during AI-assisted forging (via `fluid forge --from-product`):
 
 | This contract type | Can consume from |
 |---|---|
@@ -76,7 +76,7 @@ The product type controls what a contract can `consumes:`. The composition rule 
 | **ADP** (`Silver`) | One or more `SDP`s. Domain-modelling joins or projects raw inputs. |
 | **CDP** (`Gold`) | One or more `SDP` and/or `ADP`s. The consumer-facing layer can read from anywhere. |
 
-Setting `consumes:` on an SDP contract is a hard validation error — that's the wrong shape. Use `acquisition:` instead (see [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html)).
+Setting `consumes:` on an SDP contract is a hard validation error — that's the wrong shape. Use `acquisition:` instead (see [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html)).
 
 ## How the missing twin gets filled
 
@@ -93,7 +93,7 @@ If only one is set, the other is filled from this map. If both are set and disag
 
 ## Migrating existing contracts
 
-If you have a stack of 0.7.2 contracts using only `metadata.layer`, the new [`fluid contract migrate-product-type`](/cli/contract.html#migrate-product-type) command walks `**/*.fluid.yaml` under a root and writes the missing twin into each:
+If you have a stack of 0.7.2 contracts using only `metadata.layer`, the new [`fluid contract migrate-product-type`](/forge_docs/cli/contract.html#migrate-product-type) command walks `**/*.fluid.yaml` under a root and writes the missing twin into each:
 
 ```bash
 fluid contract migrate-product-type --root . --check     # dry-run; non-zero exit if anything is incomplete
@@ -127,7 +127,7 @@ Neither is required. Both are picked up by the catalog registrars (DataHub, Open
 
 ## See also
 
-- [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) — the acquisition build pattern that powers SDP contracts
-- [`fluid contract migrate-product-type`](/cli/contract.html#migrate-product-type) — the migrator command
-- [`fluid forge --from-product`](/cli/forge.html) — composition-aware AI scaffolding that respects the type rules
+- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the acquisition build pattern that powers SDP contracts
+- [`fluid contract migrate-product-type`](/forge_docs/cli/contract.html#migrate-product-type) — the migrator command
+- [`fluid forge --from-product`](/forge_docs/cli/forge.html) — composition-aware AI scaffolding that respects the type rules
 - [Forge Data Model](/forge-data-model.html) — how the data-modelling pipeline emits productType into the generated contract

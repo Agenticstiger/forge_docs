@@ -117,7 +117,7 @@ exposes:
 A few things worth noting:
 
 - **Both `metadata.layer` and `metadata.productType` are set.** Either one alone would also validate. Bronze ↔ SDP is the canonical pairing — see [Product Types](/data-products/product-type.html) for the full mapping.
-- **`retention:` is at the top level**, not inside the build. It governs how long Forge keeps run records, logs, lineage events, and DLQ entries — sweep with [`fluid retention sweep`](/cli/retention.html).
+- **`retention:` is at the top level**, not inside the build. It governs how long Forge keeps run records, logs, lineage events, and DLQ entries — sweep with [`fluid retention sweep`](/forge_docs/cli/retention.html).
 - **`{{ env.PGHOST }}` placeholders** resolve from environment variables at apply time; the contract is safe to commit.
 - **`pattern: acquisition` + `engine: duckdb`** triggers the embedded DuckDB runner — no external service needed.
 
@@ -211,7 +211,7 @@ fluid runs diff bronze.crm_orders \
 fluid retention sweep
 ```
 
-See [`fluid runs`](/cli/runs.html), [`fluid retention`](/cli/retention.html), and [`fluid secrets`](/cli/secrets.html) for the full operator reference.
+See [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge_docs/cli/retention.html), and [`fluid secrets`](/forge_docs/cli/secrets.html) for the full operator reference.
 
 ## Why this matters
 
@@ -222,11 +222,11 @@ This is the smallest possible source-aligned data product. With the same shape:
 - Swap `engine: duckdb` for `engine: debezium` for CDC instead of full-refresh (changes the `mode:` to one of `initial`/`schema_only`/`never`/`when_needed`/`always`)
 - Move `deployment.mode: embedded` to `deployment.mode: managed` with `platform: kubernetes` to have Forge generate Helm + ExternalSecret + NetworkPolicy for the engine
 
-The contract stays portable across all six engines — see [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) for the full engine matrix and deployment mode options.
+The contract stays portable across all six engines — see [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) for the full engine matrix and deployment mode options.
 
 ## See also
 
 - [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary used in this contract
-- [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) — the framework reference
-- [`fluid init --discover`](/cli/init.html#discover) — auto-generate this contract by introspecting the source
-- [`fluid runs`](/cli/runs.html), [`fluid retention`](/cli/retention.html), [`fluid secrets`](/cli/secrets.html) — day-2 ops
+- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the framework reference
+- [`fluid init --discover`](/forge_docs/cli/init.html#discover) — auto-generate this contract by introspecting the source
+- [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge_docs/cli/retention.html), [`fluid secrets`](/forge_docs/cli/secrets.html) — day-2 ops

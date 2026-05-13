@@ -117,5 +117,5 @@ If both fields are already set and disagree, the migrator emits an error and exi
 ## See also
 
 - [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary the migrator normalizes
-- [`fluid forge --refine`](/cli/forge.html) — produces suggestion files via AI-aided refinement
-- [`fluid validate`](/cli/validate.html) — what catches inconsistent contracts the migrator refused to fix
+- [`fluid forge --refine`](/forge_docs/cli/forge.html) — produces suggestion files via AI-aided refinement
+- [`fluid validate`](/forge_docs/cli/validate.html) — what catches inconsistent contracts the migrator refused to fix

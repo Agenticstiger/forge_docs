@@ -31,7 +31,7 @@ For a comprehensive guide including:
 - Customization options for schedules and environments
 - Benefits and best practices
 
-See the **[Declarative Airflow Walkthrough](/walkthrough/airflow-declarative)** →
+See the **[Declarative Airflow Walkthrough](/forge_docs/walkthrough/airflow-declarative)** →
 
 ## Command Reference
 
@@ -125,7 +125,7 @@ Access UI at http://localhost:8080 (admin/admin)
 
 ## See Also
 
-- **[Declarative Airflow Walkthrough](/walkthrough/airflow-declarative)** - Comprehensive guide
-- **[CLI Reference](/cli/)** - All commands
-- **[GCP Walkthrough](/walkthrough/gcp)** - Cloud Composer examples
+- **[Declarative Airflow Walkthrough](/forge_docs/walkthrough/airflow-declarative)** - Comprehensive guide
+- **[CLI Reference](/forge_docs/cli/)** - All commands
+- **[GCP Walkthrough](/forge_docs/walkthrough/gcp)** - Cloud Composer examples
 - **[Bitcoin Tracker Example](https://github.com/Agenticstiger/forge_docs/tree/main/examples/bitcoin-tracker)** - Working code

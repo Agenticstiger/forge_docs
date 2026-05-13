@@ -101,7 +101,7 @@ fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
 fluid generate transformation customer_orders.fluid.yaml -o ./dbt_customer_orders --dbt-validate
 ```
 
-For every AI and data-model journey, including hosted provider strict mode, Ollama, DDL, source catalogs, review/diff/learn, and scheduling, see [AI Forge And Data-Model Journeys](/walkthrough/ai-forge-data-model.html).
+For every AI and data-model journey, including hosted provider strict mode, Ollama, DDL, source catalogs, review/diff/learn, and scheduling, see [AI Forge And Data-Model Journeys](/forge_docs/walkthrough/ai-forge-data-model.html).
 
 ## Promoted command groups
 
@@ -115,18 +115,18 @@ For every AI and data-model journey, including hosted provider strict mode, Olla
 | Utilities | `config`, `split`, `bundle`, `auth`, `doctor`, `providers`, `memory`, `mcp`, `version` |
 
 ::: tip New in 0.8.3 — source-aligned acquisition + SDK & Plugins
-`0.8.3` lands schema **0.7.3** GA, the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), and the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel). It also ships **three plugin extension points** (`fluid_build.commands` / `fluid_build.extension_validators` / `fluid_build.apply_hooks`) and a companion **SDK** (`data-product-forge-sdk`). See [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html), [Product Types](/data-products/product-type.html), and [SDK & Plugins](/sdk-and-plugins/) for the full picture.
+`0.8.3` lands schema **0.7.3** GA, the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), and the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel). It also ships **three plugin extension points** (`fluid_build.commands` / `fluid_build.extension_validators` / `fluid_build.apply_hooks`) and a companion **SDK** (`data-product-forge-sdk`). See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Product Types](/data-products/product-type.html), and [SDK & Plugins](/sdk-and-plugins/) for the full picture.
 :::
 
 ## Where to go next
 
-- [Getting Started](/getting-started/) for the local-first path
+- [Getting Started](/forge_docs/getting-started/) for the local-first path
 - [SDK & Plugins](/sdk-and-plugins/) — extend the CLI with your own scaffolds, validators, and apply-hooks
 - [Forge Data Model](/forge-data-model.html) for intent, DDL, and catalog-driven model generation
-- [AI Forge And Data-Model Journeys](/walkthrough/ai-forge-data-model.html) for end-to-end AI-assisted and deterministic flows
-- [CLI Reference](/cli/) for the promoted command surface
-- [Providers](/providers/) for platform-specific guidance
-- [Walkthroughs](/walkthrough/local) for end-to-end examples
+- [AI Forge And Data-Model Journeys](/forge_docs/walkthrough/ai-forge-data-model.html) for end-to-end AI-assisted and deterministic flows
+- [CLI Reference](/forge_docs/cli/) for the promoted command surface
+- [Providers](/forge_docs/providers/) for platform-specific guidance
+- [Walkthroughs](/forge_docs/walkthrough/local) for end-to-end examples
 
 Compatibility note:
 `fluid generate-airflow` is still available, but primary docs now lead with `fluid generate schedule --scheduler airflow`.

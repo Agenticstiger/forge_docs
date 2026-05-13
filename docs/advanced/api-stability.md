@@ -118,6 +118,6 @@ The rule of thumb: anything imported from `fluid_build.api.*` is governed by the
 
 ## See also
 
-- [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) — the framework the public API supports
-- [Custom Providers](/providers/custom-providers.html) — the same pattern for `Provider` extensions
-- [Forge Tools](/advanced/forge-tools.html) — the `@forge_tool` decorator for in-process tool extensions (separate from the public API; lives in the copilot stack)
+- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the framework the public API supports
+- [Custom Providers](/forge_docs/providers/custom-providers.html) — the same pattern for `Provider` extensions
+- [Forge Tools](/forge_docs/advanced/forge-tools.html) — the `@forge_tool` decorator for in-process tool extensions (separate from the public API; lives in the copilot stack)

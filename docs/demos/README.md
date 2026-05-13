@@ -7,7 +7,7 @@ description: Watch every Fluid Forge workflow in motion. 14 frame-perfect SVG ca
 
 **14 frame-perfect SVG casts** — install through deploy, local through Snowflake, the AI copilot, agentPolicy enforcement, day-2 incident response, and agent-loop compaction. Each one carries a takeaway popup with the punchline numbers. Click play — the SVG only animates after you opt in (no autoplay, no JS).
 
-> **Convinced? → [Install in 30 seconds](/getting-started/)**. Want longer-form proof of specific workflows? → [See it run](/see-it-run.html) (5 narrative scenarios, ~50 s each, with takeaway numbers).
+> **Convinced? → [Install in 30 seconds](/forge_docs/getting-started/)**. Want longer-form proof of specific workflows? → [See it run](/see-it-run.html) (5 narrative scenarios, ~50 s each, with takeaway numbers).
 
 ---
 

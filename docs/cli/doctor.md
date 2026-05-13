@@ -45,7 +45,7 @@ The `--scope` flag is part of the 0.8.3 release. Earlier releases ran the equiva
 | `catalog` | Catalog connectivity — DataHub, OpenMetadata, Unity, Glue, Snowflake Horizon, Data Mesh Manager — only checks the ones declared in any contract under cwd |
 | `all` | Run every scope in sequence |
 
-Per-check output is the same five-field shape ([Typed CLI Errors](/advanced/typed-cli-errors.html)) — name, severity, detail, fix hint, doc URL. The full-scope run still completes in under 3 seconds even on a fresh laptop.
+Per-check output is the same five-field shape ([Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html)) — name, severity, detail, fix hint, doc URL. The full-scope run still completes in under 3 seconds even on a fresh laptop.
 
 ## Notes
 

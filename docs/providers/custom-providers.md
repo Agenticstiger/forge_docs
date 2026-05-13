@@ -343,7 +343,7 @@ Operators may see them in CLI output when something goes wrong:
 | `SchemaValidationError` | LLM returned output that failed Pydantic / JSON-schema validation. The agent loop routes corrective feedback to the LLM instead of retrying the same prompt. |
 | `ToolValidationError` | A tool call's args didn't match the tool's input schema. |
 
-See the [Typed Errors reference](/advanced/typed-errors.md) for what each class carries, the corrective-feedback flow, and the SECURITY_REVIEW S-013 invariant that scrubs raw exception text before it round-trips into the LLM context.
+See the [Typed Errors reference](/forge_docs/advanced/typed-errors.html) for what each class carries, the corrective-feedback flow, and the SECURITY_REVIEW S-013 invariant that scrubs raw exception text before it round-trips into the LLM context.
 
 ## Testing Your Provider
 

@@ -92,7 +92,7 @@ Existing pages follow the layout in [`docs/cli/init.md`](https://github.com/Agen
 
 ### Build a Custom Provider
 
-Fluid Forge is designed to be extended. See the [Custom Providers Guide](/providers/custom-providers) for the full walkthrough, but the gist is:
+Fluid Forge is designed to be extended. See the [Custom Providers Guide](/forge_docs/providers/custom-providers) for the full walkthrough, but the gist is:
 
 ```python
 from fluid_provider_sdk import ApplyResult, BaseProvider, ProviderError
@@ -146,7 +146,7 @@ The decorator handles registration in `FORGE_TOOL_REGISTRY`,
 JSON Schema generation, args-model validation, `workspace_root`
 injection (security boundary — the LLM cannot supply this field), and
 the typed-error return shape that `dispatch_tool_call` consumes. See
-the [Authoring Forge Tools guide](/advanced/forge-tools)
+the [Authoring Forge Tools guide](/forge_docs/advanced/forge-tools)
 for the migration path from the legacy `_register` pattern, the S-013
 exception-text scrubbing invariant, and the testing checklist.
 

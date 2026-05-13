@@ -29,4 +29,4 @@ Both exist because both questions get asked. Bookmark the one that matches how y
 
 - [Concepts](/concepts/) — the conceptual reference (one-time read, deep)
 - [Recipes](/recipes/) — small one-page solution patterns (drop-in copy/paste)
-- [Walkthroughs](/walkthrough/local) — full-length end-to-end builds
+- [Walkthroughs](/forge_docs/walkthrough/local) — full-length end-to-end builds

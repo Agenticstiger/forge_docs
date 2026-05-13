@@ -249,8 +249,8 @@ No telemetry is sent when no exporter is configured.
 
 ## See also
 
-- [`fluid forge`](/cli/forge.html) — the CLI reference
+- [`fluid forge`](/forge_docs/cli/forge.html) — the CLI reference
 - [Product Types — composition rules](/data-products/product-type.html#composition-rules) — what `--from-product` enforces
-- [LiteLLM Backend](/advanced/litellm-backend.html) — opt-in unified LLM routing for accurate per-call cost
-- [Typed CLI Errors](/advanced/typed-cli-errors.html) — error catalog (the schema-validation errors the self-healing loop catches)
-- [Cost Tracking](/advanced/cost-tracking.html) — what `cost.json` contains
+- [LiteLLM Backend](/forge_docs/advanced/litellm-backend.html) — opt-in unified LLM routing for accurate per-call cost
+- [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) — error catalog (the schema-validation errors the self-healing loop catches)
+- [Cost Tracking](/forge_docs/advanced/cost-tracking.html) — what `cost.json` contains

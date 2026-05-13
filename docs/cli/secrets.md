@@ -104,6 +104,6 @@ Use `${SECRET:...}` for credentials that shouldn't sit in environment variables 
 
 ## See also
 
-- [Source-Aligned Acquisition](/advanced/source-aligned-acquisition.html) — why pipelines need secrets
-- [Credential Resolver](/advanced/credential-resolver.html) — how Forge resolves `${SECRET:...}` placeholders at runtime
-- [Typed CLI Errors](/advanced/typed-cli-errors.html) — `SecretResolutionError`
+- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — why pipelines need secrets
+- [Credential Resolver](/forge_docs/advanced/credential-resolver.html) — how Forge resolves `${SECRET:...}` placeholders at runtime
+- [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) — `SecretResolutionError`
