@@ -8,7 +8,7 @@ description: Declarative boundaries on which AI models can read which data field
 New in `fluidVersion: "0.7.1"` — a top-level `agentPolicy` block that declares **which AI / LLM models are allowed to read this data product, for which purposes, and under what conditions**. Enforced before the model gets the row.
 
 <CliCast
-  src="/demos/agent-policy.svg"
+  src="/forge_docs/demos/agent-policy.svg"
   title="agentPolicy — declare, validate, gate (validate → policy-check → audit)"
   caption="Watch agentPolicy enforce: the YAML block with allowedModels / deniedUseCases / canStore / auditRequired, schema validation, the policy-check enforcement summary, and a replay of agent reads — gpt-4 + analysis allowed, claude-3 + training denied, an unlisted model denied, gemini summarization allowed."
   width="920"
@@ -144,7 +144,7 @@ When `auditRequired: true`, every check (allow OR deny) emits a record:
 
 Deny records include a `reason` field (`use_case_denied`, `model_not_in_allow`, `token_budget_exceeded`, `cannot_store_violation`). Records ship through the platform's native audit channel — no separate audit infrastructure to maintain.
 
-See the [agent-policy demo](/see-it-run.html) for a frame-perfect cast of the enforcement flow: contract → validate → policy-check → 4 simulated agent reads (2 allow, 2 deny with reasons).
+See the [agent-policy demo](/forge_docs/see-it-run.html) for a frame-perfect cast of the enforcement flow: contract → validate → policy-check → 4 simulated agent reads (2 allow, 2 deny with reasons).
 
 ## Common patterns
 
@@ -187,4 +187,4 @@ agentPolicy:
 - [Governance & Policy](./governance-policy.md) — `accessPolicy` for human/service principals (the complementary gate)
 - [`fluid mcp serve`](/forge_docs/cli/mcp) — the MCP server that enforces agentPolicy at read-time
 - [`fluid policy-apply`](/forge_docs/cli/policy-apply) — emit + apply the side-car interceptors
-- [agent-policy demo](/see-it-run.html) — frame-perfect cast of the full enforcement flow
+- [agent-policy demo](/forge_docs/see-it-run.html) — frame-perfect cast of the full enforcement flow

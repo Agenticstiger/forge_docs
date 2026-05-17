@@ -131,7 +131,7 @@ The picker pre-highlights based on a parallel welcome scan that runs in <50 ms. 
 
 ### `--from-product` — composition
 
-Pick one or more upstream products; Forge resolves them, validates composition rules (SDP rejects upstreams; ADP/CDP accept SDP+ADP — see [Product Types](/data-products/product-type.html#composition-rules)), and pre-fills `consumes[]`:
+Pick one or more upstream products; Forge resolves them, validates composition rules (SDP rejects upstreams; ADP/CDP accept SDP+ADP — see [Product Types](/forge_docs/data-products/product-type.html#composition-rules)), and pre-fills `consumes[]`:
 
 ```bash
 fluid forge --from-product bronze.crm_orders

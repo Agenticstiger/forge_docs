@@ -130,4 +130,4 @@ Neither is required. Both are picked up by the catalog registrars (DataHub, Open
 - [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the acquisition build pattern that powers SDP contracts
 - [`fluid contract migrate-product-type`](/forge_docs/cli/contract.html#fluid-contract-migrate-product-type) — the migrator command
 - [`fluid forge --from-product`](/forge_docs/cli/forge.html) — composition-aware AI scaffolding that respects the type rules
-- [Forge Data Model](/forge-data-model.html) — how the data-modelling pipeline emits productType into the generated contract
+- [Forge Data Model](/forge_docs/forge-data-model.html) — how the data-modelling pipeline emits productType into the generated contract

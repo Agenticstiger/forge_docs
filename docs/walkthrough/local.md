@@ -3,7 +3,7 @@
 **Time:** 10 minutes | **Difficulty:** Beginner | **Prerequisites:** Python 3.10+, pip
 
 <CliCast
-  src="/demos/local-quickstart.svg"
+  src="/forge_docs/demos/local-quickstart.svg"
   title="The same flow, in 30 seconds — install through deploy"
   caption="Install with the [local] extra, scaffold the Customer 360 Analytics contract from the quickstart template, validate, preview the plan, and apply against the local DuckDB provider. The walkthrough below covers the same validate → plan → apply flow, hand-building a different example with contract editing in the middle."
   width="920"

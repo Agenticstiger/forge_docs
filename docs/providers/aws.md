@@ -7,7 +7,7 @@ Deploy data products to Amazon Web Services — S3, Glue, Athena — using the s
 **Tested Services:** S3, Glue Data Catalog, Athena, IAM
 
 <CliCast
-  src="/demos/aws-quickstart.svg"
+  src="/forge_docs/demos/aws-quickstart.svg"
   title="AWS quickstart — S3 + Glue + Athena in 30 seconds"
   caption="Same Customer 360 contract as the local quickstart, with binding.platform swapped to aws. S3 bucket provisioned, Glue catalog auto-created, Athena made queryable — all from one fluid apply."
   width="920"

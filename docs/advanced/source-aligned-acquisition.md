@@ -3,7 +3,7 @@
 Schema **0.7.3** introduces a first-class `acquisition` build pattern for source-aligned (Bronze / SDP) data products. Instead of writing imperative ingestion code or stitching together a 200-line Airflow DAG, you describe **what** to ingest and **how** to deliver it; Forge picks the right engine and runs it under a uniform protocol.
 
 <iframe
-  src="/reels/source-aligned-bronze.html"
+  src="/forge_docs/reels/source-aligned-bronze.html"
   width="100%"
   height="500"
   style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
@@ -14,7 +14,7 @@ Schema **0.7.3** introduces a first-class `acquisition` build pattern for source
 Six months of Airbyte cluster setup, or sixty seconds of `fluid init --discover`. The reel above shows the full flow; this page covers the framework underneath.
 
 ::: tip Where this fits
-This page covers the framework that makes source-aligned ingestion declarative — engines, deployment modes, delivery guarantees, schema evolution, quality gates, and lineage emission. Pair it with [Product Types](/data-products/product-type.html) (the SDP/ADP/CDP vocabulary) and the [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) (a worked example).
+This page covers the framework that makes source-aligned ingestion declarative — engines, deployment modes, delivery guarantees, schema evolution, quality gates, and lineage emission. Pair it with [Product Types](/forge_docs/data-products/product-type.html) (the SDP/ADP/CDP vocabulary) and the [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) (a worked example).
 :::
 
 ## The acquisition build pattern
@@ -266,7 +266,7 @@ For migrating existing tooling, [`fluid import`](/forge_docs/cli/import.html) co
 
 ## See also
 
-- [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary that gates composition
+- [Product Types — SDP, ADP, CDP](/forge_docs/data-products/product-type.html) — the vocabulary that gates composition
 - [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) — end-to-end worked example
 - [`fluid init --discover`](/forge_docs/cli/init.html#discover-—-introspect-a-source-into-a-bronze-contract) — flagship onboarding for source-aligned ingestion
 - [`fluid import`](/forge_docs/cli/import.html) — Meltano / Airbyte / dlt / Singer importers

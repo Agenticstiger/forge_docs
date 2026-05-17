@@ -181,7 +181,7 @@ The unification value is highest when **at least two of (multi-cloud, governance
 
 ## See also
 
-- [Concepts overview](/concepts/) — the rest of the conceptual reference
+- [Concepts overview](/forge_docs/concepts/) — the rest of the conceptual reference
 - [Get Started](/forge_docs/getting-started/) — install and ship a data product in 30 seconds
-- [Demos library](/demos/) — the proof, in 30-second SVG casts
+- [Demos library](/forge_docs/demos/) — the proof, in 30-second SVG casts
 - [Universal pipeline](/forge_docs/walkthrough/universal-pipeline) — the canonical 11-stage CI flow

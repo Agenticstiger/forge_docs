@@ -3,7 +3,7 @@
 Day-2 introspection for acquisition (and other) runs. `fluid runs` is the umbrella for inspecting the state files Forge writes under `.fluid/runs/<product>/<build>/runs/`. Distinct from `fluid status` (workspace overview), `fluid doctor` (system diagnostic), and `fluid auth` (cloud credentials) — those serve different purposes.
 
 <iframe
-  src="/reels/day2-ops.html"
+  src="/forge_docs/reels/day2-ops.html"
   width="100%"
   height="500"
   style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"

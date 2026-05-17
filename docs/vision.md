@@ -23,7 +23,7 @@ These are the convictions baked into Forge. If you disagree with any of them, Fo
 4. **Governance is not a separate phase.** It's part of the contract from line one. Adding `accessPolicy` and `agentPolicy` after the fact is when teams discover that everything they shipped six months ago is non-compliant.
 5. **AI access deserves the same gates as human access.** Agents reading your data are not a niche use case anymore — they're often the largest consumer. `agentPolicy` makes their boundaries declarative.
 6. **Open source, Apache-2.0, no contributor agreement.** No vendor capture at the contract layer. The CLI is a community project; nobody can decide tomorrow that Forge is now Forge Cloud-only.
-7. **Honest comparisons.** We don't pretend Forge wins everywhere. The [vs alternatives](/concepts/vs-alternatives.html) page tells you when **not** to use Forge — that's how a tool earns trust.
+7. **Honest comparisons.** We don't pretend Forge wins everywhere. The [vs alternatives](/forge_docs/concepts/vs-alternatives.html) page tells you when **not** to use Forge — that's how a tool earns trust.
 
 ## Who this is for
 

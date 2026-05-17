@@ -65,7 +65,7 @@ dq:
       severity: error               # blocks deploy if violated
 ```
 
-For columns that are *required for mature rows* but optional for young ones (e.g., 30-day rolling metrics), the schema doesn't carry a `where:` clause on the rule itself — handle the lifecycle in the SQL build, then check completeness on the populated column. See [Concepts → Quality, SLAs & Lineage → Common rule patterns](/concepts/quality-sla-lineage#common-rule-patterns) for the full pattern, including the production code that fixed the 3am incident in the [day2-ops demo](/see-it-run.html#skip-the-panic).
+For columns that are *required for mature rows* but optional for young ones (e.g., 30-day rolling metrics), the schema doesn't carry a `where:` clause on the rule itself — handle the lifecycle in the SQL build, then check completeness on the populated column. See [Concepts → Quality, SLAs & Lineage → Common rule patterns](/forge_docs/concepts/quality-sla-lineage#common-rule-patterns) for the full pattern, including the production code that fixed the 3am incident in the [day2-ops demo](/forge_docs/see-it-run.html#skip-the-panic).
 
 The shorter version: emit `NULL` from the SQL when the row isn't ready, set the rule's `threshold` below 1.0, and the rule passes for partial-window data without a fake `where:` field.
 
@@ -208,7 +208,7 @@ Wire alerting to whatever your CI / orchestrator emits on a non-zero exit (Pager
 
 ## See also
 
-- [Quality, SLAs & Lineage](/concepts/quality-sla-lineage) — full conceptual treatment
-- [Recipe: Add a quality rule](/recipes/add-a-quality-rule) — the 1-page copy-paste version
+- [Quality, SLAs & Lineage](/forge_docs/concepts/quality-sla-lineage) — full conceptual treatment
+- [Recipe: Add a quality rule](/forge_docs/recipes/add-a-quality-rule) — the 1-page copy-paste version
 - [`fluid test`](/forge_docs/cli/test) — the pre-deploy gate command
 - [`fluid verify`](/forge_docs/cli/verify) — runtime drift detection

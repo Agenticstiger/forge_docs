@@ -3,7 +3,7 @@
 Run your first data product locally in a few minutes, then move to cloud targets when you are ready.
 
 <CliCast
-  src="/demos/local-quickstart.svg"
+  src="/forge_docs/demos/local-quickstart.svg"
   title="fluid init my-project --quickstart  →  validate  →  plan  →  apply"
   caption="Click play above for the full local quickstart in 30 seconds. Or follow along step-by-step below."
   width="920"
@@ -20,7 +20,7 @@ You're about to ship a working data product in 30 seconds. The four-tool stack y
 - **No Terraform for data IAM.** `policy-apply` emits BigQuery / Snowflake / S3 IAM bindings from the same contract.
 - **No 27 questions before you ship.** `fluid forge` infers from your local files; you answer 4.
 
-→ See the full comparison: [Forge vs dbt / Dagster / Terraform / Snowpark](/concepts/vs-alternatives.html).
+→ See the full comparison: [Forge vs dbt / Dagster / Terraform / Snowpark](/forge_docs/concepts/vs-alternatives.html).
 
 ## What this guide assumes
 
@@ -91,7 +91,7 @@ That output at `output/customer_360.parquet` is real. It has a schema, a contrac
 **Three things you can do right now:**
 
 1. **Switch clouds with one line** — change `binding.platform: local` to `binding.platform: gcp` in `contract.fluid.yaml`, run `fluid apply` again. Same data product, on BigQuery. ([GCP walkthrough](/forge_docs/walkthrough/gcp))
-2. **Add an AI policy in 5 lines** — append an `agentPolicy` block (`allowedModels`, `deniedUseCases`, `auditRequired`). Now `fluid policy-check` enforces who can read this from an LLM. ([Agent policy guide](/concepts/agent-policy))
+2. **Add an AI policy in 5 lines** — append an `agentPolicy` block (`allowedModels`, `deniedUseCases`, `auditRequired`). Now `fluid policy-check` enforces who can read this from an LLM. ([Agent policy guide](/forge_docs/concepts/agent-policy))
 3. **Tweet your win** — [share this on X](https://twitter.com/intent/tweet?text=I%20just%20shipped%20a%20data%20product%20in%2030%20seconds%20with%20Fluid%20Forge%20%F0%9F%9A%80&url=https%3A//agenticstiger.github.io/forge_docs/&hashtags=dataproducts,DataOps) — paste the `fluid apply` output if you want to flex 😉
 :::
 

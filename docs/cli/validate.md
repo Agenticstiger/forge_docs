@@ -74,6 +74,6 @@ As of `0.8.3`, `fluid validate` automatically runs any `Validator` plugin discov
 
 This is how teams enforce governance rules (every Gold product MUST declare a steward, every contract MUST have a cost-center label, etc.) without forking the CLI.
 
-- Author a validator: [SDK & Plugins → Custom validator journey](/sdk-and-plugins/journeys/custom-validator.md)
-- Reference: [Entry points → `fluid_build.validators`](/sdk-and-plugins/reference/entry-points.md)
-- Example: [`steward-validator`](/sdk-and-plugins/examples/steward-validator.md)
+- Author a validator: [SDK & Plugins → Custom validator journey](/forge_docs/sdk-and-plugins/journeys/custom-validator.md)
+- Reference: [Entry points → `fluid_build.validators`](/forge_docs/sdk-and-plugins/reference/entry-points.md)
+- Example: [`steward-validator`](/forge_docs/sdk-and-plugins/examples/steward-validator.md)

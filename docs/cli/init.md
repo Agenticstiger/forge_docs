@@ -53,7 +53,7 @@ What it does:
 
 - Connects to the source (read-only — `\dt` for Postgres, `SHOW TABLES` for MySQL, directory walk for filesystem)
 - Emits one acquisition contract per discovered table or stream
-- Sets `metadata.layer: Bronze` AND `metadata.productType: SDP` (both vocabularies — see [Product Types](/data-products/product-type.html))
+- Sets `metadata.layer: Bronze` AND `metadata.productType: SDP` (both vocabularies — see [Product Types](/forge_docs/data-products/product-type.html))
 - **Auto-redacts secrets** from the connection string into `${ENV_VAR}` placeholders (so the emitted contract is safe to commit)
 - Picks `engine: duckdb` by default for embedded ingestion (no Airbyte cluster required)
 

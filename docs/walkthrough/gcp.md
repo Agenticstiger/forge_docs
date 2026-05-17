@@ -5,7 +5,7 @@
 **Prerequisites:** GCP account, gcloud CLI, Python 3.10+
 
 <CliCast
-  src="/demos/gcp-quickstart.svg"
+  src="/forge_docs/demos/gcp-quickstart.svg"
   title="The same contract on BigQuery — swap one line, redeploy"
   caption="Click play above: the Customer 360 quickstart contract, re-pointed from local DuckDB to BigQuery by swapping one binding line. The walkthrough below hand-builds a different example step by step, with auth + contract editing."
   width="920"

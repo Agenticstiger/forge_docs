@@ -1,7 +1,7 @@
 # Snowflake Quickstart
 
 <CliCast
-  src="/demos/snowflake-quickstart.svg"
+  src="/forge_docs/demos/snowflake-quickstart.svg"
   title="Snowflake quickstart — env, validate, plan, apply --mode dry-run"
   caption="The dry version: source the env file, validate --strict, plan against the account, render DDL via apply --mode dry-run. Click play above; full step-by-step below."
   width="920"

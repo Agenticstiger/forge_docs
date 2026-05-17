@@ -3,7 +3,7 @@
 A minimal end-to-end walkthrough of a source-aligned Bronze (`SDP`) data product. We'll start a local Postgres with seeded data, run `fluid validate` and `fluid apply` against the included contract, and verify the output Parquet file. No Airbyte cluster, no Airflow, no cloud setup — DuckDB does the ingestion in-process.
 
 <iframe
-  src="/reels/source-aligned-bronze.html"
+  src="/forge_docs/reels/source-aligned-bronze.html"
   width="100%"
   height="500"
   style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
@@ -116,7 +116,7 @@ exposes:
 
 A few things worth noting:
 
-- **Both `metadata.layer` and `metadata.productType` are set.** Either one alone would also validate. Bronze ↔ SDP is the canonical pairing — see [Product Types](/data-products/product-type.html) for the full mapping.
+- **Both `metadata.layer` and `metadata.productType` are set.** Either one alone would also validate. Bronze ↔ SDP is the canonical pairing — see [Product Types](/forge_docs/data-products/product-type.html) for the full mapping.
 - **`retention:` is at the top level**, not inside the build. It governs how long Forge keeps run records, logs, lineage events, and DLQ entries — sweep with [`fluid retention sweep`](/forge_docs/cli/retention.html).
 - **`{{ env.PGHOST }}` placeholders** resolve from environment variables at apply time; the contract is safe to commit.
 - **`pattern: acquisition` + `engine: duckdb`** triggers the embedded DuckDB runner — no external service needed.
@@ -226,7 +226,7 @@ The contract stays portable across all six engines — see [Source-Aligned Acqui
 
 ## See also
 
-- [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary used in this contract
+- [Product Types — SDP, ADP, CDP](/forge_docs/data-products/product-type.html) — the vocabulary used in this contract
 - [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the framework reference
 - [`fluid init --discover`](/forge_docs/cli/init.html#discover-—-introspect-a-source-into-a-bronze-contract) — auto-generate this contract by introspecting the source
 - [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge_docs/cli/retention.html), [`fluid secrets`](/forge_docs/cli/secrets.html) — day-2 ops

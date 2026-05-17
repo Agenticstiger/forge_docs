@@ -27,6 +27,6 @@ Both exist because both questions get asked. Bookmark the one that matches how y
 
 ## See also
 
-- [Concepts](/concepts/) — the conceptual reference (one-time read, deep)
-- [Recipes](/recipes/) — small one-page solution patterns (drop-in copy/paste)
+- [Concepts](/forge_docs/concepts/) — the conceptual reference (one-time read, deep)
+- [Recipes](/forge_docs/recipes/) — small one-page solution patterns (drop-in copy/paste)
 - [Walkthroughs](/forge_docs/walkthrough/local) — full-length end-to-end builds

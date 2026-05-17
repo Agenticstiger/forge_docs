@@ -24,14 +24,14 @@ description: Watch every Fluid Forge moment that matters. Real captures, real nu
 Most data teams write 200 lines of Python per source. Or 8 lines of YAML and let the AI build the contract — same intent, three providers (Anthropic Haiku 4.5, OpenAI gpt-4.1-mini, local Ollama gemma2), real production cost figures on screen. Switch providers any time. The contract stays portable.
 
 <CliCast
-  src="/demos/forge-multi-provider.svg"
+  src="/forge_docs/demos/forge-multi-provider.svg"
   title="fluid forge data-model — same intent, three providers, real cost figures"
   caption="Eight lines of intent YAML. Anthropic, OpenAI, Ollama — same flag swapped each time. All three emit the same valid contract, the same dbt project layout. Real production token counts and costs."
   width="920"
   insight="$0.03 total across all three cloud providers — $0.00 if you run locally on Ollama. | All three contracts are byte-identical: same 11 fields, same 4 dq.rules, same accessPolicy + agentPolicy. | Switch providers anytime by flipping --llm-provider — no vendor lock, no contract drift."
 />
 
-Pairs with [Forge Data Model](/forge-data-model.html) and [LLM Providers](/forge_docs/advanced/llm-providers.html). Long-form animated reel preserved at [`/reels/forge-in-action.html`](/reels/forge-in-action.html).
+Pairs with [Forge Data Model](/forge_docs/forge-data-model.html) and [LLM Providers](/forge_docs/advanced/llm-providers.html). Long-form animated reel preserved at [`/reels/forge-in-action.html`](/reels/forge-in-action.html).
 
 ---
 
@@ -40,7 +40,7 @@ Pairs with [Forge Data Model](/forge-data-model.html) and [LLM Providers](/forge
 Six months of Airbyte. Two weeks of Airflow DAGs. JVM heap tuning. For one Postgres source. Or `fluid init --discover postgres://…` and a 60-second flight to a working Bronze contract — switch `engine:` between `duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium` when you outgrow embedded mode.
 
 <CliCast
-  src="/demos/source-aligned-bronze.svg"
+  src="/forge_docs/demos/source-aligned-bronze.svg"
   title="fluid init --discover postgres://... — Bronze contract in 60 seconds"
   caption="Connect, scan information_schema (47 ms), infer 28 tables / 143 columns / 12 PII candidates / 8 foreign keys, emit a complete Bronze contract.fluid.yaml, validate, apply against embedded DuckDB. 6.2 seconds total. Then show the engine swap path."
   width="920"
@@ -56,7 +56,7 @@ Pairs with [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acqu
 Most CLIs ask 27 questions before they help you. Forge asks four — the rest, it already knows. 47 ms welcome scan, 5-mode picker, inferences-first interview, slash commands at every prompt, cost-cap progress prefix in real time, and a pre-write panel so nothing surprises you.
 
 <CliCast
-  src="/demos/guided-forge-ux.svg"
+  src="/forge_docs/demos/guided-forge-ux.svg"
   title="fluid forge — guided UX in action"
   caption="47 ms welcome scan finds 3 CSVs + 2 dbt models + 1 README, infers domain (finance) and PII (5 columns). 5-mode picker. 4 questions answered (most accept the inferred default with ↵). Cost-cap progress in real time ($0.000 → $0.021 of $0.050 cap). Pre-write panel shows exactly what will + won't change."
   width="920"
@@ -72,7 +72,7 @@ Pairs with [Guided `fluid forge` UX](/forge_docs/advanced/guided-forge-ux.html) 
 It's 3am. Pipeline broke. You have 90 seconds. `fluid runs status` (where), `fluid runs logs --component dlq` (why), `fluid runs diff` (what), one-line policy fix, `fluid ship`. Day-1 ships. Day-2 doesn't surprise.
 
 <CliCast
-  src="/demos/day2-ops.svg"
+  src="/forge_docs/demos/day2-ops.svg"
   title="3am Slack ping → ship in 90 seconds"
   caption="PagerDuty: freshness SLA breached. fluid runs status shows 3 consecutive failures. fluid runs logs --component dlq surfaces the root cause (CHECK constraint NOT NULL, 47 partial-window customers). fluid runs diff shows what changed since the last OK run. One-line contract fix: NOT_NULL → NOT_NULL_WHERE customer_age_days >= 30. fluid ship. 87 seconds end-to-end. Recovered 12,361 rows."
   width="920"
@@ -88,7 +88,7 @@ Pairs with [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge
 Long agent loops accumulate tool results — every turn rides on top of the last one. Without compaction, your bill grows super-linearly. Three strategies — `truncate` (free, default), `summarize` (LLM-backed, high recall), `hybrid` (cheap path first, summariser as safety net) — pick yours, set one env var, watch the bill drop 10×.
 
 <CliCast
-  src="/demos/agent-compaction.svg"
+  src="/forge_docs/demos/agent-compaction.svg"
   title="Agent-loop compaction — three strategies, real before/after costs"
   caption="20-turn baseline: $0.503/run, super-linear context bloat (5K → 67K → 298K tokens). Three strategies side-by-side: truncate (5.8× cheaper), summarize (9.3× cheaper), hybrid (10.5× cheaper). One env var: FLUID_COMPACTION_STRATEGY=hybrid. No code changes."
   width="920"
@@ -103,7 +103,7 @@ Pairs with [Agentic primitives → Token-budget pre-flight & compaction](/forge_
 
 The full library — 14 frame-perfect SVG casts in all — covers AWS, Snowflake live-auth dry-run, agent-policy enforcement, blank scaffolds, policy compilation, and the canonical local quickstart:
 
-→ **[Browse all demos](/demos/)**
+→ **[Browse all demos](/forge_docs/demos/)**
 
 ---
 
@@ -119,6 +119,6 @@ The full library — 14 frame-perfect SVG casts in all — covers AWS, Snowflake
 
 - [Get Started](/forge_docs/getting-started/) — install, scaffold, validate, run locally
 - [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the framework powering the Bronze cast
-- [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary used throughout
+- [Product Types — SDP, ADP, CDP](/forge_docs/data-products/product-type.html) — the vocabulary used throughout
 - [Guided `fluid forge` UX](/forge_docs/advanced/guided-forge-ux.html) — the architecture behind the guided UX cast
 - [Capability Warnings](/forge_docs/advanced/capability-warnings.html) — the per-model coverage matrix

@@ -3,7 +3,7 @@
 The upcoming `0.7.3` release overhauls `fluid forge` end-to-end. The new flow is detect-first, mode-aware, slash-command-friendly, and never writes a file before showing you what it's about to write.
 
 <iframe
-  src="/reels/guided-forge-ux.html"
+  src="/forge_docs/reels/guided-forge-ux.html"
   width="100%"
   height="500"
   style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"
@@ -175,7 +175,7 @@ After each emitted contract, `forge_copilot_runtime.py` runs the JSON-schema val
 
 ## Composition pipeline
 
-`fluid forge --from-product` resolves upstream products, validates composition rules (SDP rejects upstreams; ADP/CDP accept SDP+ADP — see [Product Types](/data-products/product-type.html#composition-rules)), and pre-fills `consumes[]`:
+`fluid forge --from-product` resolves upstream products, validates composition rules (SDP rejects upstreams; ADP/CDP accept SDP+ADP — see [Product Types](/forge_docs/data-products/product-type.html#composition-rules)), and pre-fills `consumes[]`:
 
 ```bash
 # Pick one upstream
@@ -250,7 +250,7 @@ No telemetry is sent when no exporter is configured.
 ## See also
 
 - [`fluid forge`](/forge_docs/cli/forge.html) — the CLI reference
-- [Product Types — composition rules](/data-products/product-type.html#composition-rules) — what `--from-product` enforces
+- [Product Types — composition rules](/forge_docs/data-products/product-type.html#composition-rules) — what `--from-product` enforces
 - [LiteLLM Backend](/forge_docs/advanced/litellm-backend.html) — opt-in unified LLM routing for accurate per-call cost
 - [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) — error catalog (the schema-validation errors the self-healing loop catches)
 - [Cost Tracking](/forge_docs/advanced/cost-tracking.html) — what `cost.json` contains

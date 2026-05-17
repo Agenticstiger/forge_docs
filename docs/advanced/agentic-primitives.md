@@ -219,7 +219,7 @@ summary that preserves the user's goal, the tools called, and the
 agent's current decision state.
 
 <iframe
-  src="/reels/compaction-and-warnings.html"
+  src="/forge_docs/reels/compaction-and-warnings.html"
   width="100%"
   height="540"
   style="border: 1px solid #232a3d; border-radius: 12px; max-width: 1100px;"

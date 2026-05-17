@@ -9,7 +9,7 @@ A growing collection of common questions. Each answer either resolves the questi
 
 ## How is Fluid Forge different from dbt / Terraform / Airflow / OPA?
 
-Short answer: it unifies the four contracts (schema + infra + orchestration + policy) into one YAML so they can't drift. Long answer: see [Concepts → vs alternatives](/concepts/vs-alternatives.md) — there's a side-by-side ownership table.
+Short answer: it unifies the four contracts (schema + infra + orchestration + policy) into one YAML so they can't drift. Long answer: see [Concepts → vs alternatives](/forge_docs/concepts/vs-alternatives.md) — there's a side-by-side ownership table.
 
 ## Why do I see `pip install fluid-forge` in some old docs and `pip install data-product-forge` in new docs?
 
@@ -21,7 +21,7 @@ The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge
 
 ## Can I extend the CLI with my own scaffolding, validators, or governance rules?
 
-Yes — `0.8.3` ships three plugin extension points (CLI commands, contract validators, apply hooks) and a companion zero-dependency SDK on PyPI. The journey docs walk you through the common cases: ["you have your own CI"](/sdk-and-plugins/journeys/your-own-ci.md), ["you have your own scaffolding"](/sdk-and-plugins/journeys/your-own-scaffolding.md), ["you have governance rules"](/sdk-and-plugins/journeys/custom-validator.md). Start at [SDK & Plugins](/sdk-and-plugins/).
+Yes — `0.8.3` ships three plugin extension points (CLI commands, contract validators, apply hooks) and a companion zero-dependency SDK on PyPI. The journey docs walk you through the common cases: ["you have your own CI"](/forge_docs/sdk-and-plugins/journeys/your-own-ci.md), ["you have your own scaffolding"](/forge_docs/sdk-and-plugins/journeys/your-own-scaffolding.md), ["you have governance rules"](/forge_docs/sdk-and-plugins/journeys/custom-validator.md). Start at [SDK & Plugins](/forge_docs/sdk-and-plugins/).
 
 ## I get `No module named 'duckdb'` running the local quickstart.
 
@@ -50,7 +50,7 @@ Schema migrations are backward-compatible by default — the latest CLI reads ol
 
 ## Where's the playground?
 
-[`/playground/`](/playground/) — Monaco editor pre-loaded with four canonical contracts. No install needed.
+[`/playground/`](/forge_docs/playground/) — Monaco editor pre-loaded with four canonical contracts. No install needed.
 
 ---
 

@@ -102,6 +102,6 @@ The migrator logs a per-file line as it scans (`✏️ would write …` in dry-r
 
 ## See also
 
-- [Product Types — SDP, ADP, CDP](/data-products/product-type.html) — the vocabulary the migrator normalizes
+- [Product Types — SDP, ADP, CDP](/forge_docs/data-products/product-type.html) — the vocabulary the migrator normalizes
 - [`fluid forge --refine`](/forge_docs/cli/forge.html) — produces suggestion files via AI-aided refinement
 - [`fluid validate`](/forge_docs/cli/validate.html) — what catches inconsistent contracts the migrator refused to fix

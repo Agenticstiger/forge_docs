@@ -19,7 +19,7 @@ fluid runs diff gold.finance.customer_360_v1 --build customer_metrics --run-a <l
 fluid ship contract.fluid.yaml --strict --env prod --yes
 ```
 
-A frame-perfect cast of this exact flow is in the [day2-ops demo](/see-it-run.html#skip-the-panic) — bookmark it.
+A frame-perfect cast of this exact flow is in the [day2-ops demo](/forge_docs/see-it-run.html#skip-the-panic) — bookmark it.
 
 ## Step 1 — `runs status` (where)
 
@@ -208,7 +208,7 @@ fluid runs logs gold.finance.customer_360_v1 --component dlq --run-id r-<ship-ru
 
 ## See also
 
-- [Day-2 ops demo](/see-it-run.html#skip-the-panic) — frame-perfect cast of this exact flow
+- [Day-2 ops demo](/forge_docs/see-it-run.html#skip-the-panic) — frame-perfect cast of this exact flow
 - [`fluid runs`](/forge_docs/cli/runs) — the full command reference
 - [`fluid ship`](/forge_docs/cli/ship) — incident-response apply
 - [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors) — the error taxonomy you'll see in logs
