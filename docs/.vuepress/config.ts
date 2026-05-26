@@ -192,6 +192,7 @@ export default defineUserConfig({
             '/cli/odps-bitol.md',
             '/cli/odcs.md',
             '/cli/export.md',
+            '/cli/export-odps.md',
             '/cli/export-opds.md',
             // Integrations
             '/cli/publish.md',
@@ -373,6 +374,7 @@ export default defineUserConfig({
           text: 'Project',
           children: [
             '/contributing.md',
+            '/RELEASE_NOTES_0.8.4.md',
             '/RELEASE_NOTES_0.8.3.md',
             '/RELEASE_NOTES_0.8.0.md',
             '/RELEASE_NOTES_0.7.11.md',

@@ -10,6 +10,10 @@ fluid datamesh-manager list [--format FMT]
 fluid datamesh-manager get PRODUCT_ID
 fluid datamesh-manager delete PRODUCT_ID [--yes]
 fluid datamesh-manager teams [--format FMT]
+fluid datamesh-manager list-contracts [--format FMT]
+fluid datamesh-manager get-contract CONTRACT_ID
+fluid datamesh-manager delete-contract CONTRACT_ID [--yes]
+fluid datamesh-manager wipe [--yes]
 ```
 
 A short alias `fluid dmm` is registered for the same command group.
@@ -53,13 +57,51 @@ A short alias `fluid dmm` is registered for the same command group.
 | `--api-url` | API base URL. |
 | `--yes`, `-y` | (`delete` only) Skip confirmation prompt. |
 
+### `list-contracts`, `get-contract`, `delete-contract`
+
+Manage companion data contracts published alongside data products.
+
+| Option | Description |
+| --- | --- |
+| `CONTRACT_ID` | Data contract ID (as published via `--with-contract`). |
+| `--format`, `-f` | (`list-contracts` only) Output format: `table` (default) or `json`. |
+| `--yes`, `-y` | (`delete-contract` only) Skip confirmation prompt. |
+| `--api-key` | Entropy Data API key. |
+| `--api-url` | API base URL. |
+
+### `wipe`
+
+Delete **all** data products and data contracts in the configured DMM namespace. Intended for local sandbox cleanup and CI teardown. Prompts for confirmation unless `--yes` is passed.
+
+| Option | Description |
+| --- | --- |
+| `--yes`, `-y` | Skip confirmation prompt. |
+| `--api-key` | Entropy Data API key. |
+| `--api-url` | API base URL. |
+
+::: warning
+`fluid dmm wipe` is **destructive** and irreversible against a live DMM instance. Only use it against local sandboxes or disposable test environments.
+:::
+
 ## Examples
 
 ```bash
+# Publish
 fluid datamesh-manager publish contract.fluid.yaml --dry-run
 fluid datamesh-manager publish contract.fluid.yaml --with-contract --validation-mode strict
+fluid dmm publish contract.fluid.yaml --auto-approve-access
+
+# Read / list
 fluid dmm list --format json
+fluid dmm list-contracts --format json
+fluid dmm get-contract my-org.customer360-contract
+
+# Delete
 fluid dmm delete gold.customer360_v1 --yes
+fluid dmm delete-contract my-org.customer360-contract --yes
+
+# Wipe entire sandbox (local dev only!)
+fluid dmm wipe --yes
 ```
 
 ## Configuration

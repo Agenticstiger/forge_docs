@@ -1,6 +1,10 @@
-# `fluid export-opds`
+# `fluid export-opds` *(deprecated alias)*
 
-Export a FLUID contract to an OPDS (Open Data Product Specification) JSON file in one shot.
+::: warning Renamed in v0.8.4
+This command has been renamed to [`fluid export-odps`](./export-odps.md) (OPDS → ODPS, fixing the historical letter-swap typo). The old `fluid export-opds` spelling continues to work as a back-compat alias but will be removed in a future major release.
+:::
+
+Export a FLUID contract to an ODPS (Open Data Product Standard) JSON file in one shot.
 
 ## Syntax
 

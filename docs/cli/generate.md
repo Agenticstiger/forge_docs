@@ -152,48 +152,49 @@ Supported formats:
 
 | `--format` | What it is | Use it when |
 | --- | --- | --- |
-| `opds` | Open Data Product Specification (OPDS) JSON, v1.0 | Publishing to OPDS-aware catalogs (Collibra, generic catalogs). Rich product metadata, lineage, SLA, and governance under a single document. Preserves FLUID-specific fields under an `x-fluid` namespace. |
-| `odcs` | Open Data Contract Standard (ODCS) v3.1.0 — the Bitol.io standard | Publishing **contract-level** specs (schema, quality, SLA) to Bitol-aligned tooling. Where OPDS describes a whole data product, ODCS focuses on the consumer-facing contract. |
-| `odps` | Open Data Product Standard — Bitol variant, input-port lineage | When upstream data-product lineage matters (maps FLUID `consumes[]` to ODPS-Bitol `inputPorts`). Commonly used with Entropy Data / Data Mesh Manager publishing. |
+| `odps` *(default)* | **Bitol ODPS v1.0.0** — Open Data Product Standard (center-stage) | Publishing to Entropy Data / Data Mesh Manager. Rich product metadata, lineage, SLA, governance. Preserves FLUID-specific fields under an `x-fluid` namespace. |
+| `odcs` | Open Data Contract Standard (ODCS) v3.1.0 — the Bitol.io standard | Publishing **contract-level** specs (schema, quality, SLA) to Bitol-aligned tooling. Where ODPS describes a whole data product, ODCS focuses on the consumer-facing contract. |
+| `odps-v4.1` | LF/ODPI ODPS v4.1 — Open Data Product Specification (opt-in) | ODPI-aligned catalogs that consume the Linux Foundation / Open Data Product Initiative spec. |
 | `odps-bitol` | Standards-compliant Bitol ODPS payload, stricter than `odps` | Strict conformance — fields that are not explicitly declared on a `consumes[]` entry are omitted (no synthetic `contractId`, no default `required: True`). |
+| `opds` | **Deprecated alias** for `odps` | Back-compat only. Emits a deprecation warning. Use `odps` instead. |
 
 ### Examples of each format
 
 ```bash
-fluid generate standard contract.fluid.yaml --format opds        # FLUID -> OPDS v1.0
+fluid generate standard contract.fluid.yaml --format odps        # FLUID -> Bitol ODPS v1.0.0 (default, center-stage)
 fluid generate standard contract.fluid.yaml --format odcs        # FLUID -> ODCS v3.1.0
-fluid generate standard contract.fluid.yaml --format odps        # FLUID -> ODPS (Bitol)
-fluid generate standard contract.fluid.yaml --format odps-bitol  # FLUID -> ODPS (strict)
+fluid generate standard contract.fluid.yaml --format odps-v4.1  # FLUID -> LF/ODPI ODPS v4.1 (opt-in)
+fluid generate standard contract.fluid.yaml --format odps-bitol  # FLUID -> ODPS (strict Bitol conformance)
 ```
 
-### OPDS environment tuning
+### ODPS environment tuning
 
-The OPDS exporter reads a few environment variables for output shape:
+The ODPS exporter reads a few environment variables for output shape:
 
 | Env var | Default | Purpose |
 | --- | --- | --- |
-| `OPDS_INCLUDE_BUILD_INFO` | `true` | Include build information (engine, pattern) |
-| `OPDS_INCLUDE_EXECUTION_DETAILS` | `false` | Include execution details (triggers, runtime) |
-| `OPDS_TARGET_PLATFORM` | `generic` | Platform-specific tuning (`collibra`, etc.) |
-| `OPDS_VALIDATE_OUTPUT` | `true` | Validate the emitted JSON |
+| `ODPS_INCLUDE_BUILD_INFO` | `true` | Include build information (engine, pattern) |
+| `ODPS_INCLUDE_EXECUTION_DETAILS` | `false` | Include execution details (triggers, runtime) |
+| `ODPS_TARGET_PLATFORM` | `generic` | Platform-specific tuning (`collibra`, etc.) |
+| `ODPS_VALIDATE_OUTPUT` | `true` | Validate the emitted JSON |
 
-All four formats are deterministic — identical input yields byte-identical output, so the result is safe to check into version control.
+All formats are deterministic — identical input yields byte-identical output, so the result is safe to check into version control.
 
-#### Shortcut — `fluid export-opds`
+#### Shortcut — `fluid export-odps`
 
-For the OPDS format specifically, there is a focused shortcut:
+For a one-shot file write of the ODPS format:
 
 ```bash
-fluid export-opds CONTRACT [--env ENV] [--out PATH]
+fluid export-odps CONTRACT [--env ENV] [--out PATH]
 ```
 
 | Option | Description |
 | --- | --- |
 | `CONTRACT` | Path to `contract.fluid.yaml` (positional, required) |
 | `--env ENV` | Apply an environment overlay |
-| `--out PATH` | Output file path (default: `runtime/exports/product.opds.json`) |
+| `--out PATH` | Output file path (default: `runtime/exports/product.odps.json`) |
 
-Produces the same OPDS JSON as `fluid generate standard --format opds`; choose whichever feels more natural. Both are deterministic — identical contracts yield byte-identical output, so the result is safe to check into version control.
+Produces the same output as `fluid generate standard --format odps`. The old `fluid export-opds` spelling is kept as a back-compat alias.
 
 ## Examples
 
@@ -203,7 +204,8 @@ fluid generate transformation contract.fluid.yaml -o ./dbt_project
 fluid generate transformation contract.fluid.yaml -o ./dbt_project --dbt-validate
 fluid generate schedule contract.fluid.yaml --scheduler airflow -o dags
 fluid generate ci --system github
-fluid generate standard contract.fluid.yaml --format opds
+fluid generate standard contract.fluid.yaml --format odps
+fluid generate standard contract.fluid.yaml --format odps-v4.1
 ```
 
 ## Compatibility note

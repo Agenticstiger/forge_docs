@@ -42,3 +42,6 @@ docs_only_ok:
   - stats           # cost aggregator across .fluid/agents/*/cost.json
   - contract        # apply-suggestion / migrate-product-type
   - ship            # validate -> bundle -> plan -> apply happy-path macro
+  - export-odps     # renamed from export-opds in v0.8.4; CLI ships in v0.8.4
+                    # which is not yet on PyPI (latest pinned is 0.8.3rc1);
+                    # remove this entry once the PyPI pin is bumped to >=0.8.4.

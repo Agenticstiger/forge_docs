@@ -2,8 +2,8 @@
 
 Export FLUID contracts to and validate Bitol.io's ODPS (Open Data Product Standard) v1.0 format, used for marketplace integrations such as Entropy Data.
 
-::: tip Bidirectional at the provider layer
-On `v0.8.3` the underlying `BitolOdpsProvider` round-trips Bitol ODPS (`render` + `import_contract` + `validate`). The `fluid odps-bitol` subcommand exposes `export` / `validate` / `info` here; the import side is exposed by the new unified [`fluid opds`](#unified-fluid-opds-since-v0-8-3) command — `fluid opds import <path> --spec bitol-1.0.0` accepts a single ODPS doc, a directory bundle, or a lone ODCS file. The provider's Python `import_contract` is also callable directly from the [SDK](/forge_docs/sdk-and-plugins/reference/).
+::: tip Use `fluid odps` for new workflows
+Since v0.8.4, the unified [`fluid odps`](./odps.md) command dispatches between Bitol 1.0.0 and LF/ODPI 4.1 via `--spec`, and adds an `import` subcommand. `fluid odps-bitol` remains for backward compatibility and more explicit Bitol-only workflows.
 :::
 
 ## Syntax
@@ -44,22 +44,26 @@ fluid odps-bitol validate product.yaml
 fluid odps-bitol info
 ```
 
-## Unified `fluid opds` (since v0.8.3)
+## Unified `fluid odps` (since v0.8.3, renamed from `fluid opds` in v0.8.4)
 
-`v0.8.3` introduced a single `fluid opds` command that dispatches between Bitol 1.0.0 and ODPI 4.1 via `--spec`, and adds an `import` subcommand the spec-specific `fluid odps-bitol` does not expose:
+The unified `fluid odps` command dispatches between Bitol 1.0.0 and LF/ODPI 4.1 via `--spec`, and adds an `import` subcommand:
 
 ```bash
-fluid opds export <contract> [--spec bitol-1.0.0|odpi-4.1] [--out PATH] [--out-dir DIR]
-fluid opds import <path>     [--spec bitol-1.0.0] [--allow-remote] [-o PATH]
-fluid opds validate <file>   [--spec ...]
-fluid opds info              [--spec ...]
+fluid odps export <contract> [--spec bitol-1.0.0|odps-v4.1] [--out PATH] [--out-dir DIR]
+fluid odps import <path>     [--spec bitol-1.0.0] [--allow-remote] [-o PATH]
+fluid odps validate <file>   [--spec ...]
+fluid odps info              [--spec ...]
 ```
 
-`fluid opds import` accepts three entry shapes — single ODPS doc, directory bundle (ODPS + sibling ODCS files), or a lone ODCS file. Remote `contractId` references are off by default; opt in with `--allow-remote` (SSRF-guarded — see [network safety](/forge_docs/advanced/network-safety.html)).
+`fluid odps import` accepts three entry shapes — single ODPS doc, directory bundle (ODPS + sibling ODCS files), or a lone ODCS file. Remote `contractId` references are off by default; opt in with `--allow-remote` (SSRF-guarded — see [network safety](/forge_docs/advanced/network-safety.html)).
+
+::: tip `--spec` rename in v0.8.4
+`--spec odpi-4.1` (the old LF/ODPI token, note the letter swap) is accepted with a WARNING and redirected to `--spec odps-v4.1`. Update any scripts that use the old token.
+:::
 
 ## Notes
 
-- Despite the source file being named `odps_standard.py`, the canonical command name registered in `fluid --help` is `odps-bitol`. This avoids confusion with the official ODPS variant.
-- For the official ODPS v4.1 (Open Data Product Initiative), use [`fluid odps`](./odps.md) instead.
+- Despite the source file being named `odps_standard.py`, the canonical command name registered in `fluid --help` is `odps-bitol`. This avoids confusion with the LF/ODPI variant.
+- For the unified dispatch (Bitol + LF/ODPI), use [`fluid odps`](./odps.md).
 - For the Open Data Contract Standard (ODCS), use [`fluid odcs`](./odcs.md).
 - Validation checks `apiVersion` (`v1.0.0` expected), requires `kind: DataProduct`, and verifies output ports have a `name` field.
