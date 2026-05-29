@@ -8,6 +8,8 @@ undocumented_ok:
   - context          # hidden backward-compat alias for `config`
   - dmm              # short alias for `datamesh-manager`
   - marketplace      # deprecated alias for `market`
+  - opds             # legacy spelling kept for back-compat; renamed to `odps`
+                     # in v0.8.4. Canonical doc page is cli/odps.md.
   - preview          # hidden (argparse.SUPPRESS) — deprecated, use `plan --html`
   - viz-plan         # hidden (argparse.SUPPRESS) — deprecated, use `plan --html`
 
