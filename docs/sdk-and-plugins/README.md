@@ -135,7 +135,7 @@ Each guide opens with the real problem you might have, then walks you to a worki
 
 | Package | Version | What it does | Install |
 |---|---|---|---|
-| [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.8.3 | The CLI (this docs set) | `pip install data-product-forge` |
+| [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.8.6 | The CLI (this docs set) | `pip install data-product-forge` |
 | [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) | 0.9.0 | Plugin SDK — zero-dependency ABCs + conformance harness | `pip install data-product-forge-sdk` (import: `from fluid_sdk import …`) |
 | [`data-product-forge-custom-scaffold`](https://pypi.org/project/data-product-forge-custom-scaffold/) | 0.1.0 | Reference custom-scaffold engine (Jinja+YAML or Python plugins) | `pip install data-product-forge-custom-scaffold` |
 

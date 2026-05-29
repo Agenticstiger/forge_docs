@@ -21,7 +21,7 @@ In-browser validation via Pyodide is on the roadmap — for now the editor focus
 - **AWS · Athena** — S3-backed external table with the canonical bucket/prefix layout the AWS provider produces.
 - **Snowflake** — three-part-name binding with role-based access control.
 
-All four are valid against `fluid-schema-0.7.3`, the current contract spec.
+All four are valid against `fluid-schema-0.7.4`, the current contract spec.
 
 ## Next steps
 

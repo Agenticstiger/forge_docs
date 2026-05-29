@@ -28,7 +28,7 @@ pipeline {
     stages {
         stage('Validate') {
             steps {
-                sh 'python -m pip install --quiet "data-product-forge=={{ fluid_cli_version | default(\'0.8.3\') }}"'
+                sh 'python -m pip install --quiet "data-product-forge=={{ fluid_cli_version | default(\'0.8.6\') }}"'
                 sh 'fluid validate contract.fluid.yaml --strict'
             }
         }

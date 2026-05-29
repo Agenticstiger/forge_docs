@@ -1,6 +1,6 @@
 # Environment Variables
 
-Canonical index of `FLUID_*` environment variables on `v0.8.3`. Grouped by category. Where a cluster has its own dedicated page, the cluster header links out to the page rather than duplicating its content.
+Canonical index of `FLUID_*` environment variables on `v0.8.6`. Grouped by category. Where a cluster has its own dedicated page, the cluster header links out to the page rather than duplicating its content.
 
 > **Convention:** truthy values are `1` / `true` / `yes` (case-insensitive); falsy values are `0` / `false` / `no` / empty. Numeric vars accept plain integers unless noted otherwise.
 

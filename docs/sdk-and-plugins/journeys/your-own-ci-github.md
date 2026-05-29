@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.8.3') }}"
+      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.8.6') }}"
       - run: fluid validate contract.fluid.yaml --strict
 
 {% for env_name, env in contract.environments.items() %}
@@ -56,7 +56,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.8.3') }}"
+      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.8.6') }}"
       {% if env.cloud.provider == "aws" -%}
       - uses: aws-actions/configure-aws-credentials@v4
         with:

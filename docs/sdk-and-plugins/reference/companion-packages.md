@@ -6,7 +6,7 @@ Three packages ship together as one platform. End users only need the CLI; plugi
 
 | Package | Version | PyPI | Import path | What you reach for it for |
 |---|---|---|---|---|
-| **`data-product-forge`** | `0.8.3` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle |
+| **`data-product-forge`** | `0.8.6` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle |
 | **`data-product-forge-sdk`** | `0.9.0` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, etc.) + conformance test harness. Plugin authors only. |
 | **`data-product-forge-custom-scaffold`** | `0.1.0` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine. Use this when your plugin distributes templates via a git bundle (most common pattern). |
 
@@ -48,7 +48,7 @@ The PyPI name reflects the product brand (`data-product-forge`). The import path
 
 ```toml
 dependencies = [
-    "data-product-forge==0.8.3",  # pin exact for reproducibility
+    "data-product-forge==0.8.6",  # pin exact for reproducibility
 ]
 ```
 
