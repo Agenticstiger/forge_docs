@@ -14,10 +14,6 @@ fluid odps validate FILE     [--spec SPEC] [--no-full-schema]
 fluid odps info              [--spec SPEC] [--json]
 ```
 
-::: tip Back-compat alias
-`fluid opds` remains registered as a hidden back-compat alias for `fluid odps` and will be removed in a future major release.
-:::
-
 ## Key options
 
 ### `odps export`

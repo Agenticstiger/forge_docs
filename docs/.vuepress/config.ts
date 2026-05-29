@@ -195,7 +195,6 @@ export default defineUserConfig({
             '/cli/odcs.md',
             '/cli/export.md',
             '/cli/export-odps.md',
-            '/cli/export-opds.md',
             // Integrations
             '/cli/publish.md',
             '/cli/datamesh-manager.md',
@@ -230,6 +229,7 @@ export default defineUserConfig({
             '/cli/bundle.md',
             '/cli/auth.md',
             '/cli/doctor.md',
+            '/cli/describe.md',
             '/cli/providers.md',
             '/cli/provider-init.md',
             '/cli/roadmap.md',
@@ -238,6 +238,7 @@ export default defineUserConfig({
             '/cli/runs.md',
             '/cli/retention.md',
             '/cli/secrets.md',
+            '/cli/agents.md',
             '/cli/stats.md',
             '/cli/contract.md',
             '/cli/ship.md',
@@ -376,6 +377,7 @@ export default defineUserConfig({
           text: 'Project',
           children: [
             '/contributing.md',
+            '/RELEASE_NOTES_0.8.7.md',
             '/RELEASE_NOTES_0.8.6.md',
             '/RELEASE_NOTES_0.8.5.md',
             '/RELEASE_NOTES_0.8.4.md',

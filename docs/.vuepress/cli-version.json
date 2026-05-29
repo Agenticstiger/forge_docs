@@ -1,6 +1,6 @@
 {
-  "supportedCliVersion": "0.8.6",
-  "supportedCliInstallSpec": "data-product-forge==0.8.6",
+  "supportedCliVersion": "0.8.7",
+  "supportedCliInstallSpec": "data-product-forge==0.8.7",
   "supportedFluidContractVersion": "0.7.4",
   "supportedSdkVersion": "0.9.0",
   "supportedSdkInstallSpec": "data-product-forge-sdk>=0.9,<1",

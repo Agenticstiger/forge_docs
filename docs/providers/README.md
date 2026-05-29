@@ -4,7 +4,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 ## Docs baseline
 
-- CLI release covered by the primary docs: `0.8.6`
+- CLI release covered by the primary docs: `0.8.7`
 - Default scaffold (`fluid init --quickstart`) emits `fluidVersion: 0.7.2`
 - Discovery-based scaffolds (`fluid init --discover`, `fluid forge`, `fluid product-new`) emit `fluidVersion: 0.7.4` — the latest bundled schema
 
@@ -24,10 +24,10 @@ Fluid Forge registers four apply-capable cloud providers and two standards provi
 | Bitol ODPS (`odps_bitol`) | Bidirectional at provider layer (`render` + `import_contract` + `validate`) | n/a — standards exchange | Production |
 
 ::: tip Runtime requirement for cloud apply
-On `v0.8.6`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
+On `v0.8.7`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
 :::
 
-The CLI surface today is asymmetric for the two standards providers — `fluid odcs` exposes `export` / `import` / `validate` / `info`, while `fluid odps-bitol` exposes only `export` / `validate` / `info`. The unified `fluid opds` command added in `0.8.3` covers both specs and adds an `import` subcommand for Bitol — see [`fluid opds`](../cli/odps-bitol.md) and [`fluid odcs`](../cli/odcs.md).
+The CLI surface today is asymmetric for the two standards providers — `fluid odcs` exposes `export` / `import` / `validate` / `info`, while `fluid odps-bitol` exposes only `export` / `validate` / `info`. The unified `fluid odps` command covers both specs and adds an `import` subcommand for Bitol — see [`fluid odps`](../cli/odps.md) and [`fluid odcs`](../cli/odcs.md).
 
 Compatibility note:
 `fluid generate-airflow` still exists, but the primary docs path is `fluid generate schedule --scheduler airflow`.
@@ -69,17 +69,17 @@ fluid apply contract.fluid.yaml --yes
 
 Beyond the cloud and local providers, Fluid Forge round-trips contracts against public data-product standards and **publishes** them to catalogs.
 
-### Standards exchange — `fluid opds`
+### Standards exchange — `fluid odps`
 
-`v0.8.3` introduced a unified `fluid opds` command that dispatches both export and import across the ODPS specs via `--spec`. The standards providers themselves are bidirectional at the provider layer (`render` + `import_contract` + `validate`).
+The unified `fluid odps` command dispatches both export and import across the ODPS specs via `--spec`. The standards providers themselves are bidirectional at the provider layer (`render` + `import_contract` + `validate`).
 
 | Spec | Command | What it is |
 | --- | --- | --- |
-| ODPS — Bitol 1.0.0 | `fluid opds export … --spec bitol-1.0.0` / `fluid opds import` | Bitol variant — 1 ODPS doc + N sibling ODCS contracts (one per output port). |
-| ODPS — ODPI 4.1 | `fluid opds export … --spec odpi-4.1` | Open Data Product Initiative single-file variant. Export-only. |
+| ODPS — Bitol 1.0.0 | `fluid odps export … --spec bitol-1.0.0` / `fluid odps import` | Bitol variant — 1 ODPS doc + N sibling ODCS contracts (one per output port). |
+| ODPS — v4.1 | `fluid odps export … --spec odps-v4.1` | Open Data Product Initiative single-file variant. Export-only. |
 | ODCS | `fluid odcs export` / `fluid odcs import` | Open Data Contract Standard v3.1.0 (Bitol.io). |
 
-Legacy shortcuts remain: [`fluid export-opds`](/forge_docs/cli/export-opds.html), [`fluid odps-bitol`](/forge_docs/cli/odps-bitol.html), [`fluid odps`](/forge_docs/cli/odps.html). New scripts should prefer `fluid opds` with `--spec`.
+Provider-specific entry points also remain: [`fluid odps-bitol`](/forge_docs/cli/odps-bitol.html) for the Bitol layout. New scripts should prefer `fluid odps` with `--spec`.
 
 ### Publishing — catalog registrars
 

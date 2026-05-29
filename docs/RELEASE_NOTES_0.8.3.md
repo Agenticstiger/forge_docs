@@ -11,14 +11,14 @@
 
 ### PR #136 — ODCS + Bitol ODPS bidirectional provider + `--seed-from`
 
-`BitolOdpsProvider` (registered as `odps_bitol`, alias `odps-standard`) emits the canonical Bitol fragments layout (one ODPS doc + N sibling `<contractId>.odcs.yaml` files); the linking invariant `port.contractId == odcs.id` is asserted in tests. A new unified `fluid opds` command dispatches between specs via `--spec`:
+`BitolOdpsProvider` (registered as `odps_bitol`, alias `odps-standard`) emits the canonical Bitol fragments layout (one ODPS doc + N sibling `<contractId>.odcs.yaml` files); the linking invariant `port.contractId == odcs.id` is asserted in tests. A new unified `fluid odps` command dispatches between specs via `--spec`:
 
-- `fluid opds export <contract> [--spec bitol-1.0.0|odpi-4.1]`
-- `fluid opds import <path>     [--spec bitol-1.0.0] [--allow-remote]`
-- `fluid opds validate <file>`
-- `fluid opds info`
+- `fluid odps export <contract> [--spec bitol-1.0.0|odpi-4.1]`
+- `fluid odps import <path>     [--spec bitol-1.0.0] [--allow-remote]`
+- `fluid odps validate <file>`
+- `fluid odps info`
 
-`fluid opds import` accepts three entry shapes — single ODPS doc, directory bundle, or a lone ODCS file. The `ContractResolver` resolves `contractId` references through local probes + opt-in `http(s)` fetch with the full SSRF guard (see Security below).
+`fluid odps import` accepts three entry shapes — single ODPS doc, directory bundle, or a lone ODCS file. The `ContractResolver` resolves `contractId` references through local probes + opt-in `http(s)` fetch with the full SSRF guard (see Security below).
 
 `fluid forge --seed-from <path>` accepts an ODCS contract, a Bitol ODPS product, or a directory bundle as a **structural seed** for the copilot. The schema / quality / qos from the seed are treated as ground truth; the LLM fills in builds, execution, and governance. Pair with `--seed-allow-remote` to opt in to `http(s)` seed sources; remote fetch is **off by default**.
 
@@ -123,7 +123,7 @@ Rather than nested inside an except branch — closes a defense-in-depth gap sur
 
 ## Notable for upgraders
 
-- **BREAKING (caller API) — `allow_remote` defaults to `False`** across CLI + library (#136). `fluid opds import` and `fluid forge --seed-from` no longer fetch `http(s)` `contractId` references unless `--allow-remote` / `--seed-allow-remote` is passed explicitly. Python callers of `BitolOdpsProvider().import_contract(...)`, `BitolOdpsProvider().import_directory(...)`, `ContractResolver(...)`, and `forge_copilot_seed.load_seed(...)` must now pass `allow_remote=True` for the previous behaviour. `--no-remote` / `--seed-no-remote` remain as hidden no-op aliases.
+- **BREAKING (caller API) — `allow_remote` defaults to `False`** across CLI + library (#136). `fluid odps import` and `fluid forge --seed-from` no longer fetch `http(s)` `contractId` references unless `--allow-remote` / `--seed-allow-remote` is passed explicitly. Python callers of `BitolOdpsProvider().import_contract(...)`, `BitolOdpsProvider().import_directory(...)`, `ContractResolver(...)`, and `forge_copilot_seed.load_seed(...)` must now pass `allow_remote=True` for the previous behaviour. `--no-remote` / `--seed-no-remote` remain as hidden no-op aliases.
 - **Operational requirement: `tofu ≥ 1.6.0` on `PATH`** for cloud-provider `fluid apply` (#140). `local` is unaffected.
 - **Catalog registrar retirement** — drop `glue` and `snowflake_horizon` from `properties.catalog.register`; the metadata they previously pushed is now emitted by the auto-routed OpenTofu engine when you `fluid apply` against the `aws` / `snowflake` provider (#140).
 - **Existing contracts keep working.** `fluidVersion` `0.4.0`, `0.5.7`, `0.7.1`, `0.7.2`, and `0.7.3` all validate against `0.8.3`. The discover emitter populates both `metadata.layer` and `metadata.productType` automatically.

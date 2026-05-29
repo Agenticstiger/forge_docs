@@ -131,7 +131,7 @@ consumes:
 ```
 
 `consumes[]` references compile to:
-- **Lineage edges** in `fluid generate artifacts` (OPDS / ODCS / DataMesh Manager output)
+- **Lineage edges** in `fluid generate artifacts` (ODPS / ODCS / DataMesh Manager output)
 - **Read grants** in `policy-apply` (the consumer's service principal gets read on the producer's expose)
 - **Build-time validation** — `fluid validate` confirms the upstream product exists and the cited `exposeId` matches
 

@@ -28,7 +28,6 @@ fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--env ENV]
 | --- | --- | --- |
 | `odcs` | ODCS v3.1.0 contract files under `odcs/` (one per expose port) | Default on. Schema vendored from `bitol-io/open-data-contract-standard`. |
 | `odps-bitol` | ODPS-Bitol v1.0.0 product file under `odps-bitol/` | Default on. Schema vendored from `bitol-io/open-data-product-standard`. |
-| `opds` / `odps` | OPDS v4.1 product file under `opds/` | **Opt-in only** (broken shape vs upstream — see `trello-verify-odps-linux-foundation`). |
 | `schedule` | DAG / flow files under `schedule/` (airflow / dagster / prefect) | Default on. Auto-skipped for reference-only contracts + contracts without `orchestration.engine`. |
 | `policies` | `policy/bindings.json` (compiled IAM / GRANT bindings) | Default on. Auto-skipped for reference-only contracts. |
 

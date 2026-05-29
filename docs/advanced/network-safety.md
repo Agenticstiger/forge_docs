@@ -1,6 +1,6 @@
 # Network Safety
 
-`v0.8.6` consolidates every outbound HTTP fetch behind one safe-HTTP layer. The defaults are conservative — most remote operations are off unless you opt in — and the guard runs at the connection layer so that DNS rebinding and IPv4-mapped IPv6 tricks can't sneak past it.
+`v0.8.7` consolidates every outbound HTTP fetch behind one safe-HTTP layer. The defaults are conservative — most remote operations are off unless you opt in — and the guard runs at the connection layer so that DNS rebinding and IPv4-mapped IPv6 tricks can't sneak past it.
 
 This page describes the **user-visible behaviour**: which flags opt in, which env vars allowlist hosts, where the defaults landed, and which legacy behaviours flipped (the BREAKING ones, listed below).
 
@@ -9,7 +9,7 @@ This page describes the **user-visible behaviour**: which flags opt in, which en
 | Surface | Old default | New default | Override |
 |---|---|---|---|
 | `fluid forge --seed-from <url>` | (didn't exist) | Local-only; remote `http(s)` references rejected | `--seed-allow-remote` |
-| `fluid opds import <url>` | Followed `http(s)` `contractId` references | Local-only; remote references rejected | `--allow-remote` |
+| `fluid odps import <url>` | Followed `http(s)` `contractId` references | Local-only; remote references rejected | `--allow-remote` |
 | `BitolOdpsProvider().import_contract(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (kwarg) |
 | `ContractResolver(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (kwarg) |
 | `forge_copilot_seed.load_seed(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (kwarg) |
@@ -84,5 +84,5 @@ lint-imports
 
 - [Environment variables](./environment-variables.md) — full env-var index including the SSRF allowlists
 - [`fluid forge`](../cli/forge.md#remote-seeds-opt-in-to-https-fetch) — where `--seed-allow-remote` applies
-- [`fluid opds import`](../cli/odps-bitol.md#unified-fluid-opds-since-v0-8-3) — where `--allow-remote` applies
+- [`fluid odps import`](../cli/odps-bitol.md#unified-fluid-odps-since-v0-8-3) — where `--allow-remote` applies
 - [Catalog overview](../cli/catalogs/overview.md) — publish-side registrars all use the safe-HTTP layer

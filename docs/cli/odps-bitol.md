@@ -44,7 +44,7 @@ fluid odps-bitol validate product.yaml
 fluid odps-bitol info
 ```
 
-## Unified `fluid odps` (since v0.8.3, renamed from `fluid opds` in v0.8.4)
+## Unified `fluid odps` (since v0.8.3)
 
 The unified `fluid odps` command dispatches between Bitol 1.0.0 and LF/ODPI 4.1 via `--spec`, and adds an `import` subcommand:
 

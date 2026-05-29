@@ -140,7 +140,7 @@ fluid export gcp-contract.yaml --engine prefect -o flows/
 **Status:** ✅ Available Now
 
 ```bash
-fluid export-opds contract.yaml --out catalog/
+fluid export-odps contract.yaml --out catalog/
 fluid odps validate catalog/product.yaml
 ```
 

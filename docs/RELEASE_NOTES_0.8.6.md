@@ -1,13 +1,13 @@
 # Fluid Forge Docs Baseline: CLI `0.8.6`
 
 **Release Date:** May 29, 2026
-**Status:** Current stable docs baseline (supersedes [`0.8.5`](./RELEASE_NOTES_0.8.5.md))
+**Status:** Superseded by [`0.8.7`](./RELEASE_NOTES_0.8.7.md) (supersedes [`0.8.5`](./RELEASE_NOTES_0.8.5.md))
 
 ## Headline
 
 `0.8.6` ships the **MCP output-port gateway** and, with it, **contract schema `fluidVersion` 0.7.4**. The headline is that `agentPolicy` stops being declarative metadata and becomes **runtime-enforced at the gateway**: when an expose carries an `expose.mcp` block, `fluid mcp output-port serve` enforces `allowedModels` / `deniedModels`, `allowedUseCases` / `deniedUseCases`, rate limits, token budgets, and per-tenant row filters on every `tools/call`. Gateway identity is now cryptographic — **JWT bearer + mTLS** — and the cloud-IAM compilers for **BigQuery row-access policies** and **AWS Lake Formation** are real implementations (no longer stubs), joined by **PostgreSQL** and **AWS Athena** drivers, **PII/PHI value redaction**, and an **audit webhook forwarder**. The release also fixes two important bugs: a monitoring daemon-thread leak that OOM-hung Python 3.13/3.14 CI, and a `ConfigManager` shared-defaults pollution bug.
 
-Schema `0.7.4` is **backward-compatible with `0.7.3`** — existing contracts validate unchanged; the new `expose.mcp` block is additive and opt-in.
+Schema `0.7.4` is **backward-compatible with `0.7.3`** — existing contracts validate unchanged; the new `expose.mcp` block is additive and opt-in. *(A schema-minimize regression in `0.8.6` made this compatibility incomplete; it was [fixed in `0.8.7`](./RELEASE_NOTES_0.8.7.md).)*
 
 ---
 

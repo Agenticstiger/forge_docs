@@ -13,15 +13,14 @@
 
 ### 1 — Bitol ODPS v1.0.0 center-stage, LF/ODPI v4.1 opt-in
 
-**`fluid opds` renamed to `fluid odps`** — the unified dispatch command is now canonically spelled with one letter swap fixed. The old `fluid opds` spelling is kept as a silent back-compat alias.
+**Standards command spelling normalized to `fluid odps`** — the unified dispatch command's canonical spelling fixes an earlier letter-swap. The prior spelling is kept as a silent back-compat alias (deprecation WARNING).
 
-| Before (`v0.8.3`) | After (`v0.8.4`) |
+| Command / flag | Canonical form in `v0.8.4` |
 |---|---|
-| `fluid opds export --spec bitol-1.0.0` | `fluid odps export` *(default spec)* |
-| `fluid opds export --spec odpi-4.1` | `fluid odps export --spec odps-v4.1` |
-| `fluid export-opds` | `fluid export-odps` *(alias kept)* |
-| `--format opds` in `generate standard` | `--format odps` *(center-stage, default)* |
-| `--format odps` in `generate standard` | `--format odps` *(unchanged, Bitol Bitol)* |
+| Unified standards export | `fluid odps export` *(default spec: Bitol 1.0.0)* |
+| LF/ODPI v4.1 export | `fluid odps export --spec odps-v4.1` |
+| One-shot export | `fluid export-odps` |
+| `generate standard` default | `--format odps` *(Bitol, center-stage)* |
 
 All old spellings continue to work but emit a deprecation WARNING. Update your scripts at your convenience — they will not break until the next major release.
 
@@ -30,9 +29,8 @@ All old spellings continue to work but emit a deprecation WARNING. Update your s
 - `--format odps` → Bitol ODPS v1.0.0 (**center-stage, default**)
 - `--format odcs` → ODCS v3.1.0 (unchanged)
 - `--format odps-v4.1` → LF/ODPI ODPS v4.1 (**opt-in**)
-- `--format opds` → deprecated alias for `odps`, still accepted with WARNING
 
-The OPDS environment-variable prefix is now `ODPS_*` (`ODPS_INCLUDE_BUILD_INFO`, `ODPS_INCLUDE_EXECUTION_DETAILS`, `ODPS_TARGET_PLATFORM`, `ODPS_VALIDATE_OUTPUT`). The old `OPDS_*` prefix names remain as deprecated aliases.
+The standards environment-variable prefix is `ODPS_*` (`ODPS_INCLUDE_BUILD_INFO`, `ODPS_INCLUDE_EXECUTION_DETAILS`, `ODPS_TARGET_PLATFORM`, `ODPS_VALIDATE_OUTPUT`). Earlier prefix names remain as deprecated aliases.
 
 See the updated [`fluid odps`](./cli/odps.md) and [`fluid generate standard`](./cli/generate.md#fluid-generate-standard) pages.
 
@@ -82,10 +80,10 @@ See the updated [`fluid datamesh-manager`](./cli/datamesh-manager.md) page.
 
 ## Notable for upgraders
 
-- **`fluid opds` → `fluid odps` (command rename)** — the old spelling continues to work until the next major release. CI scripts that rely on exact CLI output (e.g. `fluid opds info --json`) may see the command name reflected as `odps` in structured output; update pipelines that parse that field.
+- **Standards command spelling normalized to `fluid odps`** — the prior spelling continues to work until the next major release. CI scripts that parse exact CLI output may see the command name reflected as `odps` in structured output; update pipelines that depend on that field.
 - **`--spec odpi-4.1` → `--spec odps-v4.1`** — the old `--spec odpi-4.1` token is accepted with a WARNING and redirected automatically. Mechanical find-and-replace in your scripts is safe.
-- **`OPDS_*` env vars → `ODPS_*`** — both prefixes work; `OPDS_*` emits a deprecation WARNING. Update CI env-var exports at your convenience.
-- **`fluid export-opds` → `fluid export-odps`** — old name kept as alias. Default output path is now `runtime/exports/product.odps.json` (was `product.opds.json`).
+- **Standards env vars use the `ODPS_*` prefix** — the earlier prefix still works and emits a deprecation WARNING. Update CI env-var exports at your convenience.
+- **`fluid export-odps`** — the one-shot export command. Default output path is `runtime/exports/product.odps.json`.
 - **`fluid dmm wipe` is destructive** — requires `--yes` or an interactive confirmation. Never pipe `yes |` in production.
 
 ---
@@ -94,8 +92,8 @@ See the updated [`fluid datamesh-manager`](./cli/datamesh-manager.md) page.
 
 - **[`fluid odps`](./cli/odps.md)** — fully rewritten to document the renamed unified command with Bitol center-stage, LF/ODPI opt-in, `import` subcommand, and back-compat notes.
 - **[`fluid odps-bitol`](./cli/odps-bitol.md)** — updated unified-dispatch section to reflect `fluid odps` name; deprecation note for `--spec odpi-4.1`.
-- **[`fluid export-odps`](./cli/export-odps.md)** — new page for the renamed command (old `export-opds` page kept for back-compat reference).
-- **[`fluid generate standard`](./cli/generate.md#fluid-generate-standard)** — format table updated; `opds` marked deprecated; `odps-v4.1` added; env-var prefix updated to `ODPS_*`.
+- **[`fluid export-odps`](./cli/export-odps.md)** — new page for the one-shot export command.
+- **[`fluid generate standard`](./cli/generate.md#fluid-generate-standard)** — format table updated; `odps-v4.1` added; env-var prefix updated to `ODPS_*`.
 - **[`fluid datamesh-manager`](./cli/datamesh-manager.md)** — new sub-commands (`list-contracts`, `get-contract`, `delete-contract`, `wipe`), access-agreement visibility and auto-approve behavior documented.
 - **`RELEASE_NOTES_0.8.4.md`** — this file.
 
