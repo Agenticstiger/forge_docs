@@ -3,7 +3,7 @@
 Fluid Forge ships **two** Model Context Protocol servers under `fluid mcp`:
 
 - **`fluid mcp serve`** — the **producer / authoring** server. Exposes the staged forge pipeline as stdio MCP tools so an editor's AI can inspect, validate, and edit contracts.
-- **`fluid mcp output-port serve`** — the **consumer / data-access** server (the flagship 0.8.6 capability). Binds one expose of a published contract and serves a small, governed, read-only surface to AI agents.
+- **`fluid mcp output-port serve`** — the **consumer / data-access** server (the flagship 0.8.7 capability). Binds one expose of a published contract and serves a small, governed, read-only surface to AI agents.
 
 The first half of this page covers the authoring server. The second half is a deep dive on the output port's runtime governance — the part that takes reading several files to learn.
 

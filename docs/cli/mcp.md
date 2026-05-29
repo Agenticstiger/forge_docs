@@ -8,7 +8,7 @@
 | `fluid mcp output-port serve` | **Consumer** — an AI agent reading a published data product | Read-only *data-access* tools (`describe` / `sample` / `query` / gated `query_sql`) bound to **one expose** of a contract, with contract-driven governance enforced on every call. |
 
 ::: tip Which one do I want?
-If you are *building* a data product and want an editor's AI to help write the contract, use **`fluid mcp serve`**. If you have a *published* data product and want an agent to safely query it, use **`fluid mcp output-port serve`**. The output port is the flagship 0.8.6 feature — see the [output-port deep dive](../advanced/mcp.md) and the [end-to-end walkthrough](../walkthrough/mcp-output-port.md).
+If you are *building* a data product and want an editor's AI to help write the contract, use **`fluid mcp serve`**. If you have a *published* data product and want an agent to safely query it, use **`fluid mcp output-port serve`**. The output port is the flagship 0.8.7 feature — see the [output-port deep dive](../advanced/mcp.md) and the [end-to-end walkthrough](../walkthrough/mcp-output-port.md).
 :::
 
 ```bash
