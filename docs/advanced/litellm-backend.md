@@ -1,6 +1,6 @@
 # LiteLLM Backend
 
-[LiteLLM](https://github.com/BerriAI/litellm) is the canonical LLM backend on `v0.8.3` — every LLM call from `fluid forge`, `fluid ai`, and the copilot routes through it. LiteLLM replaced ~1,300 lines of per-provider wire-format code with one unified API; no extra install step, no toggle.
+[LiteLLM](https://github.com/BerriAI/litellm) is the canonical LLM backend on `v0.8.6` — every LLM call from `fluid forge`, `fluid ai`, and the copilot routes through it. LiteLLM replaced ~1,300 lines of per-provider wire-format code with one unified API; no extra install step, no toggle.
 
 ::: tip Where this fits
 LiteLLM is wired into core `data-product-forge` (`litellm >= 1.83.7, < 2` is a hard dependency). The historical "opt-in extra" framing from pre-`0.8.0` docs is no longer accurate — the dispatcher always goes through LiteLLM. The companion [LLM Providers](/forge_docs/advanced/llm-providers.html) page covers which provider env vars to set; this page covers the routing-layer specifics.

@@ -160,7 +160,7 @@ Three things worth calling out:
 - **Append, don't raise.** Raising works (the CLI catches it), but appending produces cleaner output.
 
 ::: warning Known limitation — apply hooks don't see `--env`
-CLI `0.8.3` calls apply hooks as `hook(contract_dir, contract, errors)`. There is no parameter, env var, or attribute that carries the `--env` flag's value into the hook. The `contract` is post-overlay (env-specific values baked in), but the hook has no semantic "this is the prod env" signal.
+CLI `0.8.6` calls apply hooks as `hook(contract_dir, contract, errors)`. There is no parameter, env var, or attribute that carries the `--env` flag's value into the hook. The `contract` is post-overlay (env-specific values baked in), but the hook has no semantic "this is the prod env" signal.
 
 **Workarounds today:**
 - Have your CI runner / deploy script `export DEPLOY_ENV=...` (or your team's convention) before invoking `fluid apply`. The hook reads that env var.
@@ -389,7 +389,7 @@ if deploy_env != "prod":
     return
 ```
 
-If you want the hook to read the `--env` flag fluid was invoked with — you can't, as of `0.8.3`. See the "Known limitation" callout earlier on this page.
+If you want the hook to read the `--env` flag fluid was invoked with — you can't, as of `0.8.6`. See the "Known limitation" callout earlier on this page.
 :::
 
 ::: details I want a different override flag, not `--force-pattern-drift`

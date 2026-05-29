@@ -14,7 +14,7 @@ The upcoming `0.7.3` release overhauls `fluid forge` end-to-end. The new flow is
 Most CLIs ask 27 questions before they help. Forge asks four — the rest, it already knows. The reel above walks the welcome scan, mode picker, slash-command interview, streaming preview, and pre-write panel.
 
 ::: tip Where this fits
-This page covers the forge UX as it ships in 0.8.3 — 5-mode picker, slash commands, preview panel, streaming contract preview. Pre-0.8.3 releases had the older single-shot interview shape.
+This page covers the forge UX as it ships in 0.8.6 — 5-mode picker, slash commands, preview panel, streaming contract preview. Pre-0.8.3 releases had the older single-shot interview shape.
 :::
 
 ## Mode picker — the first 5 seconds
@@ -93,7 +93,7 @@ If the inference is high-confidence, the question is skipped (or shown as "Detec
 | "What domain is this in?" | Skipped if `--domain` provided or memory has a hit |
 | "What sources do you have?" | Inferred from `data/` directory contents |
 
-Every prompt offers `:auto` as an escape — type `:auto` to accept the inferred default and move on. The interview ends with a **schema-coverage gate**: the runtime checks that every required field of the resolved schema (0.7.3) is filled, prompts only for what's missing.
+Every prompt offers `:auto` as an escape — type `:auto` to accept the inferred default and move on. The interview ends with a **schema-coverage gate**: the runtime checks that every required field of the resolved schema (0.7.4) is filled, prompts only for what's missing.
 
 To revert to the legacy bootstrap (1.x interview shape), set `FLUID_INTERVIEW_LEGACY=1`.
 

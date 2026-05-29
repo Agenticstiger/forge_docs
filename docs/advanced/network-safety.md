@@ -1,6 +1,6 @@
 # Network Safety
 
-`v0.8.3` consolidates every outbound HTTP fetch behind one safe-HTTP layer. The defaults are conservative — most remote operations are off unless you opt in — and the guard runs at the connection layer so that DNS rebinding and IPv4-mapped IPv6 tricks can't sneak past it.
+`v0.8.6` consolidates every outbound HTTP fetch behind one safe-HTTP layer. The defaults are conservative — most remote operations are off unless you opt in — and the guard runs at the connection layer so that DNS rebinding and IPv4-mapped IPv6 tricks can't sneak past it.
 
 This page describes the **user-visible behaviour**: which flags opt in, which env vars allowlist hosts, where the defaults landed, and which legacy behaviours flipped (the BREAKING ones, listed below).
 

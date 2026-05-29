@@ -65,7 +65,7 @@ Use `--probe` in CI for any environment that has network access to the declared 
 
 ## Notes
 
-- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.8.3`. Schema `0.7.3` is GA as of `0.8.3`.
+- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.8.6`. Schema `0.7.4` is GA as of `0.8.6`.
 - For most users, plain `fluid validate contract.fluid.yaml` is enough. Reach for explicit schema flags when you are debugging compatibility or working across versions.
 
 ## Extension point: custom validators

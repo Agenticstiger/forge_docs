@@ -77,8 +77,8 @@ fluid apply contract.fluid.yaml --yes
 
 This docs site currently tracks:
 
-- CLI release `0.8.3`
-- Scaffolded contract examples using `fluidVersion: 0.7.3` (older `0.7.2` contracts remain valid)
+- CLI release `0.8.6`
+- Scaffolded contract examples using `fluidVersion: 0.7.4` (older `0.7.3` / `0.7.2` contracts remain valid)
 
 `fluid version` and `fluidVersion` are different things. The first is the CLI release you installed. The second is the schema version inside a contract.
 
@@ -113,8 +113,8 @@ For every AI and data-model journey, including hosted provider strict mode, Olla
 | Day-2 Ops | `runs`, `retention`, `secrets`, `stats` |
 | Utilities | `config`, `split`, `bundle`, `auth`, `doctor`, `providers`, `memory`, `mcp`, `version` |
 
-::: tip New in 0.8.3 — source-aligned acquisition + SDK & Plugins
-`0.8.3` lands schema **0.7.3** GA, the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), and the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel). It also ships **three plugin extension points** (`fluid_build.commands` / `fluid_build.extension_validators` / `fluid_build.apply_hooks`) and a companion **SDK** (`data-product-forge-sdk`). See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Product Types](/forge_docs/data-products/product-type.html), and [SDK & Plugins](/forge_docs/sdk-and-plugins/) for the full picture.
+::: tip Current release — `0.8.6`, schema **0.7.4** GA
+`0.8.6` ships the **MCP output-port gateway** with runtime `agentPolicy` enforcement at the gateway (schema **0.7.4**), JWT-bearer + mTLS gateway identity, BigQuery row-access-policy + AWS Lake Formation IAM compilers, PostgreSQL + AWS Athena drivers, and PII/PHI value redaction — see [`fluid mcp`](/forge_docs/cli/mcp.html). It builds on the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel), **three plugin extension points** (`fluid_build.commands` / `fluid_build.extension_validators` / `fluid_build.apply_hooks`), and a companion **SDK** (`data-product-forge-sdk`). See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Product Types](/forge_docs/data-products/product-type.html), and [SDK & Plugins](/forge_docs/sdk-and-plugins/) for the full picture.
 :::
 
 ## Where to go next

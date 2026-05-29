@@ -136,7 +136,7 @@ Three things to know:
 - **Be specific in error messages.** Tell the user *what's wrong*, *what to do about it*, and *what the escape hatch is*. The example above does all three; copy that shape.
 
 ::: warning Known limitation — apply hooks don't see `--env`
-As of CLI `0.8.3`, `fluid apply` does not pass `args.env` (the `--env` flag) into apply hooks. Hooks receive `(contract_dir, contract, errors)` — that's it. The `contract` is post-overlay (env values are baked in), but there's no explicit "target environment was prod" signal.
+As of CLI `0.8.6`, `fluid apply` does not pass `args.env` (the `--env` flag) into apply hooks. Hooks receive `(contract_dir, contract, errors)` — that's it. The `contract` is post-overlay (env values are baked in), but there's no explicit "target environment was prod" signal.
 
 The pragmatic workaround used in this example: have the deploy runner set a `DEPLOY_ENV` env var that hooks read. Most CI systems already do something similar (`CI_ENVIRONMENT_NAME` on GitLab, `GITHUB_REF_NAME` on Actions, etc.).
 
@@ -276,7 +276,7 @@ Pick the policy your team wants. Opt-in is friendlier for local testing; enforce
 :::
 
 ::: details I want the hook to read the --env flag fluid apply was invoked with
-You can't, yet. The CLI doesn't pass `args.env` into apply hooks as of `0.8.3`. The "Known limitation" callout earlier on this page explains the workarounds. For testing in isolation:
+You can't, yet. The CLI doesn't pass `args.env` into apply hooks as of `0.8.6`. The "Known limitation" callout earlier on this page explains the workarounds. For testing in isolation:
 
 ```bash
 DEPLOY_ENV=prod python -c "

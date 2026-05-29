@@ -13,15 +13,15 @@ Short answer: it unifies the four contracts (schema + infra + orchestration + po
 
 ## Why do I see `pip install fluid-forge` in some old docs and `pip install data-product-forge` in new docs?
 
-The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge`** (the older `fluid-forge` listing is frozen at 0.7.9 and won't receive new releases). [Getting Started](/forge_docs/getting-started/) has the up-to-date install instructions for the current `0.8.3` release.
+The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge`** (the older `fluid-forge` listing is frozen at 0.7.9 and won't receive new releases). [Getting Started](/forge_docs/getting-started/) has the up-to-date install instructions for the current `0.8.6` release.
 
 ## What's the difference between `fluidVersion` and the CLI version?
 
-`fluidVersion` is the **contract schema version** declared inside each YAML file (current: `"0.7.3"`). The CLI version is the version of the `data-product-forge` package itself (current: `0.8.3`). The CLI accepts contracts with `fluidVersion` `0.4.0`, `0.5.7`, `0.7.1`, `0.7.2`, or `0.7.3`. Run `fluid version` for the authoritative compatibility list.
+`fluidVersion` is the **contract schema version** declared inside each YAML file (current: `"0.7.4"`). The CLI version is the version of the `data-product-forge` package itself (current: `0.8.6`). The CLI accepts contracts with `fluidVersion` `0.4.0`, `0.5.7`, `0.7.1`, `0.7.2`, `0.7.3`, or `0.7.4`. Run `fluid version` for the authoritative compatibility list.
 
 ## Can I extend the CLI with my own scaffolding, validators, or governance rules?
 
-Yes — `0.8.3` ships three plugin extension points (CLI commands, contract validators, apply hooks) and a companion zero-dependency SDK on PyPI. The journey docs walk you through the common cases: ["you have your own CI"](/forge_docs/sdk-and-plugins/journeys/your-own-ci.md), ["you have your own scaffolding"](/forge_docs/sdk-and-plugins/journeys/your-own-scaffolding.md), ["you have governance rules"](/forge_docs/sdk-and-plugins/journeys/custom-validator.md). Start at [SDK & Plugins](/forge_docs/sdk-and-plugins/).
+Yes — `0.8.6` ships three plugin extension points (CLI commands, contract validators, apply hooks) and a companion zero-dependency SDK on PyPI. The journey docs walk you through the common cases: ["you have your own CI"](/forge_docs/sdk-and-plugins/journeys/your-own-ci.md), ["you have your own scaffolding"](/forge_docs/sdk-and-plugins/journeys/your-own-scaffolding.md), ["you have governance rules"](/forge_docs/sdk-and-plugins/journeys/custom-validator.md). Start at [SDK & Plugins](/forge_docs/sdk-and-plugins/).
 
 ## I get `No module named 'duckdb'` running the local quickstart.
 

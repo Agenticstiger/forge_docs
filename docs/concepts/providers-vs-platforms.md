@@ -12,7 +12,7 @@ Two related but distinct ideas:
 
 `fluid providers` lists everything installed in your environment.
 
-## Cloud providers shipping in `data-product-forge` 0.8.3
+## Cloud providers shipping in `data-product-forge` 0.8.6
 
 These are the cloud-platform providers that implement `plan`/`apply` against a target cloud:
 

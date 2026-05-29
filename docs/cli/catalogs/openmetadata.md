@@ -5,7 +5,7 @@
 > **Recommended for:** teams running OpenMetadata as their data discovery / governance catalog, especially in stacks that already use OpenMetadata's lineage and glossary surfaces.
 
 ::: tip Publish-side only on this page
-There is no source-side OpenMetadata read adapter on `v0.8.3` — `fluid forge data-model from-source` does not (yet) include OpenMetadata in the seven catalogs supported by the source-side flow. If you need to forge a contract *from* OpenMetadata metadata, open an issue and we'll prioritise the read adapter.
+There is no source-side OpenMetadata read adapter on `v0.8.6` — `fluid forge data-model from-source` does not (yet) include OpenMetadata in the seven catalogs supported by the source-side flow. If you need to forge a contract *from* OpenMetadata metadata, open an issue and we'll prioritise the read adapter.
 :::
 
 ## Opt in

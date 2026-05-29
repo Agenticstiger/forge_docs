@@ -21,7 +21,7 @@ Every contract must declare:
 | `exposes` | At least one output (table / view / file / topic). See [Builds, Exposes, Bindings](./builds-exposes-bindings.md). |
 
 ::: tip Schema vs CLI version
-`fluidVersion` is the **contract schema** version (currently `0.7.3`). The CLI version is separate — at the time of writing the CLI ships at `0.8.0`. A v0.8.x CLI happily reads contracts with `fluidVersion: "0.7.1"` or older.
+`fluidVersion` is the **contract schema** version (currently `0.7.4`). The CLI version is separate — at the time of writing the CLI ships at `0.8.6`. A v0.8.x CLI happily reads contracts with `fluidVersion: "0.7.1"` or older.
 :::
 
 ## Minimal valid contract
