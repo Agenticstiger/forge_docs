@@ -112,7 +112,7 @@ The `policy-check` → `generate artifacts` → `policy-apply --mode check` trip
   title="policy-check → generate artifacts → policy-apply --mode check"
   caption="Three commands, full policy round-trip from declarative `accessPolicy.grants` in YAML to native cloud IAM JSON, then a dry-run that shows exactly which bindings would apply against the deployed state."
   width="920"
-  insight="3 commands turn declarative YAML grants into native cloud IAM — auditable, reviewable, shippable. | One contract emits 4 artifacts: bindings.json (BigQuery/Snowflake) + opa-policies.rego (OPA) + ODCS + OPDS. Catalogs that already speak any of these can ingest yours without translation. | --mode check shows exactly what would change before it fires. Flip to --mode enforce only when the diff is clean and reviewed."
+  insight="3 commands turn declarative YAML grants into native cloud IAM — auditable, reviewable, shippable. | One contract emits 4 artifacts: bindings.json (BigQuery/Snowflake) + opa-policies.rego (OPA) + ODCS + ODPS. Catalogs that already speak any of these can ingest yours without translation. | --mode check shows exactly what would change before it fires. Flip to --mode enforce only when the diff is clean and reviewed."
 />
 
 ---

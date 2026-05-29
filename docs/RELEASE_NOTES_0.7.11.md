@@ -11,7 +11,7 @@
   - `demo`, `skills`, `ai`
   - `contract-tests`, `contract-validation`, `policy-compile`, `policy-apply`
   - `scaffold-ci`, `scaffold-composer`, `generate-pipeline`, `provider-init`
-  - `odps`, `odps-bitol`, `odcs`, `export`, `export-opds`, `datamesh-manager`
+  - `odps`, `odps-bitol`, `odcs`, `export`, `export-odps`, `datamesh-manager`
   - `product-new`, `product-add`, `workspace`, `ide`, `docs`
 - Hidden / deprecated commands (`compile`, `context`, `graph`, `marketplace`, `preview`, `viz-plan`) are tracked in `scripts/cli-docs-allowlist.yml` rather than left as silent gaps.
 - Sidebar regrouped to match the new CLI Reference index (Core, Generate, Standards & Interop, Integrations, Quality & Governance, Project & Workspace, CI & Scaffolding, Utilities).

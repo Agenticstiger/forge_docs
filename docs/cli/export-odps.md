@@ -2,10 +2,6 @@
 
 Export a FLUID contract to an ODPS (Open Data Product Standard) file in one shot.
 
-::: tip Back-compat alias
-`fluid export-opds` (old name, note the letter swap) is kept as a hidden back-compat alias and will be removed in a future major release. Update scripts to use `fluid export-odps`.
-:::
-
 ## Syntax
 
 ```bash

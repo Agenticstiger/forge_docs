@@ -195,7 +195,6 @@ export default defineUserConfig({
             '/cli/odcs.md',
             '/cli/export.md',
             '/cli/export-odps.md',
-            '/cli/export-opds.md',
             // Integrations
             '/cli/publish.md',
             '/cli/datamesh-manager.md',

@@ -26,7 +26,7 @@ Key options:
 
 - `CONTRACT` — path to `contract.fluid.yaml` (or a tgz bundle from `fluid bundle --format tgz`)
 - `--out PATH` — output directory (default `dist/artifacts/`)
-- `--emit {odcs,odps-bitol,opds,schedule,policies}[,...]` — explicit emit set; default is everything except the `opds` / `odps` aliases which remain opt-in until the Linux-Foundation emitter shape is fixed
+- `--emit {odcs,odps-bitol,schedule,policies}[,...]` — explicit emit set; default emits all of these
 - `--env ENV` — environment overlay
 - `--no-generate-artifacts` — CI helper: auto-skip this stage when the contract is reference-only (`pattern: hybrid-reference` etc.)
 
@@ -156,7 +156,6 @@ Supported formats:
 | `odcs` | Open Data Contract Standard (ODCS) v3.1.0 — the Bitol.io standard | Publishing **contract-level** specs (schema, quality, SLA) to Bitol-aligned tooling. Where ODPS describes a whole data product, ODCS focuses on the consumer-facing contract. |
 | `odps-v4.1` | LF/ODPI ODPS v4.1 — Open Data Product Specification (opt-in) | ODPI-aligned catalogs that consume the Linux Foundation / Open Data Product Initiative spec. |
 | `odps-bitol` | Standards-compliant Bitol ODPS payload, stricter than `odps` | Strict conformance — fields that are not explicitly declared on a `consumes[]` entry are omitted (no synthetic `contractId`, no default `required: True`). |
-| `opds` | **Deprecated alias** for `odps` | Back-compat only. Emits a deprecation warning. Use `odps` instead. |
 
 ### Examples of each format
 
@@ -194,7 +193,7 @@ fluid export-odps CONTRACT [--env ENV] [--out PATH]
 | `--env ENV` | Apply an environment overlay |
 | `--out PATH` | Output file path (default: `runtime/exports/product.odps.json`) |
 
-Produces the same output as `fluid generate standard --format odps`. The old `fluid export-opds` spelling is kept as a back-compat alias.
+Produces the same output as `fluid generate standard --format odps`.
 
 ## Examples
 

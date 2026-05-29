@@ -28,6 +28,8 @@ SKIP_CLI_PROVIDERS = {
     "datamesh_manager",  # documented in docs/cli/datamesh-manager.md
     "odps",              # documented in docs/cli/odps.md
     "odps_standard",     # documented in docs/cli/odps-bitol.md
+    "odps_bitol",        # documented in docs/cli/odps-bitol.md
+    "opds",              # hidden back-compat alias of odps; intentionally undocumented
     "odcs",              # documented in docs/cli/odcs.md
     "redshift",          # new in 0.8.3rc1; dedicated docs/providers/redshift.md is a follow-up
 }

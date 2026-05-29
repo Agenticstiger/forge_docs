@@ -215,7 +215,7 @@ The fast schedule catches stale-data incidents (against `freshnessSLO`); the slo
 
 | Format | File | Used by |
 |---|---|---|
-| **OPDS** (Open Product Data Schema) | `artifacts/standards/product.opds.json` | Generic catalog ingest |
+| **ODPS** (Open Data Product Standard) | `artifacts/standards/product.odps.json` | Generic catalog ingest |
 | **ODCS** (Open Data Contract Standard) | `artifacts/standards/product.odcs.yaml` | Data Mesh Manager, Atlan, Collibra (when configured) |
 | **OpenLineage** | `artifacts/lineage/openlineage.json` | Marquez, DataHub, OpenLineage-compliant tools |
 
