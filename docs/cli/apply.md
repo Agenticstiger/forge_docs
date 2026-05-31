@@ -59,6 +59,7 @@ This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryp
 | --- | --- |
 | `--yes` | Skip confirmation |
 | `--dry-run` | Alias for `--mode dry-run` |
+| `--ensure-opentofu` | *(since 0.8.8)* If the `tofu` binary is missing, provision a **pinned, SHA-256-verified** OpenTofu build before a cloud apply — **no root, gpg, cosign, curl, or unzip needed** (Python stdlib only). Idempotent (a usable `tofu` at/above the engine floor is left untouched) and a no-op for native / `local` applies. Pin via `FLUID_OPENTOFU_VERSION`. `fluid generate ci` bakes this into the generated apply stage so cloud applies work on locked-down / non-root runners. |
 | `--timeout TIMEOUT` | Global timeout in minutes |
 | `--parallel-phases` | Execute independent phases in parallel |
 | `--max-workers MAX_WORKERS` | Maximum workers for parallel execution |
