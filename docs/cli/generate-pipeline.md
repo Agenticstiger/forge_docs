@@ -33,6 +33,7 @@ fluid generate-pipeline --interactive
 
 ## Notes
 
+- *(since 0.8.8)* The generated **apply stage** carries [`--ensure-opentofu`](./apply.md), so a cloud apply provisions a pinned, SHA-256-verified `tofu` on a fresh / non-root runner — no root, gpg, or cosign needed. It is idempotent and a no-op for native / `local` applies.
 - Each generated file is prefixed with a provenance header naming the generator, timestamp, command, and a sha256 prefix; YAML files use `#`, `Jenkinsfile` uses `//`.
 - A `ci-state.json` document is written next to the pipeline files so [`fluid forge`](./forge.md) on another machine can detect drift against the provider choice you just made.
 - Providers passed as `circleci` are auto-aliased to the internal `circle_ci` name; use the underscore form when scripting.

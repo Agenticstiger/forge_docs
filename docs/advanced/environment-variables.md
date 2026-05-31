@@ -166,6 +166,7 @@ See [`fluid generate iac`](../cli/generate-iac.md).
 | Variable | Purpose |
 |---|---|
 | `FLUID_TOFU_TIMEOUT_SECONDS` | Per-`tofu` subprocess timeout. Default `1800`. |
+| `FLUID_OPENTOFU_VERSION` | *(since 0.8.8)* Pin the OpenTofu version that [`fluid apply --ensure-opentofu`](../cli/apply.md) provisions when `tofu` is missing. Defaults to a recent stable build at/above the engine's version floor. |
 
 ## Marketplace
 
