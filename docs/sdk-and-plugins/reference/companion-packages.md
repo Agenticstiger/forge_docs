@@ -6,9 +6,9 @@ Three packages ship together as one platform. End users only need the CLI; plugi
 
 | Package | Version | PyPI | Import path | What you reach for it for |
 |---|---|---|---|---|
-| **`data-product-forge`** | `0.8.7` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle |
-| **`data-product-forge-sdk`** | `0.9.0` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, etc.) + conformance test harness. Plugin authors only. |
-| **`data-product-forge-custom-scaffold`** | `0.1.0` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine. Use this when your plugin distributes templates via a git bundle (most common pattern). |
+| **`data-product-forge`** | `0.8.9` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle, and the `fluid forge` copilot (0.8.9: generates + validates plugin `contract.extensions.*` blocks natively) |
+| **`data-product-forge-sdk`** | `0.9.1` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, etc.) + conformance test harness + `iter_extension_schemas()` discovery helper. Plugin authors only. |
+| **`data-product-forge-custom-scaffold`** | `0.1.1` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine. Use this when your plugin distributes templates via a git bundle (most common pattern). 0.1.1 adds white-label spec dialects (`ScaffoldDialect`). |
 
 ## Who installs what
 
@@ -48,7 +48,7 @@ The PyPI name reflects the product brand (`data-product-forge`). The import path
 
 ```toml
 dependencies = [
-    "data-product-forge==0.8.7",  # pin exact for reproducibility
+    "data-product-forge==0.8.9",  # pin exact for reproducibility
 ]
 ```
 
@@ -92,13 +92,15 @@ Best practice:
 
 ### `data-product-forge-sdk`
 
-- **Currently 0.9.0 — Beta classifier.** First stable `1.0.0` planned after a validation window with the first external plugins on PyPI.
+- **Currently 0.9.1 — Beta classifier.** First stable `1.0.0` planned after a validation window with the first external plugins on PyPI.
+- **0.9.1** added `iter_extension_schemas()` and the `fluid_build.extension_schemas` group — additive, no breaking change.
 - Minor versions (0.9 → 0.10) **may** break the API; we expect them not to in practice but the classifier reflects "we reserve the right." Pin the upper bound (`<1`).
-- Patch versions (0.9.0 → 0.9.1) only fix bugs; safe to consume without bumping.
+- Patch versions (0.9.0 → 0.9.1) only add/fix in a backwards-compatible way; safe to consume without bumping.
 
 ### `data-product-forge-custom-scaffold`
 
-- **Currently 0.1.0 — Beta classifier.** Same model as the SDK: first stable cut after the validation window.
+- **Currently 0.1.1 — Beta classifier.** Same model as the SDK: first stable cut after the validation window.
+- **0.1.1** ships the `customScaffold` JSON-Schema as a real package artifact, advertises it to the `fluid forge` copilot via `fluid_build.extension_schemas`, and adds **white-label spec dialects** (`ScaffoldDialect` + `make_validator()` / `make_register()` factories) so a third party can reuse the engine under their own `apiVersion`, `extensions.<key>`, and subcommand. All additive.
 - The bundle manifest format is **`fluid.dev/custom-scaffold.v1`** — a v2 would be a breaking change, and bundles would need to update their `apiVersion`. No v2 is on the roadmap.
 
 ## Where to find the source
@@ -135,5 +137,5 @@ Issues, PRs, and discussions all happen on the upstream repos. The `examples/` d
 
 - [Packaging](./packaging.md) — how to ship a plugin to PyPI
 - [Roles](./roles.md) — the four roles and their helpers
-- [Entry points](./entry-points.md) — the six entry-point groups and when to use each
+- [Entry points](./entry-points.md) — the eight entry-point groups and when to use each
 - [Trust model](./trust-model.md) — what the CLI guarantees about plugins

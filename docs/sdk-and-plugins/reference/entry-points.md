@@ -1,11 +1,12 @@
 # Entry points reference
 
-`data-product-forge` discovers external functionality through Python entry-points. There are **three CLI-level groups** the CLI walks today, **two role-level groups** wired into specific engines, and **two role-level groups on the SDK roadmap** (the SDK exports the role base classes, but the CLI doesn't yet walk them automatically). Each line in your `pyproject.toml` registers one plugin under one group.
+`data-product-forge` discovers external functionality through Python entry-points. There are **four CLI-level groups** the CLI walks today, **two role-level groups** wired into specific engines, and **two role-level groups on the SDK roadmap** (the SDK exports the role base classes, but the CLI doesn't yet walk them automatically). Each line in your `pyproject.toml` registers one plugin under one group.
 
-| Group | Wired in 0.8.7? | Walker |
+| Group | Wired in 0.8.9? | Walker |
 |---|---|---|
 | `fluid_build.commands` | ✅ | `cli/bootstrap.py` |
 | `fluid_build.extension_validators` | ✅ | `cli/validate.py` |
+| `fluid_build.extension_schemas` | ✅ (new in 0.8.9) | `fluid_build/extension_schemas.py` (forge copilot) |
 | `fluid_build.apply_hooks` | ✅ | `cli/apply.py` |
 | `fluid_build.custom_scaffolds` | ✅ | `data-product-forge-custom-scaffold` engine |
 | `fluid_build.providers` | ✅ | `cli/apply.py` (provider dispatch) |
@@ -14,7 +15,7 @@
 
 The two roadmap groups exist as **declared conventions** so plugin authors can register against them now; a future CLI release will add the auto-walking layer. Until then, register `Validator` shapes under `fluid_build.extension_validators` (the function-signature walker described below).
 
-## The three CLI-level groups
+## The four CLI-level groups
 
 These hook into specific CLI subcommands. Discovered via `importlib.metadata.entry_points()` at CLI startup.
 
@@ -22,6 +23,7 @@ These hook into specific CLI subcommands. Discovered via `importlib.metadata.ent
 |---|---|---|---|
 | `fluid_build.commands` | `cli/bootstrap.py::register_core_commands` (CLI startup) | `register(subparsers) -> None` | Plugin load or `register()` exception → WARN log, CLI continues |
 | `fluid_build.extension_validators` | `cli/validate.py::_run_extension_validators` (during `fluid validate`) | `validate(extensions_block: dict, errors: list[str]) -> None` | Plugin exception → folded into `ValidationResult.errors`, validate continues |
+| `fluid_build.extension_schemas` | `fluid_build/extension_schemas.py::iter_extension_schemas` (during `fluid forge` generate + pre-emit validate) | `get_extension_schema(fluid_version: str \| None = None) -> dict` | Plugin exception → skipped (logged by type, redacted); discovery fails open to `{}` |
 | `fluid_build.apply_hooks` | `cli/apply.py::_run_apply_hooks` (during `fluid apply`) | `hook(contract_dir: Path, contract: dict, errors: list[str]) -> None` | Plugin exception → recorded as error, apply aborts unless `--force-pattern-drift` |
 
 ## `fluid_build.commands` — add CLI subcommands
@@ -112,6 +114,54 @@ The entry-point **name** is the sub-key your validator claims. The error namespa
 ### Example
 
 The `data-product-forge-custom-scaffold` package uses this group to validate the `contract.extensions.customScaffold` block — see [its pyproject.toml](https://github.com/Agenticstiger/data-product-forge-custom-scaffold/blob/main/pyproject.toml#L60).
+
+## `fluid_build.extension_schemas` — make `contract.extensions.*` AI-native
+
+The companion to `extension_validators` (new in CLI **0.8.9**). Where the validator *checks* a `contract.extensions.<key>` block, the schema provider *describes* it: it returns the JSON-Schema for the block so the **`fluid forge` copilot** can **generate** a valid block and **pre-validate** it before writing the contract.
+
+Without this, the core contract schema treats `extensions` as `additionalProperties: true` — the copilot has no idea what shape your sub-key takes, so AI-authored contracts never include it. Register a schema provider and your extension is handled like a first-class contract field, with **zero per-extension CLI changes** — the entry-point group *is* the entire contract.
+
+### Signature
+
+```python
+from typing import Any, Optional
+
+
+def get_extension_schema(fluid_version: Optional[str] = None) -> dict[str, Any]:
+    """Return the draft-07 JSON-Schema for your contract.extensions.<key> block.
+
+    `fluid_version` is the target contract version (e.g. "0.7.4") so a provider
+    can return a version-specific schema; ignore it if your schema is stable.
+    The dict describes the data *under* the extension key.
+    """
+    return {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "required": ["..."],
+        "properties": {"...": {"type": "string"}},
+    }
+```
+
+A zero-argument provider (`get_extension_schema()`) is also accepted.
+
+### Registration
+
+```toml
+[project.entry-points."fluid_build.extension_schemas"]
+myKey = "my_pkg.validation:get_extension_schema"
+```
+
+The entry-point **name** is the `contract.extensions` sub-key the schema describes — match the name you registered under `fluid_build.extension_validators` so the same block is both generated and validated.
+
+### Discovery + failure
+
+- Enumerated by `iter_extension_schemas()` in `fluid_build/extension_schemas.py`. The `fluid forge` copilot injects every discovered schema into the modeler prompt (so the LLM can propose a valid block under `source_summary.proposed_extensions`), keeps only proposals that validate against the schema, and runs the matching `extension_validators` on the emitted block **before** the contract is written — so a malformed block is repaired, not shipped.
+- Per-plugin isolation: a provider that fails to load, raises, or returns a non-`dict` is skipped — logged by exception **type** only (so a secret-bearing message can't leak) — and never drops the other providers. Discovery fails open to `{}`.
+- A no-op when no provider is installed: the copilot prompt is byte-identical to before, so contracts that don't use extensions are unaffected.
+
+### Example
+
+`data-product-forge-custom-scaffold` advertises the schema for `contract.extensions.customScaffold` from the same module that validates it — see [its `validation.py`](https://github.com/Agenticstiger/data-product-forge-custom-scaffold/blob/main/src/data_product_forge_custom_scaffold/validation.py). The SDK ships a reference `iter_extension_schemas()` helper (`from fluid_sdk import iter_extension_schemas`) for plugin authors and conformance tests.
 
 ## `fluid_build.apply_hooks` — runtime invariant checks at `fluid apply`
 
@@ -204,10 +254,10 @@ Multiple registrations per group are fine — both `steward-required` and `cost-
 | Register an `InfraProvider` for `fluid apply` to dispatch to | `fluid_build.providers` |
 | Register a `CatalogAdapter` for `fluid publish --target ...` | `fluid_build.catalog_adapters` |
 
-## All seven groups, side by side
+## All eight groups, side by side
 
 ```toml
-# pyproject.toml — example registering across all six groups
+# pyproject.toml — example registering across all eight groups
 
 # CLI-level extension points (functions)
 [project.entry-points."fluid_build.commands"]
@@ -215,6 +265,9 @@ my-cmd = "my_pkg.cli:register"
 
 [project.entry-points."fluid_build.extension_validators"]
 myKey = "my_pkg.ext_validate:validate"
+
+[project.entry-points."fluid_build.extension_schemas"]
+myKey = "my_pkg.ext_validate:get_extension_schema"
 
 [project.entry-points."fluid_build.apply_hooks"]
 my-hook = "my_pkg.hook:check"
@@ -247,8 +300,8 @@ python -c "
 from importlib.metadata import entry_points
 for group in ('fluid_build.commands', 'fluid_build.custom_scaffolds',
               'fluid_build.validators', 'fluid_build.apply_hooks',
-              'fluid_build.extension_validators', 'fluid_build.providers',
-              'fluid_build.catalog_adapters'):
+              'fluid_build.extension_validators', 'fluid_build.extension_schemas',
+              'fluid_build.providers', 'fluid_build.catalog_adapters'):
     eps = list(entry_points(group=group))
     if eps:
         print(f'{group}:')
@@ -294,5 +347,6 @@ What it does **not** defend against: arbitrary `os.system` calls inside plugin c
 
 - Bootstrap loop: [`fluid_build/cli/bootstrap.py::register_core_commands`](https://github.com/Agenticstiger/forge-cli/blob/main/fluid_build/cli/bootstrap.py)
 - Extension validators loop: [`fluid_build/cli/validate.py::_run_extension_validators`](https://github.com/Agenticstiger/forge-cli/blob/main/fluid_build/cli/validate.py)
+- Extension schema discovery: [`fluid_build/extension_schemas.py::iter_extension_schemas`](https://github.com/Agenticstiger/forge-cli/blob/main/fluid_build/extension_schemas.py)
 - Apply hooks loop: [`fluid_build/cli/apply.py::_run_apply_hooks`](https://github.com/Agenticstiger/forge-cli/blob/main/fluid_build/cli/apply.py)
 - Tests pinning all three: [`tests/test_cli_plugin_hooks.py`](https://github.com/Agenticstiger/forge-cli/blob/main/tests/test_cli_plugin_hooks.py)
