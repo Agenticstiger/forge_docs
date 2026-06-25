@@ -40,7 +40,7 @@ fluid init my-project --provider snowflake
 `--discover` ships in `0.8.3` as part of schema 0.7.3. Earlier releases don't include it.
 :::
 
-Instead of writing the acquisition block by hand, point `fluid init` at a source URI and it emits a deterministic 0.7.3 Bronze (SDP) contract per discovered stream:
+Instead of writing the acquisition block by hand, point `fluid init` at a source URI and it emits a deterministic 0.7.4 Bronze (SDP) contract per discovered stream:
 
 ```bash
 fluid init --discover postgres://user:pass@host:5432/dbname
@@ -72,7 +72,7 @@ You can then `fluid validate` and `fluid apply` immediately, or open the files a
 ## Notes
 
 - The promoted newcomer path is `fluid init ... --quickstart`, then `validate`, `plan`, and `apply`.
-- As of `0.8.7`, scaffolds emit contracts using `fluidVersion: 0.7.4`. `--discover` also emits `0.7.4`. Older `0.7.3` / `0.7.2` contracts remain valid.
+- As of `0.8.11`, scaffolds emit contracts using `fluidVersion: 0.7.4`. `--discover` also emits `0.7.4`. Older `0.7.3` / `0.7.2` contracts remain valid.
 - If you want AI-assisted scaffolding instead, use [`fluid forge`](./forge.md).
 
 ## Fastest path — `fluid demo`

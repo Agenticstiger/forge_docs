@@ -1,7 +1,7 @@
 # Fluid Forge Docs Baseline: CLI `0.8.9`
 
 **Release Date:** June 1, 2026
-**Status:** Current stable docs baseline (supersedes [`0.8.8`](./RELEASE_NOTES_0.8.8.md))
+**Status:** Superseded by [`0.8.10`](./RELEASE_NOTES_0.8.10.md) (supersedes [`0.8.8`](./RELEASE_NOTES_0.8.8.md))
 
 ## Headline
 

@@ -2,7 +2,7 @@
 
 `data-product-forge` discovers external functionality through Python entry-points. There are **four CLI-level groups** the CLI walks today, **two role-level groups** wired into specific engines, and **two role-level groups on the SDK roadmap** (the SDK exports the role base classes, but the CLI doesn't yet walk them automatically). Each line in your `pyproject.toml` registers one plugin under one group.
 
-| Group | Wired in 0.8.9? | Walker |
+| Group | Wired in? | Walker |
 |---|---|---|
 | `fluid_build.commands` | ✅ | `cli/bootstrap.py` |
 | `fluid_build.extension_validators` | ✅ | `cli/validate.py` |
@@ -208,7 +208,7 @@ The entry-point name surfaces in the error namespace (`apply hook 'my-hook' rais
 
 ### What hooks know about the target environment
 
-**Known limitation (CLI `0.8.7`):** apply hooks do not receive `args.env` (the `--env` flag) as a parameter, env var, or contract field. The hook signature is exactly `(contract_dir, contract, errors)`. The `contract` is post-overlay (env values baked in), but no semantic "this is the prod env" signal is preserved.
+**Known limitation (CLI `0.8.11`):** apply hooks do not receive `args.env` (the `--env` flag) as a parameter, env var, or contract field. The hook signature is exactly `(contract_dir, contract, errors)`. The `contract` is post-overlay (env values baked in), but no semantic "this is the prod env" signal is preserved.
 
 Workarounds today:
 

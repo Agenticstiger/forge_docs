@@ -310,7 +310,7 @@ Use the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Even fo
 
 ### Added
 - Initial release.
-- Supports fluidVersion 0.7.1, 0.7.2, 0.7.3.
+- Supports fluidVersion 0.7.1, 0.7.2, 0.7.3, 0.7.4.
 
 ### Notes
 - Beta classifier; minor versions may break the API until 1.0.

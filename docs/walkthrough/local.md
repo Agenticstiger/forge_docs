@@ -49,7 +49,7 @@ pip install data-product-forge
 fluid version
 
 # Should show:
-# Fluid Forge CLI v0.8.0
+# Fluid Forge CLI v0.8.11
 # Providers: local (production), gcp (production)
 ```
 

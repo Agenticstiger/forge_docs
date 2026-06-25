@@ -26,7 +26,7 @@ fluid describe --self --json  # stable JSON for scripts / CI
 
 ```json
 {
-  "fluid_version": "0.8.7",
+  "fluid_version": "0.8.11",
   "python_version": "3.12.13",
   "schema_version": "0.7.4",
   "providers": ["local", "gcp", "aws", "snowflake"],

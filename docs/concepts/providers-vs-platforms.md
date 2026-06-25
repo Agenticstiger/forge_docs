@@ -12,7 +12,7 @@ Two related but distinct ideas:
 
 `fluid providers` lists everything installed in your environment.
 
-## Cloud providers shipping in `data-product-forge` 0.8.7
+## Cloud providers shipping in `data-product-forge` 0.8.11
 
 These are the cloud-platform providers that implement `plan`/`apply` against a target cloud:
 
@@ -112,7 +112,7 @@ Each provider declares the contract schema versions it can handle:
 ```python
 class MyProvider(BaseProvider):
     name = "my-cloud"
-    supported_schemas = ["0.7.1", "0.7.2", "0.7.3"]
+    supported_schemas = ["0.7.1", "0.7.2", "0.7.3", "0.7.4"]
 ```
 
 `fluid validate` cross-checks the contract's `fluidVersion` against every installed provider's `supported_schemas`. Mismatch is a hard failure at validate time — the CLI refuses to load a contract that no installed provider can plan.

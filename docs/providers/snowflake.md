@@ -3,11 +3,11 @@
 Deploy data products to Snowflake Data Cloud — databases, schemas, tables, RBAC grants — using the same contract and CLI commands as every other provider.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.8.0`<br>
+**Docs Baseline:** CLI `0.8.11`<br>
 **Tested Services:** Databases, Schemas, Tables, Warehouses, RBAC Grants
 
 ::: warning Compatibility note
-This page preserves some older `0.7.1` examples for backward-compatibility context. Current scaffolds emit `fluidVersion: 0.7.2`, and new orchestration examples should prefer `fluid generate schedule --scheduler airflow`.
+This page preserves some older `0.7.1` examples for backward-compatibility context. Current scaffolds emit `fluidVersion: 0.7.4`, and new orchestration examples should prefer `fluid generate schedule --scheduler airflow`.
 :::
 
 ---

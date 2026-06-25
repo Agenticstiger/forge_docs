@@ -1,11 +1,11 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.8.0`<br>
+**Docs Baseline:** CLI `0.8.11`<br>
 **Services:** BigQuery, Cloud Storage, IAM, Cloud Run, Pub/Sub
 
 ::: warning Compatibility note
-This page preserves some older examples for compatibility context. Current scaffolds emit `fluidVersion: 0.7.2`, and orchestration docs now prefer `fluid generate schedule --scheduler airflow`.
+This page preserves some older examples for compatibility context. Current scaffolds emit `fluidVersion: 0.7.4`, and orchestration docs now prefer `fluid generate schedule --scheduler airflow`.
 :::
 
 ---

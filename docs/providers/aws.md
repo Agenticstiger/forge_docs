@@ -3,7 +3,7 @@
 Deploy data products to Amazon Web Services — S3, Glue, Athena — using the same contract and CLI commands as every other provider.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.8.0`<br>
+**Docs Baseline:** CLI `0.8.11`<br>
 **Tested Services:** S3, Glue Data Catalog, Athena, IAM
 
 <CliCast
@@ -15,7 +15,7 @@ Deploy data products to Amazon Web Services — S3, Glue, Athena — using the s
 />
 
 ::: warning Compatibility note
-This page preserves some older `0.7.1` contract snippets for backward-compatibility context. Current scaffolds emit `fluidVersion: 0.7.2`, and orchestration guidance now prefers `fluid generate schedule --scheduler airflow`.
+This page preserves some older `0.7.1` contract snippets for backward-compatibility context. Current scaffolds emit `fluidVersion: 0.7.4`, and orchestration guidance now prefers `fluid generate schedule --scheduler airflow`.
 :::
 
 ---
