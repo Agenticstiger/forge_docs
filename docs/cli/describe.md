@@ -26,9 +26,9 @@ fluid describe --self --json  # stable JSON for scripts / CI
 
 ```json
 {
-  "fluid_version": "0.8.7",
+  "fluid_version": "0.9.0",
   "python_version": "3.12.13",
-  "schema_version": "0.7.4",
+  "schema_version": "0.7.5",
   "providers": ["local", "gcp", "aws", "snowflake"],
   "build_engines": ["airbyte", "custom", "dbt", "debezium", "dlt", "duckdb", "kafka-connect", "meltano", "python", "spark", "sql"],
   "templates": ["starter", "analytics", "ml_pipeline", "etl_pipeline", "streaming"]

@@ -5,6 +5,10 @@ description: Access policy, sovereignty, and how Fluid Forge compiles to native 
 
 # Governance & Policy
 
+> **Why it matters**
+> Governance stops being a separate audit phase and becomes part of the product from line one.
+> `accessPolicy.grants` compiles to native cloud IAM (BigQuery / Snowflake / S3) — declared in the contract, applied by the CLI.
+
 Three pieces, all declarative, all enforced before deploy:
 
 1. **`accessPolicy.grants[]`** — who can do what (the schema's `permissions` enum supports `read`, `select`, `query`, `write`, `insert`, `update`, `delete`, `admin`, and more). Top-level field.

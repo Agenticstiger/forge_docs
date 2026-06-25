@@ -149,7 +149,7 @@ class HelloScaffold(CustomScaffold):
 That's the whole plugin. Three things to know about what you didn't write:
 
 - **`apply(actions)` is inherited** from `CustomScaffold`. The reference implementation writes files atomically with `sha256` verification and path-traversal guards. You don't override it unless you're doing something custom.
-- **`ContractHelper`** is a read-only parser tolerant of every `fluidVersion` from `0.4` through `0.7.3`. `c.name`, `c.id`, `c.description`, `c.environment_names()`, etc. — your plugin doesn't break when the contract schema evolves.
+- **`ContractHelper`** is a read-only parser tolerant of every `fluidVersion` from `0.4` through `0.7.5`. `c.name`, `c.id`, `c.description`, `c.environment_names()`, etc. — your plugin doesn't break when the contract schema evolves.
 - **`write_file_action(...)`** builds a canonical action dict with sha256 + base64-encoded content + atomic-write semantics. Returning these from `plan()` is the entire interface.
 
 ## Step 4 — write the test (just four lines, get 15 for free)

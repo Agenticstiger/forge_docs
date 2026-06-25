@@ -1,11 +1,15 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.8.0`<br>
+**Docs Baseline:** CLI `0.9.0`<br>
 **Services:** BigQuery, Cloud Storage, IAM, Cloud Run, Pub/Sub
 
+> **Why it matters**
+> Ship the same contract to BigQuery without a GCP-specific rewrite.
+> Set `binding.platform: gcp` and Forge compiles to BigQuery DDL + IAM and OpenTofu from the same file.
+
 ::: warning Compatibility note
-This page preserves some older examples for compatibility context. Current scaffolds emit `fluidVersion: 0.7.2`, and orchestration docs now prefer `fluid generate schedule --scheduler airflow`.
+This page preserves some older examples for compatibility context. Current scaffolds emit `fluidVersion: 0.7.5`, and orchestration docs now prefer `fluid generate schedule --scheduler airflow`.
 :::
 
 ---
@@ -20,7 +24,7 @@ The Google Cloud Platform provider is the flagship Fluid Forge implementation, o
 - **Cost-Effective** - Pay-per-query pricing with generous free tier
 - **Enterprise Scale** - Petabyte-scale analytics out of the box
 - **ML Integration** - Native BigQuery ML and Vertex AI
-- **Security Built-In** - Column-level security, data masking, audit logs
+- **IAM Access Control** - Dataset/table-level IAM bindings compiled from the contract
 
 ---
 
@@ -46,7 +50,7 @@ gcloud services enable storage.googleapis.com
 ### Minimal Contract
 
 ```yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.4"
 kind: DataProduct
 id: analytics.customers_v1
 name: Customer Analytics
@@ -110,9 +114,9 @@ fluid export contract.yaml --engine prefect -o flows/
 | External Tables | ✅ Full | GCS, Google Sheets, Bigtable |
 | Routines | ✅ Full | UDFs, stored procedures |
 | Authorized Views | ✅ Full | Fine-grained access control |
-| Policy Tags | ✅ Full | Column-level security (Phase 1-3) |
-| Data Masking | ✅ Full | Dynamic data masking |
-| Row-Level Security | 🔜 Q2 2026 | RLS policies |
+| Policy Tags | 🔜 Not yet | Column-level security via Data Catalog taxonomies is not emitted by the contract — manage with `gcloud` |
+| Data Masking | 🔜 Not yet | BigQuery dynamic data masking is not emitted by the contract |
+| Row-Level Security | 🔜 Not yet | No `CREATE ROW ACCESS POLICY` is emitted; row-level governance is roadmap |
 
 ### ✅ Cloud Storage
 
@@ -137,20 +141,15 @@ fluid export contract.yaml --engine prefect -o flows/
 | Dagster Pipelines | ✅ Full | Type-safe ops with resources |
 | Prefect Flows | ✅ Full | Retry logic and deployment configs |
 
-**Performance:**
-- Average generation time: 0.8-2ms
-- Average output size: 2-10KB
-- Test coverage: 100% (all provider tests passing)
-
 ### ✅ IAM & Security
 
 | Feature | Support | Notes |
 |---------|---------|-------|
 | Service Accounts | ✅ Full | Auto-creation, key management |
-| IAM Bindings | ✅ Full | Least-privilege access |
-| Policy Tags | ✅ Full | Taxonomy management |
+| IAM Bindings | ✅ Full | Least-privilege access (dataset/table-level) |
+| Policy Tags | 🔜 Not yet | Data Catalog taxonomies are not a contract construct — manage with `gcloud` |
 | Audit Logs | ✅ Full | Admin, data access logs |
-| VPC Service Controls | 🔜 Q2 2026 | Network isolation |
+| VPC Service Controls | 🔜 Not yet | Network isolation is roadmap |
 
 ### ⏳ Cloud Run (Preview)
 
@@ -369,7 +368,14 @@ gcloud data-catalog taxonomies add-iam-policy-binding \
 
 ### Data Masking
 
-Automatically mask sensitive data with `policy.privacy.masking` on the expose:
+::: warning Declarative only
+`policy.privacy.masking` is a valid schema field, but the GCP provider does **not** currently
+emit any BigQuery dynamic-masking or Data Catalog data-policy resource from it. Today the block
+records masking *intent* as contract metadata; it does not provision masking infrastructure.
+Apply BigQuery masking with `gcloud` / Data Catalog data policies until this is wired in.
+:::
+
+Declare masking intent on the expose with `policy.privacy.masking`:
 
 ```yaml
 exposes:
@@ -730,16 +736,18 @@ WHERE job_id = 'YOUR_JOB_ID'
 ## Roadmap
 
 ### Q2 2026
-- ✅ Row-Level Security (RLS) policies
-- ✅ Dataflow integration
-- ✅ Cloud Composer orchestration
-- ✅ VPC Service Controls
+- 🔜 Row-Level Security (RLS) policies
+- 🔜 Dataflow integration
+- 🔜 Cloud Composer orchestration
+- 🔜 VPC Service Controls
+- 🔜 BigQuery policy tags / column-level taxonomies
+- 🔜 BigQuery dynamic data masking
 
 ### Q3 2026
-- ✅ BigQuery Omni (multi-cloud)
-- ✅ Data transfer service automation
-- ✅ Advanced BI Engine features
-- ✅ Cross-project analytics
+- 🔜 BigQuery Omni (multi-cloud)
+- 🔜 Data transfer service automation
+- 🔜 Advanced BI Engine features
+- 🔜 Cross-project analytics
 
 ---
 

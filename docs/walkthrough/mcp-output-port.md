@@ -2,6 +2,10 @@
 
 **Time:** 10 minutes | **Difficulty:** Beginner | **Prerequisites:** Python 3.10+, pip, Node.js (for the MCP Inspector CLI)
 
+> **Why it matters**
+> Give an AI agent safe, read-only access to a published data product — governed by the same contract that governs people.
+> `fluid mcp output-port serve` binds one expose and enforces `agentPolicy`, row filters, and PII/PHI redaction on every call.
+
 <!-- CLICAST: mcp-output-port (orchestrator wires SVG + nav) -->
 
 ::: warning Compatibility note

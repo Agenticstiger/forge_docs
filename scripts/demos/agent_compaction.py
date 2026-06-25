@@ -54,7 +54,7 @@ def build() -> Cast:
         post=0.4,
     )
     cast.run(
-        "FORGE_AGENT_COMPACTION=truncate fluid forge --max-turns 20",
+        "FLUID_COMPACTION_STRATEGY=truncate fluid forge --domain finance",
         f"  {A.color(A.GRAY_DIM, '...running 20-turn agent loop...')}",
         ok(f"Compaction triggered at turn 12 (ctx={A.color(A.AMBER, '95,000')} > {A.color(A.GRAY_DIM, '90,000')} threshold)"),
         ok("Dropped 7 oldest tool results"),
@@ -74,7 +74,7 @@ def build() -> Cast:
         post=0.4,
     )
     cast.run(
-        "FORGE_AGENT_COMPACTION=summarize fluid forge --max-turns 20",
+        "FLUID_COMPACTION_STRATEGY=summarize fluid forge --domain finance",
         f"  {A.color(A.GRAY_DIM, '...running 20-turn agent loop...')}",
         ok(f"Compaction triggered at turn 12"),
         ok(f"Summarized turns 1-7 → {A.color(A.AMBER, '2,400 tokens')} (was {A.color(A.GRAY_DIM, '52,000')})"),
@@ -95,7 +95,7 @@ def build() -> Cast:
         post=0.4,
     )
     cast.run(
-        "FORGE_AGENT_COMPACTION=hybrid fluid forge --max-turns 20",
+        "FLUID_COMPACTION_STRATEGY=hybrid fluid forge --domain finance",
         f"  {A.color(A.GRAY_DIM, '...running 20-turn agent loop...')}",
         ok(f"Truncated 5 turns at threshold"),
         ok(f"Summarized 2 load-bearing turns ({A.color(A.AMBER, '$0.001')} summariser cost)"),
@@ -117,7 +117,7 @@ def build() -> Cast:
         f"  summarize       {A.color(A.BRIGHT_GREEN, '$0.054')}              9.3×           research / analysis",
         f"  hybrid          {A.color(A.BRIGHT_GREEN, '$0.048')}             10.5×           production (recommended)",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
-        f"  {A.color(A.BOLD, 'Set one env var:')} FORGE_AGENT_COMPACTION=hybrid",
+        f"  {A.color(A.BOLD, 'Set one env var:')} FLUID_COMPACTION_STRATEGY=hybrid",
         f"  {A.color(A.GRAY_DIM, 'No code changes. Works with every --llm-provider.')}",
         post=0.5,
     )

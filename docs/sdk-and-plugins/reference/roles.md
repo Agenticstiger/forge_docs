@@ -239,7 +239,7 @@ class MyCatalog(CatalogAdapter):
 
 ### `ContractHelper`
 
-Read-only parser over fluid contract dicts. Tolerant of every `fluidVersion` from `0.4` through `0.7.3`. Use this instead of raw dict-walking:
+Read-only parser over fluid contract dicts. Tolerant of every `fluidVersion` from `0.4` through `0.7.5`. Use this instead of raw dict-walking:
 
 ```python
 from fluid_sdk import ContractHelper

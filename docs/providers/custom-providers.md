@@ -8,7 +8,7 @@ A provider teaches Fluid Forge how to deploy contracts to a new platform. If you
 There are two cloud-provider base classes you may run into:
 
 - **`BaseProvider`** from `fluid_provider_sdk` — the legacy class the in-tree providers (AWS, GCP, Snowflake, Local) extend. This page documents `BaseProvider` in detail; it's the authoritative reference for the existing provider surface.
-- **`InfraProvider`** from `fluid_sdk` — the new role-typed class shipped in the SDK rename. For a **new** plugin provider you're packaging for PyPI, prefer `InfraProvider` and the SDK conformance harness — see [SDK & Plugins → Roles → InfraProvider](/forge_docs/sdk-and-plugins/reference/roles.md#infraprovider).
+- **`InfraProvider`** from `fluid_sdk` — the new role-typed class shipped in the SDK rename. For a **new** plugin provider you're packaging for PyPI, prefer `InfraProvider` and the SDK conformance harness — see [SDK & Plugins → Roles → InfraProvider](/forge_docs/sdk-and-plugins/reference/roles.html#infraprovider).
 
 Both classes register through the same `[project.entry-points."fluid_build.providers"]` group, so swapping one for the other is just a class-name change.
 :::
@@ -16,9 +16,9 @@ Both classes register through the same `[project.entry-points."fluid_build.provi
 ::: tip Looking for something other than a cloud provider?
 This page (and the SDK's `InfraProvider`) is for adding support for a new cloud, warehouse, or query engine to `fluid apply`. As of `0.8.3` there are three other plugin roles for the more common extension cases:
 
-- **`CustomScaffold`** — generate files from a contract (CI configs, app code, IaC stacks). For "we have our own CI templates," see [SDK & Plugins → Your own CI](/forge_docs/sdk-and-plugins/journeys/your-own-ci.md).
-- **`Validator`** — governance/compliance rules at `fluid validate`. For "we have rules every contract must follow," see [SDK & Plugins → Custom validator](/forge_docs/sdk-and-plugins/journeys/custom-validator.md).
-- **Apply hooks** — runtime invariants at `fluid apply`. For "fail the deploy if X isn't true," see [SDK & Plugins → Apply hook](/forge_docs/sdk-and-plugins/journeys/apply-hook.md).
+- **`CustomScaffold`** — generate files from a contract (CI configs, app code, IaC stacks). For "we have our own CI templates," see [SDK & Plugins → Your own CI](/forge_docs/sdk-and-plugins/journeys/your-own-ci.html).
+- **`Validator`** — governance/compliance rules at `fluid validate`. For "we have rules every contract must follow," see [SDK & Plugins → Custom validator](/forge_docs/sdk-and-plugins/journeys/custom-validator.html).
+- **Apply hooks** — runtime invariants at `fluid apply`. For "fail the deploy if X isn't true," see [SDK & Plugins → Apply hook](/forge_docs/sdk-and-plugins/journeys/apply-hook.html).
 
 The [SDK & Plugins](/forge_docs/sdk-and-plugins/) section is the integrated overview.
 :::

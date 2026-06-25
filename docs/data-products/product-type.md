@@ -2,8 +2,12 @@
 
 Schema **0.7.3** introduces a Data Mesh-aligned classification, `metadata.productType`, that runs alongside the existing medallion `metadata.layer`. Both vocabularies are first-class. You can use either one, or both together. When both are set, the validator enforces the canonical pairing.
 
+> **Why it matters**
+> Classify every product by where it sits in the value chain (source → aggregate → consumer-aligned) so teams know what to build on and what to reuse — data-mesh outcomes without the re-org.
+> `metadata.productType` (SDP / ADP / CDP) sits alongside the medallion layer, with `consumes[]` composition rules the validator enforces.
+
 ::: tip Where this fits
-Schema 0.7.3 ships in the upcoming `0.7.3` release and is not yet on PyPI. Existing 0.7.2 contracts validate unchanged — the new fields are purely additive.
+The `productType` field arrived with schema `0.7.3` (shipped); `0.7.5` is the current default. Existing 0.7.2 contracts validate unchanged — the new fields are purely additive.
 :::
 
 ## The vocabulary

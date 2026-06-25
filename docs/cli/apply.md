@@ -4,6 +4,10 @@ Stage 7 of the 11-stage pipeline. Execute a FLUID contract (or a saved plan) end
 
 `0.8.0` adds a 6-mode apply matrix (`--mode`) with explicit destruction gating (`--allow-data-loss`) and cryptographic plan-binding (`bundleDigest` / `planDigest` verification).
 
+> **Why it matters**
+> Deploying a data product is safe and reversible — the plan you reviewed is the plan that runs, and destructive changes are gated.
+> `fluid apply` re-verifies the `bundleDigest` + `planDigest` before any DDL and refuses a tampered plan; `--allow-data-loss` is required for destructive operations.
+
 ## Syntax
 
 ```bash
@@ -166,6 +170,6 @@ As of `0.8.3`, `fluid apply` runs any **apply hook** plugins registered via Pyth
 
 A hook that appends an error aborts the apply with exit code 1. Pass `--force-pattern-drift` to downgrade all hook errors to WARNINGs (audit-logged) and let the apply proceed.
 
-- Author a hook: [SDK & Plugins → Apply hook journey](/forge_docs/sdk-and-plugins/journeys/apply-hook.md)
-- Reference: [Entry points → `fluid_build.apply_hooks`](/forge_docs/sdk-and-plugins/reference/entry-points.md)
-- Example: [`prod-key-guard`](/forge_docs/sdk-and-plugins/examples/apply-hook-prod-key-guard.md)
+- Author a hook: [SDK & Plugins → Apply hook journey](/forge_docs/sdk-and-plugins/journeys/apply-hook.html)
+- Reference: [Entry points → `fluid_build.apply_hooks`](/forge_docs/sdk-and-plugins/reference/entry-points.html)
+- Example: [`prod-key-guard`](/forge_docs/sdk-and-plugins/examples/apply-hook-prod-key-guard.html)

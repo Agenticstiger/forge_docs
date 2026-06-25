@@ -11,7 +11,7 @@ canonical CliCast format so the visual language matches the rest of the
 docs (mac-terminal chrome, takeaway popup, frame-perfect SVG, no iframes).
 
 Token counts, durations, and costs below are from real production runs
-captured during reel authoring. They are accurate to the v0.8.0 CLI
+captured during reel authoring. They are accurate to the v0.9.0 CLI
 against the bundled `customer_orders.intent.yaml` fixture.
 """
 

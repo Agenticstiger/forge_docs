@@ -2,11 +2,15 @@
 
 Fluid Forge uses one contract format across local and provider-backed execution targets.
 
+> **Why it matters**
+> Target a new cloud by changing one line — no per-cloud rewrite, no lock-in at the contract layer.
+> Swap `binding.platform` and the same contract recompiles for `local` (DuckDB), `aws`, `gcp`, or `snowflake`; every provider implements the same interface.
+
 ## Docs baseline
 
-- CLI release covered by the primary docs: `0.8.7`
+- CLI release covered by the primary docs: `0.9.0`
 - Default scaffold (`fluid init --quickstart`) emits `fluidVersion: 0.7.2`
-- Discovery-based scaffolds (`fluid init --discover`, `fluid forge`, `fluid product-new`) emit `fluidVersion: 0.7.4` — the latest bundled schema
+- Discovery-based scaffolds (`fluid init --discover`, `fluid forge`, `fluid product-new`) emit `fluidVersion: 0.7.5` — the latest bundled schema
 
 Some deep-dive provider pages still preserve older `0.7.1` snippets for backward-compatibility context. Those examples should not be read as “current version” guidance.
 
@@ -24,7 +28,7 @@ Fluid Forge registers four apply-capable cloud providers and two standards provi
 | Bitol ODPS (`odps_bitol`) | Bidirectional at provider layer (`render` + `import_contract` + `validate`) | n/a — standards exchange | Production |
 
 ::: tip Runtime requirement for cloud apply
-On `v0.8.7`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
+On `v0.9.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
 :::
 
 The CLI surface today is asymmetric for the two standards providers — `fluid odcs` exposes `export` / `import` / `validate` / `info`, while `fluid odps-bitol` exposes only `export` / `validate` / `info`. The unified `fluid odps` command covers both specs and adds an `import` subcommand for Bitol — see [`fluid odps`](../cli/odps.md) and [`fluid odcs`](../cli/odcs.md).

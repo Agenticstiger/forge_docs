@@ -63,6 +63,7 @@ export default defineUserConfig({
     // navbar item is redundant). Add a transparent `logo` / `logoDark`
     // asset later to bring the mark back.
     navbar: [
+      { text: 'Why Forge', link: '/why' },
       { text: 'Get Started', link: '/getting-started/' },
       { text: 'See it run', link: '/see-it-run' },
       {
@@ -109,10 +110,6 @@ export default defineUserConfig({
           { text: 'Custom Providers', link: '/providers/custom-providers' },
           { text: 'Roadmap', link: '/providers/roadmap' }
         ]
-      },
-      {
-        text: 'GitHub',
-        link: 'https://github.com/Agenticstiger/forge-cli'
       }
     ],
 
@@ -122,6 +119,7 @@ export default defineUserConfig({
           text: 'Introduction',
           children: [
             { text: 'Home', link: '/' },
+            '/why.md',
             '/getting-started/',
             '/getting-started/snowflake.md',
             '/see-it-run.md',
@@ -377,6 +375,9 @@ export default defineUserConfig({
           text: 'Project',
           children: [
             '/contributing.md',
+            '/RELEASE_NOTES_0.9.0.md',
+            '/RELEASE_NOTES_0.8.11.md',
+            '/RELEASE_NOTES_0.8.10.md',
             '/RELEASE_NOTES_0.8.9.md',
             '/RELEASE_NOTES_0.8.8.md',
             '/RELEASE_NOTES_0.8.7.md',

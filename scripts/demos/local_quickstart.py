@@ -20,7 +20,7 @@ def build() -> Cast:
     # 1. Install
     cast.run(
         'pipx install "data-product-forge[local]"',
-        f"  installed package {A.color(A.BLUE_ACCENT, 'data-product-forge 0.8.0')}, Python 3.13",
+        f"  installed package {A.color(A.BLUE_ACCENT, 'data-product-forge 0.9.0')}, Python 3.13",
         "  These apps are now globally available",
         f"    - {A.color(A.BOLD, 'fluid')}",
         output_post=0.18,

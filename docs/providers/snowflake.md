@@ -3,11 +3,15 @@
 Deploy data products to Snowflake Data Cloud — databases, schemas, tables, RBAC grants — using the same contract and CLI commands as every other provider.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.8.0`<br>
+**Docs Baseline:** CLI `0.9.0`<br>
 **Tested Services:** Databases, Schemas, Tables, Warehouses, RBAC Grants
 
+> **Why it matters**
+> Target Snowflake with the same contract your other teams run elsewhere — no Snowflake-specific rewrite.
+> Set `binding.platform: snowflake` and Forge compiles to Snowflake DDL, roles / grants, and OpenTofu from the same file.
+
 ::: warning Compatibility note
-This page preserves some older `0.7.1` examples for backward-compatibility context. Current scaffolds emit `fluidVersion: 0.7.2`, and new orchestration examples should prefer `fluid generate schedule --scheduler airflow`.
+Examples on this page use the current `fluidVersion: 0.7.5` shape. New orchestration examples should prefer `fluid generate schedule --scheduler airflow` over the older `fluid generate-airflow`.
 :::
 
 ---
@@ -20,7 +24,8 @@ The Snowflake provider turns a FLUID contract into real Snowflake infrastructure
 - ✅ **RBAC Compilation** — `fluid policy-compile` generates Snowflake `GRANT` statements from `accessPolicy`
 - ✅ **Sovereignty Validation** — Region constraints enforced before deployment
 - ✅ **Orchestration Generation** — prefer `fluid generate schedule --scheduler airflow` for current docs
-- ✅ **Governance** — Classification, column masking, row-level security, audit labels
+- ✅ **RBAC Grants** — `accessPolicy.grants` compiled to Snowflake `GRANT` statements
+- 🧪 **Masking / Row-Access policies (Beta)** — policy objects are created but not yet attached on the default OpenTofu apply path (see [Governance Features](#governance-features))
 - ✅ **Universal Pipeline** — Same Jenkinsfile as GCP and AWS — zero provider logic
 
 ## Choose Your Starting Path
@@ -56,10 +61,10 @@ This is a production-tested example that runs end-to-end in Jenkins CI.
 ### Contract
 
 ```yaml
-fluidVersion: "0.7.1"
+fluidVersion: "0.7.4"
 kind: DataProduct
 id: crypto.bitcoin_prices_snowflake_governed
-name: Bitcoin Price Index (FLUID 0.7.1 + Snowflake + Governance)
+name: Bitcoin Price Index (FLUID 0.7.4 + Snowflake + Governance)
 description: >
   Real-time Bitcoin price data with comprehensive governance policies
   on Snowflake Data Cloud
@@ -252,7 +257,7 @@ builds:
 
 ### Key Schema Patterns
 
-The 0.7.1 binding schema uses three fields to identify platform resources:
+The binding schema uses three fields to identify platform resources:
 
 | Field | Purpose | Snowflake Values |
 |-------|---------|-----------------|
@@ -356,7 +361,7 @@ Use the governance commands this way:
 
 - `fluid policy-check` validates governance declarations in the contract.
 - `fluid policy-compile` and `fluid policy-apply` manage Snowflake RBAC and access-policy bindings.
-- Snowflake governance during `apply` handles object-level controls such as tags, descriptions, and masking policies.
+- Snowflake governance during `apply` handles object-level controls such as tags and descriptions. Masking and row-access **policy objects are created** on the OpenTofu apply path, but are **not yet attached** to columns/tables there — see the Beta caveat under [Governance Features](#governance-features).
 - `fluid verify` checks deployed schema and drift. It does not perform a full RBAC or entitlement audit.
 
 ## Credentials Setup
@@ -511,21 +516,33 @@ privacy:
     expression: "price_timestamp >= DATEADD(day, -30, CURRENT_TIMESTAMP())"
 ```
 
-Row-level security expressions are intentionally validated against a narrow SQL-expression allowlist before Forge generates Snowflake row access policies. Keep these expressions to predicate-style logic such as comparisons, boolean operators, function calls, and string literals.
+Row-level security expressions are intentionally validated against a narrow SQL-expression allowlist before Forge generates a Snowflake row access policy object. Keep these expressions to predicate-style logic such as comparisons, boolean operators, function calls, and string literals. (As noted under [Snowflake-Native Security](#snowflake-native-security), policy *attach* on the default apply path is still Beta.)
 
 Forge rejects or skips unsafe expressions that contain statement separators, SQL comments, or statement-level keywords such as `SELECT`, `USE`, `GRANT`, `DROP`, or `INSERT`. When that happens, planning continues and the CLI emits a warning so you can fix the contract instead of applying unsafe SQL.
 
 ### Snowflake-Native Security
 
-The contract's governance maps naturally to Snowflake's built-in features:
+The contract's governance maps to Snowflake's built-in features:
 
-| Contract Feature | Snowflake Implementation |
-|-----------------|-------------------------|
-| `accessPolicy.grants` | `GRANT SELECT/INSERT/UPDATE ON TABLE ... TO ROLE ...` |
-| `columnRestrictions` | Dynamic Data Masking policies |
-| `rowLevelPolicy` | Row Access Policies |
-| `sovereignty.allowedRegions` | Account region validation |
-| `classification` | Object tagging via `TAG` |
+| Contract Feature | Snowflake Implementation | Status |
+|-----------------|-------------------------|--------|
+| `accessPolicy.grants` | `GRANT SELECT/INSERT/UPDATE ON TABLE ... TO ROLE ...` | ✅ Supported |
+| `columnRestrictions` | Dynamic Data Masking policies | 🧪 Beta — policy created, not attached |
+| `rowLevelPolicy` | Row Access Policies | 🧪 Beta — policy created, not attached |
+| `sovereignty.allowedRegions` | Account region validation | ✅ Supported |
+| `classification` | Object tagging via `TAG` | ✅ Supported |
+
+::: warning Masking / Row-Access policies are Beta
+On the default OpenTofu apply path, Forge emits `snowflake_masking_policy` and
+`snowflake_row_access_policy` *objects* but does **not yet attach** them to columns/tables
+(no `ALTER TABLE ... SET MASKING POLICY` / `ADD ROW ACCESS POLICY` is run on that path). The
+attach DDL exists only in the legacy native engine, which is off the default path. Separately,
+the top-level `security:` block these emitters read is **not in the v0.7.5 schema** (the contract
+root is closed), so a contract carrying a `security:` block fails `fluid validate`. Treat
+Snowflake masking / RLS as experimental until the policy-attach and a schema-recognized
+governance field land. RBAC grants (`accessPolicy.grants` / `security.access_control.grants`)
+do ship.
+:::
 
 ## CI/CD Pipeline
 
@@ -533,7 +550,7 @@ The Snowflake example uses the exact same Jenkinsfile as GCP and AWS — the [Un
 
 | Stage | Command | What Happens |
 |-------|---------|-------------|
-| Validate | `fluid validate` | Contract checked against 0.7.1 schema |
+| Validate | `fluid validate` | Contract checked against the bundled schema |
 | Export | `fluid odps export` / `fluid odcs export` | Standards files generated |
 | Compile RBAC | `fluid policy-compile` | `accessPolicy` → Snowflake GRANT bindings |
 | Plan | `fluid plan` | Execution plan generated |

@@ -45,7 +45,7 @@ Most teams still build data products with a pile of provider-specific scripts, I
 Fluid Forge shifts that work into one contract-driven workflow:
 
 ```yaml
-fluidVersion: "0.7.2"
+fluidVersion: "0.7.4"
 kind: DataProduct
 id: analytics.customers
 name: Customer Analytics
@@ -146,8 +146,8 @@ fluid market --search "customer analytics"
 
 ## Versioning in the docs
 
-- Current CLI release baseline: `0.8.0`
-- Current scaffolded contract examples: `fluidVersion: 0.7.2`
+- Current CLI release baseline: `0.9.0`
+- Current scaffolded contract examples: `fluidVersion: 0.7.5`
 
 That split is intentional. The CLI release and the contract schema version move on related but different timelines.
 
@@ -155,9 +155,11 @@ That split is intentional. The CLI release and the contract schema version move 
 
 | Milestone | Notes |
 | --- | --- |
-| `0.8.0` stable baseline | 11-stage production pipeline, signed bundles, rollback, DMM Access lineage, Jenkins generation defaults |
-| `0.8.x` | Azure-related provider work remains on the roadmap |
-| `0.9.x` | Databricks and broader platform integrations remain future work |
+| `0.8.0` baseline | 11-stage production pipeline, signed bundles, rollback, DMM Access lineage, Jenkins generation defaults |
+| `0.8.4`–`0.9.0` (current) | OpenTofu/IaC autogeneration for cloud `apply`, the MCP output-port gateway with runtime `agentPolicy` enforcement, three plugin extension points + a companion SDK, and pluggable modeling techniques / metadata-source adapters for `fluid forge data-model` |
+| Streaming Kafka → Iceberg sink | **Shipped in `0.9.0`** — opt-in via `fluidVersion: 0.7.5` (Kafka-Connect + Debezium Iceberg sinks, Confluent Tableflow plugin) |
+| Azure provider | On the roadmap |
+| Databricks + broader platforms | Future work |
 
 ## Get involved
 

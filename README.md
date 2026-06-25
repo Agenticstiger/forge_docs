@@ -15,8 +15,8 @@ Fluid Forge is a contract-first CLI for building, validating, and deploying data
 
 ## Current Versioning
 
-- Current CLI release documented here: `0.8.0`
-- Current scaffolded contract schema examples: `fluidVersion: 0.7.2`
+- Current CLI release documented here: `0.8.11`
+- Current scaffolded contract schema examples: `fluidVersion: 0.7.4`
 
 Those are different on purpose. `fluid version` reports the installed CLI release, while `fluidVersion` inside a contract selects the contract schema version.
 

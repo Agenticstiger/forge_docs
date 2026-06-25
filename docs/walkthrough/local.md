@@ -2,6 +2,10 @@
 
 **Time:** 10 minutes | **Difficulty:** Beginner | **Prerequisites:** Python 3.10+, pip
 
+> **Why it matters**
+> Go from nothing to a deployed, validated data product on your laptop in minutes — the fastest way to feel the contract-first workflow.
+> Everything runs locally on DuckDB; the same `contract.fluid.yaml` later targets any cloud via `binding.platform`.
+
 <CliCast
   src="/forge_docs/demos/local-quickstart.svg"
   title="The same flow, in 30 seconds — install through deploy"
@@ -11,7 +15,7 @@
 />
 
 ::: warning Compatibility note
-The contract snippet on this page uses `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so this example remains valid. For the current `0.7.2` shape, run `fluid init my-project --quickstart` or `fluid demo` for an end-to-end local example.
+The contract snippet on this page uses `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so this example remains valid. The current bundled schema is `0.7.5` (latest); `0.7.4` is the canonical reference for the agentPolicy / MCP-gateway surface. To scaffold a contract on the current shape, run `fluid init my-project --quickstart` or `fluid demo` for an end-to-end local example.
 :::
 
 ---
@@ -48,9 +52,17 @@ pip install data-product-forge
 ```bash
 fluid version
 
-# Should show:
-# Fluid Forge CLI v0.8.0
-# Providers: local (production), gcp (production)
+# Should show (Rich panel):
+# 📦 Version Information
+# FLUID CLI
+# Version: 0.9.0
+# API: v1
+# Supported Specifications:
+# • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5
+# • Default: 0.7.5  • Latest: 0.7.5
+#
+# 🔌 Providers
+# local: available  •  aws: available  •  snowflake: available  •  gcp: not installed
 ```
 
 ### Create Project Directory
@@ -490,19 +502,20 @@ exposes:
 
 ### 📊 Add Data Quality
 
-Include validation rules:
+Data-quality rules live on the expose's contract, at `exposes[].contract.dq.rules[]`. Each rule needs an `id`, a `type` (one of `freshness`, `completeness`, `uniqueness`, `valid_values`, `accuracy`, `schema`, `anomaly_detection`, `drift_detection`), and a `severity` (`info`, `warn`, `error`, or `critical`):
 
 ```yaml
-builds:
-  - id: generate_genre_preferences
-    dataQuality:
-      rules:
-        - name: positive_view_counts
-          query: |
-            SELECT COUNT(*) as violations
-            FROM genre_preferences
-            WHERE total_views <= 0
-          expect: { violations: 0 }
+exposes:
+  - exposeId: genre_preferences
+    contract:
+      dq:
+        rules:
+          - id: total_views_complete
+            type: completeness
+            severity: error
+          - id: customer_id_unique
+            type: uniqueness
+            severity: warn
 ```
 
 ---

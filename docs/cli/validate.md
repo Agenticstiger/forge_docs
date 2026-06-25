@@ -2,6 +2,10 @@
 
 Validate a contract against FLUID schema rules and provider-aware checks.
 
+> **Why it matters**
+> A breaking change surfaces in code review, not at 2am — trust becomes something you check on every commit.
+> `fluid validate` checks the contract against the bundled JSON-Schema plus provider- and policy-aware rules before anything is planned or applied.
+
 ## Syntax
 
 ```bash
@@ -65,7 +69,7 @@ Use `--probe` in CI for any environment that has network access to the declared 
 
 ## Notes
 
-- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.8.7`. Schema `0.7.4` is GA as of `0.8.7`.
+- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.9.0`. Schema `0.7.5` is GA as of `0.9.0`.
 - For most users, plain `fluid validate contract.fluid.yaml` is enough. Reach for explicit schema flags when you are debugging compatibility or working across versions.
 
 ## Extension point: custom validators
@@ -74,6 +78,6 @@ As of `0.8.3`, `fluid validate` automatically runs any `Validator` plugin discov
 
 This is how teams enforce governance rules (every Gold product MUST declare a steward, every contract MUST have a cost-center label, etc.) without forking the CLI.
 
-- Author a validator: [SDK & Plugins → Custom validator journey](/forge_docs/sdk-and-plugins/journeys/custom-validator.md)
-- Reference: [Entry points → `fluid_build.validators`](/forge_docs/sdk-and-plugins/reference/entry-points.md)
-- Example: [`steward-validator`](/forge_docs/sdk-and-plugins/examples/steward-validator.md)
+- Author a validator: [SDK & Plugins → Custom validator journey](/forge_docs/sdk-and-plugins/journeys/custom-validator.html)
+- Reference: [Entry points → `fluid_build.validators`](/forge_docs/sdk-and-plugins/reference/entry-points.html)
+- Example: [`steward-validator`](/forge_docs/sdk-and-plugins/examples/steward-validator.html)

@@ -2,6 +2,10 @@
 
 Stage 6 of the 11-stage pipeline. Generate an execution plan without applying changes, and emit the cryptographic digests (`bundleDigest` / `planDigest`) that stage 7 apply verifies before executing any DDL.
 
+> **Why it matters**
+> See exactly what will change — and prove it's what gets applied — before you touch production.
+> `fluid plan` emits the action list plus a `planDigest` that `fluid apply` re-verifies, so the plan you reviewed is the plan that runs.
+
 ## Syntax
 
 ```bash

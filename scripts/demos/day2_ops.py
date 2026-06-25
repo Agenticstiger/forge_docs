@@ -3,7 +3,7 @@
 day2-ops — high-fidelity scripted demo of the 3am incident-response
 flow: `fluid runs status` (where) → `fluid runs logs --component dlq`
 (why) → `fluid runs diff` (what) → contract policy fix → `fluid ship`
-(repair). 90 seconds from Slack ping to recovery.
+(repair). ~90 seconds from Slack ping to a shipped fix.
 
 Recasts reels/day2-ops.html into a CliCast.
 """
@@ -36,7 +36,7 @@ def build() -> Cast:
 
     # 1. WHERE — runs status
     cast.run(
-        "fluid runs status --product gold.finance.customer_360_v1",
+        "fluid runs status gold.finance.customer_360_v1 --last 10",
         f"  {A.color(A.BOLD, '📊 Last 10 runs')}",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
         f"  {A.color(A.BOLD, 'run-id      ts          duration  status      stage')}",
@@ -55,14 +55,14 @@ def build() -> Cast:
 
     # 2. WHY — runs logs --component dlq
     cast.run(
-        "fluid runs logs r-2a4f8c1 --component dlq --tail",
+        "fluid runs logs gold.finance.customer_360_v1 --run-id r-2a4f8c1 --component dlq",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
         f"  {A.color(A.GRAY_DIM, '01:01:23  build  ')}{A.color(A.RED_ERR, 'ERROR')}  CHECK constraint failed:",
         f"  {A.color(A.GRAY_DIM, '01:01:23         ')}    {A.color(A.RED_ERR, 'arpu_30d_eur')} expected NOT NULL,",
         f"  {A.color(A.GRAY_DIM, '01:01:23         ')}    got 47 nulls in 12,408 rows",
         f"  {A.color(A.GRAY_DIM, '01:01:23  build  ')}{A.color(A.RED_ERR, 'ERROR')}  Quarantined to dlq:",
         f"  {A.color(A.GRAY_DIM, '01:01:23         ')}    {A.color(A.BLUE_ACCENT, 's3://forge-runtime/dlq/r-2a4f8c1/...')}",
-        f"  {A.color(A.GRAY_DIM, '01:01:23  apply ')}{A.color(A.RED_ERR, 'FAIL')}   Hard gate: dq.rules NOT_NULL violated",
+        f"  {A.color(A.GRAY_DIM, '01:01:23  apply ')}{A.color(A.RED_ERR, 'FAIL')}   Hard gate: dq.rules completeness rule failed",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
         f"  {A.color(A.BOLD, 'Root cause:')} new EU customers without 30-day history",
         f"  {A.color(A.GRAY_DIM, '             (the rule was right; the data shifted)')}",
@@ -73,7 +73,7 @@ def build() -> Cast:
 
     # 3. WHAT — runs diff
     cast.run(
-        "fluid runs diff r-2a4f8c0 r-2a4f8c1",
+        "fluid runs diff gold.finance.customer_360_v1 --build customer_360_pipeline --run-a r-2a4f8c0 --run-b r-2a4f8c1",
         f"  {A.color(A.BOLD, '📋 What changed between OK run and first failure')}",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
         f"  {A.color(A.GRAY_DIM, 'sources:')}",
@@ -93,10 +93,12 @@ def build() -> Cast:
         f"  {A.color(A.BOLD, '✏️  One-line fix in contract.fluid.yaml')}",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
         f"  {A.color(A.GRAY_DIM, 'dq.rules:')}",
-        f"  {A.color(A.GRAY_DIM, '  - field: arpu_30d_eur')}",
-        f"  {A.color(A.RED_ERR, '-     rule: NOT_NULL')}",
-        f"  {A.color(A.GREEN_OK, '+     rule: NOT_NULL_WHERE  customer_age_days >= 30')}",
-        f"  {A.color(A.GREEN_OK, '+     fallback: ZERO  # safe default for partial-window customers')}",
+        f"  {A.color(A.GRAY_DIM, '  - id: arpu_complete')}",
+        f"  {A.color(A.GRAY_DIM, '    type: completeness')}",
+        f"  {A.color(A.GRAY_DIM, '    selector: arpu_30d_eur')}",
+        f"  {A.color(A.RED_ERR, '-   threshold: 1.0                  # 100% non-null across ALL rows')}",
+        f"  {A.color(A.GREEN_OK, '+   where: customer_age_days >= 30  # scope to full 30-day-window customers')}",
+        f"  {A.color(A.GREEN_OK, '+   threshold: 1.0')}",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
         post=0.4,
     )
@@ -105,18 +107,14 @@ def build() -> Cast:
 
     # 5. SHIP — apply + verify + roll forward
     cast.run(
-        "fluid ship --reason 'arpu_30d_eur partial-window safe default' --yes",
-        working("Validating contract..."),
-        ok("Schema 0.7.2 — passed"),
-        ok("dq.rules — 8 rules, 1 changed, no breaking moves"),
-        working("Rendering plan..."),
-        ok("Plan checksum: a4f8c4...  (binds to apply step)"),
-        working("Applying..."),
-        ok("BigQuery DDL applied (no destructive changes)"),
-        working("Re-running quarantined batch from r-2a4f8c1 dlq..."),
-        ok(f"Recovered {A.color(A.AMBER, '12,361 rows')} ({A.color(A.GRAY_DIM, '47 still in dlq, fallback applied')})"),
-        ok("Freshness SLA restored: last successful run = 12 s ago"),
-        f"  {A.color(A.BRIGHT_GREEN, '✓ Ship complete in 87 seconds — incident closed')}",
+        "fluid ship --yes",
+        working("validate → bundle → plan → apply"),
+        ok("Schema 0.7.4 — passed"),
+        ok("dq.rules — 8 rules, 1 changed (completeness now scoped via where), no breaking moves"),
+        ok("Plan bound: planDigest a4f8c4…  (re-verified before apply)"),
+        ok("BigQuery DDL applied — no destructive changes"),
+        info("dq gate now accepts partial-window customers — the firing rule is scoped, not removed"),
+        f"  {A.color(A.BRIGHT_GREEN, '✓ Ship complete — corrected contract live; the next run clears the gate')}",
         output_post=0.18,
     )
 
@@ -125,9 +123,9 @@ def build() -> Cast:
     # 6. The summary
     cast.lines(
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
-        f"  {A.color(A.BOLD, '⏱  Slack ping → ship: 90 seconds.')}",
-        f"  {A.color(A.GRAY_DIM, '03:14 ping → 03:14:38 status → 03:15:01 logs → 03:15:24 diff →')}",
-        f"  {A.color(A.GRAY_DIM, '03:15:51 fix → 03:16:44 ship.')}",
+        f"  {A.color(A.BOLD, '⏱  Slack ping → ship: ~90 seconds.')}",
+        f"  {A.color(A.GRAY_DIM, '03:14:00 ping → 03:14:20 status → 03:14:45 logs → 03:15:08 diff →')}",
+        f"  {A.color(A.GRAY_DIM, '03:15:24 fix → 03:15:30 ship.')}",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
         f"  {A.color(A.BOLD, 'Day-1 ships.')} {A.color(A.GRAY_DIM, 'Day-2 does not surprise.')}",
         post=0.5,

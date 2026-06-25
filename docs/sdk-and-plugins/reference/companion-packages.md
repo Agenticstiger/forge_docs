@@ -6,7 +6,7 @@ Three packages ship together as one platform. End users only need the CLI; plugi
 
 | Package | Version | PyPI | Import path | What you reach for it for |
 |---|---|---|---|---|
-| **`data-product-forge`** | `0.8.9` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle, and the `fluid forge` copilot (0.8.9: generates + validates plugin `contract.extensions.*` blocks natively) |
+| **`data-product-forge`** | `0.9.0` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle, and the `fluid forge` copilot (0.8.9: generates + validates plugin `contract.extensions.*` blocks natively) |
 | **`data-product-forge-sdk`** | `0.9.1` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, etc.) + conformance test harness + `iter_extension_schemas()` discovery helper. Plugin authors only. |
 | **`data-product-forge-custom-scaffold`** | `0.1.1` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine. Use this when your plugin distributes templates via a git bundle (most common pattern). 0.1.1 adds white-label spec dialects (`ScaffoldDialect`). |
 
@@ -48,7 +48,7 @@ The PyPI name reflects the product brand (`data-product-forge`). The import path
 
 ```toml
 dependencies = [
-    "data-product-forge==0.8.9",  # pin exact for reproducibility
+    "data-product-forge==0.9.0",  # pin exact for reproducibility
 ]
 ```
 
@@ -87,7 +87,7 @@ Best practice:
 ### `data-product-forge` (CLI)
 
 - **Semantic versioning since 0.8.0.** Minor versions add features and may deprecate (with warning) but won't break. Major versions can break.
-- **The `0.7.x` contract schema is supported indefinitely** by the 0.8 line — contracts using `fluidVersion: 0.7.1` / `0.7.2` / `0.7.3` all validate.
+- **The `0.7.x` contract schema is supported indefinitely** by the 0.8 line — contracts using `fluidVersion: 0.7.1` / `0.7.2` / `0.7.3` / `0.7.4` / `0.7.5` all validate.
 - **Pre-releases** are tagged with PEP 440 suffixes (`0.8.4rc1`, `0.8.4b1`, etc.). They publish to PyPI but `pip install` skips them by default.
 
 ### `data-product-forge-sdk`

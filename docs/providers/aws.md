@@ -3,8 +3,12 @@
 Deploy data products to Amazon Web Services — S3, Glue, Athena — using the same contract and CLI commands as every other provider.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.8.0`<br>
+**Docs Baseline:** CLI `0.9.0`<br>
 **Tested Services:** S3, Glue Data Catalog, Athena, IAM
+
+> **Why it matters**
+> Run the same contract on AWS (S3 + Athena / Glue) with no AWS-specific rewrite.
+> Set `binding.platform: aws` and Forge compiles the contract to Glue / Athena DDL and OpenTofu — the contract itself doesn't change.
 
 <CliCast
   src="/forge_docs/demos/aws-quickstart.svg"
@@ -15,7 +19,7 @@ Deploy data products to Amazon Web Services — S3, Glue, Athena — using the s
 />
 
 ::: warning Compatibility note
-This page preserves some older `0.7.1` contract snippets for backward-compatibility context. Current scaffolds emit `fluidVersion: 0.7.2`, and orchestration guidance now prefers `fluid generate schedule --scheduler airflow`.
+Examples on this page use the current `fluidVersion: 0.7.5` shape. Orchestration guidance now prefers `fluid generate schedule --scheduler airflow` over the older `fluid generate-airflow`.
 :::
 
 ---
@@ -28,7 +32,7 @@ The AWS provider turns a FLUID contract into real cloud infrastructure:
 - ✅ **IAM Policy Compilation** — `fluid policy-compile` generates S3, Glue, and Athena IAM bindings from `accessPolicy` grants
 - ✅ **Sovereignty Validation** — Region allow/deny lists enforced before deployment
 - ✅ **Orchestration Generation** — prefer `fluid generate schedule --scheduler airflow` for current docs and automation
-- ✅ **Governance** — Classification, column masking, row-level policies, audit labels
+- ✅ **Lake Formation Governance** — principal grants, column-level grants, LF-tags (TBAC), row filters, and location registration via `binding.governance.lakeFormation`
 - ✅ **Universal Pipeline** — Same Jenkinsfile as GCP and Snowflake — zero provider logic
 
 ## Working Example: Bitcoin Price Tracker
@@ -38,7 +42,7 @@ This is a production-tested example that runs end-to-end in Jenkins CI.
 ### Contract
 
 ```yaml
-fluidVersion: "0.7.1"
+fluidVersion: "0.7.4"
 kind: DataProduct
 id: crypto.market_data.bitcoin_prices_aws_v1
 name: Bitcoin Price Tracker (AWS Athena)
@@ -138,6 +142,9 @@ exposes:
           - principal: "role:intern"
             columns: [market_cap_usd, volume_24h_usd]
             access: deny
+      # NOTE: on AWS, policy.privacy.masking / rowLevelPolicy are declarative
+      # metadata only — they emit no AWS infrastructure. Use
+      # binding.governance.lakeFormation for enforced row/column governance.
       privacy:
         masking:
           - column: "ingestion_timestamp"
@@ -229,7 +236,7 @@ builds:
 
 ### Key Schema Patterns
 
-The 0.7.1 binding schema uses three fields to identify platform resources:
+The binding schema uses three fields to identify platform resources:
 
 | Field | Purpose | AWS Values |
 |-------|---------|-----------|
@@ -244,7 +251,7 @@ This is identical to GCP (`platform: gcp`, `format: bigquery_table`) and Snowfla
 Every command is **identical** across providers. No `--provider` flag needed — the CLI reads the provider from the contract's `binding.platform` field.
 
 ```bash
-# Validate contract against 0.7.1 JSON schema
+# Validate contract against the bundled JSON schema
 fluid validate contract.fluid.yaml --verbose
 
 # Generate execution plan
@@ -394,32 +401,50 @@ sovereignty:
   enforcementMode: advisory  # or strict (blocks deployment)
 ```
 
-### Column-Level Security
+### Lake Formation — the AWS governance surface
 
-Restrict specific columns from specific roles:
+On AWS, row- and column-level governance is implemented through **Lake Formation**, declared
+under `binding.governance.lakeFormation` (with account-level admins/tag definitions under the
+top-level `governance.lakeFormation` block). On the OpenTofu apply path Forge emits the full
+Lake Formation surface:
+
+| Contract field | AWS resource emitted |
+|----------------|----------------------|
+| `governance.lakeFormation.admins` | `aws_lakeformation_data_lake_settings` |
+| `governance.lakeFormation.tagDefinitions` | `aws_lakeformation_lf_tag` |
+| `binding.governance.lakeFormation.registerLocation` | `aws_lakeformation_resource` |
+| `binding.governance.lakeFormation.grants` | `aws_lakeformation_permissions` (column-scoped via `table_with_columns`) |
+| `binding.governance.lakeFormation.tags` | `aws_lakeformation_resource_lf_tags` (TBAC) |
+| `binding.governance.lakeFormation.rowFilter` | `aws_lakeformation_data_cells_filter` (row + optional column projection) |
 
 ```yaml
-authz:
-  columnRestrictions:
-    - principal: "role:intern"
-      columns: [market_cap_usd, volume_24h_usd]
-      access: deny
+exposes:
+  - exposeId: bitcoin_prices_table
+    binding:
+      platform: aws
+      format: parquet
+      governance:
+        lakeFormation:
+          registerLocation: true
+          grants:
+            - principal: "arn:aws:iam::123456789012:role/data-analyst"
+              permissions: [SELECT]
+              columns: [price_timestamp, price_usd]   # column-level grant
+          rowFilter:
+            name: recent_only
+            expression: "price_timestamp >= DATE_ADD('day', -30, CURRENT_TIMESTAMP)"
 ```
 
-### Privacy Masking
+Lake Formation column grants and data-cells-filter column projection control *access* to
+columns. Lake Formation does **not** provide dynamic data-value masking, and there is no AWS
+data-masking primitive in this layer.
 
-Hash sensitive fields and enforce retention policies:
-
-```yaml
-privacy:
-  masking:
-    - column: "ingestion_timestamp"
-      strategy: "hash"
-      params:
-        algorithm: "SHA256"
-  rowLevelPolicy:
-    expression: "price_timestamp >= DATE_ADD('day', -30, CURRENT_TIMESTAMP)"
-```
+::: warning `policy.privacy.masking` / `rowLevelPolicy` are declarative-only on AWS
+The `policy.privacy.masking`, `policy.privacy.rowLevelPolicy`, and `policy.authz.columnRestrictions`
+fields are valid in the schema, but **no AWS provider or IaC code reads them** — they emit no AWS
+infrastructure. Use `binding.governance.lakeFormation` (above) for AWS row/column governance.
+The `policy.privacy` block records intent as contract metadata only.
+:::
 
 ## CI/CD Pipeline
 
@@ -427,7 +452,7 @@ The AWS example uses the exact same Jenkinsfile as GCP and Snowflake — the [Un
 
 | Stage | Command | What Happens |
 |-------|---------|-------------|
-| Validate | `fluid validate` | Contract checked against 0.7.1 schema |
+| Validate | `fluid validate` | Contract checked against the bundled schema |
 | Export | `fluid odps export` / `fluid odcs export` | Standards files generated |
 | Compile IAM | `fluid policy-compile` | `accessPolicy` → IAM bindings JSON |
 | Plan | `fluid plan` | Execution plan generated |
