@@ -50,7 +50,7 @@ def build() -> Cast:
     # 2. Validate the contract (with agentPolicy)
     cast.run(
         "fluid validate contract.fluid.yaml --strict",
-        ok("Schema 0.7.2 — passed"),
+        ok("Schema 0.7.4 — passed"),
         ok("agentPolicy.allowedModels — 3 enum values recognized"),
         ok("agentPolicy.deniedUseCases — 3 enum values recognized"),
         ok("agentPolicy.maxTokensPerRequest — within int range"),
@@ -62,7 +62,7 @@ def build() -> Cast:
 
     # 3. Policy-check shows what would be enforced
     cast.run(
-        "fluid policy-check contract.fluid.yaml --report agentPolicy",
+        "fluid policy-check contract.fluid.yaml",
         f"  {A.color(A.BOLD, '🛡  agentPolicy enforcement summary')}",
         f"  {A.color(A.GRAY_DIM, '──────────────────────────────────────────────')}",
         f"  {A.color(A.BOLD, 'Models')}     {A.color(A.GREEN_OK, '3 allowed')}, {A.color(A.RED_ERR, 'all others denied')}",
@@ -79,7 +79,7 @@ def build() -> Cast:
 
     # 4. Simulated agent read attempts — the runtime in action
     cast.lines(
-        f"  {A.color(A.BOLD, '🤖 Simulated agent reads')}  {A.color(A.GRAY_DIM, '(fluid agent-audit --replay)')}",
+        f"  {A.color(A.BOLD, '🤖 Simulated agent reads')}  {A.color(A.GRAY_DIM, '(enforced at the MCP output-port on every read)')}",
         f"  {A.color(A.GRAY_DIM, '──────────────────────────────────────────────')}",
         post=0.3,
     )

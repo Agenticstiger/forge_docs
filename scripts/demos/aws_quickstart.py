@@ -21,7 +21,7 @@ def build() -> Cast:
 
     cast.run(
         'pipx install "data-product-forge[aws]"',
-        f"  installed package {A.color(A.BLUE_ACCENT, 'data-product-forge 0.8.0')}, Python 3.13",
+        f"  installed package {A.color(A.BLUE_ACCENT, 'data-product-forge 0.9.0')}, Python 3.13",
         f"  added providers: {A.color(A.BLUE_ACCENT, 'aws')} (S3 + Glue + Athena + IAM)",
         output_post=0.18,
     )

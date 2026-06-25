@@ -41,17 +41,17 @@ def build() -> Cast:
     # 2. Mode picker — 5 modes
     cast.lines(
         f"  {A.color(A.BOLD, '? How would you like to start?')}",
-        f"    {A.color(A.GREEN_OK, '▸')} 1. {A.color(A.BOLD, 'discover')}     start from local context (recommended)",
-        f"      2. {A.color(A.DIM, 'intent')}        write 8 lines of YAML; AI fills the rest",
-        f"      3. {A.color(A.DIM, 'blank')}         empty scaffold, fill it in by hand",
-        f"      4. {A.color(A.DIM, 'from-existing')} migrate from dbt / dlt / Airflow",
-        f"      5. {A.color(A.DIM, 'full-ai')}       AI generates everything from a domain prompt",
-        f"  {A.color(A.GRAY_DIM, '   (↑/↓ to move, Enter to select, /help for slash commands)')}",
+        f"    {A.color(A.GREEN_OK, '▸')} 1. {A.color(A.BOLD, 'AI Copilot')}    build from your local context (recommended)",
+        f"      2. {A.color(A.DIM, 'Compose')}       compose from existing data products",
+        f"      3. {A.color(A.DIM, 'Refine')}        refine an existing contract",
+        f"      4. {A.color(A.DIM, 'Template')}      start from a template (analytics / etl / ml / …)",
+        f"      5. {A.color(A.DIM, 'Blank')}         empty scaffold, fill it in by hand",
+        f"  {A.color(A.GRAY_DIM, '   (↑/↓ to move, Enter to select, :help for slash commands)')}",
         post=0.5,
     )
 
     cast.lines(
-        f"  {A.color(A.GRAY_DIM, '> ')} {A.color(A.GREEN_OK, '1')}  {A.color(A.GRAY_DIM, '# discover')}",
+        f"  {A.color(A.GRAY_DIM, '> ')} {A.color(A.GREEN_OK, '1')}  {A.color(A.GRAY_DIM, '# AI Copilot')}",
         post=0.3,
     )
 
@@ -61,7 +61,7 @@ def build() -> Cast:
     cast.lines(
         f"  {A.color(A.BOLD, '🎯 4 questions — the rest, I already know')}",
         f"  {A.color(A.GRAY_DIM, '─────────────────────────────────────────────────────────────')}",
-        f"  {A.color(A.GRAY_DIM, '(slash commands at every prompt: /skip /back /help /quit /save)')}",
+        f"  {A.color(A.GRAY_DIM, '(slash commands at every prompt: :ai-setup :override :show-work :doctor :help :quit)')}",
         post=0.4,
     )
 

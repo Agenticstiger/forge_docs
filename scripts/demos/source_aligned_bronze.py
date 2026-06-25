@@ -52,7 +52,7 @@ def build() -> Cast:
     )
     cast.lines(
         f"  {A.color(A.GRAY_DIM, '┌─────────────────────────────────────────────────────────────────┐')}",
-        f"  {A.color(A.GRAY_DIM, '│')} {A.color(A.BLUE_ACCENT, 'fluidVersion:')} {A.color(A.AMBER, chr(34) + '0.7.2' + chr(34))}                                          {A.color(A.GRAY_DIM, '│')}",
+        f"  {A.color(A.GRAY_DIM, '│')} {A.color(A.BLUE_ACCENT, 'fluidVersion:')} {A.color(A.AMBER, chr(34) + '0.7.4' + chr(34))}                                          {A.color(A.GRAY_DIM, '│')}",
         f"  {A.color(A.GRAY_DIM, '│')} {A.color(A.BLUE_ACCENT, 'kind:')} DataProduct                                              {A.color(A.GRAY_DIM, '│')}",
         f"  {A.color(A.GRAY_DIM, '│')} {A.color(A.BLUE_ACCENT, 'id:')} bronze.retail.store_postgres_v1                          {A.color(A.GRAY_DIM, '│')}",
         f"  {A.color(A.GRAY_DIM, '│')} {A.color(A.BLUE_ACCENT, 'metadata.layer:')} Bronze                                       {A.color(A.GRAY_DIM, '│')}",
@@ -74,7 +74,7 @@ def build() -> Cast:
     # 3. Validate + apply locally
     cast.run(
         "fluid validate contract.fluid.yaml && fluid apply --yes",
-        ok("Schema 0.7.2 — passed"),
+        ok("Schema 0.7.4 — passed"),
         ok("28 tables resolved against information_schema"),
         ok("All 12 PII columns flagged for downstream masking"),
         working("Pulling postgres → bronze.duckdb..."),

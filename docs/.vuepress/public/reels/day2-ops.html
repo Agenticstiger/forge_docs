@@ -564,10 +564,10 @@ const SCENES = [
       },
       {
         "cls": "error",
-        "text": "  apply  FAIL   hard gate: dq.rule NOT_NULL violated"
+        "text": "  apply  FAIL   hard gate: dq.rule completeness failed"
       }
     ],
-    "callout": "<strong>30 seconds in.</strong> The <code>NOT_NULL</code> gate on <code>arpu_30d_eur</code> caught 47 null rows — and stopped them reaching production."
+    "callout": "<strong>30 seconds in.</strong> The <code>completeness</code> gate on <code>arpu_30d_eur</code> caught 47 null rows — and stopped them reaching production."
   },
   {
     "kind": "term",
@@ -611,7 +611,7 @@ const SCENES = [
         "html": "  <span class=\"num\">47</span> of <span class=\"num\">12,408</span> rows are partial-window — NULL by design"
       }
     ],
-    "callout": "<strong>60 seconds in.</strong> A new EU region widened the metric's scope. The <code>NOT_NULL</code> rule is correct — the data lifecycle changed."
+    "callout": "<strong>60 seconds in.</strong> A new EU region widened the metric's scope. The <code>completeness</code> rule is correct — the data lifecycle changed."
   },
   {
     "kind": "term",
@@ -626,11 +626,11 @@ const SCENES = [
       },
       {
         "cls": "error",
-        "text": "-   type: NOT_NULL"
+        "text": "-   completeness: arpu_30d_eur — required across ALL rows"
       },
       {
         "cls": "success spaced",
-        "text": "+   type: NOT_NULL_WHERE customer_age_days >= 30"
+        "text": "+   completeness: arpu_30d_eur — where customer_age_days >= 30"
       },
       {
         "cls": "prompt cmd spaced",
@@ -648,14 +648,14 @@ const SCENES = [
       },
       {
         "cls": "info spaced",
-        "text": "▸ validate → bundle → plan → apply → verify"
+        "text": "▸ validate → bundle → plan → apply"
       },
       {
         "cls": "success",
-        "text": "  ✓ recovered 12,361 rows · 47 still in dlq · SLA restored"
+        "text": "  ✓ dq gate now scoped — the next run clears the backlog"
       }
     ],
-    "callout": "<strong>90 seconds.</strong> One line — the rule now respects the data lifecycle. 12,361 rows recovered, SLA restored."
+    "callout": "<strong>90 seconds.</strong> One line — the rule now respects the data lifecycle. The corrected contract is live; the next run clears the gate."
   },
   {
     "kind": "term",
