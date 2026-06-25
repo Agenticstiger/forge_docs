@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Verify forge_docs is in sync with the installed `fluid` CLI.
 
-Two checks:
+Three checks:
 
 1. The CLI version reported by ``fluid --version`` matches the
    ``supportedCliVersion`` recorded in ``docs/.vuepress/cli-version.json``.
 2. Every top-level subcommand registered by the CLI's argparse parser has a
    matching ``docs/cli/<command>.md`` page (and vice versa), modulo the
    explicit exceptions in ``scripts/cli-docs-allowlist.yml``.
+3. ``fluid init --quickstart`` emits the fluidVersion pinned as
+   ``quickstartScaffoldVersion`` (so the docs can't silently drift from what
+   the quickstart actually scaffolds — the quickstart/customer-360 template is
+   pinned independently of the latest factory-path schema).
 
 We introspect the argparse parser directly (via
 ``fluid_build.cli.bootstrap.register_core_commands``) rather than parsing
@@ -24,6 +28,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -49,6 +54,20 @@ def load_supported_install_spec() -> str:
     if not version:
         sys.exit(f"ERROR: {VERSION_FILE} is missing 'supportedCliVersion'")
     return f"data-product-forge=={version}"
+
+
+def load_quickstart_scaffold_version() -> str | None:
+    """The fluidVersion ``fluid init --quickstart`` is expected to emit.
+
+    Pinned in cli-version.json as ``quickstartScaffoldVersion``. The quickstart
+    is an alias for ``--template customer-360``, whose bundled contract is
+    pinned independently of the latest schema (factory paths such as
+    ``--discover`` / ``forge`` / ``product-new`` emit the newer
+    ``supportedFluidContractVersion``). Returns None if not pinned.
+    """
+    data = json.loads(VERSION_FILE.read_text(encoding="utf-8"))
+    value = data.get("quickstartScaffoldVersion")
+    return str(value) if value else None
 
 
 def load_allowlist() -> tuple[set[str], set[str]]:
@@ -174,6 +193,60 @@ def check_version_only() -> int:
     return 0
 
 
+_FLUIDVERSION_RE = re.compile(r"""fluidVersion:\s*["']?(\d+\.\d+\.\d+)""")
+
+
+def check_scaffold_version() -> int:
+    """Assert ``fluid init --quickstart`` emits the pinned quickstartScaffoldVersion.
+
+    Runs the real scaffold in a temp dir and reads the emitted ``fluidVersion``,
+    so the docs can never silently drift from what the quickstart actually
+    writes. Passes (no-op) when the pin is absent.
+    """
+    expected = load_quickstart_scaffold_version()
+    if not expected:
+        print("OK: no quickstartScaffoldVersion pinned — skipping scaffold check.")
+        return 0
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            subprocess.run(
+                ["fluid", "init", "proj", "--quickstart", "--yes"],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=tmp,
+            )
+        except FileNotFoundError:
+            sys.exit("ERROR: `fluid` not found on PATH for the scaffold check.")
+        except subprocess.CalledProcessError as exc:
+            print(
+                f"FAIL: `fluid init --quickstart` exited {exc.returncode}.\n"
+                f"stdout: {exc.stdout}\nstderr: {exc.stderr}",
+                file=sys.stderr,
+            )
+            return 1
+        contract = Path(tmp) / "proj" / "contract.fluid.yaml"
+        if not contract.exists():
+            print(
+                f"FAIL: `fluid init --quickstart` produced no {contract.name}.",
+                file=sys.stderr,
+            )
+            return 1
+        match = _FLUIDVERSION_RE.search(contract.read_text(encoding="utf-8"))
+        actual = match.group(1) if match else None
+    if actual != expected:
+        print(
+            f"FAIL: `fluid init --quickstart` emits fluidVersion {actual!r} but "
+            f"cli-version.json pins quickstartScaffoldVersion={expected!r}.\n"
+            "  The quickstart/customer-360 template version changed — reconcile "
+            "the pin and every doc page that states the quickstart's fluidVersion.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"OK: `fluid init --quickstart` emits fluidVersion {expected} (matches pin).")
+    return 0
+
+
 def check_full() -> int:
     rc = check_version_only()
 
@@ -201,6 +274,9 @@ def check_full() -> int:
             f"{ALLOWLIST_FILE.relative_to(REPO_ROOT)} (docs_only_ok)."
         )
 
+    if check_scaffold_version() != 0:
+        rc = 1
+
     if rc == 0:
         print(
             f"OK: all {len(cli_commands)} CLI subcommands are documented "
@@ -216,10 +292,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Only check the installed CLI version against the pinned value.",
     )
+    parser.add_argument(
+        "--scaffold-only",
+        action="store_true",
+        help="Only check that `fluid init --quickstart` emits the pinned fluidVersion.",
+    )
     args = parser.parse_args(argv)
 
     if args.version_only:
         return check_version_only()
+    if args.scaffold_only:
+        return check_scaffold_version()
     return check_full()
 
 

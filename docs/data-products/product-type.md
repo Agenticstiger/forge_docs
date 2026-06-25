@@ -7,7 +7,7 @@ Schema **0.7.3** introduces a Data Mesh-aligned classification, `metadata.produc
 > `metadata.productType` (SDP / ADP / CDP) sits alongside the medallion layer, with `consumes[]` composition rules the validator enforces.
 
 ::: tip Where this fits
-The `productType` field arrived with schema `0.7.3` (shipped); `0.7.4` is the current default. Existing 0.7.2 contracts validate unchanged — the new fields are purely additive.
+The `productType` field arrived with schema `0.7.3` (shipped); `0.7.5` is the current default. Existing 0.7.2 contracts validate unchanged — the new fields are purely additive.
 :::
 
 ## The vocabulary

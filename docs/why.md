@@ -64,7 +64,7 @@ Because the context travels *inside* the contract — versioned, validated, and 
 
 > The model layer is commoditizing; your encoded meaning is not. The contract is where that meaning lives — one artifact your team, your pipelines, and your agents all read the same way.
 
-## What you get {#what-you-get}
+## What you get
 
 ### One contract, not five tools
 

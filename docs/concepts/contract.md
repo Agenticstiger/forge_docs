@@ -17,7 +17,7 @@ Every contract must declare:
 
 | Field | Purpose |
 |-------|---------|
-| `fluidVersion` | Schema version — pinned per file. Today `"0.7.4"` is the latest; the CLI accepts `0.7.1`, `0.7.2`, `0.7.3`, and `0.7.4`. Pre-0.7 contracts (0.4.x–0.6.x) are rejected by `fluid validate`. |
+| `fluidVersion` | Schema version — pinned per file. Today `"0.7.5"` is the latest; the CLI accepts `0.7.1`, `0.7.2`, `0.7.3`, `0.7.4`, and `0.7.5`. Pre-0.7 contracts (0.4.x–0.6.x) are rejected by `fluid validate`. |
 | `kind` | One of `DataProduct` or `MLPipeline` — the only two values the schema allows. Most contracts use `DataProduct`; `MLPipeline` was added for basic ML support. |
 | `id` | Globally unique product identifier in dotted form: `gold.crypto.bitcoin_tracker_v1`. Used in lineage, catalogs, and IAM principal naming. |
 | `name` | Human-readable name, shown in catalogs and dashboards. |
@@ -25,7 +25,7 @@ Every contract must declare:
 | `exposes` | At least one output (table / view / file / topic). See [Builds, Exposes, Bindings](./builds-exposes-bindings.md). |
 
 ::: tip Schema vs CLI version
-`fluidVersion` is the **contract schema** version (currently `0.7.4`). The CLI version is separate — at the time of writing the CLI ships at `0.8.11`. A v0.8.x CLI happily reads contracts with `fluidVersion: "0.7.1"` or older.
+`fluidVersion` is the **contract schema** version (currently `0.7.5`). The CLI version is separate — at the time of writing the CLI ships at `0.9.0`. A current `0.9.x` CLI happily reads contracts with `fluidVersion: "0.7.1"` or older.
 :::
 
 ## Minimal valid contract
@@ -87,7 +87,7 @@ You don't need every block. A local-only Bronze contract often has just `fluidVe
 
 The contract has its own version (`fluidVersion`) separate from the data product's version (`exposes[].version`). They evolve independently:
 
-- **`fluidVersion`** is the **contract schema** version. Today: `0.7.4`. Pinned per file so older contracts keep working under newer CLI releases. The CLI accepts `0.7.1`, `0.7.2`, `0.7.3`, and `0.7.4`; pre-0.7 contracts (0.4.x–0.6.x) are rejected.
+- **`fluidVersion`** is the **contract schema** version. Today: `0.7.5`. Pinned per file so older contracts keep working under newer CLI releases. The CLI accepts `0.7.1`, `0.7.2`, `0.7.3`, `0.7.4`, and `0.7.5`; pre-0.7 contracts (0.4.x–0.6.x) are rejected.
 - **`exposes[].version`** is the **data product** version. Bump it when the product's contract changes in a way consumers care about. Use semver: `1.0.0` → `1.1.0` adds an optional column; `1.0.0` → `2.0.0` removes or renames one.
 
 `fluid plan` flags breaking changes between contract versions before `apply` runs. The CLI refuses to silently break consumers — you have to acknowledge the bump explicitly.

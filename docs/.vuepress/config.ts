@@ -110,10 +110,6 @@ export default defineUserConfig({
           { text: 'Custom Providers', link: '/providers/custom-providers' },
           { text: 'Roadmap', link: '/providers/roadmap' }
         ]
-      },
-      {
-        text: 'GitHub',
-        link: 'https://github.com/Agenticstiger/forge-cli'
       }
     ],
 
@@ -379,6 +375,7 @@ export default defineUserConfig({
           text: 'Project',
           children: [
             '/contributing.md',
+            '/RELEASE_NOTES_0.9.0.md',
             '/RELEASE_NOTES_0.8.11.md',
             '/RELEASE_NOTES_0.8.10.md',
             '/RELEASE_NOTES_0.8.9.md',

@@ -1,8 +1,12 @@
 # Local Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.8.11`<br>
+**Docs Baseline:** CLI `0.9.0`<br>
 **Database:** DuckDB, SQLite
+
+> **Why it matters**
+> Build and test a real data product on your laptop — no cloud account, no credentials — then ship the same contract to a cloud.
+> `binding.platform: local` runs embedded on DuckDB; only that one line changes when you later target BigQuery, Snowflake, or Athena.
 
 ---
 

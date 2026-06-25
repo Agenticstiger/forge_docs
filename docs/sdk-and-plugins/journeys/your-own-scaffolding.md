@@ -162,7 +162,7 @@ keywords = [
 
 dependencies = [
     "pydantic>=2.0",
-    "data-product-forge=={{ fluid_cli_version | default('0.8.11') }}",
+    "data-product-forge=={{ fluid_cli_version | default('0.9.0') }}",
 ]
 
 [project.optional-dependencies]

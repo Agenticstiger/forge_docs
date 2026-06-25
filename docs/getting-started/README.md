@@ -16,7 +16,7 @@ Run your first data product locally in a few minutes, then move to cloud targets
 
 ## What you skip with Fluid Forge
 
-You're about to ship a working data product in 30 seconds. The four-tool stack you'd otherwise need: **gone**.
+You're about to ship a working data product in 30 seconds. The five-tool stack you'd otherwise need: **gone**.
 
 - **No Airflow DAG to write or maintain.** `fluid generate schedule --scheduler airflow|dagster|prefect` emits the right artifact.
 - **No JVM, no cluster, no heap tuning.** `engine: duckdb` runs embedded.
@@ -34,18 +34,18 @@ You're about to ship a working data product in 30 seconds. The four-tool stack y
 
 ## Install the CLI
 
-The current docs baseline is `0.8.11` — the stable tag was cut on `2026-06-16`:
+The current docs baseline is `0.9.0` — the stable tag was cut on `2026-06-16`:
 
 ```bash
 pip install --upgrade data-product-forge
-pip install "data-product-forge==0.8.11"    # exact pin
+pip install "data-product-forge==0.9.0"    # exact pin
 ```
 
 Pre-releases (when published) ship to PyPI as PEP 440 pre-releases — `pip install` skips them by default. The `--pre` flag opts in.
 
 ### Dependency floor (what you'll see in `pip install`)
 
-`0.8.11` pins minimum versions on several deps to close known CVEs:
+`0.9.0` pins minimum versions on several deps to close known CVEs:
 
 - `jinja2 >= 3.1.6` (CVE-2025-27516), `h11 >= 0.16` (CVE-2025-43859), `cryptography >= 46.0.7` (CVE-2026-26007 / 39892 / 34073)
 - `litellm >= 1.83.7, < 2` (CVE-2026-42208) — **skips the compromised `1.82.7` / `1.82.8` PyPI artifacts**
@@ -58,7 +58,7 @@ fluid version
 fluid doctor
 ```
 
-This docs set tracks CLI release `0.8.11`. Docs updates land in lockstep with each release; if you're on an older CLI, some `--mode` / `--target` flags mentioned here won't be present yet — see the [CLI index](../cli/README.md) for what maps to what.
+This docs set tracks CLI release `0.9.0`. Docs updates land in lockstep with each release; if you're on an older CLI, some `--mode` / `--target` flags mentioned here won't be present yet — see the [CLI index](../cli/README.md) for what maps to what.
 
 > **Extending the CLI?** Fluid Forge ships three plugin extension points and a companion SDK on PyPI. If your team has its own CI templates, scaffolding standards, or governance rules, see **[SDK & Plugins](../sdk-and-plugins/)**.
 
@@ -68,15 +68,15 @@ This docs set tracks CLI release `0.8.11`. Docs updates land in lockstep with ea
 
 You will see two different version concepts in the docs:
 
-- `fluid version` reports the installed CLI release, such as `0.8.11`
-- `fluidVersion` inside `contract.fluid.yaml` selects the contract schema version, such as `0.7.4`
+- `fluid version` reports the installed CLI release, such as `0.9.0`
+- `fluidVersion` inside `contract.fluid.yaml` selects the contract schema version, such as `0.7.5`
 
 Which `fluidVersion` a fresh scaffold emits depends on the path:
 
 - `fluid init --quickstart` copies the `customer-360` template verbatim, which is pinned at `fluidVersion: 0.7.2`.
-- `fluid init --discover`, `fluid forge`, and `fluid product-new` go through the factory and emit `fluidVersion: 0.7.4` — the latest bundled schema.
+- `fluid init --discover`, `fluid forge`, and `fluid product-new` go through the factory and emit `fluidVersion: 0.7.5` — the latest bundled schema.
 
-The CLI still accepts contracts with `fluidVersion` `0.4.0`, `0.5.7`, `0.7.1`, `0.7.2`, `0.7.3`, and `0.7.4` — run `fluid version` for the authoritative compatibility list.
+The CLI still accepts contracts with `fluidVersion` `0.4.0`, `0.5.7`, `0.7.1`, `0.7.2`, `0.7.3`, `0.7.4`, and `0.7.5` — run `fluid version` for the authoritative compatibility list.
 
 ## Quickstart with `fluid init`
 

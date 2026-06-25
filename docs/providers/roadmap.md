@@ -19,6 +19,14 @@
 - **Code Generation**: `fluid generate-airflow` / `fluid export` — Generate orchestration code
 - **Data Catalog**: `fluid odps` / `fluid odcs` — Export to open data standards
 
+::: tip "Production" scopes the plan/apply core, not every sub-feature
+The "✅ Production" / GA status above refers to the provisioning core (plan/apply via OpenTofu,
+code generation, standards export). Fine-grained **governance** does not have parity across the
+three clouds: AWS Lake Formation is supported; Snowflake masking / row-access policies are Beta
+(created but not yet attached); and GCP fine-grained controls (RLS, policy tags, data masking,
+VPC-SC) are roadmap, not shipped. See each provider page for the current governance surface.
+:::
+
 ---
 
 ## AWS Provider
@@ -27,21 +35,17 @@
 
 ### Infrastructure Deployment (Available Now)
 
-Full plan/apply lifecycle with 13 service action handlers:
+`fluid apply` compiles the contract to OpenTofu (`main.tf.json`) and runs `tofu` — the older
+per-service "action handler" code has been retired in favour of this model. Resources emitted
+by the AWS IaC plugin include:
 
-- ✅ Amazon S3 — Bucket creation, versioning, tags
-- ✅ AWS Glue — Data catalog, databases, tables
-- ✅ Amazon Athena — Query execution
-- ✅ Amazon Redshift — Data warehouse operations
-- ✅ AWS Lambda — Functions, event source mappings, triggers
-- ✅ Amazon EventBridge — Scheduled rules
-- ✅ AWS Step Functions — Workflow orchestration
-- ✅ Amazon SNS — Notifications
-- ✅ Amazon SQS — Message queues
-- ✅ Amazon Kinesis — Streaming
-- ✅ Amazon CloudWatch — Monitoring
-- ✅ AWS Secrets Manager — Secret management
-- ✅ AWS IAM — Role and policy automation
+- ✅ Amazon S3 — Buckets, versioning, tags, cross-account bucket policy
+- ✅ AWS Glue — Data catalog databases and tables (with column comments / table parameters)
+- ✅ AWS Lake Formation — Admins, LF-tags (TBAC), location registration, principal/column grants, row filters
+- ✅ AWS IAM — Role and policy bindings from `accessPolicy`
+
+> Other AWS services may be reachable through the IaC layer, but they are no longer modelled as
+> discrete "service action handlers". `fluid generate iac <contract>` shows exactly what is emitted.
 
 ### Code Generation (Available Now)
 
@@ -64,8 +68,8 @@ fluid export aws-contract.yaml --engine prefect -o flows/
 ```
 
 **Generated Code Quality:**
-- Valid Python syntax (100% compilation success)
-- Proper error handling and retries
+- Valid Python syntax
+- Error handling and retries
 - Logging and monitoring integration
 - Resource cleanup and rollback
 
@@ -77,14 +81,17 @@ fluid export aws-contract.yaml --engine prefect -o flows/
 
 ### Infrastructure Deployment (Available Now)
 
-Full plan/apply lifecycle:
+Full plan/apply lifecycle. The Snowflake IaC plugin emits:
 
-- ✅ Virtual Warehouses — Compute provisioning
 - ✅ Databases & Schemas — Lifecycle management
 - ✅ Tables & Views — DDL with clustering
-- ✅ Snowpipe — Streaming ingestion
-- ✅ Snowpark — Python in Snowflake
-- ✅ Data Sharing — Cross-account access
+- ✅ Streams & Tasks — CDC streams and scheduled tasks
+- ✅ Procedures & Functions — Stored procedures and UDFs
+- ✅ RBAC Grants — `GRANT ... TO ROLE` from the contract
+- 🧪 Masking & Row-Access policies — policy objects created, not yet attached (Beta)
+
+> Snowpipe, Snowpark, and Data Sharing are **not yet** emitted by the Snowflake plugin — see
+> the [Snowflake provider page](/forge_docs/providers/snowflake) for the current surface.
 
 ### Code Generation (Available Now)
 
@@ -101,10 +108,9 @@ fluid generate-airflow snowflake-contract.yaml --env prod -o dags/prod_pipeline.
 
 **Supported Operations:**
 - ✅ Database and schema creation
-- ✅ Table creation with clustering
-- ✅ SQL query execution
-- ✅ Data loading from S3/GCS
-- ✅ Warehouse management
+- ✅ Table and view creation with clustering
+- ✅ Streams, tasks, procedures, and functions
+- ✅ RBAC grants from the contract
 
 ---
 
