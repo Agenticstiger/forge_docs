@@ -7,6 +7,10 @@ description: Declarative boundaries on which AI models can read which data field
 
 New in `fluidVersion: "0.7.1"` — a top-level `agentPolicy` block that declares **which AI / LLM models are allowed to read this data product, for which purposes, and under what conditions**. Enforced before the model gets the row.
 
+> **Why it matters**
+> AI agents are often your largest data consumer — `agentPolicy` makes their access boundaries declarative, the same way `accessPolicy` governs people.
+> Forge enforces those rules at the MCP output port on every agent call, so an agent reads a governed product, not raw tables.
+
 <CliCast
   src="/forge_docs/demos/agent-policy.svg"
   title="agentPolicy — declare, validate, gate (validate → policy-check → audit)"

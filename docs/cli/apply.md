@@ -4,6 +4,10 @@ Stage 7 of the 11-stage pipeline. Execute a FLUID contract (or a saved plan) end
 
 `0.8.0` adds a 6-mode apply matrix (`--mode`) with explicit destruction gating (`--allow-data-loss`) and cryptographic plan-binding (`bundleDigest` / `planDigest` verification).
 
+> **Why it matters**
+> Deploying a data product is safe and reversible — the plan you reviewed is the plan that runs, and destructive changes are gated.
+> `fluid apply` re-verifies the `bundleDigest` + `planDigest` before any DDL and refuses a tampered plan; `--allow-data-loss` is required for destructive operations.
+
 ## Syntax
 
 ```bash

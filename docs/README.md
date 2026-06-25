@@ -6,6 +6,9 @@ actions:
   - text: Get Started →
     link: /getting-started/
     type: primary
+  - text: Why Fluid Forge
+    link: /why
+    type: secondary
   - text: See it run
     link: /see-it-run
     type: secondary

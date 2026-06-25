@@ -2,6 +2,10 @@
 
 Validate a contract against FLUID schema rules and provider-aware checks.
 
+> **Why it matters**
+> A breaking change surfaces in code review, not at 2am — trust becomes something you check on every commit.
+> `fluid validate` checks the contract against the bundled JSON-Schema plus provider- and policy-aware rules before anything is planned or applied.
+
 ## Syntax
 
 ```bash

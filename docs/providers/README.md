@@ -2,6 +2,10 @@
 
 Fluid Forge uses one contract format across local and provider-backed execution targets.
 
+> **Why it matters**
+> Target a new cloud by changing one line — no per-cloud rewrite, no lock-in at the contract layer.
+> Swap `binding.platform` and the same contract recompiles for `local` (DuckDB), `aws`, `gcp`, or `snowflake`; every provider implements the same interface.
+
 ## Docs baseline
 
 - CLI release covered by the primary docs: `0.8.11`

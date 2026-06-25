@@ -7,6 +7,10 @@ description: The data structure at the heart of every Fluid Forge data product.
 
 A **Fluid Forge contract** is a single YAML file that fully describes a data product — its identity, who owns it, how it's built, what it exposes, and who's allowed to read it. The CLI (`fluid validate`, `fluid plan`, `fluid apply`) reads the contract, compiles it for your target cloud, and ships it. Nothing else is the source of truth.
 
+> **Why it matters**
+> One file is the single source of truth for a data product — so schema, infrastructure, policy, and AI gating can't drift out of sync.
+> `fluid validate` checks the whole contract before anything ships, and every downstream artifact recompiles from it.
+
 ## The 5 required top-level fields
 
 Every contract must declare:

@@ -63,6 +63,7 @@ export default defineUserConfig({
     // navbar item is redundant). Add a transparent `logo` / `logoDark`
     // asset later to bring the mark back.
     navbar: [
+      { text: 'Why Forge', link: '/why' },
       { text: 'Get Started', link: '/getting-started/' },
       { text: 'See it run', link: '/see-it-run' },
       {
@@ -122,6 +123,7 @@ export default defineUserConfig({
           text: 'Introduction',
           children: [
             { text: 'Home', link: '/' },
+            '/why.md',
             '/getting-started/',
             '/getting-started/snowflake.md',
             '/see-it-run.md',

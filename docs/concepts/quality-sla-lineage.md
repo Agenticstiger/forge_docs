@@ -7,6 +7,10 @@ description: Block bad deploys before they happen. dq.rules, qos, and auto-deriv
 
 Three pillars of "is this data product trustworthy?" — all declarative, all enforced by `fluid validate` + `fluid test` + `fluid verify`.
 
+> **Why it matters**
+> Consumers — and agents — can tell whether to trust a product *before* they use it: freshness, quality, and provenance are declared, not assumed.
+> `dq.rules`, `exposes[].qos`, and `lineage` ship inside the contract and are checked by `validate` / `test` / `verify`.
+
 ## Data quality rules — `dq.rules`
 
 Live at `exposes[].contract.dq.rules`. Each rule has an `id`, a `type`, a `severity`, and (usually) a `selector` + `threshold` + `operator`.

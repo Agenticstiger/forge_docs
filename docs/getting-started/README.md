@@ -2,6 +2,10 @@
 
 Run your first data product locally in a few minutes, then move to cloud targets when you are ready.
 
+> **Why it matters**
+> You ship a real, versioned data product on your laptop in minutes — no cloud account, no platform-team ticket.
+> The same `contract.fluid.yaml` you run locally is the one you later ship to any cloud; only `binding.platform` changes.
+
 <CliCast
   src="/forge_docs/demos/local-quickstart.svg"
   title="fluid init my-project --quickstart  →  validate  →  plan  →  apply"
