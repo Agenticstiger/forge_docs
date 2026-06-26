@@ -64,11 +64,13 @@ export default defineUserConfig({
     // asset later to bring the mark back.
     navbar: [
       { text: 'Why Forge', link: '/why' },
+      { text: 'Concepts', link: '/concepts/' },
       { text: 'Get Started', link: '/getting-started/' },
-      { text: 'See it run', link: '/see-it-run' },
       {
         text: 'Walkthroughs',
         children: [
+          { text: 'See it run', link: '/see-it-run' },
+          { text: 'Demos', link: '/demos/' },
           { text: 'Local (DuckDB)', link: '/walkthrough/local' },
           { text: 'Source-Aligned (Postgres → DuckDB)', link: '/walkthrough/source-aligned-postgres-duckdb' },
           { text: 'AI Forge + Data Models', link: '/walkthrough/ai-forge-data-model' },
@@ -85,6 +87,16 @@ export default defineUserConfig({
       },
       { text: 'CLI Reference', link: '/cli/' },
       {
+        text: 'AI & Agents',
+        children: [
+          { text: 'Agent Policy (concept)', link: '/concepts/agent-policy' },
+          { text: 'MCP Output Port — Serve to Agents', link: '/walkthrough/mcp-output-port' },
+          { text: 'MCP deep-dive', link: '/advanced/mcp' },
+          { text: 'AI-assisted authoring', link: '/advanced/custom-llm-agents' },
+          { text: 'LLM providers & backends', link: '/advanced/llm-providers' }
+        ]
+      },
+      {
         text: 'SDK & Plugins',
         children: [
           { text: 'Overview', link: '/sdk-and-plugins/' },
@@ -97,7 +109,6 @@ export default defineUserConfig({
           { text: 'Reference', link: '/sdk-and-plugins/reference/' }
         ]
       },
-      { text: 'Demos', link: '/demos/' },
       {
         text: 'Providers',
         children: [
@@ -169,79 +180,106 @@ export default defineUserConfig({
           text: 'CLI Reference',
           children: [
             '/cli/README.md',
-            // Core workflow
-            '/cli/init.md',
-            '/cli/demo.md',
-            '/cli/forge.md',
-            '/cli/skills.md',
-            '/cli/status.md',
-            '/cli/validate.md',
-            '/cli/plan.md',
-            '/cli/apply.md',
-            // Generate & visualize
-            '/cli/generate.md',
-            '/cli/generate-artifacts.md',
-            '/cli/validate-artifacts.md',
-            '/cli/verify-signature.md',
-            '/cli/generate-airflow.md',
-            '/cli/generate-pipeline.md',
-            '/cli/generate-iac.md',
-            '/cli/viz-graph.md',
-            // Standards & interop
-            '/cli/odps.md',
-            '/cli/odps-bitol.md',
-            '/cli/odcs.md',
-            '/cli/export.md',
-            '/cli/export-odps.md',
-            // Integrations
-            '/cli/publish.md',
-            '/cli/datamesh-manager.md',
-            '/cli/market.md',
-            '/cli/import.md',
-            // Quality & governance
-            '/cli/policy.md',
-            '/cli/policy-check.md',
-            '/cli/policy-compile.md',
-            '/cli/policy-apply.md',
-            '/cli/contract-tests.md',
-            '/cli/contract-validation.md',
-            '/cli/diff.md',
-            '/cli/test.md',
-            '/cli/verify.md',
-            // Project & workspace
-            '/cli/product-new.md',
-            '/cli/product-add.md',
-            '/cli/workspace.md',
-            '/cli/ide.md',
-            '/cli/ai.md',
-            '/cli/memory.md',
-            '/cli/mcp.md',
-            // CI & scaffolding
-            '/cli/scaffold-ci.md',
-            '/cli/scaffold-composer.md',
-            '/cli/scaffold-ide.md',
-            '/cli/docs.md',
-            // Utilities
-            '/cli/config.md',
-            '/cli/split.md',
-            '/cli/bundle.md',
-            '/cli/auth.md',
-            '/cli/doctor.md',
-            '/cli/describe.md',
-            '/cli/providers.md',
-            '/cli/provider-init.md',
-            '/cli/roadmap.md',
-            '/cli/version.md',
-            // Source-aligned acquisition (next release)
-            '/cli/runs.md',
-            '/cli/retention.md',
-            '/cli/secrets.md',
-            '/cli/agents.md',
-            '/cli/stats.md',
-            '/cli/contract.md',
-            '/cli/ship.md',
-            '/cli/rollback.md',
-            '/cli/schedule-sync.md',
+            // Core workflow — the validate -> plan -> apply lifecycle; open by default.
+            {
+              text: 'Core workflow',
+              children: [
+                '/cli/init.md',
+                '/cli/demo.md',
+                '/cli/forge.md',
+                '/cli/validate.md',
+                '/cli/plan.md',
+                '/cli/apply.md',
+                '/cli/diff.md',
+                '/cli/status.md'
+              ]
+            },
+            {
+              text: 'Build & ship',
+              collapsible: true,
+              children: [
+                '/cli/bundle.md',
+                '/cli/generate.md',
+                '/cli/generate-artifacts.md',
+                '/cli/validate-artifacts.md',
+                '/cli/verify-signature.md',
+                '/cli/generate-iac.md',
+                '/cli/generate-airflow.md',
+                '/cli/generate-pipeline.md',
+                '/cli/viz-graph.md',
+                '/cli/publish.md',
+                '/cli/ship.md',
+                '/cli/rollback.md',
+                '/cli/schedule-sync.md'
+              ]
+            },
+            {
+              text: 'AI & Agents',
+              collapsible: true,
+              children: [
+                '/cli/ai.md',
+                '/cli/agents.md',
+                '/cli/mcp.md',
+                '/cli/memory.md',
+                '/cli/stats.md',
+                '/cli/skills.md'
+              ]
+            },
+            {
+              text: 'Quality & governance',
+              collapsible: true,
+              children: [
+                '/cli/test.md',
+                '/cli/verify.md',
+                '/cli/contract-tests.md',
+                '/cli/contract-validation.md',
+                '/cli/policy.md',
+                '/cli/policy-check.md',
+                '/cli/policy-compile.md',
+                '/cli/policy-apply.md'
+              ]
+            },
+            {
+              text: 'Standards & interoperability',
+              collapsible: true,
+              children: [
+                '/cli/odps.md',
+                '/cli/odps-bitol.md',
+                '/cli/odcs.md',
+                '/cli/export.md',
+                '/cli/export-odps.md',
+                '/cli/import.md',
+                '/cli/market.md',
+                '/cli/datamesh-manager.md'
+              ]
+            },
+            {
+              text: 'Project & workspace',
+              collapsible: true,
+              children: [
+                '/cli/product-new.md',
+                '/cli/product-add.md',
+                '/cli/workspace.md',
+                '/cli/contract.md',
+                '/cli/split.md',
+                '/cli/config.md',
+                '/cli/providers.md',
+                '/cli/provider-init.md',
+                '/cli/auth.md',
+                '/cli/secrets.md',
+                '/cli/ide.md',
+                '/cli/scaffold-ci.md',
+                '/cli/scaffold-composer.md',
+                '/cli/scaffold-ide.md',
+                '/cli/docs.md',
+                '/cli/runs.md',
+                '/cli/retention.md',
+                '/cli/describe.md',
+                '/cli/doctor.md',
+                '/cli/roadmap.md',
+                '/cli/version.md'
+              ]
+            },
             {
               text: 'Catalog adapters',
               collapsible: true,
@@ -343,30 +381,55 @@ export default defineUserConfig({
           ]
         },
         {
-          text: 'Advanced',
+          text: 'AI & Agents',
+          collapsible: true,
           children: [
-            '/advanced/environment-variables.md',
-            '/advanced/network-safety.md',
-            '/advanced/blueprints.md',
-            '/advanced/governance.md',
-            '/advanced/airflow.md',
+            '/advanced/mcp.md',
             '/advanced/custom-llm-agents.md',
-            '/advanced/chatgpt-forge-contract-gpt/',
             '/advanced/forge-copilot-discovery.md',
             '/advanced/forge-copilot-memory.md',
+            '/advanced/forge-tools.md',
+            '/advanced/guided-forge-ux.md',
             '/advanced/llm-providers.md',
-            '/advanced/capability-warnings.md',
             '/advanced/litellm-backend.md',
-            '/advanced/mcp.md',
-            '/advanced/credential-resolver.md',
+            '/advanced/capability-warnings.md',
             '/advanced/cost-tracking.md',
-            '/advanced/agentic-primitives.md',
+            '/advanced/chatgpt-forge-contract-gpt/',
+            '/advanced/agentic-primitives.md'
+          ]
+        },
+        {
+          text: 'Operate & Deploy',
+          collapsible: true,
+          children: [
+            '/advanced/airflow.md',
+            '/advanced/blueprints.md',
+            '/advanced/source-aligned-acquisition.md'
+          ]
+        },
+        {
+          text: 'Govern & Secure',
+          collapsible: true,
+          children: [
+            '/advanced/governance.md',
+            '/advanced/network-safety.md',
+            '/advanced/credential-resolver.md'
+          ]
+        },
+        {
+          text: 'Configuration & Reference',
+          collapsible: true,
+          children: [
+            '/advanced/environment-variables.md',
             '/advanced/typed-errors.md',
             '/advanced/typed-cli-errors.md',
-            '/advanced/forge-tools.md',
-            '/advanced/source-aligned-acquisition.md',
-            '/advanced/api-stability.md',
-            '/advanced/guided-forge-ux.md',
+            '/advanced/api-stability.md'
+          ]
+        },
+        {
+          text: 'Architecture & Releases',
+          collapsible: true,
+          children: [
             '/advanced/v1.5-architecture.md',
             '/advanced/v1.5-release-notes.md'
           ]
