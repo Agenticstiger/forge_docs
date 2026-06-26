@@ -16,7 +16,7 @@ Two contracts in the same workspace: an upstream `bronze.crm_orders` (already ru
 ### Upstream — `bronze.crm_orders.fluid.yaml` (already exists)
 
 ```yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: bronze.crm_orders
 metadata:
@@ -34,7 +34,7 @@ exposes:
 ### Downstream — `silver.orders_enriched.fluid.yaml` (new)
 
 ```yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: silver.orders_enriched
 metadata:
