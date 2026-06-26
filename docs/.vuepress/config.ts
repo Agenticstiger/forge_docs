@@ -69,6 +69,7 @@ export default defineUserConfig({
       {
         text: 'Walkthroughs',
         children: [
+          { text: 'Consume a Data Product', link: '/data-products/consume' },
           { text: 'See it run', link: '/see-it-run' },
           { text: 'Demos', link: '/demos/' },
           { text: 'Local (DuckDB)', link: '/walkthrough/local' },
@@ -156,6 +157,7 @@ export default defineUserConfig({
         {
           text: 'Data Products',
           children: [
+            '/data-products/consume.md',
             '/data-products/product-type.md'
           ]
         },
@@ -411,6 +413,7 @@ export default defineUserConfig({
           text: 'Govern & Secure',
           collapsible: true,
           children: [
+            '/governance-compliance-roi.md',
             '/advanced/governance.md',
             '/advanced/network-safety.md',
             '/advanced/credential-resolver.md'
