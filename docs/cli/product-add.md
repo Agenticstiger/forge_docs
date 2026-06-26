@@ -1,59 +1,75 @@
 # `fluid product-add`
 
-Append a source, exposure, or data-quality check to an existing FLUID contract.
+Append a source, exposure, or data-quality rule to an existing FLUID contract — writing each into its **canonical home** so the contract still passes [`fluid validate`](./validate.md) afterwards.
 
-::: warning Known limitation — output does not pass `fluid validate`
-`product-add` writes its items into **top-level** `sources`, `exposures`, or `dataQuality` arrays. None of those keys exist in the current FLUID schema (`fluid-schema-0.7.4.json`), and the contract root is closed (`additionalProperties: false`). A contract that was valid before `product-add` will **fail** `fluid validate` afterwards, e.g.:
-
-```text
-1. root: Additional properties are not allowed ("dataQuality" was unexpected)
-```
-
-The canonical homes are different (see [Canonical contract shape](#canonical-contract-shape) below): a dataset interface is an entry in top-level `exposes[]`, its columns live at `exposes[].contract.schema[]`, and data-quality rules live at `exposes[].contract.dq.rules[]`. Until this command is updated to emit the canonical shape, edit those sections by hand (or scaffold with [`fluid product-new`](./product-new.md), which already emits a canonical `exposes: []`).
+::: tip Requires a build newer than 0.9.0
+Schema-valid output landed in the fix merged **after 0.9.0** (currently on `main`; ships in the next release). On the released **0.9.0**, `product-add` still writes legacy top-level `sources` / `exposures` / `dataQuality` keys that **fail** `fluid validate` (`root: Additional properties are not allowed`). Until you upgrade, scaffold with [`fluid product-new`](./product-new.md) or move the items into their [canonical homes](#canonical-contract-shape) by hand. The `--platform`, `--expose`, and `--severity` options below are also new in that build.
 :::
 
 ## Syntax
 
 ```bash
-fluid product-add CONTRACT WHAT --id ID [--description TEXT] [--type TYPE] [--location LOC]
+fluid product-add CONTRACT WHAT --id ID \
+  [--description TEXT] [--type TYPE] [--location LOC] \
+  [--platform PLATFORM] [--expose EXPOSE_ID] [--severity LEVEL]
 ```
+
+Each `WHAT` maps to a different part of the contract:
+
+| `WHAT` | Canonical home | Shape written |
+| --- | --- | --- |
+| `source` | `consumes[]` | `{ productId, exposeId }` — an upstream product expose this contract reads |
+| `exposure` | `exposes[]` | `{ exposeId, kind, binding, contract }` — a data interface this product publishes |
+| `dq` | `exposes[].contract.dq.rules[]` | `{ id, type, severity }` — attached to a target expose |
 
 ## Key options
 
-| Option | Description |
-| --- | --- |
-| `CONTRACT` | Path to existing `contract.fluid.json` or `contract.fluid.yaml`. |
-| `WHAT` | What to add: `source`, `exposure`, or `dq`. |
-| `--id` | Identifier to add. Required. |
-| `--description` | Free-text description of the item. |
-| `--type` | Item type. For `source`: `table`/`view`/`file` (default `table`). For `exposure`: e.g. `dashboard` (default). For `dq`: `freshness`/`schema`/`quality` (default `quality`). |
-| `--location` | Location/path. Stored as `location` for sources and as `url` for exposures. |
+| Option | Applies to | Description |
+| --- | --- | --- |
+| `CONTRACT` | all | Path to an existing `contract.fluid.json` or `contract.fluid.yaml`. |
+| `WHAT` | all | What to add: `source`, `exposure`, or `dq`. |
+| `--id` | all | **Required.** `exposure` → `exposeId`; `source` → upstream `productId`; `dq` → rule `id`. |
+| `--description` | all | Free-text. Stored as `description` (`exposure`/`dq`) or `purpose` (`source`). |
+| `--type` | `exposure`, `dq` | `exposure` → expose `kind` (`table`/`view`/`file`/`stream`/`topic`/…; default `table`). `dq` → rule `type` (`completeness`/`freshness`/`uniqueness`/`valid_values`/`accuracy`/`schema`/…; default `completeness`). Unrecognized values fall back to the default. |
+| `--location` | `exposure`, `source` | `exposure` → `binding.location.path`. `source` → the upstream `exposeId` (defaults to `--id`). |
+| `--platform` | `exposure` | `binding.platform` (`local`/`gcp`/`aws`/`snowflake`/…; default `local`). The `binding.format` is derived from the platform. |
+| `--expose` | `dq` | Target `exposeId` the rule attaches to. Defaults to the first expose; errors if the contract has no expose yet. |
+| `--severity` | `dq` | Rule severity: `info`/`warn`/`error`/`critical` (default `warn`). |
 
 ## Examples
 
 ```bash
-fluid product-add contract.fluid.json source --id orders_raw --type table --location warehouse.raw.orders
-fluid product-add contract.fluid.json exposure --id sales_dashboard --type dashboard --location https://looker/dash/123
-fluid product-add contract.fluid.json dq --id freshness_check --type freshness --description "Updated daily by 06:00"
+# source -> a consumes[] upstream reference
+fluid product-add contract.fluid.json source \
+  --id sales.orders_v1 --location orders_curated --description "Curated orders feed"
+
+# exposure -> an exposes[] interface (binding.platform + location)
+fluid product-add contract.fluid.json exposure \
+  --id customer_360 --type table --platform snowflake --location analytics.customer_360
+
+# dq -> a rule under the target expose's contract.dq.rules[]
+fluid product-add contract.fluid.json dq \
+  --id orders_freshness --type freshness --severity error --expose customer_360
 ```
 
 ## Notes
 
-- New items are appended into the matching **top-level** section (`sources`, `exposures`, or `dataQuality`) and then deduplicated by `id`, keeping the last occurrence. These section keys are **not** part of the current FLUID schema — see the warning above.
-- The contract is rewritten atomically. YAML inputs are written back as JSON (`.yaml`/`.yml` files are converted to `.json`); convert back manually if you prefer YAML on disk.
-- To create a brand-new product first, see [`fluid product-new`](./product-new.md). To validate or apply the result, see [`fluid validate`](./validate.md) and [`fluid apply`](./apply.md) — but note that the output will not validate until you move the items into their canonical homes.
+- Each item is written to its canonical home (`consumes[]`, `exposes[]`, or the target expose's `contract.dq.rules[]`) and deduplicated — `exposes[]` by `exposeId`, `consumes[]` by `(productId, exposeId)`, and dq rules by `id` within the expose — keeping the last occurrence.
+- `product-add` emits no version-specific optional keys, so the result validates against the contract's own `fluidVersion` (e.g. a `0.7.2` contract stays `0.7.2`-valid).
+- The contract is rewritten atomically. YAML inputs are written back as JSON (`.yaml`/`.yml` → `.json`); convert back manually if you prefer YAML on disk.
+- To create a brand-new product first, see [`fluid product-new`](./product-new.md). To validate or apply the result, see [`fluid validate`](./validate.md) and [`fluid apply`](./apply.md).
 
 ## Canonical contract shape
 
-The FLUID schema (`fluid-schema-0.7.4.json`) is closed at the top level; its required keys are `fluidVersion`, `kind`, `id`, `name`, `metadata`, and `exposes`. There are no top-level `sources`, `exposures`, or `dataQuality` keys. The pieces `product-add` tries to add belong in these places instead:
+The FLUID schema (`fluid-schema-0.7.5.json`) is closed at the top level; its required keys are `fluidVersion`, `kind`, `id`, `name`, `metadata`, and `exposes`. There are no top-level `sources`, `exposures`, or `dataQuality` keys — which is why `product-add` writes to the homes below (and why hand-edited contracts should too):
 
-| `product-add` writes | Canonical home |
+| Concept | Canonical home |
 | --- | --- |
-| top-level `sources[]` | an upstream reference under `consumes[]`, or a source-aligned `exposes[]` entry |
-| top-level `exposures[]` | a consumer interface under `exposes[]` (each requires `exposeId`, `kind`, `binding`, `contract`) |
-| top-level `dataQuality[]` | `exposes[].contract.dq.rules[]` |
+| an upstream source | `consumes[]` (`{ productId, exposeId }`), or a source-aligned `exposes[]` entry |
+| a consumer interface | `exposes[]` — each requires `exposeId`, `kind`, `binding`, `contract` |
+| a data-quality rule | `exposes[].contract.dq.rules[]` |
 
-A data-quality rule (`exposes[].contract.dq.rules[]`) requires `id`, `type`, and `severity`:
+A `binding` requires `platform`, `format`, and `location`. A data-quality rule (`exposes[].contract.dq.rules[]`) requires `id`, `type`, and `severity`:
 
 - `type` — one of `freshness`, `completeness`, `uniqueness`, `valid_values`, `accuracy`, `schema`, `anomaly_detection`, `drift_detection`.
 - `severity` — one of `info`, `warn`, `error`, `critical`.
@@ -62,14 +78,18 @@ A data-quality rule (`exposes[].contract.dq.rules[]`) requires `id`, `type`, and
 exposes:
   - exposeId: orders_curated
     kind: table
-    binding: { platform: snowflake }
+    binding:
+      platform: local
+      format: parquet
+      location:
+        path: output/orders_curated.parquet
     contract:
       schema:
         - name: order_id
           type: string
       dq:
         rules:
-          - id: freshness_check
+          - id: orders_freshness
             type: freshness
             severity: error
 ```
