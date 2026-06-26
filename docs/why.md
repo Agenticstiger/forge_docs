@@ -132,6 +132,8 @@ fluid apply contract.fluid.yaml --yes
 ```
 
 - [Getting started](/forge_docs/getting-started/) — the local-first path, in a few minutes
+- [Consume a data product](/forge_docs/data-products/consume.html) — already have one to use? Discover it, trust its contract, and read it as a human, a pipeline, or an agent
+- [Governance, compliance & the business case](/forge_docs/governance-compliance-roi.html) — for data & compliance leaders: the audit-and-trust story + an honest, per-provider enforcement matrix
 - [Providers](/forge_docs/providers/) — does it support my stack? (BigQuery, Snowflake, Athena, DuckDB)
 - [Vision & roadmap](/forge_docs/vision.html) — what we believe, and what's shipped vs. planned
 - **Apache-2.0, open source, no contributor agreement** — no vendor capture at the contract layer.
