@@ -8,8 +8,6 @@
 | **AWS** | ✅ Production | ✅ Airflow, Dagster, Prefect | ✅ ODPS, ODCS | Available Now |
 | **Snowflake** | ✅ Production | ✅ Airflow, Dagster, Prefect | ✅ ODPS, ODCS | Available Now |
 | **Local (DuckDB)** | ✅ Production | N/A | N/A | Available Now |
-| **ODPS** | ✅ Production | N/A | ✅ Export | Available Now |
-| **ODCS** | ✅ Production | N/A | ✅ Export | Available Now |
 | **Datamesh Manager** | ✅ Production | N/A | ✅ Catalog | Available Now |
 | **Azure** | 🔜 Planned | 🔜 Planned | 🔜 Planned | Q3 2026 |
 | **Databricks** | 🔜 Planned | 🔜 Planned | 🔜 Planned | Q4 2026 |
@@ -17,7 +15,7 @@
 **Legend:**
 - **Plan / Apply**: `fluid plan` + `fluid apply` — Deploy actual cloud resources
 - **Code Generation**: `fluid generate-airflow` / `fluid export` — Generate orchestration code
-- **Data Catalog**: `fluid odps` / `fluid odcs` — Export to open data standards
+- **Data Catalog**: `fluid odps` / `fluid odcs` — Export to open data standards (these are spec exporters, not providers — see [`fluid exporters`](/forge_docs/cli/exporters.html))
 
 ::: tip "Production" scopes the plan/apply core, not every sub-feature
 The "✅ Production" / GA status above refers to the provisioning core (plan/apply via OpenTofu,
@@ -139,7 +137,9 @@ fluid export gcp-contract.yaml --engine prefect -o flows/
 
 ---
 
-## Data Catalog Providers
+## Standards exporters and catalogs
+
+ODPS and ODCS are **spec exporters**, not cloud providers — they serialize a contract to an open standard and do not deploy infrastructure. The full list is surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html). Datamesh Manager is a catalog target reached via `fluid publish`.
 
 ### ODPS (Open Data Product Specification)
 

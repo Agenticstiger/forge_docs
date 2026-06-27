@@ -80,7 +80,7 @@ build-backend = "setuptools.build_meta"
 name = "hello-scaffold"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.9,<1"]
+dependencies = ["data-product-forge-sdk>=0.10,<1"]
 
 [project.entry-points."fluid_build.custom_scaffolds"]
 hello = "hello_scaffold.scaffold:HelloScaffold"
@@ -135,9 +135,9 @@ Each guide opens with the real problem you might have, then walks you to a worki
 
 | Package | Version | What it does | Install |
 |---|---|---|---|
-| [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.9.0 | The CLI (this docs set) | `pip install data-product-forge` |
-| [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) | 0.9.1 | Plugin SDK — zero-dependency ABCs + conformance harness | `pip install data-product-forge-sdk` (import: `from fluid_sdk import …`) |
-| [`data-product-forge-custom-scaffold`](https://pypi.org/project/data-product-forge-custom-scaffold/) | 0.1.1 | Reference custom-scaffold engine (Jinja+YAML or Python plugins) | `pip install data-product-forge-custom-scaffold` |
+| [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.10.0 | The CLI (this docs set) | `pip install data-product-forge` |
+| [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) | 0.10.0 | Plugin SDK — zero-dependency ABCs for the four roles (`CustomScaffold` / `Validator` / `InfraProvider` / `CatalogAdapter`) + per-role conformance harnesses | `pip install data-product-forge-sdk` (import: `from fluid_sdk import …`) |
+| [`data-product-forge-custom-scaffold`](https://pypi.org/project/data-product-forge-custom-scaffold/) | 0.4.0 | Reference custom-scaffold engine (Jinja+YAML or Python plugins); 0.4.0 adds reproducible builds — `fluid-scaffold.lock` + `--pin` / `--update` | `pip install data-product-forge-custom-scaffold` |
 
 The SDK and scaffold ship as version-pinned standalone packages. A first stable cut (`1.0.0` / `0.2.0`) is planned after a validation window — feel free to consume them today, just pin the upper bound. See [Companion Packages](./reference/companion-packages.md) for the dual-naming details (PyPI: `data-product-forge-sdk`, import path: `fluid_sdk`).
 
@@ -147,16 +147,17 @@ Plugins are uncontained Python loaded into the CLI process. **Trust in a plugin 
 
 What the CLI *does* defend against, automatically:
 
+- **Operator allow/block gate** (CLI 0.10.0) — `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` gate every code-executing entry-point group **before** load; a blocked plugin's code never runs. `fluid plugins` shows each plugin's allow/block status.
 - **Crash containment** — a plugin that raises an exception cannot crash the CLI.
 - **Contract mutation** — apply hooks get a `copy.deepcopy()` of the contract, not the live reference.
 - **Credential leak in error messages** — plugin exception text is scrubbed before reaching logs.
 
-Full statement: [Trust model](./reference/trust-model.md). Read it before installing community plugins.
+Full statement: [Trust model](./reference/trust-model.md). Read it before installing community plugins. To see what's installed and its allow/block status, run [`fluid plugins`](/forge_docs/cli/plugins.html); for the spec-export formats a contract can serialize to, see [`fluid exporters`](/forge_docs/cli/exporters.html).
 
 ## Reference
 
-- **[Roles](./reference/roles.md)** — what each role gives you, what you override
-- **[Entry points](./reference/entry-points.md)** — the entry-point groups (3 CLI hooks + 4 role-level) with signatures and failure model
+- **[Roles](./reference/roles.md)** — what each role gives you, what you override (all four roles ship a conformance harness as of SDK 0.10.0)
+- **[Entry points](./reference/entry-points.md)** — the entry-point groups (CLI hooks + role-level, all wired in 0.10.0) with signatures and failure model
 - **[Trust model](./reference/trust-model.md)** — what we defend against, what we don't
 - **[Packaging](./reference/packaging.md)** — `pyproject.toml` template, `py.typed`, conformance harness, publishing checklist
 - **[Companion packages](./reference/companion-packages.md)** — what's on PyPI, dual-naming, version pinning

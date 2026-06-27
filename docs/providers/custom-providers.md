@@ -8,7 +8,7 @@ A provider teaches Fluid Forge how to deploy contracts to a new platform. If you
 There are two cloud-provider base classes you may run into:
 
 - **`BaseProvider`** from `fluid_provider_sdk` — the legacy class the in-tree providers (AWS, GCP, Snowflake, Local) extend. This page documents `BaseProvider` in detail; it's the authoritative reference for the existing provider surface.
-- **`InfraProvider`** from `fluid_sdk` — the new role-typed class shipped in the SDK rename. For a **new** plugin provider you're packaging for PyPI, prefer `InfraProvider` and the SDK conformance harness — see [SDK & Plugins → Roles → InfraProvider](/forge_docs/sdk-and-plugins/reference/roles.html#infraprovider).
+- **`InfraProvider`** from `fluid_sdk` — the role-typed class, now a fully-wired first-class role. For a **new** plugin provider you're packaging for PyPI, prefer `InfraProvider`: its `apply` is abstract on purpose (a plugin that forgets to implement it fails loud, never a silent no-op), and SDK `0.10.0` ships a dedicated `InfraProviderTestHarness` (`from fluid_sdk.testing import InfraProviderTestHarness`). See [SDK & Plugins → Roles → InfraProvider](/forge_docs/sdk-and-plugins/reference/roles.html#infraprovider).
 
 Both classes register through the same `[project.entry-points."fluid_build.providers"]` group, so swapping one for the other is just a class-name change.
 :::
@@ -412,6 +412,10 @@ class TestMyDb(ProviderTestHarness):
         }
 ```
 
+::: tip SDK-native harness for PyPI `InfraProvider` plugins
+The harness above (`tests.providers.test_phase3_harness_scaffold.ProviderTestHarness`) is the in-tree harness. For a **new** PyPI provider built on the role-typed `InfraProvider` class, SDK `0.10.0` ships a dedicated conformance harness — `from fluid_sdk.testing import InfraProviderTestHarness`. Subclass it directly for generic plus provider-specific conformance (plan/apply shape, action `op` routing). See [SDK & Plugins → Roles → InfraProvider](/forge_docs/sdk-and-plugins/reference/roles.html#infraprovider).
+:::
+
 ## Distributing as a Pip Package
 
 For providers meant to be shared, package them as a standard Python project:
@@ -525,7 +529,9 @@ Hooks are safety-wrapped — if a hook raises an exception, the plan/apply flow 
 
 ## Render/Export Providers
 
-Some providers don't deploy to a cloud — they export to a standardized format (like ODPS or ODCS). These implement `render()`:
+Some plugins don't deploy to a cloud — they serialize a contract to a standardized format. The built-in ODPS and ODCS exports are now first-class **spec exporters** in the host CLI (surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html)), not in-tree providers, and as of `v0.10.0` they no longer appear in the `fluid providers` roster.
+
+If you want to ship your own render/export plugin for a different format, the extension pattern is unchanged — implement `render()`:
 
 ```python
 class MyExporter(BaseProvider):

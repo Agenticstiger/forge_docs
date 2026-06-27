@@ -42,7 +42,7 @@ version = "0.1.0"
 description = "Minimal FLUID CustomScaffold example — emits one README.md from any contract"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
-dependencies = ["data-product-forge-sdk>=0.9,<1"]
+dependencies = ["data-product-forge-sdk>=0.10,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
@@ -88,7 +88,7 @@ class HelloScaffold(CustomScaffold):
 Two methods of note (both inherited from `CustomScaffold` / `BasePlugin`, no override needed):
 
 - **`apply(actions)`** — the reference implementation writes files atomically with sha256 verification + path-traversal guards. You get this for free.
-- **`get_plugin_info()`** — class metadata used by `fluid plugins` (dormant today) and any registry that reads `PluginMetadata`. Defaults to a `PluginMetadata` derived from `name` + `role`. Override if you want richer metadata (see [gitlab-ci-scaffold example](./gitlab-ci-scaffold.md)).
+- **`get_plugin_info()`** — class metadata read by `fluid plugins --detailed` (CLI 0.10.0, for ALLOWED plugins) and any registry that reads `PluginMetadata`. Defaults to a `PluginMetadata` derived from `name` + `role`. Override if you want richer metadata (see [gitlab-ci-scaffold example](./gitlab-ci-scaffold.md)).
 
 ## `tests/test_scaffold.py`
 

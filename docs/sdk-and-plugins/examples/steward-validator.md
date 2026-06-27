@@ -45,7 +45,7 @@ name = "steward-validator"
 version = "0.1.0"
 description = "FLUID Validator example — fails contracts that don't declare a data steward"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.9,<1"]
+dependencies = ["data-product-forge-sdk>=0.10,<1"]
 
 # Note the entry-point GROUP — different from CustomScaffold's:
 [project.entry-points."fluid_build.validators"]
@@ -136,7 +136,7 @@ class StewardValidator(Validator):
         return [f.to_action() for f in findings]
 ```
 
-`Finding` is the SDK's structured-finding type. Severity is one of `info` / `warn` / `error` / `critical`. The CLI's exit code is derived from the maximum severity emitted across all validator plugins.
+`Finding` is the SDK's structured-finding type. Severity is one of `info` / `warn` / `error` / `critical` — these map to the `Severity` str-enum added in SDK 0.10.0, whose `Severity.coerce` fails safe (an unrecognised severity counts as `error`). The CLI's exit code is derived from the maximum severity emitted across all validator plugins.
 
 `Validator.plan(contract)` returns a list of `PluginAction` dicts (each `Finding.to_action()` produces one). The `Validator` base class's default `apply()` summarizes findings by severity and writes them to the validation report.
 
@@ -144,8 +144,10 @@ class StewardValidator(Validator):
 
 ```python
 # tests/test_validator.py (excerpts)
+# ValidatorTestHarness (SDK 0.10.0) runs the 13 generic invariants plus
+# validator-specific conformance. Subclass it directly for any Validator.
 
-class TestStewardValidator(PluginTestHarness):
+class TestStewardValidator(ValidatorTestHarness):
     plugin_class = StewardValidator
     sample_contracts = [LOCAL_CONTRACT, STRICT_GOVERNANCE_CONTRACT]
 

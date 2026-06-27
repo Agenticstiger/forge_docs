@@ -250,6 +250,7 @@ export default defineUserConfig({
                 '/cli/odcs.md',
                 '/cli/export.md',
                 '/cli/export-odps.md',
+                '/cli/exporters.md',
                 '/cli/import.md',
                 '/cli/market.md',
                 '/cli/datamesh-manager.md'
@@ -266,6 +267,7 @@ export default defineUserConfig({
                 '/cli/split.md',
                 '/cli/config.md',
                 '/cli/providers.md',
+                '/cli/plugins.md',
                 '/cli/provider-init.md',
                 '/cli/auth.md',
                 '/cli/secrets.md',

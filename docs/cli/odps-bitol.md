@@ -33,7 +33,7 @@ fluid odps-bitol info
 
 ### `odps-bitol info`
 
-No options. Prints provider information (version, spec URL, capabilities).
+No options. Prints exporter information (version, spec URL, capabilities).
 
 ## Examples
 

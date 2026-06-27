@@ -14,7 +14,7 @@ Fluid Forge's `fluid forge` flow is detect-first, mode-aware, slash-command-frie
 Most CLIs ask 27 questions before they help. Forge asks four — the rest, it already knows. The reel above walks the welcome scan, mode picker, slash-command interview, streaming preview, and pre-write panel.
 
 ::: tip Where this fits
-This page covers the forge UX as it ships in 0.9.0 — 5-mode picker, slash commands, preview panel, streaming contract preview. Pre-0.8.3 releases had the older single-shot interview shape.
+This page covers the forge UX as it ships in 0.10.0 — 5-mode picker, slash commands, preview panel, streaming contract preview. Pre-0.8.3 releases had the older single-shot interview shape.
 :::
 
 ## Mode picker — the first 5 seconds

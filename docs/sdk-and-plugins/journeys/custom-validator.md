@@ -102,7 +102,7 @@ name = "my-org-validators"
 version = "0.1.0"
 description = "Data-governance validators for my-org"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.9,<1"]
+dependencies = ["data-product-forge-sdk>=0.10,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
@@ -363,7 +363,7 @@ class ClassificationFromVocab(Validator):
 
 ```python
 # tests/test_steward.py
-from fluid_sdk.testing import PluginTestHarness, LOCAL_CONTRACT
+from fluid_sdk.testing import ValidatorTestHarness, LOCAL_CONTRACT
 from my_org_validators.steward import StewardRequired
 
 
@@ -397,10 +397,10 @@ CONTRACT_WRONG_DOMAIN = {
 }
 
 
-class TestStewardRequired(PluginTestHarness):
+class TestStewardRequired(ValidatorTestHarness):
     plugin_class = StewardRequired
-    # Inherits the standard conformance suite from PluginTestHarness
-    # (a Validator-specific subharness is on the roadmap).
+    # ValidatorTestHarness (SDK 0.10.0) runs the generic conformance suite
+    # plus validator-specific conformance.
 
     # === Plugin-specific scenarios (you write these) ===
 
@@ -442,10 +442,10 @@ Run it:
 ```bash
 pip install -e ".[dev]"
 pytest
-# ============== 17 passed in 0.06s ============   (13 inherited from PluginTestHarness + 4 plugin-specific)
+# ============== all passed ============   (inherited ValidatorTestHarness conformance + your 4 plugin-specific tests)
 ```
 
-Repeat the test pattern for the other two validators. Each adds ~50 LOC of tests and gets 13 conformance tests for free.
+Repeat the test pattern for the other two validators. Each adds ~50 LOC of tests and gets the inherited `ValidatorTestHarness` conformance suite for free.
 
 ## Step 6 — wire it into your contracts
 

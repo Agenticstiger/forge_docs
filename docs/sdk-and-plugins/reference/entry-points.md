@@ -1,6 +1,6 @@
 # Entry points reference
 
-`data-product-forge` discovers external functionality through Python entry-points. There are **four CLI-level groups** the CLI walks today, **two role-level groups** wired into specific engines, and **two role-level groups on the SDK roadmap** (the SDK exports the role base classes, but the CLI doesn't yet walk them automatically). Each line in your `pyproject.toml` registers one plugin under one group.
+`data-product-forge` discovers external functionality through Python entry-points. As of CLI **0.10.0** the role-level groups are wired end-to-end: the `Validator` role runs inside `fluid validate`, the `CatalogAdapter` role runs inside `fluid publish`, and IaC providers are pluggable via the new `fluid_build.iac_providers` group. Each line in your `pyproject.toml` registers one plugin under one group.
 
 | Group | Wired in? | Walker |
 |---|---|---|
@@ -10,10 +10,11 @@
 | `fluid_build.apply_hooks` | ✅ | `cli/apply.py` |
 | `fluid_build.custom_scaffolds` | ✅ | `data-product-forge-custom-scaffold` engine |
 | `fluid_build.providers` | ✅ | `cli/apply.py` (provider dispatch) |
-| `fluid_build.validators` | 🛣️ roadmap | (no live walker; today register `Validator` plugins via `fluid_build.extension_validators` instead) |
-| `fluid_build.catalog_adapters` | 🛣️ roadmap | (no live walker; today register `CatalogAdapter` plugins via `fluid_build.commands` + a subcommand) |
+| `fluid_build.validators` | ✅ (wired in 0.10.0) | `cli/validate.py` |
+| `fluid_build.catalog_adapters` | ✅ (wired in 0.10.0) | `cli/publish.py` |
+| `fluid_build.iac_providers` | ✅ (new in 0.10.0) | IaC emitter (entry-point pluggable) |
 
-The two roadmap groups exist as **declared conventions** so plugin authors can register against them now; a future CLI release will add the auto-walking layer. Until then, register `Validator` shapes under `fluid_build.extension_validators` (the function-signature walker described below).
+All role-level groups now have a live walker. `Validator` plugins are discovered by `fluid validate`, `CatalogAdapter` plugins by `fluid publish`, and entry-point-pluggable IaC providers by the IaC emitter via `fluid_build.iac_providers`.
 
 ## The four CLI-level groups
 
@@ -208,7 +209,7 @@ The entry-point name surfaces in the error namespace (`apply hook 'my-hook' rais
 
 ### What hooks know about the target environment
 
-**Known limitation (CLI `0.9.0`):** apply hooks do not receive `args.env` (the `--env` flag) as a parameter, env var, or contract field. The hook signature is exactly `(contract_dir, contract, errors)`. The `contract` is post-overlay (env values baked in), but no semantic "this is the prod env" signal is preserved.
+**Known limitation (CLI `0.10.0`):** apply hooks do not receive `args.env` (the `--env` flag) as a parameter, env var, or contract field. The hook signature is exactly `(contract_dir, contract, errors)`. The `contract` is post-overlay (env values baked in), but no semantic "this is the prod env" signal is preserved.
 
 Workarounds today:
 
@@ -222,14 +223,15 @@ The [apply-hook-prod-key-guard example](../examples/apply-hook-prod-key-guard.md
 
 ## The four role-level groups (for plugin classes)
 
-These register plugin **classes** so the runtime knows which subclass corresponds to which user-facing name. Two are wired today; two are declared conventions waiting on a future CLI release.
+These register plugin **classes** so the runtime knows which subclass corresponds to which user-facing name. As of CLI 0.10.0 all four are wired to a live walker.
 
 | Group | Plugin class | Discovered by | Wired? |
 |---|---|---|---|
 | `fluid_build.custom_scaffolds` | `CustomScaffold` subclass | `data-product-forge-custom-scaffold` resolver registry | ✅ |
 | `fluid_build.providers` | `InfraProvider` subclass | The provider dispatcher (in `cli/apply.py`) | ✅ |
-| `fluid_build.validators` | `Validator` subclass | (planned — register under `fluid_build.extension_validators` today) | 🛣️ |
-| `fluid_build.catalog_adapters` | `CatalogAdapter` subclass | (planned — register a `fluid_build.commands` subcommand today) | 🛣️ |
+| `fluid_build.validators` | `Validator` subclass | `fluid validate` (wired in 0.10.0) | ✅ |
+| `fluid_build.catalog_adapters` | `CatalogAdapter` subclass | `fluid publish` (wired in 0.10.0) | ✅ |
+| `fluid_build.iac_providers` | IaC provider | The IaC emitter (new in 0.10.0) | ✅ |
 
 ### Registration shape
 
@@ -290,18 +292,37 @@ Each line is independent — register only the groups your plugin needs. A packa
 
 ## Inspecting what's registered
 
-A `fluid plugins list` command isn't wired up in the CLI yet (`plugins.py` exists but `bootstrap.py` doesn't register it). Use this one-liner to see what's installed across all seven groups:
+As of CLI **0.10.0**, [`fluid plugins`](/forge_docs/cli/plugins.html) lists installed plugins per role with their allow/block status — it's the primary way to confirm a plugin registered:
 
 ```bash
-# Confirm the entry-point registered. The CLI's `fluid plugins` command
-# isn't wired up yet — `plugins.py` exists but isn't registered in
-# bootstrap. Use importlib.metadata directly for now:
+fluid plugins                  # human table, grouped by role
+fluid plugins list --role provider
+fluid plugins list --detailed  # loads ALLOWED plugins to show declared metadata
+fluid plugins list --json      # machine-readable, every group keyed
+```
+
+```text
+🔌 Installed FLUID plugins (by role):
+
+  provider  (4)
+    • aws                          allowed
+    • gcp                          allowed
+    • local                        allowed
+    • snowflake                    allowed
+```
+
+The `--json` form emits an object keyed by every group (`apply_hook`, `catalog`, `command`, `custom_scaffold`, `extension_schema`, `extension_validator`, `iac_provider`, `modeling_technique`, `provider`, `source_adapter`, `validator`), each value a list of `{name, group, allowed}`.
+
+If you'd rather not shell out, the `importlib.metadata` one-liner is an equivalent fallback:
+
+```bash
 python -c "
 from importlib.metadata import entry_points
 for group in ('fluid_build.commands', 'fluid_build.custom_scaffolds',
               'fluid_build.validators', 'fluid_build.apply_hooks',
               'fluid_build.extension_validators', 'fluid_build.extension_schemas',
-              'fluid_build.providers', 'fluid_build.catalog_adapters'):
+              'fluid_build.providers', 'fluid_build.catalog_adapters',
+              'fluid_build.iac_providers'):
     eps = list(entry_points(group=group))
     if eps:
         print(f'{group}:')
@@ -310,28 +331,18 @@ for group in ('fluid_build.commands', 'fluid_build.custom_scaffolds',
 "
 ```
 
-```text
-custom_scaffolds:
-  - hello-scaffold (hello_scaffold.scaffold:HelloScaffold)
-  - gitlab-ci      (gitlab_ci_scaffold.scaffold:GitLabCIScaffold)
+Either is your sanity check after `pip install` — if a plugin doesn't show up, the entry-point didn't register (most often: forgot `pip install -e .` after editing `pyproject.toml`).
 
-validators:
-  - steward-required (my_validators.steward:StewardRequired)
+## Plugin governance
 
-apply_hooks:
-  - prod-key-guard (prod_key_guard.hook:check_prod_deploy_key)
+CLI **0.10.0** gates **every code-executing entry-point group BEFORE load** with two operator env vars:
 
-providers:
-  (none installed)
+- **`FLUID_PLUGINS_ALLOWLIST`** — comma-separated entry-point names; if set, only these load.
+- **`FLUID_PLUGINS_BLOCKLIST`** — comma-separated entry-point names; these never load.
 
-extension_validators:
-  - customScaffold (data_product_forge_custom_scaffold.validation:validate)
+A blocked plugin's code never executes. Governed groups: `providers`, `validators`, `catalog_adapters`, `commands`, `apply_hooks`, `extension_schemas`, `extension_validators`, `modeling_techniques`, `source_adapters`, `iac_providers`. `fluid plugins` surfaces each plugin's allow/block status.
 
-commands:
-  - generate-custom-scaffold (data_product_forge_custom_scaffold.cli:register)
-```
-
-This is your sanity check after `pip install` — if a plugin doesn't show up here, the entry-point didn't register (most often: forgot `pip install -e .` after editing `pyproject.toml`).
+An opt-in compat gate, **`FLUID_PLUGIN_STRICT_COMPAT=1`**, additionally refuses to load any plugin whose declared `requires_cli` (a PEP 440 specifier from the SDK's `PluginMetadata`) the running CLI version does not satisfy. Default (unset) is warn-only. See the [trust model](./trust-model.md#operator-governance-allowlist-and-blocklist) for the full operator story.
 
 ## Trust model
 

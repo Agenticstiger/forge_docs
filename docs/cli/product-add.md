@@ -2,8 +2,8 @@
 
 Append a source, exposure, or data-quality rule to an existing FLUID contract — writing each into its **canonical home** so the contract still passes [`fluid validate`](./validate.md) afterwards.
 
-::: tip Requires a build newer than 0.9.0
-Schema-valid output landed in the fix merged **after 0.9.0** (currently on `main`; ships in the next release). On the released **0.9.0**, `product-add` still writes legacy top-level `sources` / `exposures` / `dataQuality` keys that **fail** `fluid validate` (`root: Additional properties are not allowed`). Until you upgrade, scaffold with [`fluid product-new`](./product-new.md) or move the items into their [canonical homes](#canonical-contract-shape) by hand. The `--platform`, `--expose`, and `--severity` options below are also new in that build.
+::: tip Requires a build newer than 0.10.0
+Schema-valid output landed in the fix merged **after 0.10.0** (currently on `main`; ships in a later release). On the released **0.10.0**, `product-add` still writes legacy top-level `sources` / `exposures` / `dataQuality` keys that **fail** `fluid validate` (`root: Additional properties are not allowed`). Until you upgrade, scaffold with [`fluid product-new`](./product-new.md) or move the items into their [canonical homes](#canonical-contract-shape) by hand. The `--platform`, `--expose`, and `--severity` options below are also new in that build.
 :::
 
 ## Syntax

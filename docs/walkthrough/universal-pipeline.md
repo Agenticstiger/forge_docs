@@ -7,7 +7,7 @@ One Jenkinsfile. Every provider. Zero if/then logic.
 **Provider-specific logic:** None
 
 ::: warning Compatibility note
-This walkthrough includes some older `0.7.1` contract-era examples. The primary docs baseline now tracks CLI `0.9.0`, current scaffolded contracts use `fluidVersion: 0.7.5`, and orchestration docs prefer `fluid generate schedule --scheduler airflow`.
+This walkthrough includes some older `0.7.1` contract-era examples. The primary docs baseline now tracks CLI `0.10.0`, current scaffolded contracts use `fluidVersion: 0.7.5`, and orchestration docs prefer `fluid generate schedule --scheduler airflow`.
 :::
 
 ---
