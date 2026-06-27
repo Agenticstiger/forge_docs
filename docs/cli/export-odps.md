@@ -27,6 +27,6 @@ fluid export-odps contract.fluid.yaml --out exports/customer360.odps.json
 ## Notes
 
 - This is a thin convenience wrapper that always writes to a file. For interactive workflows, validation, spec selection, or stdout output use [`fluid odps`](./odps.md) instead.
-- Internally calls `OdpsProvider().render()` and writes the first artifact from the returned envelope.
+- Internally invokes the ODPS exporter's `render()` and writes the first artifact from the returned envelope.
 - The output directory is created automatically.
 - See also [`fluid odps-bitol`](./odps-bitol.md) for explicit Bitol ODPS v1.0.0 export and [`fluid odcs`](./odcs.md) for the Open Data Contract Standard.

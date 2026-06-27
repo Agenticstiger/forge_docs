@@ -280,6 +280,10 @@ git diff
 
 `git diff` shows exactly what the platform team changed. Review, commit, deploy.
 
+::: tip Reproducible re-generation (engine 0.4.0)
+Custom-scaffold engine `0.4.0` adds `--pin` (re-render byte-for-byte at the locked commit, for reproducible CI) and `--update [--target REF]` (3-way-merge a new bundle version onto the working tree, exit `4` on conflict). See [Reproducible re-generation](./your-own-scaffolding.md#reproducible-re-generation-engine-0-4-0) for the full story.
+:::
+
 ## You'll know it worked when
 
 - `fluid generate custom-scaffold` writes `.gitlab-ci.yml` / `.github/workflows/ci.yml` / `Jenkinsfile` / `.circleci/config.yml` rendered with your contract's `environments` and `cloud` values.

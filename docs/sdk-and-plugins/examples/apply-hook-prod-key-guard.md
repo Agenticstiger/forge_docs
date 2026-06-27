@@ -136,7 +136,7 @@ Three things to know:
 - **Be specific in error messages.** Tell the user *what's wrong*, *what to do about it*, and *what the escape hatch is*. The example above does all three; copy that shape.
 
 ::: warning Known limitation — apply hooks don't see `--env`
-As of CLI `0.9.0`, `fluid apply` does not pass `args.env` (the `--env` flag) into apply hooks. Hooks receive `(contract_dir, contract, errors)` — that's it. The `contract` is post-overlay (env values are baked in), but there's no explicit "target environment was prod" signal.
+As of CLI `0.10.0`, `fluid apply` does not pass `args.env` (the `--env` flag) into apply hooks. Hooks receive `(contract_dir, contract, errors)` — that's it. The `contract` is post-overlay (env values are baked in), but there's no explicit "target environment was prod" signal.
 
 The pragmatic workaround used in this example: have the deploy runner set a `DEPLOY_ENV` env var that hooks read. Most CI systems already do something similar (`CI_ENVIRONMENT_NAME` on GitLab, `GITHUB_REF_NAME` on Actions, etc.).
 
@@ -213,9 +213,12 @@ pytest
 # ============== 4 passed in 0.04s ===============
 ```
 
-Verify the CLI picks it up. The CLI doesn't yet ship a `fluid plugins list` command (the `plugins.py` module exists but isn't wired into bootstrap), so the simplest check is a one-liner against `importlib.metadata`:
+Verify the CLI picks it up. As of CLI `0.10.0`, `fluid plugins` lists installed plugins per role with their allow/block status — or query `importlib.metadata` directly:
 
 ```bash
+fluid plugins                                 # human table, grouped by role
+fluid plugins list --role provider --json     # machine-readable
+
 python -c "
 from importlib.metadata import entry_points
 for ep in entry_points(group='fluid_build.apply_hooks'):
@@ -276,7 +279,7 @@ Pick the policy your team wants. Opt-in is friendlier for local testing; enforce
 :::
 
 ::: details I want the hook to read the --env flag fluid apply was invoked with
-You can't, yet. The CLI doesn't pass `args.env` into apply hooks as of `0.9.0`. The "Known limitation" callout earlier on this page explains the workarounds. For testing in isolation:
+You can't, yet. The CLI doesn't pass `args.env` into apply hooks as of `0.10.0`. The "Known limitation" callout earlier on this page explains the workarounds. For testing in isolation:
 
 ```bash
 DEPLOY_ENV=prod python -c "

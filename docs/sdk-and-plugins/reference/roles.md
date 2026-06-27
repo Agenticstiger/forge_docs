@@ -6,10 +6,12 @@ Four built-in roles, all subclasses of `BasePlugin`. Pick by what you're produci
 |---|---|---|---|
 | [`CustomScaffold`](#customscaffold) | `"scaffold"` | Files on disk | Atomically writes each `write_file` action with sha256 verification + path-traversal guards |
 | [`Validator`](#validator) | `"validator"` | `Finding` records | Summarizes findings by severity, sets the CLI exit code |
-| [`InfraProvider`](#infraprovider) | `"provider"` | Cloud resources | (you implement — provisions per `op` in your action list) |
-| [`CatalogAdapter`](#catalogadapter) | `"catalog"` | Catalog entries | (you implement — pushes to your catalog of choice) |
+| [`InfraProvider`](#infraprovider) | `"provider"` | Cloud resources | **Abstract on purpose** — you implement it (provisions per `op` in your action list); a plugin that forgets to fails loud, never a silent no-op |
+| [`CatalogAdapter`](#catalogadapter) | `"catalog"` | Catalog entries | **Abstract on purpose** — you implement it (pushes to your catalog of choice); forgetting fails loud, never a silent no-op |
 
-All four inherit the same lifecycle (`plan(contract) → list[PluginAction]` → `apply(actions) → ExecutionResult`), the same conformance harness (`PluginTestHarness` + role-specific subharnesses), and the same crash-containment guarantees from the CLI.
+`InfraProvider` (role `"provider"`) and `CatalogAdapter` (role `"catalog"`) became **first-class roles** in SDK 0.10.0, with their `apply` deliberately abstract — the SDK refuses to let a half-implemented provider/catalog silently succeed.
+
+All four inherit the same lifecycle (`plan(contract) → list[PluginAction]` → `apply(actions) → ExecutionResult`), the same conformance harness family (`PluginTestHarness` + a role-specific subharness — every role now has one), and the same crash-containment guarantees from the CLI.
 
 ## `BasePlugin`
 
@@ -120,9 +122,9 @@ class MyValidator(Validator):
 
 ### What you get from `Validator`
 
-- **`Finding` dataclass** — structured `severity` (`info` / `warn` / `error` / `critical`) + `code` + `message` + `path` + `remediation`. The CLI formats these uniformly.
+- **`Finding` dataclass** — structured `severity` + `code` + `message` + `path` + `remediation`. The `severity` field accepts the [`Severity`](#typed-value-domains) str-enum (`info` / `warn` / `error` / `critical`); the CLI formats these uniformly.
 - **Inherited `apply(actions)`** — summarizes findings by severity, writes to the validation report, sets the CLI exit code based on the maximum severity emitted.
-- **`PluginTestHarness`** — 13 generic conformance tests run against your validator (subclass it in your test module). A Validator-specific subharness (`ValidatorTestHarness`) is on the SDK roadmap; until it ships, add your fixture-driven good/bad-contract assertions as additional `test_*` methods on the class.
+- **`ValidatorTestHarness`** (SDK 0.10.0) — subclass it (`class TestMyValidator(ValidatorTestHarness): plugin_class = MyValidator`) for the 13 generic invariants plus validator-specific conformance. Add your fixture-driven good/bad-contract assertions as additional `test_*` methods.
 - **Auto-discovery at `fluid validate`** — every validator registered via `fluid_build.validators` entry-point runs on every contract, no opt-in needed.
 
 ### Hooks into the CLI
@@ -180,7 +182,9 @@ class MyCloudProvider(InfraProvider):
 ### What you get from `InfraProvider`
 
 - **`PluginAction` dataclass** — generic action shape with `op` (the operation), `resource_type`, `resource_id`, `params`, `depends_on`. The `op` field is free-form text — your provider knows what each op means.
-- **`PluginTestHarness`** (no provider-specific subharness yet) — generic conformance tests run against your provider.
+- **`provision_action(...)`** helper (SDK 0.10.0) — the provider-side action builder, analogous to `write_file_action` for scaffolds and `Finding.to_action()` for validators.
+- **`InfraProviderTestHarness`** (SDK 0.10.0) — generic *and* provider-specific conformance (plan/apply shape, action `op` routing). Subclass it directly; there's no longer any "subclass the base harness for now" workaround.
+- **`apply` is abstract on purpose** — the base class does not provide a default. A provider that forgets to implement `apply` fails loud at load/use, never a silent no-op.
 
 ### What you implement yourself
 
@@ -227,6 +231,12 @@ class MyCatalog(CatalogAdapter):
         ...
 ```
 
+### What you get from `CatalogAdapter`
+
+- **`catalog_entry_action(...)`** helper (SDK 0.10.0) — the catalog-side action builder, analogous to `write_file_action` (scaffold) and `provision_action` (provider).
+- **`CatalogAdapterTestHarness`** (SDK 0.10.0) — conformance testing for a `CatalogAdapter` plugin, mirroring the other two new role harnesses. Subclass it directly.
+- **`apply` is abstract on purpose** — there is no default. A catalog adapter that forgets to implement `apply` fails loud, never a silent no-op.
+
 ### Hooks into the CLI
 
 `fluid publish --target <name>` invokes the matching `CatalogAdapter`.
@@ -265,22 +275,55 @@ If a field is missing, the property returns `None` (or `[]` / `{}`) instead of r
 
 Generic action dataclass. Roles use it differently:
 
-| Role | Common `op` values |
-|---|---|
-| `CustomScaffold` | `write_file` |
-| `Validator` | `emit_finding` |
-| `InfraProvider` | provider-specific (`provision_dataset`, `create_table`, `grant_access`, …) |
-| `CatalogAdapter` | provider-specific (`upsert_entity`, `link_lineage`, …) |
+| Role | Action builder | Common `op` values |
+|---|---|---|
+| `CustomScaffold` | `write_file_action(...)` | `write_file` |
+| `Validator` | `Finding.to_action()` | `emit_finding` |
+| `InfraProvider` | `provision_action(...)` | provider-specific (`provision_dataset`, `create_table`, `grant_access`, …) |
+| `CatalogAdapter` | `catalog_entry_action(...)` | provider-specific (`upsert_entity`, `link_lineage`, …) |
 
-You can also use raw `PluginAction(op="...", ...)` for anything not covered by the helper functions.
+Each role ships its own action builder (the `InfraProvider` / `CatalogAdapter` builders are new in SDK 0.10.0). You can also use raw `PluginAction(op="...", ...)` for anything not covered by the helper functions.
 
 ### `ExecutionResult`
 
 What `apply()` returns. Carries `provider`, `applied` / `failed` counts, `duration_sec`, `timestamp`, and per-action `results` for the CLI to format.
 
+### Typed value domains
+
+SDK 0.10.0 adds zero-dependency str-enums so plugins stop passing bare strings for the values the CLI keys behaviour off:
+
+- **`Severity`** — `info` / `warn` / `error` / `critical`. `FAILING_SEVERITIES` is the set the CLI treats as a failure (drives the non-zero exit code). `Severity.coerce(value)` **fails safe**: an unrecognised severity is treated as `ERROR`, never silently passed through. Use it anywhere you accept a severity from untrusted input.
+- **`ActionStatus`** — the status of a single applied action.
+- **`Phase`** — the lifecycle phase an action runs in.
+
+Each is a `str` subclass, so existing string-comparison code keeps working; the enum just gives you a typed, fail-safe vocabulary. The `Finding.severity` field accepts a `Severity` value.
+
+```python
+from fluid_sdk import Severity, FAILING_SEVERITIES
+
+Severity.coerce("warn")        # Severity.WARN
+Severity.coerce("nonsense")    # Severity.ERROR  ← fails safe
+Severity.ERROR in FAILING_SEVERITIES   # True
+```
+
+### Plugin capabilities
+
+`BasePlugin.capabilities()` returns a typed **`PluginCapabilities`** (SDK 0.10.0) — a structured self-description of what a plugin can do. This is distinct from the legacy provider-only `ProviderCapabilities`; `PluginCapabilities` is role-agnostic and available on every `BasePlugin` subclass.
+
+### SDK to CLI compat declaration
+
+`PluginMetadata` (SDK 0.10.0) carries two compat fields:
+
+- **`sdk_protocol_version`** — the SDK protocol the plugin was built against.
+- **`requires_cli`** — a PEP 440 specifier (e.g. `">=0.7.0"`) declaring which CLI versions the plugin supports.
+
+The module-level constants back these: `SDK_PROTOCOL_VERSION` (= 1), `MIN_CLI_VERSION` (`"0.7.0"`), `MAX_CLI_VERSION` (`None`, open-ended), and the `cli_requirement()` helper (→ `">=0.7.0"`).
+
+The split is deliberate, on the dbt `require-dbt-version` model: the **SDK declares** the compatibility it needs; the **CLI gates** on it. The host-side gate (opt-in `FLUID_PLUGIN_STRICT_COMPAT=1`) is documented in the [trust model](./trust-model.md#sdk-to-cli-version-compat-gate).
+
 ### `PluginMetadata`
 
-Override `get_plugin_info()` if you want richer metadata than the default `PluginMetadata(name=cls.name, role=cls.role)`. Any tooling that introspects installed plugins (a future `fluid plugins list`, custom dashboards, IDE integrations) reads from this:
+Override `get_plugin_info()` if you want richer metadata than the default `PluginMetadata(name=cls.name, role=cls.role)`. `fluid plugins --detailed` (CLI 0.10.0) reads from this for every ALLOWED plugin, as do custom dashboards and IDE integrations:
 
 ```python
 @classmethod
@@ -302,8 +345,11 @@ Every role has a matching `*TestHarness` in `fluid_sdk.testing`:
 
 ```python
 from fluid_sdk.testing import (
-    PluginTestHarness,         # base — 13 generic invariants (any role)
-    CustomScaffoldTestHarness, # adds 7 scaffold-specific tests (atomic write, sha256, traversal)
+    PluginTestHarness,          # base — 13 generic invariants (any role)
+    CustomScaffoldTestHarness,  # adds 7 scaffold-specific tests (atomic write, sha256, traversal)
+    ValidatorTestHarness,       # validator-specific conformance
+    InfraProviderTestHarness,   # provider plan/apply shape + op routing
+    CatalogAdapterTestHarness,  # catalog-adapter conformance
 )
 
 
@@ -314,7 +360,7 @@ class TestMyScaffold(CustomScaffoldTestHarness):
 
 Four lines, 20 tests free (13 from `PluginTestHarness` + 7 role-specific in `CustomScaffoldTestHarness`).
 
-For `Validator`, `InfraProvider`, or `CatalogAdapter` plugins, subclass `PluginTestHarness` today and add role-specific assertions as additional `test_*` methods. Dedicated subharnesses for those roles are on the SDK roadmap.
+As of SDK 0.10.0, each of the four roles has a matching `*TestHarness` — subclass the role-specific one directly (`ValidatorTestHarness`, `InfraProviderTestHarness`, `CatalogAdapterTestHarness`) and add your fixture-driven scenarios as additional `test_*` methods.
 
 ## Source
 

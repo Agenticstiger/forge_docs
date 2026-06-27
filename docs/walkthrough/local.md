@@ -55,7 +55,7 @@ fluid version
 # Should show (Rich panel):
 # 📦 Version Information
 # FLUID CLI
-# Version: 0.9.0
+# Version: 0.10.0
 # API: v1
 # Supported Specifications:
 # • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5

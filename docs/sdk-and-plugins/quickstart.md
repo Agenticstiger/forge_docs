@@ -100,7 +100,7 @@ build-backend = "setuptools.build_meta"
 name = "hello-scaffold"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.9,<1"]
+dependencies = ["data-product-forge-sdk>=0.10,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
@@ -117,7 +117,7 @@ where = ["src"]
 testpaths = ["tests"]
 ```
 
-The `fluid_build.custom_scaffolds` group is one of three entry-point groups the CLI walks at startup. The other two (`fluid_build.validators`, `fluid_build.apply_hooks`) are for the other plugin shapes — see [Entry points reference](./reference/entry-points.md) when you need them.
+The `fluid_build.custom_scaffolds` group is one of several entry-point groups the CLI walks. Others (`fluid_build.validators`, `fluid_build.apply_hooks`, `fluid_build.providers`, `fluid_build.catalog_adapters`, …) are for the other plugin shapes — see the [Entry points reference](./reference/entry-points.md) for the full set and which command discovers each.
 
 ## Step 3 — write the plugin
 
@@ -242,9 +242,12 @@ Most common cause: you forgot `pip install -e .` after editing `pyproject.toml`.
 ```bash
 pip install -e .
 
-# Confirm the entry-point registered. The CLI's `fluid plugins` command is
-# dormant (the module exists but bootstrap doesn't register it), so use
-# importlib.metadata directly:
+# Confirm the entry-point registered. `fluid plugins` (CLI 0.10.0) lists
+# installed plugins per role with allow/block status:
+fluid plugins                                 # or: fluid plugins list --json
+fluid plugins list --detailed                 # also shows declared metadata
+
+# Or query importlib.metadata directly:
 python -c "
 from importlib.metadata import entry_points
 for ep in entry_points(group='fluid_build.custom_scaffolds'):
@@ -312,6 +315,8 @@ You wrote a `CustomScaffold` that emits one file from contract data. Three direc
 - **Apply-time invariants:** [apply-hook example](./examples/apply-hook-prod-key-guard.md) — runs right before `fluid apply` does anything destructive.
 
 When you're ready to ship the plugin to PyPI, read [Packaging](./reference/packaging.md) — covers `py.typed`, classifiers, and trusted-publishing.
+
+Once installed, `fluid plugins --detailed` surfaces a plugin's declared metadata, and operators can gate which plugins load with `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` — see the [trust model](./reference/trust-model.md#operator-governance-allowlist-and-blocklist).
 
 ## Source
 

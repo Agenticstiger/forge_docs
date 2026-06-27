@@ -91,7 +91,7 @@ Discovery runs a 4-layer pipeline, in order:
 | Layer | What it does | Use case |
 |-------|-------------|----------|
 | **1. Entry points** | Scans pip-installed packages for `fluid_build.providers` entry points | Third-party providers installed via `pip install` |
-| **2. Built-in modules** | Imports the curated defaults: `local`, `gcp`, `aws`, `snowflake`, `odps` | The providers that ship with Fluid Forge |
+| **2. Built-in modules** | Imports the curated defaults: `local`, `gcp`, `aws`, `snowflake` | The apply-capable providers that ship with Fluid Forge (`fluid providers` additionally surfaces `datamesh_manager` and `redshift`) |
 | **3. Subpackage scan** | Scans `fluid_build/providers/*` for any remaining modules | Catches providers added to the package tree |
 | **4. Fallback** | Re-attempts imports if registry is still empty | Recovers from import ordering issues |
 
@@ -122,7 +122,8 @@ Fluid Forge ships with these providers:
 | **[GCP](./gcp.md)** | BigQuery + GCS | Google Cloud production deployments |
 | **[AWS](./aws.md)** | S3 + Athena + Glue | Amazon Web Services deployments |
 | **[Snowflake](./snowflake.md)** | Snowflake | Enterprise data warehouse deployments |
-| **ODPS** | Standards export | Data product interoperability (ODPS v4.1) |
+
+> **Standards export is not a provider.** ODPS and ODCS serialize a contract to an open spec rather than deploying infrastructure. They are surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html), not `fluid providers` — see [the exporters reference](/forge_docs/cli/exporters.html).
 
 ```bash
 # Local development

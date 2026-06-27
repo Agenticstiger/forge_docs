@@ -132,6 +132,10 @@ patterns:
 
 The `to:` field is itself a Jinja template — `src/{{ contract.metadata.id | replace('-', '_') }}/__init__.py` means the destination path varies based on contract data. Anywhere the contract has a value, you can put it in the path.
 
+::: tip Bundle enforcement is now real (engine 0.4.0)
+As of custom-scaffold engine `0.4.0`, a bundle's `variables_schema` (JSON Schema Draft 7) is enforced at **plan time**, and `supportedProductTypes` is checked against the contract's `metadata.productType` (previously both were silently ignored). The `when` / `environments` pattern fields remain RESERVED — declared but not yet evaluated.
+:::
+
 ## Step 2 — the project skeleton templates
 
 Drop these in `templates/`. Most are short.
@@ -162,7 +166,7 @@ keywords = [
 
 dependencies = [
     "pydantic>=2.0",
-    "data-product-forge=={{ fluid_cli_version | default('0.9.0') }}",
+    "data-product-forge=={{ fluid_cli_version | default('0.10.0') }}",
 ]
 
 [project.optional-dependencies]
@@ -416,6 +420,26 @@ extensions:
 fluid generate custom-scaffold
 git add . && git commit -m "Initial project skeleton from project-bundle v1.0.0"
 ```
+
+## Reproducible re-generation (engine 0.4.0)
+
+The "bump the ref and re-run" loop above is fine for a clean working tree, but once a product team has hand-edited generated files, a blind re-render clobbers their changes. Custom-scaffold engine `0.4.0` adds copier-parity reproducibility so re-generation is safe and auditable:
+
+- **Lockfile.** After a successful (non-dry-run) generation the engine writes a deterministic, credential-free `fluid-scaffold.lock` to the output root, recording the **resolved git commit** of each bundle source.
+- **`--pin`.** `fluid generate custom-scaffold --pin` re-renders **byte-for-byte at the locked commit** (npm-ci / poetry-frozen semantics) — exactly what you want in CI for reproducible output.
+- **`--update [--target REF]`.** Re-renders at the locked base **plus** the new ref and 3-way-merges the result onto your working tree via `git merge-file`. On overlapping edits it writes conflict markers and exits `4`; on a clean merge the lock advances to the new ref.
+
+```bash
+# CI: reproduce exactly what the lock pinned, no surprises.
+fluid generate custom-scaffold --pin
+
+# Pull in the platform team's v1.1.0 bundle, merging over local edits.
+fluid generate custom-scaffold --update --target v1.1.0
+# → clean merge: lock advances to v1.1.0
+# → overlapping edits: conflict markers written, exit code 4
+```
+
+Deep mechanics (resolver kinds, merge internals) live in the [custom-scaffold engine repo](https://github.com/Agenticstiger/data-product-forge-custom-scaffold).
 
 ## You'll know it worked when
 

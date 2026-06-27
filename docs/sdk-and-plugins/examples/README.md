@@ -9,7 +9,7 @@ Four plugins, smallest → largest, each one a complete walkthrough you can copy
 | [`steward-validator`](./steward-validator.md) | `Validator` | 90 | Governance rule with severity bucketing; runs at `fluid validate` |
 | [`apply-hook-prod-key-guard`](./apply-hook-prod-key-guard.md) | apply hook | ~60 | Runtime invariant check at `fluid apply`; not a class, just a function |
 
-If you're new, **read them in this order**. Each one builds on the concepts in the previous; by the apply-hook example the three entry-point groups and the role taxonomy should feel familiar.
+If you're new, **read them in this order**. Each one builds on the concepts in the previous; by the apply-hook example the entry-point groups and the role taxonomy should feel familiar.
 
 ## Source
 

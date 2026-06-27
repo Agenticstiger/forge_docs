@@ -3,7 +3,7 @@
 Deploy data products to Snowflake Data Cloud — databases, schemas, tables, RBAC grants — using the same contract and CLI commands as every other provider.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.9.0`<br>
+**Docs Baseline:** CLI `0.10.0`<br>
 **Tested Services:** Databases, Schemas, Tables, Warehouses, RBAC Grants
 
 > **Why it matters**

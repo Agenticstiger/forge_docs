@@ -8,7 +8,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 ## Docs baseline
 
-- CLI release covered by the primary docs: `0.9.0`
+- CLI release covered by the primary docs: `0.10.0`
 - Default scaffold (`fluid init --quickstart`) emits `fluidVersion: 0.7.2`
 - Discovery-based scaffolds (`fluid init --discover`, `fluid forge`, `fluid product-new`) emit `fluidVersion: 0.7.5` — the latest bundled schema
 
@@ -16,7 +16,7 @@ Some deep-dive provider pages still preserve older `0.7.1` snippets for backward
 
 ## Provider overview
 
-Fluid Forge registers four apply-capable cloud providers and two standards providers:
+Fluid Forge registers four apply-capable cloud providers (plus the `local` DuckDB target). The full roster reported by `fluid providers` is `aws`, `datamesh_manager`, `gcp`, `local`, `redshift`, `snowflake`:
 
 | Provider | Plan / Apply | Scheduling docs stance | Status |
 | --- | --- | --- | --- |
@@ -24,14 +24,14 @@ Fluid Forge registers four apply-capable cloud providers and two standards provi
 | [AWS](./aws.md) | Yes | Prefer `fluid generate schedule` | Production |
 | [Snowflake](./snowflake.md) | Yes | Prefer `fluid generate schedule` | Production |
 | [Local](./local.md) | Yes | Local-first onboarding | Production |
-| ODCS | Bidirectional at provider layer (`render` + `import_contract` + `validate`) | n/a — standards exchange | Production |
-| Bitol ODPS (`odps_bitol`) | Bidirectional at provider layer (`render` + `import_contract` + `validate`) | n/a — standards exchange | Production |
+
+> **ODCS / ODPS are spec exporters, not providers.** As of `v0.10.0` the open-standards exports (ODCS, ODPS, ODPS-Bitol) are surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html) — they serialize a contract to a spec and do **not** deploy infrastructure, so they no longer appear in the `fluid providers` roster.
 
 ::: tip Runtime requirement for cloud apply
-On `v0.9.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
+On `v0.10.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
 :::
 
-The CLI surface today is asymmetric for the two standards providers — `fluid odcs` exposes `export` / `import` / `validate` / `info`, while `fluid odps-bitol` exposes only `export` / `validate` / `info`. The unified `fluid odps` command covers both specs and adds an `import` subcommand for Bitol — see [`fluid odps`](../cli/odps.md) and [`fluid odcs`](../cli/odcs.md).
+The CLI surface today is asymmetric for the two spec exporters — `fluid odcs` exposes `export` / `import` / `validate` / `info`, while `fluid odps-bitol` exposes only `export` / `validate` / `info`. The unified `fluid odps` command covers both specs and adds an `import` subcommand for Bitol — see [`fluid odps`](../cli/odps.md) and [`fluid odcs`](../cli/odcs.md).
 
 Compatibility note:
 `fluid generate-airflow` still exists, but the primary docs path is `fluid generate schedule --scheduler airflow`.
@@ -73,9 +73,11 @@ fluid apply contract.fluid.yaml --yes
 
 Beyond the cloud and local providers, Fluid Forge round-trips contracts against public data-product standards and **publishes** them to catalogs.
 
+The full list of spec-export formats is surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html). Exporters serialize a contract to a **spec** and are **not** cloud providers — for deployment targets see [`fluid providers`](/forge_docs/cli/providers.html).
+
 ### Standards exchange — `fluid odps`
 
-The unified `fluid odps` command dispatches both export and import across the ODPS specs via `--spec`. The standards providers themselves are bidirectional at the provider layer (`render` + `import_contract` + `validate`).
+The unified `fluid odps` command dispatches both export and import across the ODPS specs via `--spec`. The spec exporters themselves are bidirectional at the exporter layer (`render` + `import_contract` + `validate`).
 
 | Spec | Command | What it is |
 | --- | --- | --- |
@@ -83,7 +85,7 @@ The unified `fluid odps` command dispatches both export and import across the OD
 | ODPS — v4.1 | `fluid odps export … --spec odps-v4.1` | Open Data Product Initiative single-file variant. Export-only. |
 | ODCS | `fluid odcs export` / `fluid odcs import` | Open Data Contract Standard v3.1.0 (Bitol.io). |
 
-Provider-specific entry points also remain: [`fluid odps-bitol`](/forge_docs/cli/odps-bitol.html) for the Bitol layout. New scripts should prefer `fluid odps` with `--spec`.
+Exporter-specific entry points also remain: [`fluid odps-bitol`](/forge_docs/cli/odps-bitol.html) for the Bitol layout. New scripts should prefer `fluid odps` with `--spec`.
 
 ### Publishing — catalog registrars
 

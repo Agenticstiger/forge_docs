@@ -1,6 +1,6 @@
 # CLI Reference
 
-This section tracks the promoted command surface shown by `fluid --help` in `forge-cli` `0.9.0`.
+This section tracks the promoted command surface shown by `fluid --help` in `forge-cli` `0.10.0`.
 
 ::: tip Looking up *how to do something* (not *what a command does*)?
 The page you actually want is [**CLI by task →**](./tasks/) — narrative walkthroughs organized around things you might be trying to accomplish, like "deploy to a new cloud", "add quality rules", "debug a failed run", or "add agent governance". Each task page links to the relevant commands. **This** page is the alphabetical command reference — better for lookup, worse for onboarding.
@@ -8,11 +8,11 @@ The page you actually want is [**CLI by task →**](./tasks/) — narrative walk
 
 ## Read this first
 
-- CLI release examples in this section use `0.9.0`
+- CLI release examples in this section use `0.10.0`
 - Contract examples use `fluidVersion: 0.7.2`
 - `fluid version` and `fluidVersion` are different things
 - The pinned CLI version is recorded in [`docs/.vuepress/cli-version.json`](../.vuepress/cli-version.json) and enforced by the [`cli-consistency`](https://github.com/Agenticstiger/forge_docs/actions/workflows/cli-consistency.yml) workflow.
-- Install: `pip install data-product-forge`. Stable `0.9.0` is on PyPI; TestPyPI is only for release validation and intentional next-release candidates — see [Getting Started](../getting-started/README.md#install-the-cli) for the full install matrix.
+- Install: `pip install data-product-forge`. Stable `0.10.0` is on PyPI; TestPyPI is only for release validation and intentional next-release candidates — see [Getting Started](../getting-started/README.md#install-the-cli) for the full install matrix.
 
 ## The 11-stage pipeline
 
@@ -94,11 +94,14 @@ The promoted orchestration path is `fluid generate schedule --scheduler airflow`
 
 | Command | What it is for |
 | --- | --- |
+| [`fluid exporters`](./exporters.md) | List the spec-export formats (ODCS / ODPS / ODPS-Bitol) a contract can be serialized to |
 | [`fluid odps`](./odps.md) | Export, validate, and inspect the official ODPS (Open Data Product Initiative) format |
 | [`fluid odps-bitol`](./odps-bitol.md) | Bitol.io's ODPS variant (Entropy Data marketplace) |
 | [`fluid odcs`](./odcs.md) | Bidirectional FLUID ↔ Open Data Contract Standard (ODCS v3.1.0) |
 | [`fluid export`](./export.md) | Export to executable orchestration code (Airflow, Dagster, Prefect) |
 | [`fluid export-odps`](./export-odps.md) | One-shot ODPS file export shortcut |
+
+ODPS and ODCS are **spec exporters**, not cloud providers — they serialize a contract to an open standard and do not deploy infrastructure. List them with [`fluid exporters`](./exporters.md); for deployment targets see [`fluid providers`](./providers.md).
 
 ## Integrations
 
@@ -153,7 +156,8 @@ The promoted orchestration path is `fluid generate schedule --scheduler airflow`
 | [`fluid split`](./split.md) | Split a flat contract into fragments |
 | [`fluid auth`](./auth.md) | Manage provider authentication flows |
 | [`fluid doctor`](./doctor.md) | Run built-in health checks |
-| [`fluid providers`](./providers.md) | List registered providers |
+| [`fluid providers`](./providers.md) | List registered infrastructure providers |
+| [`fluid plugins`](./plugins.md) | List installed plugins per role with allow/block governance status |
 | [`fluid provider-init`](./provider-init.md) | Initialize provider-specific configuration |
 | [`fluid roadmap`](./roadmap.md) | Print the branch-local roadmap |
 | [`fluid version`](./version.md) | Show CLI version and environment details |

@@ -72,7 +72,7 @@ You can then `fluid validate` and `fluid apply` immediately, or open the files a
 ## Notes
 
 - The promoted newcomer path is `fluid init ... --quickstart`, then `validate`, `plan`, and `apply`.
-- As of `0.9.0`, scaffolds emit contracts using `fluidVersion: 0.7.5`. `--discover` also emits `0.7.5`. Older `0.7.4` / `0.7.3` / `0.7.2` contracts remain valid.
+- As of `0.10.0`, scaffolds emit contracts using `fluidVersion: 0.7.5`. `--discover` also emits `0.7.5`. Older `0.7.4` / `0.7.3` / `0.7.2` contracts remain valid.
 - If you want AI-assisted scaffolding instead, use [`fluid forge`](./forge.md).
 
 ## Fastest path — `fluid demo`

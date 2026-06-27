@@ -33,7 +33,7 @@ classifiers = [
     "Topic :: Software Development :: Code Generators",
     "Typing :: Typed",
 ]
-dependencies = ["data-product-forge-sdk>=0.9,<1"]
+dependencies = ["data-product-forge-sdk>=0.10,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff", "black"]
@@ -71,7 +71,7 @@ Things to change for your plugin:
 
 1. **`name`** — your PyPI package name (kebab-case, globally unique on PyPI).
 2. **`version`** — Semantic Versioning. Start at `0.1.0`.
-3. **`dependencies`** — `data-product-forge-sdk>=0.9,<1` is the only mandatory one. Add `data-product-forge-custom-scaffold` if your plugin is consumed via the custom-scaffold engine (most CustomScaffold plugins).
+3. **`dependencies`** — `data-product-forge-sdk>=0.10,<1` is the only mandatory one (target the current SDK for the new roles, typed domains, and conformance harnesses; the `<1` ceiling is unchanged). Add `data-product-forge-custom-scaffold` if your plugin is consumed via the custom-scaffold engine (most CustomScaffold plugins).
 4. **`[project.entry-points."<group>"]`** — pick the right group per [entry-points reference](./entry-points.md). The **key** is the user-facing name; the **value** is `module:Symbol`.
 5. **`[project.urls]`** — your real GitHub/GitLab URLs.
 
@@ -127,9 +127,11 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 pip install data-product-forge data-product-forge-custom-scaffold
 
-# Verify the entry-point registered. The CLI's `fluid plugins` command
-# is dormant (the module exists but isn't wired into bootstrap), so use
-# importlib.metadata directly:
+# Verify the entry-point registered. `fluid plugins` (CLI 0.10.0) lists
+# installed plugins per role with allow/block status — use that, or fall
+# back to importlib.metadata directly:
+#   fluid plugins
+#   fluid plugins list --role provider --json
 python -c "
 from importlib.metadata import entry_points
 for group in ('fluid_build.commands', 'fluid_build.custom_scaffolds',
@@ -172,8 +174,11 @@ Four lines, 20 conformance tests run automatically. The harnesses available toda
 
 - `PluginTestHarness` — generic; runs on any role (13 tests)
 - `CustomScaffoldTestHarness` — scaffold-specific atomic writes, sha256, traversal (7 tests, inherits the 13 above)
+- `ValidatorTestHarness` — validator-specific conformance (SDK 0.10.0)
+- `InfraProviderTestHarness` — provider plan/apply shape + `op` routing (SDK 0.10.0)
+- `CatalogAdapterTestHarness` — catalog-adapter conformance (SDK 0.10.0)
 
-Role-specific subharnesses for `Validator`, `InfraProvider`, and `CatalogAdapter` are on the SDK roadmap. Until they land, subclass `PluginTestHarness` for those roles and add your own role-specific assertions as additional `test_*` methods. See `src/fluid_sdk/testing/role_harnesses.py` for the pattern.
+As of SDK 0.10.0 each of the four roles has a matching `*TestHarness` — subclass the role-specific harness directly and add your fixture-driven scenarios as additional `test_*` methods. See `src/fluid_sdk/testing/` for the pattern.
 
 Add your plugin-specific scenarios as additional methods on the same class. They run alongside the inherited tests.
 
@@ -293,9 +298,9 @@ Semantic versioning. For SDK plugins specifically:
 - **`0.x.y`** — pre-1.0; minor versions can break the API. Pin upper bound (`>=0.x,<0.<x+1>`).
 - **`1.x.y`** — stable. Minor versions add features; patch versions fix bugs; major versions break the API.
 
-For the SDK dependency, pin to `data-product-forge-sdk>=0.9,<1` (until the SDK ships 1.0; bump the upper bound when it does).
+For the SDK dependency, pin to `data-product-forge-sdk>=0.10,<1` (until the SDK ships 1.0; bump the upper bound when it does).
 
-For the CLI dependency (if your plugin needs runtime CLI features), pin to the minor line: `data-product-forge>=0.8,<0.9`.
+For the CLI dependency (if your plugin needs runtime CLI features), pin to the minor line: `data-product-forge>=0.10,<0.11`.
 
 ## Changelog
 
@@ -310,7 +315,7 @@ Use the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Even fo
 
 ### Added
 - Initial release.
-- Supports fluidVersion 0.7.1, 0.7.2, 0.7.3, 0.7.4.
+- Supports fluidVersion 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5.
 
 ### Notes
 - Beta classifier; minor versions may break the API until 1.0.
@@ -319,11 +324,11 @@ Use the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Even fo
 ## Common gotchas
 
 ::: details Entry-point doesn't register
-You forgot `pip install -e .` after editing `pyproject.toml`. Entry-points are read at install time, not at runtime. The fix is one command. the `importlib.metadata.entry_points` one-liner above is your sanity check (the CLI's `fluid plugins` command is dormant).
+You forgot `pip install -e .` after editing `pyproject.toml`. Entry-points are read at install time, not at runtime. The fix is one command. Run `fluid plugins` (CLI 0.10.0) — or the `importlib.metadata.entry_points` one-liner above — to confirm registration.
 :::
 
 ::: details Type-checkers complain `Module 'fluid_sdk' has no attribute …`
-The SDK ships `py.typed`. If `from fluid_sdk import CustomScaffold` resolves at runtime but mypy/pyright say "no attribute", verify you're on `data-product-forge-sdk>=0.9.0`. Earlier dev versions of the SDK had inconsistent typing.
+The SDK ships `py.typed`. If `from fluid_sdk import CustomScaffold` resolves at runtime but mypy/pyright say "no attribute", verify you're on `data-product-forge-sdk>=0.10.0`. Earlier dev versions of the SDK had inconsistent typing.
 
 Your own package should also ship `py.typed` so downstream type-checkers see your annotations — see the layout section above.
 :::
