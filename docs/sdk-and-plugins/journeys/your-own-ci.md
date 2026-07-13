@@ -5,7 +5,7 @@ Your platform team already maintains GitLab CI templates / GitHub Actions workfl
 This guide walks through that pattern end-to-end. By the end you'll have:
 
 - A small **scaffold bundle** (YAML manifest + Jinja templates) that lives in a git repo your platform team controls.
-- A fluid contract that **points at the bundle** and runs `fluid generate custom-scaffold` to render it.
+- A fluid contract that **points at the bundle** and runs `fluid generate-custom-scaffold` to render it.
 - A CI definition emitted from your team's templates — not from forge's defaults — driven by the contract's `metadata` / `environments` / `domain`.
 
 Realistic time end-to-end: **15–25 minutes**.
@@ -24,7 +24,7 @@ your platform-team's git repo                  any product team's repo
 │   └── static/                  │             │         ref: v1.2.0          │
 └────────────────────────────────┘             └──────────────────────────────┘
             │                                              │
-            │       fluid generate custom-scaffold         │
+            │       fluid generate-custom-scaffold         │
             └────────────────┬─────────────────────────────┘
                              ▼
                   product-team's repo:
@@ -40,7 +40,7 @@ Two clean ownership boundaries:
 
 ## Step 0 — see the result first
 
-A product team's directory after `fluid generate custom-scaffold`:
+A product team's directory after `fluid generate-custom-scaffold`:
 
 ```text
 my-data-product/
@@ -177,7 +177,7 @@ fluid apply contract.fluid.yaml --env dev --dry-run
 
 ## CI/CD
 
-This project ships a CI definition generated from `my-org-ci-bundle`. The bundle is the source of truth — edit your contract and re-run `fluid generate custom-scaffold` to pick up changes.
+This project ships a CI definition generated from `my-org-ci-bundle`. The bundle is the source of truth — edit your contract and re-run `fluid generate-custom-scaffold` to pick up changes.
 ```
 :::
 
@@ -253,7 +253,7 @@ pip install data-product-forge data-product-forge-custom-scaffold
 # Optionally for private bundles:
 export GITHUB_TOKEN=ghp_…
 
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 ```
 
 You should see:
@@ -274,7 +274,7 @@ Commit those files. The bundle's templates rendered against your contract are no
 ```bash
 # In the product-team repo:
 # bump ref in contract.fluid.yaml:  ref: v1.0.0  →  ref: v1.1.0
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 git diff
 ```
 
@@ -286,7 +286,7 @@ Custom-scaffold engine `0.4.0` adds `--pin` (re-render byte-for-byte at the lock
 
 ## You'll know it worked when
 
-- `fluid generate custom-scaffold` writes `.gitlab-ci.yml` / `.github/workflows/ci.yml` / `Jenkinsfile` / `.circleci/config.yml` rendered with your contract's `environments` and `cloud` values.
+- `fluid generate-custom-scaffold` writes `.gitlab-ci.yml` / `.github/workflows/ci.yml` / `Jenkinsfile` / `.circleci/config.yml` rendered with your contract's `environments` and `cloud` values.
 - The rendered CI definition has one deploy job per environment in the contract.
 - Adding a fourth environment to the contract → re-running `fluid generate` → produces a fourth deploy job, **without touching the bundle**.
 - Bumping the bundle `ref:` in the contract → re-running `fluid generate` → produces the new bundle's templates rendered against the current contract.

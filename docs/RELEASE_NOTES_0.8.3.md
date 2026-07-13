@@ -175,7 +175,7 @@ Plug in the reference custom-scaffold engine end-users will use:
 
 ```bash
 pip install data-product-forge data-product-forge-custom-scaffold
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 ```
 
 ## Archive note

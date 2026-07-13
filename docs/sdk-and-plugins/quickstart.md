@@ -4,7 +4,7 @@ You're going to write a tiny plugin that turns a fluid contract into a `README.m
 
 By the end you'll have:
 
-- A working `CustomScaffold` plugin discovered automatically by `fluid generate custom-scaffold`.
+- A working `CustomScaffold` plugin discovered automatically by `fluid generate-custom-scaffold`.
 - ~20 conformance tests passing against it (you write four lines, the SDK adds the rest).
 - A clear mental model of what to change to make it produce something other than `README.md`.
 
@@ -43,7 +43,7 @@ extensions:
     patterns: [{use: hi:main}]
 EOF
 
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 ```
 
 What you should see:
@@ -64,7 +64,7 @@ Generated from the hello-scaffold plugin.
 Two things to notice:
 
 1. **The contract's `metadata.name` ("My First Product") and `metadata.description` end up in the rendered file.** The contract drives the output.
-2. **Running `fluid generate custom-scaffold` twice produces the same bytes.** Determinism is a guarantee, not an accident.
+2. **Running `fluid generate-custom-scaffold` twice produces the same bytes.** Determinism is a guarantee, not an accident.
 
 That's the result. Now we'll build it from scratch so you understand each piece.
 
@@ -208,7 +208,7 @@ extensions:
       - use: hi:main
 EOF
 
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 ```
 
 You should see:
@@ -267,7 +267,7 @@ hello = "hello_scaffold.scaffold:HelloScaffold"
 ```
 :::
 
-::: details `fluid generate custom-scaffold` says `no plugin named 'hello-scaffold' found`
+::: details `fluid generate-custom-scaffold` says `no plugin named 'hello-scaffold' found`
 Check the contract's `source.name` matches the entry-point key, not the class name:
 
 ```toml

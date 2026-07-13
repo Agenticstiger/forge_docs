@@ -7,7 +7,7 @@ This guide extends the pattern from [you have your own CI](./your-own-ci.md) —
 By the end you'll have:
 
 - A bundle that generates `pyproject.toml` / `src/<product>/` / `tests/` / `Dockerfile` / `README.md` / `.editorconfig` / `.pre-commit-config.yaml` — driven by `contract.metadata`.
-- A contract that produces a fully-configured project from `fluid generate custom-scaffold`.
+- A contract that produces a fully-configured project from `fluid generate-custom-scaffold`.
 
 Realistic time end-to-end: **20–30 minutes**.
 
@@ -63,7 +63,7 @@ extensions:
       - use: skel:main
 EOF
 
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 ```
 
 Output:
@@ -231,7 +231,7 @@ This entire project layout is generated. To pull in template updates:
 
 ```bash
 # bump ref in contract.fluid.yaml: skel.source.ref: v1.0.0 → v1.1.0
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 git diff      # review the platform team's changes
 ```
 ```
@@ -417,7 +417,7 @@ extensions:
 
 ```bash
 # product-team workspace
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 git add . && git commit -m "Initial project skeleton from project-bundle v1.0.0"
 ```
 
@@ -426,15 +426,15 @@ git add . && git commit -m "Initial project skeleton from project-bundle v1.0.0"
 The "bump the ref and re-run" loop above is fine for a clean working tree, but once a product team has hand-edited generated files, a blind re-render clobbers their changes. Custom-scaffold engine `0.4.0` adds copier-parity reproducibility so re-generation is safe and auditable:
 
 - **Lockfile.** After a successful (non-dry-run) generation the engine writes a deterministic, credential-free `fluid-scaffold.lock` to the output root, recording the **resolved git commit** of each bundle source.
-- **`--pin`.** `fluid generate custom-scaffold --pin` re-renders **byte-for-byte at the locked commit** (npm-ci / poetry-frozen semantics) — exactly what you want in CI for reproducible output.
+- **`--pin`.** `fluid generate-custom-scaffold --pin` re-renders **byte-for-byte at the locked commit** (npm-ci / poetry-frozen semantics) — exactly what you want in CI for reproducible output.
 - **`--update [--target REF]`.** Re-renders at the locked base **plus** the new ref and 3-way-merges the result onto your working tree via `git merge-file`. On overlapping edits it writes conflict markers and exits `4`; on a clean merge the lock advances to the new ref.
 
 ```bash
 # CI: reproduce exactly what the lock pinned, no surprises.
-fluid generate custom-scaffold --pin
+fluid generate-custom-scaffold --pin
 
 # Pull in the platform team's v1.1.0 bundle, merging over local edits.
-fluid generate custom-scaffold --update --target v1.1.0
+fluid generate-custom-scaffold --update --target v1.1.0
 # → clean merge: lock advances to v1.1.0
 # → overlapping edits: conflict markers written, exit code 4
 ```
@@ -443,7 +443,7 @@ Deep mechanics (resolver kinds, merge internals) live in the [custom-scaffold en
 
 ## You'll know it worked when
 
-- `fluid generate custom-scaffold` writes the full project skeleton — pyproject.toml, README.md, Dockerfile, .editorconfig, .pre-commit-config.yaml, plus `src/<product_id>/__init__.py` and `tests/test_smoke.py`.
+- `fluid generate-custom-scaffold` writes the full project skeleton — pyproject.toml, README.md, Dockerfile, .editorconfig, .pre-commit-config.yaml, plus `src/<product_id>/__init__.py` and `tests/test_smoke.py`.
 - The Python module name in `src/` matches the kebab-case `metadata.id` with dashes replaced by underscores (`order-events` → `order_events`).
 - `pytest` passes immediately on the generated skeleton (the smoke test imports `main()` and asserts it returns 0).
 - `pip install -e ".[dev]"` succeeds — your `pyproject.toml.j2` produced a valid TOML.

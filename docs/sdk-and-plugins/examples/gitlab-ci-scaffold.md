@@ -193,7 +193,7 @@ def _render_ci(self, c: ContractHelper) -> str:
     envs = c.environment_names()
     lines: List[str] = []
     lines.append(f"# Auto-generated GitLab CI for {c.id}")
-    lines.append("# DO NOT EDIT BY HAND — regenerate via `fluid generate custom-scaffold`")
+    lines.append("# DO NOT EDIT BY HAND — regenerate via `fluid generate-custom-scaffold`")
     lines.append("")
     lines.append("stages:")
     lines.append("  - validate")
@@ -341,7 +341,7 @@ pip install data-product-forge data-product-forge-custom-scaffold gitlab-ci-scaf
 #       patterns:
 #         - use: ci:gitlab-ci
 
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 # ✓ 5 files written, 0 failed
 #   README.md
 #   .gitlab-ci.yml
@@ -354,7 +354,7 @@ fluid generate custom-scaffold
 
 - All 22 tests pass under `pytest`.
 - The generated `.gitlab-ci.yml` has exactly one `deploy:<env>:` block per environment in your contract, and the `deploy:prod:` block carries `when: manual`.
-- Adding a new `environments.staging-eu` entry to the contract and re-running `fluid generate custom-scaffold` produces a new `config/staging-eu.json` and a new `deploy:staging-eu:` block — without editing any plugin code.
+- Adding a new `environments.staging-eu` entry to the contract and re-running `fluid generate-custom-scaffold` produces a new `config/staging-eu.json` and a new `deploy:staging-eu:` block — without editing any plugin code.
 - `git diff` between two consecutive runs (no contract changes) is empty (determinism).
 
 ## When **not** to use this pattern

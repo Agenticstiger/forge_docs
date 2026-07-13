@@ -100,7 +100,7 @@ pip install -e .
 #       libraries: [{id: hi, source: {kind: entrypoint, name: hello}}]
 #       patterns: [{use: hi:main}]
 
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 # ✓ 1 file written, 0 failed
 #   README.md
 ```
@@ -113,7 +113,7 @@ Four roles, one mental model. Each role is a thin subclass of `BasePlugin` that 
 
 | You want to… | Role | Hook it into | Example |
 |---|---|---|---|
-| Generate files from a contract (CI configs, app code, IaC stacks, docs) | **`CustomScaffold`** | `fluid generate custom-scaffold` | [hello-scaffold](./examples/hello-scaffold.md), [gitlab-ci-scaffold](./examples/gitlab-ci-scaffold.md) |
+| Generate files from a contract (CI configs, app code, IaC stacks, docs) | **`CustomScaffold`** | `fluid generate-custom-scaffold` | [hello-scaffold](./examples/hello-scaffold.md), [gitlab-ci-scaffold](./examples/gitlab-ci-scaffold.md) |
 | Enforce governance / compliance / cost rules at author-time | **`Validator`** | `fluid validate` | [steward-validator](./examples/steward-validator.md) |
 | Add support for a new cloud platform or data warehouse | **`InfraProvider`** | `fluid apply` | — |
 | Sync product metadata into your catalog (DataHub, Atlan, Collibra…) | **`CatalogAdapter`** | `fluid publish` | — |
