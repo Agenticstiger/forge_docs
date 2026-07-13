@@ -2,8 +2,13 @@
 
 Review-only emit of a **pgvector RAG target** from a FLUID contract. For every expose bound to `pgvector`, it compiles the `ai-embeddable` columns into an embeddings table + ANN index so the data product can be consumed directly by retrieval-augmented generation (RAG) / AI applications.
 
-::: warning Preview — opt-in under `fluidVersion: 0.7.5`
-The **vector / embeddings output port** is a preview capability. It is served and fully validatable, but only when a contract explicitly declares `fluidVersion: "0.7.5"` — the schema default stays on the current stable version, so existing contracts are untouched. The `vectorConfig` binding block and `fluid generate vector` command graduate to default-on when `0.7.5` is promoted to stable. See [Product types & the schema lifecycle](../data-products/product-type.md).
+::: tip Available in `0.11.0` — preview, opt-in under `fluidVersion: 0.7.5`
+The `fluid generate vector` command ships in **`v0.11.0`**. The **vector / embeddings output
+port** itself is a preview capability: the `vectorConfig` binding block is served and fully
+validatable, but only when a contract explicitly declares `fluidVersion: "0.7.5"` — the schema
+default stays on the current stable version, so existing contracts are untouched. `vectorConfig`
+graduates to default-on when `0.7.5` is promoted to stable. See
+[Product types & the schema lifecycle](../data-products/product-type.md).
 :::
 
 ## What it emits
