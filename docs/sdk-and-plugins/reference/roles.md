@@ -87,7 +87,7 @@ class MyScaffold(CustomScaffold):
 
 ### Hooks into the CLI
 
-`fluid generate <scaffold-name>` (or `fluid generate custom-scaffold` for the canonical engine).
+`fluid generate <scaffold-name>` (or `fluid generate-custom-scaffold` for the canonical engine).
 
 ### Examples
 

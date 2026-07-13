@@ -9,7 +9,7 @@ The smallest plugin that proves the contract: 30 lines of Python, one entry-poin
 Given any fluid contract, `hello-scaffold` emits one `README.md` with the contract's name and description.
 
 ```bash
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 # ✓ 1 file written
 #   README.md
 ```
@@ -57,7 +57,7 @@ where = ["src"]
 testpaths = ["tests"]
 ```
 
-The one line that makes it work: `[project.entry-points."fluid_build.custom_scaffolds"] hello = "hello_scaffold.scaffold:HelloScaffold"`. After `pip install -e .`, `fluid generate custom-scaffold` discovers your plugin under the name `hello`.
+The one line that makes it work: `[project.entry-points."fluid_build.custom_scaffolds"] hello = "hello_scaffold.scaffold:HelloScaffold"`. After `pip install -e .`, `fluid generate-custom-scaffold` discovers your plugin under the name `hello`.
 
 ## `src/hello_scaffold/scaffold.py`
 
@@ -140,7 +140,7 @@ extensions:
 ```
 
 ```bash
-fluid generate custom-scaffold
+fluid generate-custom-scaffold
 # ✓ 1 file written, 0 failed
 #   README.md
 
@@ -154,7 +154,7 @@ cat README.md
 
 - `pytest` reports 20+ passes against your plugin class.
 - the `importlib.metadata.entry_points(group='fluid_build.custom_scaffolds')` one-liner (run from anywhere) shows `hello-scaffold` in the result.
-- `fluid generate custom-scaffold` writes a `README.md` whose body matches the contract's `metadata.name` and `metadata.description`.
+- `fluid generate-custom-scaffold` writes a `README.md` whose body matches the contract's `metadata.name` and `metadata.description`.
 - Running the same command twice produces byte-identical output (determinism is one of the conformance tests).
 
 ## When **not** to use this pattern
