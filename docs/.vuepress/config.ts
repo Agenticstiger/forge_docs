@@ -208,6 +208,7 @@ export default defineUserConfig({
                 '/cli/generate-iac.md',
                 '/cli/generate-airflow.md',
                 '/cli/generate-pipeline.md',
+                '/cli/generate-vector.md',
                 '/cli/viz-graph.md',
                 '/cli/publish.md',
                 '/cli/ship.md',
