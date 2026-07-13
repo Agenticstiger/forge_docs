@@ -356,6 +356,42 @@ set -a; . .env; set +a
 fluid apply contract.fluid.yaml --env dev --yes
 ```
 
+### Local testing against emulators (LocalStack / moto)
+
+::: tip Available in `0.11.0`
+When a **custom AWS endpoint** is set, the AWS IaC emitter adds an emulator-compatible
+`provider "aws"` block so `fluid apply` (and `fluid generate iac`) run against
+[LocalStack](https://www.localstack.cloud/) or moto instead of real AWS.
+:::
+
+Set the standard AWS SDK endpoint override — global or per-service:
+
+```bash
+export AWS_ENDPOINT_URL=http://localhost:4566        # global (LocalStack default port)
+# …or per-service:
+export AWS_ENDPOINT_URL_S3=http://localhost:4566
+export AWS_ENDPOINT_URL_GLUE=http://localhost:4566
+
+# LocalStack accepts any non-empty test credentials
+export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_REGION=us-east-1
+
+fluid generate iac contract.fluid.yaml --provider aws --out ./review
+tofu -chdir=./review init && tofu -chdir=./review apply
+```
+
+When `AWS_ENDPOINT_URL*` is set, the emitted module includes:
+
+| Provider setting | Why emulators need it |
+|---|---|
+| `s3_use_path_style = true` | Emulators serve buckets as `host/bucket`, not `bucket.host` virtual-host style. |
+| `skip_credentials_validation` / `skip_requesting_account_id` | No real STS to call. |
+| `skip_metadata_api_check` | No EC2 instance-metadata endpoint. |
+| `skip_region_validation` | Emulators accept any region string. |
+
+On **real AWS** (no `AWS_ENDPOINT_URL*` set) the emitter writes **no provider block** — output
+is byte-for-byte identical to prior releases, and the provider self-configures from the standard
+credential chain.
+
 ## Infrastructure Created
 
 When you run `fluid apply` on an AWS contract, the provider creates:

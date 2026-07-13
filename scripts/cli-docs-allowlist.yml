@@ -31,9 +31,9 @@ docs_only_ok:
                     # dedicated page because PR #140's OpenTofu autogenerator
                     # is a user-facing feature operators look up by full name.
   - generate-vector # subcommand of `generate` (fluid_build/cli/generate_vector.py);
-                    # pgvector RAG output port (forge-cli PR #410), a PREVIEW
-                    # feature opt-in under fluidVersion 0.7.5. Documented ahead of
-                    # the stable docs pin; remove once promoted to the pinned CLI.
+                    # pgvector RAG output port, shipped in v0.11.0. Dedicated page
+                    # because operators look it up by full name (like generate-iac).
+                    # The feature is a preview, opt-in under fluidVersion 0.7.5.
   - mcp             # staged forge-cli branch command documented ahead of the
                     # stable docs pin; remove once promoted to the pinned CLI.
   - memory          # staged forge-cli branch command documented ahead of the

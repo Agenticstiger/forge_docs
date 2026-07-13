@@ -1,6 +1,6 @@
 # Environment Variables
 
-Canonical index of `FLUID_*` environment variables on `v0.10.0`. Grouped by category. Where a cluster has its own dedicated page, the cluster header links out to the page rather than duplicating its content.
+Canonical index of `FLUID_*` environment variables on `v0.11.0`. Grouped by category. Where a cluster has its own dedicated page, the cluster header links out to the page rather than duplicating its content.
 
 > **Convention:** truthy values are `1` / `true` / `yes` (case-insensitive); falsy values are `0` / `false` / `no` / empty. Numeric vars accept plain integers unless noted otherwise.
 
@@ -74,6 +74,10 @@ Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
 | `FLUID_FORGE_LEGACY_COPILOT` | Fall back to the pre-`0.8.3` copilot path. |
 | `FLUID_FORGE_STAGED_COPILOT` | Use the staged-copilot experimental loop. |
 | `FLUID_FORGE_STAGED_TOOL_LOOP` | Use the staged tool-loop experimental loop. |
+| `FLUID_FORGE_DRIFT_GUARD` | Enable the **semantic-drift guard** (`v0.11.0`) — flag dropped / renamed / retyped columns when authoring or `--refine`-ing a contract. Opt-in, fail-open. |
+| `FLUID_FORGE_DB_TOOLS` | Enable the `fetch_sample_rows` agent tool (`v0.11.0`) — read-only, row-capped, redacted live DB lookups. |
+| `FLUID_FORGE_TOOL_SEARCH` | Enable the lazy tool-search deferral for the agent loop (`v0.11.0`). |
+| `FLUID_GITHUB_MCP` / `FLUID_SNOWFLAKE_MCP` | Enable hosted-MCP delegation to the GitHub / Snowflake MCP servers (`v0.11.0`). |
 | `FLUID_COPILOT_AGENT_LOOP` | Override the copilot agent-loop driver. |
 | `FLUID_COPILOT_EPISODIC_MEMORY` / `FLUID_COPILOT_SEMANTIC_MEMORY` | Toggle memory backends. |
 | `FLUID_COPILOT_FORCE_INTERVIEW` | Force the interactive interview even when `--non-interactive` would otherwise skip it. |
