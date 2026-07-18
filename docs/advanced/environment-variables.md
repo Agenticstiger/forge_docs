@@ -1,6 +1,6 @@
 # Environment Variables
 
-Canonical index of `FLUID_*` environment variables on `v0.11.0`. Grouped by category. Where a cluster has its own dedicated page, the cluster header links out to the page rather than duplicating its content.
+Canonical index of `FLUID_*` environment variables on `v0.12.0`. Grouped by category. Where a cluster has its own dedicated page, the cluster header links out to the page rather than duplicating its content.
 
 > **Convention:** truthy values are `1` / `true` / `yes` (case-insensitive); falsy values are `0` / `false` / `no` / empty. Numeric vars accept plain integers unless noted otherwise.
 
@@ -158,6 +158,8 @@ See [network safety](./network-safety.md).
 |---|---|
 | `FLUID_RUNNER_HOST_OVERRIDE` | Override the runner host (wins over `TESTCONTAINERS_HOST_OVERRIDE`). |
 | `FLUID_DBT_FORWARD_ENV` | Extra env-var keys / prefixes the dbt runner forwards. |
+| `DBT_EXECUTABLE` | *(since 0.12.0; not `FLUID_*` — shared with the dbt ecosystem)* The dbt command the runner and the `--dbt-validate` / `--dbt-tests-key auto` probes resolve first — an absolute path, a bare name looked up on `PATH`, or a multi-token wrapper. Falls back to `dbt` on `PATH`, then the active venv. Also how you pin a dbt Core v1 binary when Fusion is on `PATH`. |
+| `FLUID_DBT_TESTS_KEY` | *(since 0.12.0)* Which YAML key generated dbt data tests attach under: `auto` (default — probe the dbt binary: Fusion or core ≥ 1.8 → `data_tests:`, otherwise legacy `tests:`), `tests`, or `data_tests`. The `--dbt-tests-key` flag wins over the env var. |
 | `FLUID_PII_TOKENIZATION_KEY` | HMAC key for PII tokenization (production-only). |
 | `FLUID_PARALLEL_OPERATIONS` | Max parallelism for runner operations. |
 | `FLUID_UPSTREAM_CONTRACTS` | Search path for upstream `contract.fluid.yaml` references. |

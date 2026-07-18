@@ -2,12 +2,11 @@
 
 Review-only emit of a **pgvector RAG target** from a FLUID contract. For every expose bound to `pgvector`, it compiles the `ai-embeddable` columns into an embeddings table + ANN index so the data product can be consumed directly by retrieval-augmented generation (RAG) / AI applications.
 
-::: tip Available in `0.11.0` — preview, opt-in under `fluidVersion: 0.7.5`
-The `fluid generate vector` command ships in **`v0.11.0`**. The **vector / embeddings output
-port** itself is a preview capability: the `vectorConfig` binding block is served and fully
-validatable, but only when a contract explicitly declares `fluidVersion: "0.7.5"` — the schema
-default stays on the current stable version, so existing contracts are untouched. `vectorConfig`
-graduates to default-on when `0.7.5` is promoted to stable. See
+::: tip Stable since `0.12.0` (shipped as a preview in `0.11.0`)
+The `fluid generate vector` command ships in **`v0.11.0`**. As of **`v0.12.0`**, schema `0.7.5`
+is promoted to **stable** and is the default for untagged contracts — the `vectorConfig` binding
+block is default-available and no longer needs an explicit `fluidVersion: "0.7.5"` opt-in pin.
+(Contracts that pin an older `fluidVersion` must bump to `0.7.5+` to use it.) See
 [Product types & the schema lifecycle](../data-products/product-type.md).
 :::
 
@@ -55,7 +54,7 @@ fluid generate vector [contract] [--out DIR] [--env NAME]
 Declare a `vector` expose bound to `pgvector`, and drive the DDL from `binding.vectorConfig`:
 
 ```yaml
-fluidVersion: "0.7.5"          # opt into the preview schema
+fluidVersion: "0.7.5"          # stable since 0.12.0 — also the default for untagged contracts
 # ...
 exposes:
   - exposeId: kb_articles
