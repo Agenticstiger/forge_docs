@@ -403,6 +403,17 @@ When you run `fluid apply` on an AWS contract, the provider creates:
 | **Glue Table** | `bitcoin_prices` — External table pointing to S3 |
 | **Athena Workgroup** | Query engine configured for the region |
 
+### Shared vs. isolated containers
+
+::: tip New in `0.13.0` (`0.7.6` preview, opt-in)
+By default this product **owns** the S3 bucket and Glue database it creates. A
+[`packaging` block](../cli/generate-iac.md#packaging-modes) can instead declare them `shared` — a
+pre-existing, platform-owned pool that the product writes into but **cannot destroy**. A shared
+bucket becomes `data.aws_s3_bucket` with no `force_destroy`; a shared Glue database is addressed by
+literal name; Lake Formation `registerLocation` scopes to `location.path` and registers nothing when
+a pooled bucket has no prefix. Contracts with no `packaging` block emit exactly as before.
+:::
+
 ### What the Pipeline Produces
 
 After a successful run, the pipeline writes real data:

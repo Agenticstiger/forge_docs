@@ -126,6 +126,7 @@ ODPS and ODCS are **spec exporters**, not cloud providers — they serialize a c
 | [`fluid diff`](./diff.md) | Detect drift from deployed state |
 | [`fluid test`](./test.md) | Validate the contract against live resources |
 | [`fluid verify`](./verify.md) | Verify deployed resources still match the contract |
+| [`fluid mission`](./mission.md) | Declarative goals with deterministic success criteria; `mission check` is a zero-LLM CI gate |
 
 ## Project & Workspace
 

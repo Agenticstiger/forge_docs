@@ -222,6 +222,7 @@ export default defineUserConfig({
               children: [
                 '/cli/ai.md',
                 '/cli/agents.md',
+                '/cli/mission.md',
                 '/cli/mcp.md',
                 '/cli/memory.md',
                 '/cli/stats.md',
@@ -446,6 +447,7 @@ export default defineUserConfig({
           text: 'Project',
           children: [
             '/contributing.md',
+            '/RELEASE_NOTES_0.13.0.md',
             '/RELEASE_NOTES_0.12.0.md',
             '/RELEASE_NOTES_0.11.0.md',
             '/RELEASE_NOTES_0.10.0.md',
