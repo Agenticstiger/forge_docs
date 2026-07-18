@@ -5,24 +5,20 @@
 # Commands the CLI registers but that intentionally have no doc page.
 # Add a one-line comment with the reason — future maintainers will thank you.
 undocumented_ok:
-  - context          # hidden backward-compat alias for `config`
   - dmm              # short alias for `datamesh-manager`
   - marketplace      # deprecated alias for `market`
   - opds             # legacy spelling kept for back-compat; renamed to `odps`
                      # in v0.8.4. Hidden alias, intentionally undocumented.
-  - export-opds      # legacy spelling of `export-odps` (renamed v0.8.4); kept as
-                     # a hidden back-compat alias, intentionally undocumented.
-  - preview          # hidden (argparse.SUPPRESS) — deprecated, use `plan --html`
+  - export-opds      # deprecated back-compat alias (letter-swap of ODPS); logs a
+                     # deprecation warning pointing at the canonical
+                     # `fluid generate standard --format odps-v4.1`. The
+                     # export-odps.md page covers the surface (docs_only_ok below).
   - viz-plan         # hidden (argparse.SUPPRESS) — deprecated, use `plan --html`
 
 # Doc pages with no matching CLI subcommand (e.g. conceptual / index pages).
 # Names are filename stems without the .md extension.
 docs_only_ok:
   - README           # CLI Reference index page
-  - skills           # registered via _try_register but with swapped args in
-                     # bootstrap.py:448 (module="skills", profile="skills_cmd"),
-                     # which silently skips registration; doc page is intentional
-                     # so the command shows up in the docs once the CLI bug is fixed
   - generate-artifacts  # subcommand of `generate`, not a top-level command;
                      # dedicated page because it's the stage-3 surface of the
                      # 11-stage pipeline and operators look up the full name.
@@ -33,23 +29,10 @@ docs_only_ok:
   - generate-vector # subcommand of `generate` (fluid_build/cli/generate_vector.py);
                     # pgvector RAG output port, shipped in v0.11.0. Dedicated page
                     # because operators look it up by full name (like generate-iac).
-                    # The feature is a preview, opt-in under fluidVersion 0.7.5.
-  - mcp             # staged forge-cli branch command documented ahead of the
-                    # stable docs pin; remove once promoted to the pinned CLI.
-  - memory          # staged forge-cli branch command documented ahead of the
-                    # stable docs pin; remove once promoted to the pinned CLI.
-  - roadmap         # staged forge-cli branch command documented ahead of the
-                    # stable docs pin; remove once promoted to the pinned CLI.
-  - scaffold-ide    # staged forge-cli command (fluid_build/cli/scaffold_ide.py),
-                    # documented ahead of the released CLI; remove once it ships.
-  # source-aligned-acquisition branch — staged ahead of the pinned 0.8.0 CLI.
-  # Remove these entries once the branch lands and ships on PyPI.
-  - runs            # day-2 ops: status / logs / diff
-  - retention       # day-2 ops: sweep
-  - secrets         # day-2 ops: login / verify / rotate
-  - stats           # cost aggregator across .fluid/agents/*/cost.json
-  - contract        # apply-suggestion / migrate-product-type
-  - ship            # validate -> bundle -> plan -> apply happy-path macro
-  - export-odps     # renamed from export-opds in v0.8.4; CLI ships in v0.8.4
-                    # which is not yet on PyPI (latest pinned is 0.8.3rc1);
-                    # remove this entry once the PyPI pin is bumped to >=0.8.4.
+                    # GA since v0.12.0 (schema 0.7.5 promoted to stable).
+  - export-odps     # NOT a registered command at the pinned CLI: the 0.10.0
+                    # provider→exporter reclassification retired the top-level
+                    # command in favour of `fluid generate standard --format
+                    # odps-v4.1`; only the deprecated `export-opds` alias still
+                    # registers (undocumented_ok above). Page kept as the
+                    # migration reference for the historical surface.
