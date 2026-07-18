@@ -433,6 +433,74 @@ accessPolicy:
 > roles applied outside the contract. Use `resources` on a grant to scope a
 > principal to a specific expose.
 
+#### Access grants (`accessPolicy`)
+
+::: tip Changed in `0.13.0`
+`accessPolicy` is now the **IaC access-grant surface** as well as the
+`fluid policy-compile` surface. The GCP IaC plugin previously read
+`metadata.policies` to emit BigQuery `access[]` entries and GCS IAM members — a
+key **no shipped schema permits**, so a contract carrying it fails `fluid validate`
+(`metadata: Additional properties are not allowed ('policies' was unexpected)`).
+Because `fluid generate iac` does not run schema validation, that emit path worked
+while the contract was unusable everywhere else. See
+[Release Notes `0.13.0`](../RELEASE_NOTES_0.13.0.md#accesspolicy-is-now-the-iac-access-grant-surface).
+:::
+
+A principal is `<type>:<identity>`, and the **type is declared, not guessed**:
+
+| Prefix | BigQuery dataset `access[]` field | GCS IAM member |
+| --- | --- | --- |
+| `user:` | `user_by_email` | `user:<email>` |
+| `group:` | `group_by_email` | `group:<email>` |
+| `serviceAccount:` | `user_by_email` — BigQuery's own convention for SA identities, and what makes a cross-project grant work | `serviceAccount:<email>` |
+| `domain:` | `user_by_email` | `domain:<domain>` |
+
+##### Cross-project grants
+
+This is how you grant a consumer in another GCP project read access to a dataset
+this product owns — expressible in a contract that passes `fluid validate`:
+
+```yaml
+accessPolicy:
+  grants:
+    - principal: "serviceAccount:consumer@other-project.iam.gserviceaccount.com"
+      permissions: [read, select, query]
+    - principal: "group:partner-analytics@other-company.com"
+      permissions: [read]
+```
+
+`fluid generate iac --provider gcp` compiles these into the dataset's `access[]`
+block (and GCS IAM members where the exposure is object storage).
+
+##### `metadata.policies` is deprecated
+
+The legacy `metadata.policies` mapping still emits, so existing out-of-tree
+contracts keep working — but it has never been schema-valid and **fails
+`fluid validate`**. Migrate to `accessPolicy`.
+
+Both surfaces are read (rather than either/or), so a contract mid-migration does
+not silently drop half its grants; duplicate grants collapse.
+
+::: warning Groups were previously emitted as users
+The legacy reader classified a principal by whether it contained an `@` — user if
+yes, group if no. Group addresses contain `@` too, so **every group was emitted as
+a BigQuery `user_by_email` entry**. Unprefixed legacy values keep that exact
+inference so existing emitted ACLs do not silently change. Declare `group:`
+explicitly to get a group entry.
+:::
+
+### Shared vs. isolated containers
+
+::: tip New in `0.13.0` (`0.7.6` preview, opt-in)
+By default this product **owns** the BigQuery dataset and GCS bucket it creates. A
+[`packaging` block](../cli/generate-iac.md#packaging-modes) can instead declare them `shared` — a
+pre-existing, platform-owned pool the product writes into but **cannot destroy**. A shared dataset
+and bucket become OpenTofu data sources; the dataset **drops its authoritative `access[]` block**
+(it would rewrite the pool's whole ACL and evict other tenants) in favour of per-table
+`google_bigquery_table_iam_member`, and a shared bucket's IAM members gain an object-prefix CEL
+condition. Contracts with no `packaging` block emit exactly as before.
+:::
+
 ---
 
 ## Loading Data

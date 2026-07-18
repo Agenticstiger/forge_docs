@@ -39,6 +39,36 @@ The build-augmented modes (`amend-and-build`, `replace-and-build`) run the confi
 | `--allow-data-loss` | Required to run `replace` / `replace-and-build` when `FLUID_ENV != dev` **or** the target already has rows. Two independent risk surfaces (env + population) → two-factor opt-in. Never default. |
 | `--no-verify-plan-binding` | **Emergency escape hatch.** Skip the `bundleDigest` / `planDigest` verification that stage 7 normally enforces on a saved plan. Logged at `WARNING` so audit trails catch it. Use only during documented DR procedures. |
 | `--no-verify-federation` | **Emergency escape hatch.** Skip the federated-`consumes[]` upstream-digest gate (drift between a pinned `upstreamDigest` and the live upstream). Logged at `WARNING` for audit. A distinct trust domain from plan binding — each gate has its own narrowly-scoped waiver. |
+| `--adopt-shared-container` | *(since 0.13.0)* Confirm taking **ownership** of a container this contract previously referenced as a shared pool (`packaging` `shared` → `isolated`). Emits a structured `packaging_adoption_override` audit event; the data-loss gate still applies. See [Packaging modes](#packaging-modes). |
+
+## Packaging modes
+
+::: tip Opt-in, new in `0.13.0`
+Only relevant to contracts that declare `fluidVersion: "0.7.6"` **and** carry a `packaging` block. A contract without one resolves to the LEGACY sentinel, can never transition, and applies exactly as it did before `0.13.0`.
+:::
+
+A `packaging` block declares whether this product **owns** each infrastructure container (`isolated`) or writes into a pre-existing, platform-owned **pool** (`shared`). Full reference: [`fluid generate iac` — Packaging modes](./generate-iac.md#packaging-modes).
+
+Changing a container's mode changes *who owns it*, but OpenTofu only sees a resource that left the configuration and plans a **destroy** — on a shared pool that reaches every other tenant's data. So `apply` diffs the resolved ownership model against `tofu state list` **before** `tofu plan`:
+
+| Transition | Behaviour |
+| --- | --- |
+| `isolated` → `shared` (owned → referenced) | **Always blocked** — there is no flag. `apply` fails closed and prints copy-pasteable `tofu -chdir=<workdir> state rm <address>` commands. State surgery touches zero bytes of infrastructure; re-run `apply` afterwards. |
+| `shared` → `isolated` (referenced → owned) | Requires `--adopt-shared-container`. Without the gate, brownfield adoption would `tofu import` the platform's pool into this product's state with `force_destroy` restored — the exact blast radius the feature exists to close. |
+
+```bash
+# Blocked — drop the resource from state first, then re-run.
+fluid apply runtime/plan.json --provider aws --yes
+# → packaging_transition_blocked: aws_s3_bucket.data (owned → referenced)
+# →   tofu -chdir=.fluid/iac/aws/<product-id> state rm aws_s3_bucket.data
+
+# Taking ownership of a previously-shared container (audited)
+fluid apply runtime/plan.json --provider aws --yes --adopt-shared-container
+```
+
+The printed `tofu state rm` commands include `-chdir` pointing at the per-contract working directory (`.fluid/iac/<provider>/<id>/`), so they run against the right state without you having to find it.
+
+Structured `packaging_transition_blocked` / `packaging_adoption_override` events are emitted for CI log scrapers. This guard runs **earlier** than, and is independent of, the data-loss gate — that gate remains the unconditional last line.
 
 ## Plan binding
 
