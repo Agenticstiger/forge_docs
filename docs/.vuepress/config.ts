@@ -407,6 +407,8 @@ export default defineUserConfig({
           text: 'Operate & Deploy',
           collapsible: true,
           children: [
+            '/advanced/operating-in-ci.md',
+            '/advanced/production-troubleshooting.md',
             '/advanced/airflow.md',
             '/advanced/blueprints.md',
             '/advanced/source-aligned-acquisition.md'
