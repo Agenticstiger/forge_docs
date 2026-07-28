@@ -41,6 +41,8 @@ The build-augmented modes (`amend-and-build`, `replace-and-build`) run the confi
 | `--no-verify-federation` | **Emergency escape hatch.** Skip the federated-`consumes[]` upstream-digest gate (drift between a pinned `upstreamDigest` and the live upstream). Logged at `WARNING` for audit. A distinct trust domain from plan binding — each gate has its own narrowly-scoped waiver. |
 | `--adopt-shared-container` | *(since 0.13.0)* Confirm taking **ownership** of a container this contract previously referenced as a shared pool (`packaging` `shared` → `isolated`). Emits a structured `packaging_adoption_override` audit event; the data-loss gate still applies. See [Packaging modes](#packaging-modes). |
 
+Since `0.13.1`, the structured override events these gates emit — `opentofu_destructive_gate_override` (`--allow-data-loss`) and `packaging_adoption_override` (`--adopt-shared-container`) — log at `WARNING`, so audit pipelines filtering at WARNING-and-above catch them. On `0.13.0` and earlier they logged at `INFO`; event names and payloads are unchanged.
+
 ## Packaging modes
 
 ::: tip Opt-in, new in `0.13.0`
@@ -193,6 +195,8 @@ fluid apply runtime/plan.json --mode amend --no-verify-federation --yes
 - For local-first onboarding, `fluid apply contract.fluid.yaml --yes` is the shortest path after a quickstart scaffold — default `--mode amend` is safe.
 - `--mode replace` / `replace-and-build` **always** create an auto-snapshot before destructive DDL. On Snowflake this is a zero-copy `CLONE`; on BigQuery it's `bq cp --force`; on Redshift it's `CREATE TABLE _backup AS SELECT *`. Snapshot names are recorded in `.fluid/rollback-state.json`.
 - If apply's provider dispatcher logs `unknown_action_op` for your contract's actions, the provider doesn't yet implement the abstract op. This is a known gap for some high-level ops (e.g. `provisionDataset`, `scheduleTask`) and is addressed by a translator layer in `providers/<platform>/`.
+- For Iceberg exposes, `apply` provisions the prerequisites dbt refuses to create — the Snowflake `EXTERNAL VOLUME` and AWS Glue `CATALOG INTEGRATION` *(since 0.13.1)*, and the GCS warehouse bucket on GCP *(since 0.14.0)*. Names are derived by the same deterministic helper that `fluid generate` uses for dbt's `catalogs.yml`, so the objects apply creates are exactly the ones dbt references. See the [Snowflake](../providers/snowflake.md) and [GCP](../providers/gcp.md) provider pages.
+- *(since 0.14.0)* [Apply hooks](#extension-point-apply-hooks) run on the OpenTofu path too, so `--env` plumbing reaches Snowflake / AWS / GCP cloud applies. Previously hooks ran only on the native apply path.
 
 ## Extension point: apply hooks
 

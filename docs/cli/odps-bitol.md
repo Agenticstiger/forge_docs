@@ -9,7 +9,7 @@ Since v0.8.4, the unified [`fluid odps`](./odps.md) command dispatches between B
 ## Syntax
 
 ```bash
-fluid odps-bitol export CONTRACT [--output PATH] [--format FMT] [--no-custom]
+fluid odps-bitol export CONTRACT [--output PATH] [--format FMT] [--no-custom] [--api-version VER]
 fluid odps-bitol validate ODPS_FILE
 fluid odps-bitol info
 ```
@@ -24,6 +24,7 @@ fluid odps-bitol info
 | `--output`, `-o` | Output file path. Default `<contract-name>-odps.<format>`. |
 | `--format`, `-f` | Output format: `yaml` or `json`. Default `yaml`. |
 | `--no-custom` | Exclude custom properties from the output. |
+| `--api-version` | ODPS `apiVersion` to emit: `v1.0.0` or `v1.1.0`. Default `v1.0.0` (the released standard). `v1.1.0` (approved RFC 0029, since v0.13.1) adds the top-level `type` — `sourceAligned` / `aggregate` / `consumerAligned`, mapped 1:1 and bidirectionally to FLUID SDP / ADP / CDP (`metadata.productType`); stays opt-in until Bitol cuts the release. The `ODPS_API_VERSION` env var sets the default. |
 
 ### `odps-bitol validate`
 
@@ -40,6 +41,7 @@ No options. Prints exporter information (version, spec URL, capabilities).
 ```bash
 fluid odps-bitol export contract.fluid.yaml
 fluid odps-bitol export contract.fluid.yaml -o product.json -f json
+fluid odps-bitol export contract.fluid.yaml --api-version v1.1.0
 fluid odps-bitol validate product.yaml
 fluid odps-bitol info
 ```
@@ -66,4 +68,4 @@ fluid odps info              [--spec ...]
 - Despite the source file being named `odps_standard.py`, the canonical command name registered in `fluid --help` is `odps-bitol`. This avoids confusion with the LF/ODPI variant.
 - For the unified dispatch (Bitol + LF/ODPI), use [`fluid odps`](./odps.md).
 - For the Open Data Contract Standard (ODCS), use [`fluid odcs`](./odcs.md).
-- Validation checks `apiVersion` (`v1.0.0` expected), requires `kind: DataProduct`, and verifies output ports have a `name` field.
+- Validation keys on the document's own `apiVersion` (`v1.0.0` or `v1.1.0`; since v0.13.1), requires `kind: DataProduct`, and verifies output ports have a `name` field. Custom org `type` values round-trip verbatim.

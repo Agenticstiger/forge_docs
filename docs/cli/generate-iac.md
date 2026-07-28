@@ -56,10 +56,16 @@ Engine selection is automatic and per-provider (`apply.py::resolve_apply_engine`
 | Provider | Resources emitted |
 |---|---|
 | `aws` | S3 buckets / IAM roles + policies / Glue databases + tables + column comments / Athena workgroups |
-| `gcp` | BigQuery datasets + tables / IAM bindings / GCS buckets |
-| `snowflake` | Databases / schemas / tables / column comments (Horizon-aware) / file formats / stages |
+| `gcp` | BigQuery datasets + tables / IAM bindings / GCS buckets / BigLake-Iceberg warehouse buckets *(0.14.0)* |
+| `snowflake` | Databases / schemas / tables / column comments (Horizon-aware) / file formats / stages / external volumes + Glue catalog integrations for Iceberg exposes *(0.13.1)* |
 
 Catalog metadata that previously lived in the retired `glue` and `snowflake_horizon` publish-side registrars is now emitted into `aws_glue_catalog_table.parameters` and `snowflake_table` column comments directly — one source of truth, drift-detected by `tofu plan`. See [catalog overview](./catalogs/overview.md#retired-registrars-glue-snowflake-horizon).
+
+### Iceberg prerequisites and the anti-no-op gate
+
+An Iceberg expose needs infrastructure dbt refuses to create, and the plugins derive it from the binding. The `snowflake` plugin emits the **EXTERNAL VOLUME** for a Snowflake-managed (Horizon) catalog and a **Glue CATALOG INTEGRATION** for `location.catalog: glue` *(0.13.1, live-verified with a real `tofu apply`)*. The `gcp` plugin emits the **GCS warehouse bucket** backing a BigLake-Iceberg table *(0.14.0)* — a declared `location.path` means the product owns a *prefix* of a shared warehouse, so that bucket is emitted **without `force_destroy`**; an owned bucket (no path) keeps it.
+
+The emitters are emit-when-derivable: an Iceberg expose missing a required input (an S3 warehouse without `iam_role_arn`, no derivable bucket name, an illegal `external_volume` override) used to emit **nothing, silently** — the failure surfaced only at `dbt run`. Since `0.14.0`, [`fluid validate`](./validate.md#iceberg-prerequisite-checks) errors on exactly those cases before any emit. One `--strict` caveat: a Snowflake catalog whose auth is secret-bearing (`polaris` / `unity` / `rest` / `nessie`) draws a *warning* — FLUID does not emit those catalog integrations because the emitted module is credential-free — and `fluid validate --strict` promotes it to an error.
 
 ## Packaging modes
 

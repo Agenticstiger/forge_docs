@@ -118,6 +118,56 @@ fluid export contract.yaml --engine prefect -o flows/
 | Data Masking | 🔜 Not yet | BigQuery dynamic data masking is not emitted by the contract |
 | Row-Level Security | 🔜 Not yet | No `CREATE ROW ACCESS POLICY` is emitted; row-level governance is roadmap |
 
+### ✅ Iceberg on BigQuery via dbt (since 0.14.0)
+
+::: tip New in `0.14.0`
+The dbt Iceberg loop extends to BigQuery. An Iceberg expose on a GCP binding
+(`binding.format: iceberg`) makes `fluid generate transformation` emit dbt's
+`catalogs.yml` with `catalog_type: biglake_metastore`, and `fluid apply`
+provisions the one prerequisite dbt names and refuses to create: the GCS
+warehouse bucket. The BigLake metastore itself needs no setup — it is built
+into BigQuery.
+:::
+
+```yaml
+exposes:
+  - exposeId: events
+    kind: table
+    binding:
+      platform: gcp
+      format: iceberg              # or iceberg_table
+      location:
+        project: my-project-id
+        dataset: analytics
+        table: events
+        bucket: my-lake            # or a full URI: warehouse: gs://my-lake/products/events
+        path: products/events      # this product's prefix of a shared warehouse root
+    contract:
+      schema:
+        - name: id
+          type: INTEGER
+          required: true
+```
+
+Two guarantees hold across the loop:
+
+- **One bucket, both halves.** The IaC bucket name is derived from the same
+  warehouse URI the dbt emitter writes into `external_volume`, so the bucket
+  dbt loads into is always the bucket `fluid apply` creates and governs — the
+  two cannot diverge.
+- **Shared warehouse roots are destroy-safe.** When the binding declares a
+  `location.path` — the product owns only a *prefix* of a shared warehouse
+  root — the bucket's whole-bucket `force_destroy` is dropped, so one
+  product's destroy cannot take another product's data with it.
+
+::: warning Before `0.14.0`
+An Iceberg expose on a GCP binding fell through the emit dispatch and produced
+nothing — silently. As of `0.14.0`, `fluid validate` errors on missing Iceberg
+prerequisites instead (for example, no derivable bucket), naming the missing
+field — see
+[Iceberg prerequisite checks](../cli/validate.md#iceberg-prerequisite-checks).
+:::
+
 ### ✅ Cloud Storage
 
 | Feature | Support | Notes |
