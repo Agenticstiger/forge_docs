@@ -94,6 +94,7 @@ The old `--spec odpi-4.1` token (note the letter swap) is accepted with a WARNIN
 - The default spec (`bitol-1.0.0`) is the **center-stage** format for Entropy Data and the Data Mesh Manager marketplace. Use it for day-to-day DMM publishing workflows.
 - If the file passed to `validate` is a wrapped render envelope (contains an `artifacts` key), it is unwrapped automatically.
 - `odps import` with a directory bundle resolves sibling ODCS files referenced by `contractId` — useful for round-tripping Bitol bundles produced by `fluid generate standard --format odps`.
+- Bitol ODPS **v1.1.0** documents (RFC 0029 top-level `type`) are accepted on import since 0.13.1 — `sourceAligned` / `aggregate` / `consumerAligned` map bidirectionally to `metadata.productType` (SDP / ADP / CDP), and custom organisation types round-trip verbatim. To *emit* v1.1.0, use [`fluid odps-bitol export --api-version v1.1.0`](./odps-bitol.md) or set `ODPS_API_VERSION=v1.1.0`; the default stays v1.0.0 until Bitol cuts the release.
 - For a one-shot export to file, see [`fluid export-odps`](./export-odps.md).
 - For the Open Data Contract Standard, use [`fluid odcs`](./odcs.md).
 - For ODPS publishing to Entropy Data / Data Mesh Manager, see [`fluid datamesh-manager publish`](./datamesh-manager.md).

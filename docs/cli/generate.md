@@ -49,6 +49,8 @@ Key options:
 - `--build-index`
 - `--overwrite`
 - `--env`
+- `--model-contracts` — emit enforced dbt model contracts on every expose model (`contract: {enforced: true}` plus per-column `data_type` and `constraints` derived from `exposes[].contract.schema[]`), so `dbt build` fails in producer CI when the model's output drifts from the contract. Opt-in; dbt-only (dbt-core ≥ 1.5).
+- `--dbt-tests-key {auto,tests,data_tests}` — which YAML key generated dbt data tests attach under. The default `auto` detects the dbt binary you would actually run (Fusion / dbt-core ≥ 1.8 emit `data_tests:`, older cores the legacy `tests:`); pass an explicit value in CI generators that have no local dbt binary. dbt-only.
 - `--dbt-validate`
 - `--list`
 - `--verbose`
@@ -61,6 +63,9 @@ A normal dbt output directory includes:
 - `profiles.yml`
 - `models/sources.yml` when source hints are available
 - non-empty SQL models under `models/`
+- `catalogs.yml` when the contract has Iceberg exposes (Snowflake adapter since 0.13.1; BigQuery / BigLake `catalog_type: biglake_metastore` since 0.14.0) — it points dbt's Iceberg table writes at the catalog integration, external volume, or GCS bucket that `fluid apply` provisions
+
+*(since 0.14.0)* `profiles.yml` targets the contract's declared schema — earlier releases silently targeted `PUBLIC` on Snowflake, so every model landed in the wrong place on a green `dbt debug`. In the same release, `--model-contracts` preserves parameterized and aliased column types (`NUMBER(38,0)`, `TEXT`, …) instead of flattening them all to `VARCHAR(16777216)`, so contract enforcement is no longer vacuous, and a `freshness` dq rule no longer makes the generated project unparseable.
 
 `fluid generate speed-transformation` and `fluid generate dbt` remain aliases for this path.
 
@@ -176,6 +181,7 @@ The ODPS exporter reads a few environment variables for output shape:
 | `ODPS_INCLUDE_EXECUTION_DETAILS` | `false` | Include execution details (triggers, runtime) |
 | `ODPS_TARGET_PLATFORM` | `generic` | Platform-specific tuning (`collibra`, etc.) |
 | `ODPS_VALIDATE_OUTPUT` | `true` | Validate the emitted JSON |
+| `ODPS_API_VERSION` | `v1.0.0` | Bitol ODPS `apiVersion` to emit. `v1.1.0` opts into the RFC 0029 top-level `type` field (see [`fluid odps-bitol`](./odps-bitol.md)); it stays opt-in until Bitol cuts the v1.1.0 release. |
 
 All formats are deterministic — identical input yields byte-identical output, so the result is safe to check into version control.
 

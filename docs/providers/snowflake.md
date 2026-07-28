@@ -271,6 +271,10 @@ This is identical to GCP (`platform: gcp`, `format: bigquery_table`) and AWS (`p
 
 Every normal Snowflake provider command is autodetected from `binding.platform`, so `--provider snowflake` is not required for `plan`, `apply`, `verify`, or `test`.
 
+::: tip 0.14.0 reliability fixes
+Three dbt-engine fixes land in `0.14.0` for Snowflake contracts: embedded-SQL builds on `platform: snowflake` now actually execute on Snowflake — earlier releases could silently run them against local DuckDB and still exit 0; the generated `profiles.yml` targets the contract's schema instead of silently defaulting to `PUBLIC`; and `fluid generate transformation --model-contracts` preserves parameterized and alias types (e.g. `NUMBER(18,2)`) instead of flattening every column to `VARCHAR(16777216)`. Net effect: a freshly generated project passes its own contract on the first `dbt run`.
+:::
+
 ```bash
 # Validate Snowflake connectivity with the same config the provider uses
 fluid auth status snowflake
@@ -577,6 +581,32 @@ binding:
     data_retention_time_in_days: 7      # Time Travel retention
     change_tracking: true               # Enable CDC streams
 ```
+
+## Iceberg Tables via dbt (since 0.13.1)
+
+An expose with `binding.format: iceberg` on `platform: snowflake` closes the dbt Iceberg loop in two halves:
+
+- **`fluid generate transformation`** emits dbt's `catalogs.yml` (v1 catalogs schema, Snowflake adapter) into the generated project. External catalogs (`location.catalog: glue`, `polaris`, `unity`, `rest`, `nessie`) map to `catalog_type: iceberg_rest`; anything else — including no `location.catalog` at all — is Snowflake-managed (Horizon) and maps to `built_in`.
+- **`fluid apply`** provisions the prerequisites dbt refuses to create: the **EXTERNAL VOLUME** for Snowflake-managed catalogs (needs an `s3://` or `gs://` `location.warehouse`, plus `location.iam_role_arn` for S3), and the **AWS Glue CATALOG INTEGRATION** for `location.catalog: glue` (needs `location.iam_role_arn` — the role Snowflake assumes — and `location.account`, the AWS account id).
+
+```yaml
+exposes:
+  - exposeId: orders_iceberg
+    kind: table
+    binding:
+      platform: snowflake
+      format: iceberg
+      location:
+        database: "ANALYTICS"
+        schema: "MARTS"
+        table: "ORDERS_ICEBERG"
+        warehouse: "s3://analytics-lake/warehouse/"   # storage behind the EXTERNAL VOLUME
+        iam_role_arn: "arn:aws:iam::123456789012:role/snowflake-iceberg"
+```
+
+Both halves derive names through one deterministic naming helper, so the EXTERNAL VOLUME `fluid apply` creates carries **exactly** the name `catalogs.yml` references (`FLUID_<PRODUCT_ID>_VOL`, folded from the contract id). To use a volume your Snowflake admin already created, set `binding.icebergConfig.properties.external_volume` (camelCase `externalVolume` is also accepted): `catalogs.yml` then references your volume and `fluid apply` emits no `CREATE`, so apply never collides with the operator-owned object.
+
+Since `0.14.0`, `fluid validate` errors when an Iceberg expose is missing one of the required inputs above instead of letting the emitters silently skip it — see [Iceberg prerequisite checks](/forge_docs/cli/validate.html#iceberg-prerequisite-checks-since-0-14-0). CI note: under `--strict`, Snowflake catalogs that authenticate with secrets (`polaris` / `unity` / `rest` / `nessie`) now fail validation, because the emitted OpenTofu module is credential-free.
 
 ## See Also
 

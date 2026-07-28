@@ -447,6 +447,7 @@ export default defineUserConfig({
           text: 'Project',
           children: [
             '/contributing.md',
+            '/RELEASE_NOTES_0.14.0.md',
             '/RELEASE_NOTES_0.13.0.md',
             '/RELEASE_NOTES_0.12.0.md',
             '/RELEASE_NOTES_0.11.0.md',

@@ -67,6 +67,23 @@ Probe failures emit `ConnectivityProbeError` ([typed CLI errors](/forge_docs/adv
 
 Use `--probe` in CI for any environment that has network access to the declared sources; skip it when you're validating offline or on a build agent without source access (the default behavior — pure schema — works there).
 
+## Iceberg prerequisite checks (since 0.14.0)
+
+The Snowflake and GCP IaC emitters are *emit-when-derivable*: an `iceberg` expose whose binding is missing a required input used to produce no `EXTERNAL VOLUME`, no catalog integration, and no GCS bucket — nothing failed at `fluid apply`, and the gap only surfaced at `dbt run` when the warehouse rejected the write.
+
+Since `0.14.0`, `fluid validate` mirrors every skip branch of those emitters, so each silent no-op is now a validation **error naming the missing field**:
+
+- **Snowflake-managed (Horizon) tables** — need `binding.location.warehouse` (`s3://` or `gs://`) or `binding.location.bucket`; an S3-backed `EXTERNAL VOLUME` additionally needs `binding.location.iam_role_arn`.
+- **Glue-cataloged tables** — need `binding.location.iam_role_arn` and `binding.location.account` so FLUID can create the Snowflake `CATALOG INTEGRATION`.
+- **Volume overrides** — an explicit `binding.icebergConfig.properties.external_volume` must be a legal Snowflake identifier, and two exposes that derive the same volume name but point at different storage are rejected (one expose's data would land in the other's bucket).
+- **BigQuery Iceberg tables** — need `binding.location.bucket` or a `gs://` `binding.location.warehouse` that names a bucket.
+
+The emitters themselves are unchanged — the validator is the loud half. See the Iceberg sections of the [Snowflake provider](/forge_docs/providers/snowflake.html) and [GCP provider](/forge_docs/providers/gcp.html) guides for what each emitter provisions.
+
+::: warning Behavior change under `--strict` in 0.14.0
+A Snowflake Iceberg catalog that authenticates with a secret — `polaris`, `unity`, `rest` / `iceberg_rest`, `nessie` — is *understood but not emitted*: its `CATALOG INTEGRATION` needs an OAuth secret or bearer token, and the emitted OpenTofu module is credential-free. `fluid validate` now surfaces that as a warning, and because `--strict` promotes warnings to errors, **CI pipelines running `fluid validate --strict` on such contracts start failing on `0.14.0`**. Either run those contracts without `--strict`, or create the catalog integration out of band and take the secret-authenticated catalog out of the contract binding.
+:::
+
 ## Notes
 
 - A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.10.0`. Schema `0.7.5` is GA as of `0.10.0`.
