@@ -28,7 +28,7 @@
   "author": "Agentics Transformation Pty Ltd <hello@fluidhq.io> (https://fluidhq.io)",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@fontsource-variable/geist": "^5.2.9",
+    "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@vuepress/bundler-vite": "^2.0.0-rc.30",
     "@vuepress/client": "^2.0.0-rc.30",
