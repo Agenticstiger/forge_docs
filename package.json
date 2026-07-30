@@ -31,7 +31,7 @@
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@vuepress/bundler-vite": "^2.0.0-rc.30",
-    "@vuepress/client": "^2.0.0-rc.30",
+    "@vuepress/client": "^2.0.0-rc.31",
     "@vuepress/plugin-copy-code": "2.0.0-rc.131",
     "@vuepress/plugin-markdown-chart": "2.0.0-rc.132",
     "@vuepress/plugin-search": "2.0.0-rc.131",
