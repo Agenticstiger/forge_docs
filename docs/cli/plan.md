@@ -61,7 +61,7 @@ The `--no-verify-plan-binding` flag on `apply` is the DR escape hatch for bypass
 Sovereignty check: PASS  — source: built-in policy engine, enforcementMode=strict; the aws provider has no sovereignty hook
 ```
 
-A failing check prints its findings as a numbered list, then `❌ Sovereignty check FAILED`, and **exits 1**. The plan file is still written; the non-zero exit is what makes the flag usable as a CI gate.
+A failing check prints a `Sovereignty check: N finding(s)` header naming the source, then its findings as a bulleted list, then `❌ Sovereignty check FAILED`, and **exits 1**. The plan file is still written; the non-zero exit is what makes the flag usable as a CI gate.
 
 On `0.14.1` and earlier none of that happened. No shipped provider implements `validate_sovereignty`, the hook helper returned an empty violation list for a hook that was absent (and for one that raised, because the invoker swallows the exception and hands back its first argument), and an empty list rendered as `Sovereignty check: PASS` with exit 0 — printed on contracts `fluid validate` rejects with two residency errors. The flag was also skipped outright when the provider failed to build. `PASS` is now printed only when a check actually ran and found nothing.
 
@@ -94,7 +94,7 @@ The HTML report contains:
 
 Opening `plan.html` in a browser loads mermaid from `cdn.jsdelivr.net` (required online on first view). `securityLevel: 'strict'` is set in the mermaid init call; action ID / op strings flow through `html.escape(quote=True)` before rendering, so malicious contract values cannot smuggle `<script>` into a label.
 
-For a richer DOT / Mermaid action-graph export, use [`fluid viz-graph`](#visualizing-the-plan-fluid-viz-graph) below — `plan` itself only emits the JSON plan and the optional `--html` summary.
+For a richer DOT / Mermaid action-graph export, use [`fluid viz-graph`](#visualizing-the-plan-—-fluid-viz-graph) below — `plan` itself only emits the JSON plan and the optional `--html` summary.
 
 ### Hand-off to apply
 
@@ -124,16 +124,18 @@ fluid viz-graph CONTRACT [options]
 
 | Option | Description |
 | --- | --- |
-| `CONTRACT` | Path to `contract.fluid.yaml` (positional, required) |
+| `CONTRACT` | Path to `contract.fluid.yaml` (positional). Optional, and ignored, when `--mesh` is used. |
 | `--env ENV` | Apply an environment overlay |
 | `--plan PATH` | Overlay a saved `runtime/plan.json` so build actions are shown on the graph |
 | `--out PATH`, `--output PATH` | Output file path (default: `runtime/graph/contract.svg`) |
+| `--mesh` | Mesh mode: walk `**/*.fluid.yaml` under the mesh root and render the cross-product DAG (SDP→ADP→CDP) built from each contract's `consumes[]`, instead of one contract's internal DAG. |
+| `--mesh-root DIR` | Root directory for the mesh-mode walk. Default `.`. Ignored without `--mesh`. |
 
 **Format & appearance**
 
 | Option | Description |
 | --- | --- |
-| `--format {dot,svg,png,html}` | Output format (default: `svg`) |
+| `--format {dot,svg,png,html,mermaid,json}` | Output format (default: `svg`). `svg` / `png` / `html` need Graphviz; `dot` / `mermaid` / `json` are pure-text. Passing `mermaid` or `json` without `--mesh` is rejected with `ERR_VALIDATION_ERROR`. |
 | `--theme NAME` | Color theme (default: `dark`) |
 | `--custom-theme PATH` | Path to a custom theme JSON/YAML file |
 | `--rankdir {LR,TB,RL,BT}` | Graph layout direction (default: `LR`) |

@@ -205,7 +205,7 @@ pipeline {
                 sh '''
                     mkdir -p standards
                     fluid odps export ${CONTRACT_FILE} \
-                      --output standards/product.odps.json || true
+                      --out standards/product.odps.json || true
                     fluid odcs export ${CONTRACT_FILE} \
                       --output standards/product.odcs.yaml || true
                 '''

@@ -76,7 +76,7 @@ Which `fluidVersion` a fresh scaffold emits depends on the path:
 - `fluid init --quickstart` copies the `customer-360` template verbatim, which is pinned at `fluidVersion: 0.7.2`.
 - `fluid init --discover`, `fluid forge`, and `fluid product-new` go through the factory and emit `fluidVersion: 0.7.5` — the latest bundled schema.
 
-The CLI still accepts contracts with `fluidVersion` `0.4.0`, `0.5.7`, `0.7.1`, `0.7.2`, `0.7.3`, `0.7.4`, and `0.7.5` — run `fluid version` for the authoritative compatibility list.
+The CLI accepts contracts with `fluidVersion` `0.7.1`, `0.7.2`, `0.7.3`, `0.7.4`, `0.7.5`, and `0.7.6` (preview, valid only when named explicitly; never the default for an untagged contract). Pre-0.7 schemas (`0.4.x` / `0.5.x` / `0.6.x`) were removed and now fail with `ERR_CONTRACT_VERSION_UNSUPPORTED` — run `fluid version` for the authoritative compatibility list.
 
 ## Quickstart with `fluid init`
 

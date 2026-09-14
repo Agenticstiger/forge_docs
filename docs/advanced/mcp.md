@@ -206,7 +206,9 @@ The gateway makes the previously advisory `agentPolicy` block **load-bearing**. 
 CLI overrides (`--allow-models`, `--deny-models`, `--allow-use-cases`, `--deny-use-cases`) **replace** the contract values entirely (not merged) so the override is intentional and grep-able in the audit trail as `policySource: cli`.
 
 ::: tip Validation catches the silent-gate footgun
-`fluid validate` warns when an expose opts into the gateway (carries an `mcp` block) but declares neither `allowedModels` nor `deniedModels` — without one, the runtime gate is open and the contract's intent to govern downstream LLM access is silently lost.
+`fluid validate` warns when an expose that carries an `mcp` block **and** a non-empty `policy.agentPolicy` block declares neither `allowedModels` nor `deniedModels` — without one, the runtime gate is open and the contract's intent to govern downstream LLM access is silently lost.
+
+Note the scope. The check runs only for exposes that declare an `agentPolicy` with at least one field set. An `mcp` block with no `agentPolicy` at all, or an empty `agentPolicy: {}`, is not reported today — even under `--strict` — so do not read a clean validate as proof that a gateway expose is gated.
 :::
 
 ### Decision precedence and reason codes (since 0.15.0)

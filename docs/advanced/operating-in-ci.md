@@ -1,6 +1,6 @@
 # Operating in CI
 
-Runbook for running fluid pipelines unattended — on Jenkins, GitHub Actions, GitLab CI, or any other runner. Everything on this page is verified against CLI `v0.11.0`.
+Runbook for running fluid pipelines unattended — on Jenkins, GitHub Actions, GitLab CI, or any other runner. Everything on this page is verified against CLI `v0.11.0`. <!-- cli-version: historical -->
 
 ::: tip Companion page
 When a CI stage fails, jump to [Production Troubleshooting](./production-troubleshooting.md) for the symptom → diagnosis → fix tables.

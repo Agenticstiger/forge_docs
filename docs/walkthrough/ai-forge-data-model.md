@@ -371,8 +371,8 @@ Teach memory from a human-edited version:
 
 ```bash
 fluid forge data-model learn \
-  --before customer_orders.fluid.yaml.model.json \
-  --after customer_orders.reviewed.fluid.yaml.model.json
+  --original customer_orders.fluid.yaml \
+  --edited customer_orders.reviewed.fluid.yaml
 ```
 
 Use memory intentionally:

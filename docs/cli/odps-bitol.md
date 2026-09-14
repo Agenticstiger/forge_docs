@@ -51,7 +51,7 @@ fluid odps-bitol info
 The unified `fluid odps` command dispatches between Bitol 1.0.0 and LF/ODPI 4.1 via `--spec`, and adds an `import` subcommand:
 
 ```bash
-fluid odps export <contract> [--spec bitol-1.0.0|odps-v4.1] [--out PATH] [--out-dir DIR]
+fluid odps export <contract> [--spec bitol-1.0.0|odps-4.1] [--out PATH] [--out-dir DIR]
 fluid odps import <path>     [--spec bitol-1.0.0] [--allow-remote] [-o PATH]
 fluid odps validate <file>   [--spec ...]
 fluid odps info              [--spec ...]
@@ -60,7 +60,7 @@ fluid odps info              [--spec ...]
 `fluid odps import` accepts three entry shapes — single ODPS doc, directory bundle (ODPS + sibling ODCS files), or a lone ODCS file. Remote `contractId` references are off by default; opt in with `--allow-remote` (SSRF-guarded — see [network safety](/forge_docs/advanced/network-safety.html)).
 
 ::: tip `--spec` rename in v0.8.4
-`--spec odpi-4.1` (the old LF/ODPI token, note the letter swap) is accepted with a WARNING and redirected to `--spec odps-v4.1`. Update any scripts that use the old token.
+`--spec odpi-4.1` (the old LF/ODPI token, note the letter swap) is accepted with a WARNING and redirected to `--spec odps-4.1`. Update any scripts that use the old token.
 :::
 
 ## Notes

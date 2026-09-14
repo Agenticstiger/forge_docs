@@ -6,9 +6,9 @@ Three packages ship together as one platform. End users only need the CLI; plugi
 
 | Package | Version | PyPI | Import path | What you reach for it for |
 |---|---|---|---|---|
-| **`data-product-forge`** | `0.10.0` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle, and the `fluid forge` copilot. 0.10.0 adds plugin governance (`FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`) and the `fluid plugins` / `fluid exporters` surfaces |
+| **`data-product-forge`** | `0.15.0` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle, and the `fluid forge` copilot. 0.10.0 adds plugin governance (`FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`) and the `fluid plugins` / `fluid exporters` surfaces |
 | **`data-product-forge-sdk`** | `0.10.0` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, `InfraProvider`, `CatalogAdapter`) + typed value domains (`Severity` / `ActionStatus` / `Phase`) + SDK↔CLI compat declaration + three role conformance harnesses + `iter_extension_schemas()` discovery helper. Plugin authors only. |
-| **`data-product-forge-custom-scaffold`** | `0.4.0` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine. Use this when your plugin distributes templates via a git bundle (most common pattern). 0.4.0 adds copier-parity reproducibility: a `fluid-scaffold.lock` lockfile, `--pin` (byte-reproducible re-render at the locked commit), and `--update [--target REF]` (3-way re-render onto your working tree). White-label spec dialects (`ScaffoldDialect`) shipped in 0.1.1. |
+| **`data-product-forge-custom-scaffold`** | `0.4.1` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine. Use this when your plugin distributes templates via a git bundle (most common pattern). 0.4.0 adds copier-parity reproducibility: a `fluid-scaffold.lock` lockfile, `--pin` (byte-reproducible re-render at the locked commit), and `--update [--target REF]` (3-way re-render onto your working tree). White-label spec dialects (`ScaffoldDialect`) shipped in 0.1.1. |
 
 ## Who installs what
 
@@ -52,7 +52,7 @@ dependencies = [
 ]
 ```
 
-For production deploys, exact pin (`==`) is right. For development environments, a looser bound (`>=0.10,<0.11`) is fine — minor versions are backwards-compatible.
+For production deploys, exact pin (`==`) is right. For development environments, a looser bound (`>=0.15,<0.16`) is fine — minor versions are backwards-compatible.
 
 ### If you're writing a plugin
 
@@ -87,7 +87,7 @@ Best practice:
 ### `data-product-forge` (CLI)
 
 - **Semantic versioning since 0.8.0.** Minor versions add features and may deprecate (with warning) but won't break. Major versions can break.
-- **The `0.7.x` contract schema is supported indefinitely** by the 0.8 line — contracts using `fluidVersion: 0.7.1` / `0.7.2` / `0.7.3` / `0.7.4` / `0.7.5` all validate.
+- **The `0.7.x` contract schema is supported indefinitely** by the current CLI line — contracts using `fluidVersion: 0.7.1` / `0.7.2` / `0.7.3` / `0.7.4` / `0.7.5` all validate.
 - **Pre-releases** are tagged with PEP 440 suffixes (`0.8.4rc1`, `0.8.4b1`, etc.). They publish to PyPI but `pip install` skips them by default.
 
 ### `data-product-forge-sdk`
@@ -100,7 +100,7 @@ Best practice:
 
 ### `data-product-forge-custom-scaffold`
 
-- **Currently 0.4.0 — Beta classifier.** Same model as the SDK: first stable cut after the validation window.
+- **Currently 0.4.1 — Beta classifier.** Same model as the SDK: first stable cut after the validation window.
 - **0.4.0** adds copier-parity reproducibility — a deterministic, credential-free `fluid-scaffold.lock` written to the output root after a successful (non-dry-run) generation (records the resolved git commit); `--pin` to resolve git sources to the locked commit (npm-ci / poetry-frozen semantics, byte-reproducible); `--update [--target REF]` to re-render at the locked base plus a new ref and 3-way-merge onto your working tree via `git merge-file` (conflict markers + exit code 4 on overlap, the lock advancing on a clean merge); a fix for `git@<full-commit-sha>` source pinning; and real enforcement of a bundle's `variables_schema` (JSON Schema Draft 7) at plan time plus `supportedProductTypes` vs `metadata.productType` (the `when` / `environments` pattern fields remain RESERVED). All additive.
 - **0.1.1** shipped the `customScaffold` JSON-Schema as a real package artifact, advertised it to the `fluid forge` copilot via `fluid_build.extension_schemas`, and added **white-label spec dialects** (`ScaffoldDialect` + `make_validator()` / `make_register()` factories) so a third party can reuse the engine under their own `apiVersion`, `extensions.<key>`, and subcommand.
 - The bundle manifest format is **`fluid.dev/custom-scaffold.v1`** — a v2 would be a breaking change, and bundles would need to update their `apiVersion`. No v2 is on the roadmap.

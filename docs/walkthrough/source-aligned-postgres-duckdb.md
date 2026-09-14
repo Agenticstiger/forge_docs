@@ -152,7 +152,7 @@ export PGDATABASE=acme PGUSER=acme PGPASSWORD=acme
 fluid validate contract.fluid.yaml
 
 # 3. Apply (acquires from Postgres, writes Parquet)
-fluid apply --build ingest_orders contract.fluid.yaml
+fluid apply --mode amend-and-build --build-id ingest_orders contract.fluid.yaml
 
 # 4. Verify the output
 python verify.py

@@ -12,10 +12,10 @@ description: Access policy, sovereignty, and how Fluid Forge compiles to native 
 Three pieces, all declarative, all enforced before deploy:
 
 1. **`accessPolicy.grants[]`** — who can do what (the schema's `permissions` enum supports `read`, `select`, `query`, `write`, `insert`, `update`, `delete`, `admin`, and more). Top-level field.
-2. **Column-level `sensitivity`** — tag fields as `pii`, `phi`, etc. Triggers auto-masking on platforms that support it (BigQuery dynamic data masking, Snowflake masking policies).
+2. **Column-level `sensitivity`** — tag fields as `pii`, `phi`, etc. `fluid policy-check` then requires a matching `policy.privacy.masking` entry for every tagged field and reports a critical finding when one is missing, and the [MCP output port](/forge_docs/concepts/agent-policy.html) replaces tagged column values with a redaction token on every governed query result, whatever the platform. The tag itself does not provision platform masking: Snowflake masking policies come from the explicit `policy.privacy.masking` / `security.policies.masking` blocks and are still Beta (objects created, not attached — see [Snowflake provider → Snowflake-Native Security](/forge_docs/providers/snowflake.html#snowflake-native-security)), and BigQuery dynamic data masking is roadmap (see [GCP provider → Data Masking](/forge_docs/providers/gcp.html#data-masking)).
 3. **`sovereignty`** — jurisdiction + region constraints. Top-level field.
 
-All three round-trip through `fluid policy-check` → `fluid policy-apply` (see CLI reference for the exact options each command supports).
+`accessPolicy.grants` and `sensitivity` round-trip through `fluid policy-check` → `fluid policy-apply`; `sovereignty` is gated by `fluid validate` instead, which `policy-check` does not duplicate (see CLI reference for the exact options each command supports).
 
 ## `accessPolicy.grants[]`
 
@@ -60,13 +60,13 @@ sovereignty:
   deniedRegions: ["us-central1"]
   dataResidency: true
   crossBorderTransfer: false
-  transferMechanisms: ["SCC"]       # array of approved transfer mechanisms
+  transferMechanisms: ["SCCs"]      # enum: SCCs, BCRs, Adequacy, DPF, Consent, Derogation
   regulatoryFramework: ["GDPR"]
   enforcementMode: strict           # enum: strict, advisory, audit
   validationRequired: true
 ```
 
-Compile-time check: with `sovereignty.jurisdiction: EU` + `enforcementMode: strict`, a `binding.location.region: us-central1` is rejected by `fluid policy-check` before any cloud call is made.
+Compile-time check: with `sovereignty.jurisdiction: EU` + `enforcementMode: strict`, a `binding.location.region: us-central1` is rejected by `fluid validate` before any cloud call is made.
 
 ## The compile pipeline
 
@@ -74,7 +74,11 @@ Compile-time check: with `sovereignty.jurisdiction: EU` + `enforcementMode: stri
 contract.fluid.yaml
         │
         ▼
-fluid policy-check       → Lint policies + sovereignty before deploy.
+fluid validate           → Schema + sovereignty gate (blocks a denied region).
+        │
+        ▼
+fluid policy-check       → Lint policy categories (sensitivity, access control,
+                          data quality, lifecycle, schema evolution).
         │
         ▼
 fluid policy-apply       → Map principals + permissions → native IAM.
@@ -91,7 +95,7 @@ The whole point of `accessPolicy.grants` is that you write it once in human-read
 
 | Cloud | Native primitive | Example |
 |---|---|---|
-| **GCP / BigQuery** | `IAM_BINDINGS` on the dataset (`roles/bigquery.dataViewer`, `roles/bigquery.dataEditor`) plus row-level security policies for column restrictions | `gcloud projects add-iam-policy-binding ...` |
+| **GCP / BigQuery** | `IAM_BINDINGS` on the dataset (`roles/bigquery.dataViewer` for read, `roles/bigquery.metadataViewer` for metadata-only, `roles/bigquery.dataOwner` for write). Column and row restrictions are not emitted — BigQuery policy tags and row-level security are roadmap | `gcloud projects add-iam-policy-binding ...` |
 | **AWS** | S3 bucket policies + Glue resource policies + Athena workgroup permissions | `aws s3api put-bucket-policy ...` |
 | **Snowflake** | `GRANT SELECT/INSERT/...` on tables + role-based access (`ANALYST_ROLE`, etc.) + masking policies for `sensitivity: pii` columns | `GRANT SELECT ON TABLE ... TO ROLE ANALYST_ROLE` |
 | **Local DuckDB** | No-op (single-user, no IAM model) — but `policy-check` still validates the grants for correctness | — |
@@ -100,17 +104,22 @@ You can inspect what would be emitted before `apply` runs with `fluid policy-app
 
 ## Compliance frameworks
 
-`sovereignty.regulatoryFramework` accepts an array of framework codes. Each one activates additional validation rules:
+`sovereignty.regulatoryFramework` accepts an array of framework codes from a fixed enum: `GDPR`, `CCPA`, `CPRA`, `HIPAA`, `PIPEDA`, `LGPD`, `PDPA`, `POPIA`, `DPA`, `APPI`. `fluid validate` rejects anything outside it. The codes are declarative: they record which regimes govern the product. In `0.15.0` no code activates a validation rule of its own, so `policy-check` output is identical whether the field is present or absent. What the enforced checks act on is the `sensitivity` tagging and `accessPolicy.grants` on the columns themselves, not the framework code.
 
-| Code | What activates |
+| Code | Regime it records |
 |---|---|
-| `GDPR` | Cross-border-transfer rules; DPA-required field tagging; right-to-erasure compatibility check on Bronze → Silver builds |
-| `HIPAA` | `sensitivity: phi` columns must use stricter masking; audit logging mandatory; encryption-at-rest validation |
-| `SOX` | Change-management trail required (every `apply` writes a signed audit record); no destructive operations without a documented `--reason` |
-| `SOC2` | Activity logging on every read; service principal rotation reminders; SLA breach alerts to a designated audit principal |
-| `CCPA` | Similar to GDPR for California residents; consumer-rights compatibility |
+| `GDPR` | EU General Data Protection Regulation. Pair it with `sovereignty.jurisdiction`, `allowedRegions` / `deniedRegions` and `crossBorderTransfer`, which `fluid validate` does enforce |
+| `CCPA` | California Consumer Privacy Act |
+| `CPRA` | California Privacy Rights Act; extends CCPA with sensitive-personal-information categories |
+| `HIPAA` | US health data. Declare it and tag the affected columns `sensitivity: phi`, so the `policy-check` sensitivity rules cover them |
+| `PIPEDA` | Canada's federal private-sector privacy law |
+| `LGPD` | Brazil's Lei Geral de Proteção de Dados |
+| `PDPA` | Personal Data Protection Act, the name shared by the Singapore, Thailand and Malaysia statutes |
+| `POPIA` | South Africa's Protection of Personal Information Act |
+| `DPA` | UK Data Protection Act |
+| `APPI` | Japan's Act on the Protection of Personal Information |
 
-Multiple frameworks compose. A contract with `regulatoryFramework: ['GDPR', 'SOX']` activates both rule sets. Conflicts (rare) surface as `policy-check` warnings.
+Multiple codes may be listed; `uniqueItems` is enforced. A contract with `regulatoryFramework: ['GDPR', 'CCPA']` records both.
 
 ## Agent governance
 

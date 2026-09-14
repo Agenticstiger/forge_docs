@@ -13,7 +13,8 @@ fluid verify CONTRACT
 | Option | Description |
 | --- | --- |
 | `--expose`, `--expose-id` | Verify only a specific expose |
-| `--strict` | Exit non-zero when mismatches are found |
+| `--strict` | Exit non-zero on CRITICAL drift (missing fields, type mismatches, region drift) and on verification errors. Non-critical drift (nullable-vs-required constraints, extra columns) is reported and downgraded to a warning — add `--fail-on-warning` to gate on those too. |
+| `--fail-on-warning` | *(since 0.14.0)* Exit non-zero on ANY mismatch, including the non-critical drift `--strict` downgrades. Use for a CI gate that must not let a required→nullable change through. Works with or without `--strict`. |
 | `--out` | Write the JSON verification report to this path. No default — omit it and no report file is written. |
 | `--show-diffs` | Show field-by-field differences |
 | `--reconcile-dbt` | *(since 0.11.0)* Cross-check the contract schema against the build's dbt project (`models/**/schema.yml`) and flag drift. Static, warehouse-free. |

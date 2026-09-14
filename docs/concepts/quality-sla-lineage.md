@@ -208,7 +208,7 @@ The schema doesn't provide a built-in scheduling block — `qos` declares target
      audit:
        runs-on: ubuntu-latest
        steps:
-         - run: fluid verify contract.fluid.yaml --strict --env prod --json | tee audit.log
+         - run: fluid verify contract.fluid.yaml --strict --env prod --out verify-report.json | tee audit.log
 ```
 
 The fast schedule catches stale-data incidents (against `freshnessSLO`); the slow audit catches creeping quality drift (against `completenessTarget`). Both invoke `fluid verify` against the same contract; the contract is the source of truth.

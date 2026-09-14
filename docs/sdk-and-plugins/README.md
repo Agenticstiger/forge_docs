@@ -135,9 +135,9 @@ Each guide opens with the real problem you might have, then walks you to a worki
 
 | Package | Version | What it does | Install |
 |---|---|---|---|
-| [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.10.0 | The CLI (this docs set) | `pip install data-product-forge` |
+| [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.15.0 | The CLI (this docs set) | `pip install data-product-forge` |
 | [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) | 0.10.0 | Plugin SDK — zero-dependency ABCs for the four roles (`CustomScaffold` / `Validator` / `InfraProvider` / `CatalogAdapter`) + per-role conformance harnesses | `pip install data-product-forge-sdk` (import: `from fluid_sdk import …`) |
-| [`data-product-forge-custom-scaffold`](https://pypi.org/project/data-product-forge-custom-scaffold/) | 0.4.0 | Reference custom-scaffold engine (Jinja+YAML or Python plugins); 0.4.0 adds reproducible builds — `fluid-scaffold.lock` + `--pin` / `--update` | `pip install data-product-forge-custom-scaffold` |
+| [`data-product-forge-custom-scaffold`](https://pypi.org/project/data-product-forge-custom-scaffold/) | 0.4.1 | Reference custom-scaffold engine (Jinja+YAML or Python plugins); 0.4.0 adds reproducible builds — `fluid-scaffold.lock` + `--pin` / `--update` | `pip install data-product-forge-custom-scaffold` |
 
 The SDK and scaffold ship as version-pinned standalone packages. A first stable cut (`1.0.0` / `0.2.0`) is planned after a validation window — feel free to consume them today, just pin the upper bound. See [Companion Packages](./reference/companion-packages.md) for the dual-naming details (PyPI: `data-product-forge-sdk`, import path: `fluid_sdk`).
 

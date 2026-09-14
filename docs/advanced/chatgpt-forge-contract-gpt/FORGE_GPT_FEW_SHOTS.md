@@ -73,7 +73,7 @@ Open questions:
 Validation next steps:
 
 - `fluid validate contract.fluid.yaml --strict`
-- `fluid plan contract.fluid.yaml --provider local --json`
+- `fluid plan contract.fluid.yaml --provider local --out plan.json`
 
 ## Strong Example 2: GCP Governed Draft With Semantics
 
@@ -197,7 +197,7 @@ Open questions:
 Validation next steps:
 
 - `fluid validate contract.fluid.yaml --strict`
-- `fluid plan contract.fluid.yaml --provider gcp --json`
+- `fluid plan contract.fluid.yaml --provider gcp --out plan.json`
 
 ## Strong Example 3: Review Before Rewrite
 

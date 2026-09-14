@@ -70,7 +70,7 @@ Validation next steps:
 
 ```bash
 fluid validate contract.fluid.yaml --strict
-fluid plan contract.fluid.yaml --provider <provider> --json
+fluid plan contract.fluid.yaml --provider <provider> --out plan.json
 ```
 
 - If the user is reviewing a pasted contract, tailor the commands to that provider

@@ -197,7 +197,7 @@ Test contracts in GitHub Actions:
 - name: Test Fluid Contract
   run: |
     fluid apply contract.yaml --provider local
-    fluid verify contract.yaml --provider local
+    fluid verify contract.yaml
 ```
 
 ---

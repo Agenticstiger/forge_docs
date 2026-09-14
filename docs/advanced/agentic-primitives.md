@@ -359,7 +359,6 @@ behavior:
 Migrate from existing per-feature files:
 
 ```bash
-fluid config migrate            # if shipped; otherwise:
 python -c "from fluid_build.copilot.unified_config import migrate_legacy_to_unified; print(migrate_legacy_to_unified())"
 ```
 

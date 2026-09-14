@@ -12,23 +12,23 @@ It is designed around these rules:
 - Ask for provider before drafting
 - Output `contract.fluid.yaml` first
 - Add `Assumptions`, `Open questions`, and `Validation next steps`
-- Treat every response as `Draft` until `fluid validate --strict` and `fluid plan --json` have been reviewed
+- Treat every response as `Draft` until `fluid validate --strict` and `fluid plan --out plan.json` have been reviewed
 
 ## What To Use
 
 Use these files in the GPT builder:
 
-- `GPT_INSTRUCTIONS.md`: paste into the GPT Instructions field
-- `CONVERSATION_STARTERS.md`: paste into Conversation starters
-- `CHATGPT_BUILDER_CHECKLIST.md`: follow this while configuring the GPT
-- `UPLOAD_MANIFEST.md`: use this to upload the curated knowledge pack
+- [`GPT_INSTRUCTIONS.md`](./GPT_INSTRUCTIONS.md): paste into the GPT Instructions field
+- [`CONVERSATION_STARTERS.md`](./CONVERSATION_STARTERS.md): paste into Conversation starters
+- [`CHATGPT_BUILDER_CHECKLIST.md`](./CHATGPT_BUILDER_CHECKLIST.md): follow this while configuring the GPT
+- [`UPLOAD_MANIFEST.md`](./UPLOAD_MANIFEST.md): use this to upload the curated knowledge pack
 
 Upload these as GPT knowledge:
 
-- `FORGE_GPT_STYLE_GUIDE.md`
-- `FORGE_GPT_REVIEW_CHECKLIST.md`
-- `FORGE_GPT_FEW_SHOTS.md`
-- Everything in `knowledge/`
+- [`FORGE_GPT_STYLE_GUIDE.md`](./FORGE_GPT_STYLE_GUIDE.md)
+- [`FORGE_GPT_REVIEW_CHECKLIST.md`](./FORGE_GPT_REVIEW_CHECKLIST.md)
+- [`FORGE_GPT_FEW_SHOTS.md`](./FORGE_GPT_FEW_SHOTS.md)
+- Everything in `knowledge/`: [`02_FLUID_VALIDATION_REFERENCE.md`](./knowledge/02_FLUID_VALIDATION_REFERENCE.md), [`03_FLUID_PLAN_REFERENCE.md`](./knowledge/03_FLUID_PLAN_REFERENCE.md), [`04_FORGE_OVERVIEW.md`](./knowledge/04_FORGE_OVERVIEW.md), plus the bundled `01_FLUID_SCHEMA_0.7.3.json` and the three `0.7.3` example contracts
 
 ## Source Material
 

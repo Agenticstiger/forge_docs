@@ -1,6 +1,6 @@
 # Production Troubleshooting
 
-Symptom → diagnosis → fix runbook for fluid pipelines in production. Everything on this page is verified against CLI `v0.11.0`.
+Symptom → diagnosis → fix runbook for fluid pipelines in production. Everything on this page is verified against CLI `v0.11.0`. <!-- cli-version: historical -->
 
 ::: tip First responder
 Start every incident with `fluid doctor`. It checks infrastructure, feature availability, copilot readiness, and the active state-store backend in one pass — and `--env` dumps every recognised `FLUID_*` kill switch with its current value.

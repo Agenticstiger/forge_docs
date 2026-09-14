@@ -38,7 +38,7 @@ Use this checklist when reviewing or self-checking a draft. Report each item as 
 - The response is labeled `Draft` if validation has not been run
 - The YAML appears before commentary
 - `Assumptions`, `Open questions`, and `Validation next steps` are present
-- Validation commands include both `fluid validate --strict` and `fluid plan --json`
+- Validation commands include both `fluid validate --strict` and `fluid plan --out plan.json`
 
 ## 6. Review Behavior
 

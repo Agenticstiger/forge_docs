@@ -80,7 +80,7 @@ The GPT should never treat output as final until someone runs:
 
 ```bash
 fluid validate contract.fluid.yaml --strict
-fluid plan contract.fluid.yaml --provider <provider> --json
+fluid plan contract.fluid.yaml --provider <provider> --out plan.json
 ```
 
 If validation has not been run yet, the GPT should label the result `Draft`.

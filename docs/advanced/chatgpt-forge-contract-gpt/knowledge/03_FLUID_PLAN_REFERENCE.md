@@ -5,7 +5,7 @@ Use planning after validation to preview resource changes and provider mismatche
 ## Primary Command
 
 ```bash
-fluid plan contract.fluid.yaml --provider <provider> --json > plan.json
+fluid plan contract.fluid.yaml --provider <provider> --out plan.json
 ```
 
 Use an explicit provider when reviewing a draft so the plan is unambiguous.

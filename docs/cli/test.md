@@ -26,6 +26,9 @@ fluid test CONTRACT
 | `--publish URL` | Publish test results to a remote endpoint |
 | `--engine` | Validation engine. Default is the built-in checker; `soda` runs the contract's quality rules through Soda. |
 | `--datasource` | Soda data source to run against. Required with `--engine soda`. |
+| `--soda-config` | Path to Soda `configuration.yml`. Defaults to Soda's auto-discovery. |
+| `--project` | Override the project / account ID from the contract. |
+| `--region` | Override the region / location from the contract. |
 
 ## Examples
 

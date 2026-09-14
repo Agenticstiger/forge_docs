@@ -138,8 +138,9 @@ def check_prod_deploy_key(
 ) -> None:
     """Fail prod applies when FLUID_PROD_DEPLOY_KEY isn't set."""
     # DEPLOY_ENV is a convention env var the deploy runner sets — not
-    # something fluid itself populates. See the "Known limitation"
-    # callout below for the full explanation.
+    # something fluid itself populates. The CLI can also hand the hook the
+    # resolved `--env` directly; see the "Reading `--env` in your hook"
+    # callout below.
     if os.environ.get("DEPLOY_ENV", "") != "prod":
         return  # not a prod apply — nothing to enforce
 
@@ -155,19 +156,26 @@ def check_prod_deploy_key(
 
 Three things worth calling out:
 
-- **`DEPLOY_ENV` is a convention env var, not something the CLI populates.** Your deploy runner / CI job exports it before invoking `fluid apply`. The CLI doesn't pass `args.env` into hooks today (see "Known limitation" below).
+- **`DEPLOY_ENV` is a convention env var, not something the CLI populates.** Your deploy runner / CI job exports it before invoking `fluid apply`. The CLI also forwards the resolved `--env` value to hooks that opt into it by signature (see "Reading `--env` in your hook" below); `DEPLOY_ENV` remains a runner convention, useful when you want a signal independent of the overlay flag, or when the hook must also run under a pre-`0.11.0` CLI.
 - **The error message is specific.** It tells the user what's wrong, what to do, and what the escape hatch is. Copy that shape — never tell the user "something is wrong" without saying how to fix it.
 - **Append, don't raise.** Raising works (the CLI catches it), but appending produces cleaner output.
 
-::: warning Known limitation — apply hooks don't see `--env`
-CLI `0.10.0` calls apply hooks as `hook(contract_dir, contract, errors)`. There is no parameter, env var, or attribute that carries the `--env` flag's value into the hook. The `contract` is post-overlay (env-specific values baked in), but the hook has no semantic "this is the prod env" signal.
+::: tip Reading `--env` in your hook
+CLI `0.15.0` calls a legacy hook as `hook(contract_dir, contract, errors)` and forwards the resolved `--env` to hooks that opt in by declaring an `env` parameter, `**kwargs`, a 4th positional slot (under any name), or `*args`. Legacy 3-parameter hooks are called exactly as before, with no behaviour change.
 
-**Workarounds today:**
+```python
+def check_prod_deploy_key(contract_dir, contract, errors, env=None):
+    if env != "prod":
+        return
+```
+
+The value is the argparse-validated `--env` string, or `None` when the flag was omitted, so an env-aware hook has to handle `None`.
+
+**The other two signals, for a hook that keeps the legacy 3-parameter shape:**
 - Have your CI runner / deploy script `export DEPLOY_ENV=...` (or your team's convention) before invoking `fluid apply`. The hook reads that env var.
 - Inspect post-overlay contract values — e.g. if your contract sets `region` per env, the hook can branch on the resolved region. Brittle (couples to contract content).
-- File a follow-up on `Agenticstiger/forge-cli` asking for `args.env` to be passed to hooks. It's a 1-line fix in `cli/apply.py::_run_apply_hooks`.
 
-This guide uses the runner-set env var pattern throughout.
+This guide's worked example uses the runner-set env var pattern throughout, so that it runs unchanged on any CLI line. It is no longer the only option: reading `env` avoids the case where CI forgets to export the var and the guard silently passes.
 :::
 
 ## Step 4 — test both paths
@@ -389,7 +397,7 @@ if deploy_env != "prod":
     return
 ```
 
-If you want the hook to read the `--env` flag fluid was invoked with — you can't, as of `0.10.0`. See the "Known limitation" callout earlier on this page.
+If you want the hook to read the `--env` flag fluid was invoked with, declare an `env` parameter (or `**kwargs`) in your hook signature — the CLI forwards the resolved `--env` value to hooks that opt in. It is `None` when `--env` was not passed. See "Reading `--env` in your hook" earlier on this page.
 :::
 
 ::: details I want a different override flag, not `--force-pattern-drift`

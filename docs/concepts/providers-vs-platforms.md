@@ -12,7 +12,7 @@ Two related but distinct ideas:
 
 `fluid providers` lists the cloud-platform providers installed in your environment. For the spec-export formats a contract can be serialized to (ODCS / ODPS / ODPS-Bitol), use [`fluid exporters`](/forge_docs/cli/exporters.html) — exporters are not cloud providers. For the full installed-plugin roster across every role, use [`fluid plugins`](/forge_docs/cli/plugins.html).
 
-## Cloud providers shipping in `data-product-forge` 0.10.0
+## Cloud providers shipping in `data-product-forge` 0.15.0
 
 These are the cloud-platform providers that implement `plan`/`apply` against a target cloud:
 

@@ -1,6 +1,6 @@
 # `fluid stats`
 
-Aggregate cost across forge runs. Walks `.fluid/agents/*/cost.json` records and groups by provider, product type, engine, or run.
+Aggregate cost across forge runs. Walks `.fluid/agents/*/cost.json` records and groups by provider, product type, engine, run, or mode.
 
 ::: tip Where this fits
 `fluid stats` ships with the guided forge UX in `0.8.3`.
@@ -16,10 +16,11 @@ fluid stats [options]
 
 | Option | Description |
 |---|---|
-| `--by {provider\|type\|engine\|run}` | Group results by LLM provider, productType (SDP/ADP/CDP), transformation engine, or run. Default: total only. |
+| `--by {provider\|type\|engine\|run\|mode}` | Group results by LLM provider, productType (SDP/ADP/CDP), transformation engine, run, or mode (`mode` separates `deterministic` runs from `llm` runs). Default: total only. |
 | `--since <spec>` | Restrict to recent runs. Accepts relative (`24h`, `7d`, `30d`) or ISO date (`2026-04-01`). Default `30d`. |
 | `--root <path>` | Workspace root to scan. Default: current directory. |
 | `--json` | Emit JSON instead of the human table. |
+| `--judge` | Aggregate `judge.json` receipts (out-of-loop LLM-as-judge scores) instead of `cost.json`. Not combinable with `--by`; group manually from the `--json` output instead. |
 
 ## Examples
 

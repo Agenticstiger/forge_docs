@@ -25,7 +25,7 @@ Most teams discover their data is being read by AI agents only after it's alread
 
 ## The shape
 
-Verified field list from `fluid-schema-0.7.4.json` (the current schema) — `agentPolicy` is **not** a contract-root key; it lives per-expose at `exposes[].policy.agentPolicy`, so each expose carries its own AI-access boundary. The object has these properties:
+Verified field list from `fluid-schema-0.7.5.json` (the current schema) — `agentPolicy` is **not** a contract-root key; it lives per-expose at `exposes[].policy.agentPolicy`, so each expose carries its own AI-access boundary. The object has these properties:
 
 | Field | Type | Purpose |
 |-------|------|---------|
@@ -120,7 +120,7 @@ A denied read does not return an HTTP 403 — the stdio gateway returns a `TextC
 
 When agents read directly via SQL/HTTP (not via MCP), the side-car pattern intercepts at the platform layer:
 
-- **BigQuery**: a row-level security policy bound to the service account's identity claims (`agent_id`, `model_id` extracted from a custom JWT). Forge emits the BigQuery RLS rules on `policy-apply`.
+- **BigQuery**: not yet emitted. `agentPolicy` is not read by the policy compiler at all — `fluid policy-compile` turns `accessPolicy.grants` into BigQuery dataset/table IAM bindings and nothing else, and `fluid policy-apply` applies nothing on GCP: it reports the compiled bindings and leaves provisioning to `fluid apply`. BigQuery row access policies, column policy tags and dynamic data masking are roadmap, not shipped — see [GCP provider → Security & Governance](/forge_docs/providers/gcp.html#security-governance). Apply row access policies with `gcloud` until this is wired in.
 - **Snowflake**: a masking policy that consults a Snowflake function checking `agent_id` and `model_id` against the contract's `agentPolicy`. Forge emits the policy DDL.
 - **AWS Glue / Athena**: Lake Formation cell-level filters keyed on the same identity claims.
 
@@ -152,7 +152,7 @@ When `auditRequired: true`, every check (allow OR deny) emits a record:
 }
 ```
 
-Deny records include a `reason` field (`use_case_denied`, `model_not_in_allow`, `token_budget_exceeded`, `cannot_store_violation`). Records ship through the platform's native audit channel — no separate audit infrastructure to maintain.
+Deny records carry a `reason` field drawn from a closed vocabulary of eleven codes — `tool-not-allowed`, `missing-caller-jurisdiction`, `in-denied-jurisdiction`, `not-in-allowed-jurisdictions`, `missing-model-identity`, `in-deniedModels`, `in-deniedUseCases`, `not-in-allowedModels`, `missing-use-case-with-allowlist`, `not-in-allowedUseCases`, plus `allowed` when nothing fires. The full precedence order is on [Advanced → MCP](/forge_docs/advanced/mcp.html#decision-precedence-and-reason-codes-since-0-15-0). Rate limits and token budgets deny outside that vocabulary and say so in the record: `policySource: rate-limit` or `policySource: token-budget`, with a descriptive `reason` such as `token-budget-exceeded (…)`. `canStore` is advisory and denies nothing at the gateway. Records ship through the platform's native audit channel — no separate audit infrastructure to maintain.
 
 See the [agent-policy demo](/forge_docs/see-it-run.html) for a frame-perfect cast of the enforcement flow: contract → validate → policy-check → 4 simulated agent reads (2 allow, 2 deny with reasons).
 
