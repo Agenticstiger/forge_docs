@@ -32,7 +32,7 @@ Total wall time on the included fixture: under 3 seconds.
 
 - Docker (for the Postgres container)
 - `make` (for the Makefile shortcuts)
-- Fluid Forge — a current CLI (`0.9.x`, `pip install data-product-forge`); the contract uses schema `0.7.3`
+- Fluid Forge — a current CLI (`0.15.x`, `pip install data-product-forge`); the contract uses schema `0.7.3`
 
 ## The contract
 

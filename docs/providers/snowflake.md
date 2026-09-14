@@ -3,7 +3,7 @@
 Deploy data products to Snowflake Data Cloud — databases, schemas, tables, RBAC grants — using the same contract and CLI commands as every other provider.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.10.0`<br>
+**Docs Baseline:** CLI `0.15.0`<br>
 **Tested Services:** Databases, Schemas, Tables, Warehouses, RBAC Grants
 
 > **Why it matters**
@@ -393,6 +393,47 @@ Normalization rules:
 
 Invalid hostnames such as `https://example.com` fail fast with a validation error instead of being silently misparsed.
 
+::: warning `SNOWFLAKE_ACCOUNT` on the `fluid apply` path — changed in `0.15.0`
+The generated OpenTofu module pins `snowflakedb/snowflake ~> 2.0`, and from the v2
+provider the bare `account` field is gated behind the
+`PROVIDER_CONFIGURATION_ACCOUNT_FALLBACK` experiment: the provider **errors the
+moment it sees `SNOWFLAKE_ACCOUNT`**, whether or not the v2
+`SNOWFLAKE_ORGANIZATION_NAME` + `SNOWFLAKE_ACCOUNT_NAME` pair is also present.
+
+    Error: the account field requires the "PROVIDER_CONFIGURATION_ACCOUNT_FALLBACK"
+    experiment to be enabled; add it to experimental_features_enabled
+
+Before `0.15.0` fluid split `SNOWFLAKE_ACCOUNT` into that pair but **added** it
+alongside the legacy variable, which is not a superset but its own failure mode — so
+every `tofu plan` against Snowflake failed, and any operator with `SNOWFLAKE_ACCOUNT`
+set (the standard variable the connector ecosystem uses) could not `fluid apply` to
+Snowflake at all. Measured on provider `2.19.0` / OpenTofu `1.12.0`: legacy variable
+only → rejected; legacy variable plus both v2 vars → rejected; the v2 vars with the
+legacy variable blanked → plan succeeds.
+
+**No contract or configuration change is needed.** As of `0.15.0` fluid derives the
+v2 pair from the `<org>-<account>` form and blanks `SNOWFLAKE_ACCOUNT` in the
+environment it hands to `tofu` — blanked rather than removed, because the overlay is
+applied with `env.update()`, which cannot delete, and an empty value reads as unset
+to the provider. An operator who keeps setting `SNOWFLAKE_ACCOUNT` in that form goes
+from failing to working. Anything you set explicitly wins, so the two v2 variables
+always override what fluid would derive.
+
+The one shape that still cannot plan is a bare account locator with no organisation
+(`xy12345`): it keeps its legacy value deliberately, so the provider's actionable
+"enable the experiment" error survives instead of degrading to a vaguer "account is
+empty". For a locator-style identifier, set the pair yourself:
+
+```bash
+export SNOWFLAKE_ORGANIZATION_NAME=myorg
+export SNOWFLAKE_ACCOUNT_NAME=myaccount
+```
+
+Every form listed above remains valid for the **connection** credentials fluid itself
+opens (`fluid auth status snowflake`, discovery, dbt). This applies only to the
+OpenTofu apply path.
+:::
+
 ### Jenkins CI (Recommended)
 
 Create a Jenkins **Secret File** credential containing your Snowflake env vars:
@@ -492,6 +533,21 @@ sovereignty:
   regulatoryFramework: [GDPR, SOC2]
   enforcementMode: advisory  # or strict (blocks deployment)
 ```
+
+::: warning `enforcementMode` changed in `0.15.0`, in both directions
+`enforcementMode` now decides the *severity* a violation carries, and so the outcome:
+`strict` errors, `advisory` warns, `audit` logs. It had failed both ways at once — a
+`strict` contract whose binding region resolved outside its declared `jurisdiction`
+could not be blocked, and an `advisory` contract with a `deniedRegions` hit failed the
+build on a mode documented as "warn". The engine's defaults also moved to the schema's
+own stricter ones (`enforcementMode: strict`, `dataResidency: true`,
+`crossBorderTransfer: false`) from the permissive inverse of all three, so a contract
+that declares `sovereignty` while omitting those keys is now judged as documented and
+can newly fail `fluid validate`. The region table is derived from the vendors' own data
+as of `0.15.0` too, so `eu-west-2` and `europe-west2` (both London) resolve to `UK`
+rather than `EU`. Modes, carve-outs and the full region story:
+[Sovereignty enforcement modes](/forge_docs/advanced/governance.html#sovereignty-enforcement-modes-since-0-15-0).
+:::
 
 ### Column-Level Security
 

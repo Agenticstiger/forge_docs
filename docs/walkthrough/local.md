@@ -15,7 +15,7 @@
 />
 
 ::: warning Compatibility note
-The contract snippet on this page uses `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so this example remains valid. The current bundled schema is `0.7.5` (latest); `0.7.4` is the canonical reference for the agentPolicy / MCP-gateway surface. To scaffold a contract on the current shape, run `fluid init my-project --quickstart` or `fluid demo` for an end-to-end local example.
+The contract snippet on this page uses `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so this example remains valid. The current bundled schema is `0.7.5` (the latest stable; `0.7.6` is bundled as an opt-in preview); `0.7.4` is the canonical reference for the agentPolicy / MCP-gateway surface. To scaffold a contract on the current shape, run `fluid init my-project --quickstart` or `fluid demo` for an end-to-end local example.
 :::
 
 ---
@@ -55,11 +55,11 @@ fluid version
 # Should show (Rich panel):
 # 📦 Version Information
 # FLUID CLI
-# Version: 0.10.0
+# Version: 0.15.0
 # API: v1
 # Supported Specifications:
-# • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5
-# • Default: 0.7.5  • Latest: 0.7.5
+# • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5, 0.7.6 (preview)
+# • Default: 0.7.5  • Latest (stable): 0.7.5
 #
 # 🔌 Providers
 # local: available  •  aws: available  •  snowflake: available  •  gcp: not installed

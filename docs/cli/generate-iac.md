@@ -10,16 +10,18 @@ Review-only emit of an OpenTofu module from a FLUID contract. `fluid apply` agai
 
 ```bash
 fluid generate iac <contract> [--provider PROVIDER] [--out DIR] [--env NAME] [--shadow] [--validate]
+                             [--allow-empty]
 ```
 
 | Option | Description |
 |---|---|
 | `<contract>` | Path to FLUID contract file (YAML/JSON). |
-| `--provider {auto,aws,gcp,snowflake}` | Target cloud. Default `auto` — inferred from the contract. |
+| `--provider {auto,aws,confluent,gcp,snowflake}` | Target cloud. Default `auto` — inferred from the contract. *(since 0.15.0)* `--provider` **disambiguates; it does not retarget.** A value that contradicts every cloud the contract's `binding` declares is a hard `generate_iac_provider_mismatch` error, raised before anything is written — see [the provider flag does not retarget](#the-provider-flag-does-not-retarget-since-0-15-0). |
 | `--out`, `-o DIR` | Output directory for the emitted module. Default `runtime/iac`. |
 | `--env NAME` | Environment overlay name (matches your contract's overlay block, e.g. `dev` / `staging` / `prod`). |
 | `--shadow` | After emitting, shadow-compare resource parity against the native planner. Catches a divergence between the OpenTofu emission and what `fluid plan` would have produced. |
 | `--validate` | After emitting, run `tofu validate` on the module (requires `tofu` on `PATH`). |
+| `--allow-empty` | *(since 0.15.0)* Emit a module with zero resources instead of failing (default: a resource-free module is an error). The run then prints an explicit warning that it provisions nothing. See [A resource-free module is an error](#a-resource-free-module-is-an-error-since-0-15-0). |
 
 ## Examples
 
@@ -35,6 +37,26 @@ fluid generate iac contract.fluid.yaml --shadow --validate
 ```
 
 The emitted directory contains `main.tf.json` (the compiled module), provider blocks, and a `manifest.json` describing how the contract mapped to resources. Inspect it before you run `fluid apply`.
+
+## The provider flag does not retarget (since 0.15.0)
+
+`--provider` exists to **disambiguate** a contract that spans clouds or declares none. Retargeting a data product is done by editing `binding` — as `examples/sovereignty-platform-swap/` does, compiling one contract against AWS, Google Cloud and Snowflake with the `binding` block as the only difference between the three files, and never passing the flag.
+
+Since `0.15.0` the requested provider must be among the clouds the contract declares, and a contradiction raises `generate_iac_provider_mismatch`. A contract that declares no cloud at all still falls through untouched, since that is the case the flag exists for.
+
+::: warning Behavior change in 0.15.0
+On `0.14.1` and earlier, `fluid generate iac <contract> --provider gcp` against an AWS- or local-bound contract emitted a **resource-free `main.tf.json` and exited 0**. Adding `--validate` made it worse rather than catching it: `tofu validate` genuinely reports success for a configuration with no resources, so the operator generated, validated, saw green and had provisioned nothing.
+
+Where a binding was shape-compatible across clouds the result was worse than empty — an S3-bound expose fed to the GCP emitter produced a `google_storage_bucket` named after the S3 bucket and carrying `location: us-east-1`, which is not a valid GCS location. That is why the gate sits on the **provider/binding pair** rather than on the output.
+
+The same hole was open on [`fluid apply --provider`](./apply.md), the command that actually provisions, which reported `tofu plan: +0 ~0 -0` with exit 0. Both commands resolve through one resolver, so one gate covers both, and the OpenTofu engine's broad exception fallback now re-raises this specific error instead of quietly routing the wrong target to the native engine.
+:::
+
+## A resource-free module is an error (since 0.15.0)
+
+Nothing downstream can catch a module that provisions nothing — `tofu validate` calls it valid — so since `0.15.0` `fluid generate iac` fails with `generate_iac_empty_module` instead of printing a warning and exiting 0.
+
+It is the backstop for the emit-when-derivable emitters, which can legitimately skip a resource on a *matching* provider when a required binding input is absent. The message names the `binding.location` fields to check, plus the [`fluid validate`](./validate.md) gates that name the specific missing field. Pass `--allow-empty` when a module that provisions nothing is genuinely intended.
 
 ## Apply via OpenTofu
 
@@ -58,6 +80,10 @@ Engine selection is automatic and per-provider (`apply.py::resolve_apply_engine`
 | `aws` | S3 buckets / IAM roles + policies / Glue databases + tables + column comments / Athena workgroups |
 | `gcp` | BigQuery datasets + tables / IAM bindings / GCS buckets / BigLake-Iceberg warehouse buckets *(0.14.0)* |
 | `snowflake` | Databases / schemas / tables / column comments (Horizon-aware) / file formats / stages / external volumes + Glue catalog integrations for Iceberg exposes *(0.13.1)* |
+
+*(since 0.15.0)* A **GCP** expose resolves to its target from the whole binding, not from `binding.format` alone: an explicit GCP `format` wins, otherwise the shape of `binding.location` decides (`dataset` → BigQuery, `bucket` → Cloud Storage, `topic` → Pub/Sub). That brings GCP in line with `aws` and `snowflake`, which already dispatch on the location shape and let `format` merely refine. Previously the emitter matched five `format` spellings only — two of which (`bigquery_view`, `gcs_bucket`) appear in no shipped `fluid-schema-*.json` — while the one schema-valid Cloud Storage spelling, `gcs_file`, matched none of them. So `{platform: gcp, format: gcs_file, location: {bucket: acme-raw}}` validated clean and emitted **nothing**, on a correctly auto-detected provider. Under [the empty-module rule](#a-resource-free-module-is-an-error-since-0-15-0) that silent no-op is now a hard failure, and [`fluid validate`](./validate.md#gcp-binding-checks-since-0-15-0) reports it earlier still.
+
+The same class of bug affected `aws`, which filtered `exposes[]` by comparing `binding.platform` to the literal `"aws"` — so `platform: glue`, `s3`, `athena` or `redshift`, all aliases the cloud detector accepts, auto-detected as AWS and were then skipped by every AWS filter. "Which plugin runs?" and "which exposures are mine?" now read the same table.
 
 Catalog metadata that previously lived in the retired `glue` and `snowflake_horizon` publish-side registrars is now emitted into `aws_glue_catalog_table.parameters` and `snowflake_table` column comments directly — one source of truth, drift-detected by `tofu plan`. See [catalog overview](./catalogs/overview.md#retired-registrars-glue-snowflake-horizon).
 
@@ -154,7 +180,7 @@ If the target cloud already has resources you want to fold into the IaC layer (r
 
 - **The contract.** No schema change — `v0.8.3` contracts are byte-identical to `v0.8.0` contracts.
 - **The plan stage.** `fluid plan` still produces the canonical `Action` list; the OpenTofu engine consumes that list and compiles to `main.tf.json`.
-- **`local` provider.** `local` keeps its native DuckDB apply path. `fluid generate iac --provider local` is a no-op.
+- **`local` provider.** `local` keeps its native DuckDB apply path and has no IaC plugin, so `local` is not one of `--provider`'s choices — `fluid generate iac --provider local` is rejected by argparse, not a no-op. The accepted values are `auto`, `aws`, `confluent`, `gcp` and `snowflake`.
 
 ## See also
 

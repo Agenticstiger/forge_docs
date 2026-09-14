@@ -27,7 +27,7 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 | `--verbose`, `-v` | Show detailed action information |
 | `--validate-actions` | Validate generated provider actions against the ProviderAction SDK schema |
 | `--estimate-cost` | Ask the provider to estimate cost |
-| `--check-sovereignty` | Ask the provider to validate sovereignty constraints |
+| `--check-sovereignty` | *(since 0.15.0)* Resolve a real sovereignty verdict and name which source produced it — the provider's `validate_sovereignty` hook when it has one, otherwise the built-in policy engine (the same checker [`fluid validate`](./validate.md) runs), otherwise `NOT CHECKED`. **Exits 1 when the check fails.** Opt-in, off by default. See [Sovereignty gate](#sovereignty-gate-since-0-15-0). |
 | `--provider` | Override the provider from the contract |
 | `--project` | Override the project / account from the contract |
 | `--region` | Override the region / location from the contract |
@@ -48,6 +48,26 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 - `PlanBindingError.kind` is a stable string (`"bundle-mismatch"` or `"plan-tamper"`) — CI log parsers can key off it.
 
 The `--no-verify-plan-binding` flag on `apply` is the DR escape hatch for bypassing this check; see [`fluid apply`](./apply.md#safety-gates).
+
+## Sovereignty gate (since 0.15.0)
+
+`--check-sovereignty` stays **opt-in and off by default**, but on `0.15.0` it is a gate rather than a label. The verdict resolves in a fixed order, and the output always names which source answered:
+
+1. The target provider's `validate_sovereignty` hook, when it returns a verdict.
+2. Otherwise the **built-in policy engine** — the same sovereignty checker `fluid validate` runs, so the two stages cannot reach opposite verdicts on the same contract.
+3. Otherwise `Sovereignty check: NOT CHECKED`, which is also what a contract declaring no `sovereignty` block gets. Exit code stays 0.
+
+```
+Sovereignty check: PASS  — source: built-in policy engine, enforcementMode=strict; the aws provider has no sovereignty hook
+```
+
+A failing check prints its findings as a numbered list, then `❌ Sovereignty check FAILED`, and **exits 1**. The plan file is still written; the non-zero exit is what makes the flag usable as a CI gate.
+
+On `0.14.1` and earlier none of that happened. No shipped provider implements `validate_sovereignty`, the hook helper returned an empty violation list for a hook that was absent (and for one that raised, because the invoker swallows the exception and hands back its first argument), and an empty list rendered as `Sovereignty check: PASS` with exit 0 — printed on contracts `fluid validate` rejects with two residency errors. The flag was also skipped outright when the provider failed to build. `PASS` is now printed only when a check actually ran and found nothing.
+
+::: warning Behavior change in 0.15.0
+A pipeline that already passes `--check-sovereignty` moves from a step that could only ever be green to one that can fail. Two rules decide whether it blocks: a region named in `deniedRegions` is an **error in every mode**, and everything else follows the contract's own `sovereignty.enforcementMode`, whose default is `strict`. Full table: [Governance → Sovereignty enforcement modes](../advanced/governance.md#sovereignty-enforcement-modes-since-0-15-0).
+:::
 
 ## Examples
 

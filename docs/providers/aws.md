@@ -3,7 +3,7 @@
 Deploy data products to Amazon Web Services — S3, Glue, Athena — using the same contract and CLI commands as every other provider.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.10.0`<br>
+**Docs Baseline:** CLI `0.15.0`<br>
 **Tested Services:** S3, Glue Data Catalog, Athena, IAM
 
 > **Why it matters**
@@ -30,7 +30,7 @@ The AWS provider turns a FLUID contract into real cloud infrastructure:
 
 - ✅ **Plan & Apply** — S3 buckets, Glue databases/tables, Athena workgroups
 - ✅ **IAM Policy Compilation** — `fluid policy-compile` generates S3, Glue, and Athena IAM bindings from `accessPolicy` grants
-- ✅ **Sovereignty Validation** — Region allow/deny lists enforced before deployment
+- ✅ **Sovereignty Validation** — Region allow/deny lists enforced before deployment *(since 0.15.0 the allow-list is read from `allowedRegions` and `deniedRegions` is honoured — see [Data Sovereignty](#data-sovereignty))*
 - ✅ **Orchestration Generation** — prefer `fluid generate schedule --scheduler airflow` for current docs and automation
 - ✅ **Lake Formation Governance** — principal grants, column-level grants, LF-tags (TBAC), row filters, and location registration via `binding.governance.lakeFormation`
 - ✅ **Universal Pipeline** — Same Jenkinsfile as GCP and Snowflake — zero provider logic
@@ -250,6 +250,18 @@ This is identical to GCP (`platform: gcp`, `format: bigquery_table`) and Snowfla
 
 Every command is **identical** across providers. No `--provider` flag needed — the CLI reads the provider from the contract's `binding.platform` field.
 
+`--provider` disambiguates a contract that spans clouds or declares none; it is not
+a retargeting switch, and *since 0.15.0* a `--provider` that contradicts every cloud
+the contract declares is rejected before anything is written, on both
+`fluid generate iac` and `fluid apply`. Retarget by editing `binding` — see the
+[switch-clouds recipe](/forge_docs/recipes/switch-clouds.html).
+
+The aliases the provider detector accepts — `platform: s3`, `glue`, `athena`,
+`redshift` as well as `aws` — are now also what the AWS emitter filters `exposes[]`
+with *(since 0.15.0)*. They used to disagree: one of those aliases auto-detected as
+AWS and was then skipped by every AWS filter, so a correctly detected provider
+emitted an empty module.
+
 ```bash
 # Validate contract against the bundled JSON schema
 fluid validate contract.fluid.yaml --verbose
@@ -441,12 +453,85 @@ The `sovereignty` block enforces region restrictions **before** any infrastructu
 ```yaml
 sovereignty:
   jurisdiction: "EU"
+  dataResidency: true        # a boolean — "must this data stay in the jurisdiction?"
   allowedRegions: [eu-central-1, eu-west-1]
   deniedRegions: [us-east-1, us-west-2]
   crossBorderTransfer: false
   regulatoryFramework: [GDPR, SOC2]
   enforcementMode: advisory  # or strict (blocks deployment)
 ```
+
+#### Which key holds what (since 0.15.0)
+
+| Key | Type | What AWS does with it |
+|-----|------|-----------------------|
+| `allowedRegions` | list of regions | The residency allow-list. A binding region outside it is refused *(since 0.15.0 — this is the key the list is read from)* |
+| `deniedRegions` | list of regions | Refused outright, and deny beats allow *(since 0.15.0 — it was never consulted before)* |
+| `dataResidency` | boolean | "Must this data stay inside the declared jurisdiction?" It is **not** a region list, and it does not gate `allowedRegions` |
+| `jurisdiction` | e.g. `EU`, `UK`, `US` | Checked against the jurisdiction the binding region resolves to |
+| `enforcementMode` | `strict` / `advisory` / `audit` | Decides the severity a violation carries — see [Sovereignty enforcement modes](/forge_docs/advanced/governance.html#sovereignty-enforcement-modes-since-0-15-0) |
+
+::: warning Newly blocking in `0.15.0`
+The AWS util read the region allow-list *out of* `dataResidency`, which every
+bundled schema from `0.7.1` to `0.7.6` types as a **boolean**. So
+`dataResidency: true` — the schema default, and the value this page's own example
+writes — raised `TypeError: argument of type 'bool' is not a container or
+iterable`, while `dataResidency: false` skipped the check in silence. The strict
+setting was the one that broke and the permissive one was the one that worked,
+which is exactly backwards for a governance control.
+
+**An AWS contract binding outside its own `allowedRegions` now exits 1, where the
+module was previously written to disk with exit 0.** A contract declaring
+`allowedRegions: [eu-west-1]` and binding to `eu-south-1` is the measured case.
+`allowedRegions` is enforced whatever `dataResidency` says, deliberately: gating it
+on the boolean would make the AWS provider quietly more permissive than the
+`fluid validate` stage before it, and an omitted key reads as falsy in Python, so
+"unspecified" would have meant "opt out" for the field whose schema default is the
+strict setting.
+
+Two non-schema shapes that exist in the wild — a list under `dataResidency`, and
+the dict `fluid import` used to emit — are still read as a fallback **only when
+`allowedRegions` is absent**, with a warning naming the right key. They are never
+merged into a present `allowedRegions`: every region an invalid key could
+contribute is by construction one the valid allow-list deliberately excluded.
+:::
+
+`fluid generate iac` also stopped writing a module after the provider refused the
+contract *(since 0.15.0)*. The native planner ran inside a best-effort
+`except Exception` that logged at DEBUG and returned no actions, and that check is
+the only place AWS enforces jurisdiction and residency — so a contract bound outside
+its declared jurisdiction logged the violation and then emitted `main.tf.json`
+anyway, exit 0. An EU-jurisdiction contract bound to `us-east-1` now exits 1 and
+writes no module. The provider's handler also caught only the jurisdiction error and
+not its residency sibling, so every residency refusal skipped the
+`sovereignty_violation` audit event — the one refusal an operator most needs in the
+log was the one missing from it.
+
+#### Sovereignty tags
+
+`fluid:data_jurisdiction`, `fluid:data_residency` and `fluid:allowed_regions` are
+attached to the emitted resources. Get them wrong and detective controls downstream
+go with them — an AWS Config rule or a tag-based SCP keys on exactly these tags. The
+same `dataResidency` confusion reached them: joining the boolean raised, and joining
+the dict shape emitted its **keys**, so one tag read
+`fluid:allowed_regions = "allowedRegions"`. Fixed in `0.15.0`; `fluid:data_residency`
+now reads `enforced` or `regions-pinned`, and an omitted `dataResidency` tags as the
+schema says it behaves (`default: true`).
+
+#### Region → jurisdiction *(since 0.15.0)*
+
+AWS regions now resolve through botocore's shipped `endpoints.json` — all eight
+partitions, GovCloud and the EU Sovereign Cloud (`eusc-de-east-1`) included — instead
+of a hand-kept table, so a new AWS region arrives by upgrading `boto3` rather than by
+waiting for a FLUID release. **Verdicts change on contracts nobody edited:**
+`eu-west-2` (London) resolves to `UK` rather than `EU`, and `ap-southeast-1`
+(Singapore) and `ap-northeast-2` (Seoul) resolve to `SG` and `KR` rather than a
+pass-anything `Global`. An EU-pinned contract bound to any of the three passed
+`0.14.1` silently and now fails; a `UK`-pinned contract bound to `eu-west-2` stops
+being a false positive. The AWS provider had kept a second table that disagreed with
+the canonical engine on 16 regions and now delegates to the one table — full detail in
+[Sovereignty enforcement modes](/forge_docs/advanced/governance.html#sovereignty-enforcement-modes-since-0-15-0),
+under "The region → jurisdiction table is derived".
 
 ### Lake Formation — the AWS governance surface
 

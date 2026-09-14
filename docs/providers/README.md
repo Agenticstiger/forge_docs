@@ -8,7 +8,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 ## Docs baseline
 
-- CLI release covered by the primary docs: `0.10.0`
+- CLI release covered by the primary docs: `0.15.0`
 - Default scaffold (`fluid init --quickstart`) emits `fluidVersion: 0.7.2`
 - Discovery-based scaffolds (`fluid init --discover`, `fluid forge`, `fluid product-new`) emit `fluidVersion: 0.7.5` — the latest bundled schema
 
@@ -28,7 +28,7 @@ Fluid Forge registers four apply-capable cloud providers (plus the `local` DuckD
 > **ODCS / ODPS are spec exporters, not providers.** As of `v0.10.0` the open-standards exports (ODCS, ODPS, ODPS-Bitol) are surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html) — they serialize a contract to a spec and do **not** deploy infrastructure, so they no longer appear in the `fluid providers` roster.
 
 ::: tip Runtime requirement for cloud apply
-On `v0.10.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
+Since `v0.10.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
 :::
 
 The CLI surface today is asymmetric for the two spec exporters — `fluid odcs` exposes `export` / `import` / `validate` / `info`, while `fluid odps-bitol` exposes only `export` / `validate` / `info`. The unified `fluid odps` command covers both specs and adds an `import` subcommand for Bitol — see [`fluid odps`](../cli/odps.md) and [`fluid odcs`](../cli/odcs.md).
@@ -37,6 +37,16 @@ Compatibility note:
 `fluid generate-airflow` still exists, but the primary docs path is `fluid generate schedule --scheduler airflow`.
 
 ## Quick start by provider
+
+Each snippet assumes the contract's own `binding.platform` names that cloud.
+`--provider` disambiguates a contract that spans clouds or declares none — it does
+not retarget one, and *since 0.15.0* a `--provider` that contradicts every cloud the
+contract declares is rejected before anything is written, on both `fluid apply` and
+`fluid generate iac`. To move a product between clouds, edit `binding`: the
+[switch-clouds recipe](/forge_docs/recipes/switch-clouds.html) shows the diff, and the
+[`sovereignty-platform-swap` example](https://github.com/Agenticstiger/forge-cli/tree/main/examples/sovereignty-platform-swap)
+carries the same product compiled against AWS, GCP and Snowflake with `binding` as the
+only difference between the three files.
 
 ### GCP
 
@@ -97,6 +107,33 @@ Exporter-specific entry points also remain: [`fluid odps-bitol`](/forge_docs/cli
 | OpenMetadata | [OpenMetadata publish](/forge_docs/cli/catalogs/openmetadata.html) |
 | Data Mesh Manager / Entropy Data | [DMM publish](/forge_docs/cli/catalogs/datamesh-manager.html#publishing-to-data-mesh-manager) |
 | FLUID Command Center | [`fluid publish`](/forge_docs/cli/publish.html) |
+
+::: tip New in `0.15.0`
+**DataHub `customProperties` keys lose their dots.** `fluid.layer` → `fluid_layer`,
+`fluid.productType` → `fluid_product_type`, `fluid.version` → `fluid_version`, plus a
+new `fluid_domain` — the underscore spelling every other emitter already used, so one
+property is spelled the same way whichever catalog an analyst is browsing. **A saved
+search, dashboard or ingestion rule keyed on the dotted names must be updated.**
+DataHub *structured properties* keep their dotted `qualifiedName`; that is a separate
+namespace, not an inconsistency.
+
+The same release makes a published contract readable on a default OSS install at all.
+The ODCS document was linked rather than inlined, but the link resolves only when
+`spec_source_base_url` is configured — a field no factory sets — and
+`DataContract.rawContract` is absent from the OSS GraphQL schema, so on a stock
+install the contract was neither inlined, nor linked, nor readable. Large specs are
+now linked when a base URL is set and inlined when it is not, so expect larger entity
+payloads with no base URL configured: the dataset aspect carries `odcs_contract`, and
+the DataProduct aspect `fluid_contract` and `odps_spec`. See
+[DataHub publish](/forge_docs/cli/catalogs/datahub.html#publishing-to-datahub).
+
+OpenMetadata gained the read half of the loop in the same release —
+`OpenMetadataRegistrar.fetch_odcs_contract(fqn)` pulls an ODCS contract back out of
+the catalog, preferring the verbatim copy fluid published over OpenMetadata's native
+ODCS export, whose converter drops `servers` and six other top-level blocks. **No CLI
+command calls it yet**: it is a library method, and nothing about `fluid publish`
+changes.
+:::
 
 The previously-shipped `glue` and `snowflake_horizon` registrars were retired in `v0.8.3` and folded into the IaC layer — catalog metadata for those targets is now emitted as `aws_glue_catalog_table` / `snowflake_table` resources via [`fluid generate iac`](/forge_docs/cli/generate-iac.html). One source of truth, drift-detected by `tofu plan`.
 

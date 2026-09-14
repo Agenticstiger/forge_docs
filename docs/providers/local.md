@@ -1,7 +1,7 @@
 # Local Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.10.0`<br>
+**Docs Baseline:** CLI `0.15.0`<br>
 **Database:** DuckDB, SQLite
 
 > **Why it matters**
@@ -137,10 +137,20 @@ Develop contracts locally, then deploy to cloud:
 ```bash
 # Test locally
 fluid apply contract.yaml --provider local
-
-# Deploy to GCP when ready
-fluid apply contract.yaml --provider gcp --project my-project
 ```
+
+When you are ready for the cloud, change `binding.platform` (and the `format` +
+`location` that go with it) and re-run `fluid apply` — see
+[Cloud Migration](#cloud-migration) below.
+
+::: warning `--provider` does not retarget a contract *(since 0.15.0)*
+`fluid apply contract.yaml --provider gcp` on a `platform: local` contract used to
+route to the wrong target and report success — `tofu plan: +0 ~0 -0`, exit 0, nothing
+provisioned. As of `0.15.0` a `--provider` that contradicts every cloud the contract
+declares is rejected before anything is written, on both `fluid apply` and
+`fluid generate iac`. The flag disambiguates a contract that spans clouds or declares
+none; retargeting is done by editing `binding`.
+:::
 
 ### 2. Data Analysis
 
