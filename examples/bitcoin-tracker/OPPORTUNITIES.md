@@ -14,7 +14,7 @@ After running the complete end-to-end workflow, here are the key opportunities t
 
 **Evidence**:
 ```bash
-$ bq show --format=prettyjson dust-labs-485011:crypto_data.bitcoin_prices | jq '.labels'
+$ bq show --format=prettyjson your-gcp-project-id:crypto_data.bitcoin_prices | jq '.labels'
 null
 ```
 
@@ -327,7 +327,7 @@ observability:
    - Comprehensive validation
 
 2. **Fixed dbt configuration**
-   - Updated project ID to dust-labs-485011
+   - Updated project ID to your-gcp-project-id
    - Added environment variable support
    - Removed invalid OAuth config
 

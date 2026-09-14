@@ -49,7 +49,7 @@ python3 load_bitcoin_price_batch.py
 ENVIRONMENT       staging | production
 DRY_RUN          false | true
 SKIP_TESTS       false | true  (not recommended for prod)
-GCP_PROJECT_ID   dust-labs-485011
+GCP_PROJECT_ID   your-gcp-project-id
 ```
 
 ## 🔍 Common Workflows
@@ -99,13 +99,13 @@ python3 -m fluid_build.cli plan contract.fluid.yaml | jq '.actions'
 ### Check BigQuery Resources
 ```bash
 # List all resources
-bq ls --project_id=dust-labs-485011 crypto_data
+bq ls --project_id=your-gcp-project-id crypto_data
 
 # Check table schema
-bq show --schema dust-labs-485011:crypto_data.bitcoin_prices
+bq show --schema your-gcp-project-id:crypto_data.bitcoin_prices
 
 # Check labels
-bq show --format=json dust-labs-485011:crypto_data.bitcoin_prices | jq '.labels'
+bq show --format=json your-gcp-project-id:crypto_data.bitcoin_prices | jq '.labels'
 ```
 
 ### Run dbt Tests
@@ -122,7 +122,7 @@ bq query --use_legacy_sql=false "
     COUNT(*) as total_rows,
     MAX(price_timestamp) as latest_update,
     TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(price_timestamp), HOUR) as hours_old
-  FROM \`dust-labs-485011.crypto_data.bitcoin_prices\`
+  FROM \`your-gcp-project-id.crypto_data.bitcoin_prices\`
 "
 ```
 

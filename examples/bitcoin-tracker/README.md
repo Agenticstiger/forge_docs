@@ -18,7 +18,7 @@ This example demonstrates:
 
 ```bash
 # Set your GCP project
-export GCP_PROJECT_ID="dust-labs-485011"
+export GCP_PROJECT_ID="your-gcp-project-id"
 
 # Run complete example (validates, plans, deploys, tests)
 ./run-complete-example.sh

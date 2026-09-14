@@ -10,7 +10,7 @@
 - Works from any starting state
 
 ### 2. **Updated dbt Configuration**
-- Fixed project ID to use `dust-labs-485011`
+- Fixed project ID to use `your-gcp-project-id`
 - Environment variable support: `${GCP_PROJECT_ID}`
 - Removed invalid service account configuration
 - Both dev and prod profiles now use OAuth
@@ -24,7 +24,7 @@
 
 ### 4. **Documentation Consistency**
 - Contract file matches documentation examples
-- All project IDs updated to `dust-labs-485011`
+- All project IDs updated to `your-gcp-project-id`
 - Removed unsupported privacy fields
 - Added declarative design principles doc
 
@@ -33,8 +33,8 @@
 ## 🚀 Quick Start (One Command)
 
 ```bash
-cd /home/dustlabs/fluid-mono/forge_docs/examples/bitcoin-tracker
-export GCP_PROJECT_ID=dust-labs-485011
+cd /path/to/fluid-mono/forge_docs/examples/bitcoin-tracker
+export GCP_PROJECT_ID=your-gcp-project-id
 ./run-complete-example.sh
 ```
 
@@ -63,7 +63,7 @@ bq update \
   --set_label environment:production \
   --set_label cost-center:engineering \
   --set_label cost-allocation:crypto-team \
-  dust-labs-485011:crypto_data.bitcoin_prices
+  your-gcp-project-id:crypto_data.bitcoin_prices
 ```
 
 **Recommendation**: Enhance GCP provider to apply labels from contract
@@ -131,18 +131,18 @@ python3 -m fluid_build.cli validate contract.fluid.yaml
 
 # 2. Plan
 export FLUID_PROVIDER=gcp
-export FLUID_PROJECT=dust-labs-485011
+export FLUID_PROJECT=your-gcp-project-id
 python3 -m fluid_build.cli plan contract.fluid.yaml
 
 # 3. Apply
 python3 -m fluid_build.cli apply contract.fluid.yaml
 
 # 4. Load data
-export GCP_PROJECT_ID=dust-labs-485011
+export GCP_PROJECT_ID=your-gcp-project-id
 python3 load_bitcoin_price_batch.py
 
 # 5. Query data
-bq query --use_legacy_sql=false --project_id=dust-labs-485011 \
+bq query --use_legacy_sql=false --project_id=your-gcp-project-id \
   'SELECT * FROM ...'
 
 # 6. Run dbt
@@ -284,7 +284,7 @@ exposes:
       platform: gcp
       format: bigquery_ml
       location:
-        project: dust-labs-485011
+        project: your-gcp-project-id
         dataset: crypto_data
         model: bitcoin_forecast
 ```

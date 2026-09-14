@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: crypto_data
     description: "Bitcoin price data from CoinGecko API"
-    database: dust-labs-485011
+    database: your-gcp-project-id
     schema: crypto_data
     tables:
       - name: bitcoin_prices

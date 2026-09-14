@@ -4,7 +4,7 @@ bitcoin_tracker:
     dev:
       type: bigquery
       method: oauth
-      project: "{{ env_var('GCP_PROJECT_ID', 'dust-labs-485011') }}"
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
       dataset: crypto_data
       location: us-central1
       threads: 4
@@ -12,7 +12,7 @@ bitcoin_tracker:
     prod:
       type: bigquery
       method: oauth
-      project: "{{ env_var('GCP_PROJECT_ID', 'dust-labs-485011') }}"
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
       dataset: crypto_data
       location: us-central1
       threads: 4

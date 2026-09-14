@@ -222,7 +222,7 @@ exposes:
       platform: gcp
       format: bigquery_table
       location:
-        project: dust-labs-485011
+        project: your-gcp-project-id
         dataset: crypto_data
         table: bitcoin_prices
         region: us-central1
@@ -448,7 +448,7 @@ exposes:
       platform: gcp
       format: bigquery_table
       location:
-        project: dust-labs-485011
+        project: your-gcp-project-id
         dataset: crypto_data
         table: daily_price_summary
         region: us-central1
@@ -549,7 +549,7 @@ exposes:
       platform: gcp
       format: bigquery_table
       location:
-        project: dust-labs-485011
+        project: your-gcp-project-id
         dataset: crypto_data
         table: price_trends
         region: us-central1

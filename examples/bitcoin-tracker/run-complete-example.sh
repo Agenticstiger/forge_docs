@@ -17,7 +17,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Configuration
-export GCP_PROJECT_ID="${GCP_PROJECT_ID:-dust-labs-485011}"
+export GCP_PROJECT_ID="${GCP_PROJECT_ID:?set GCP_PROJECT_ID to your own GCP project before running this example}"
 export FLUID_PROVIDER="${FLUID_PROVIDER:-gcp}"
 export FLUID_PROJECT="${FLUID_PROJECT:-$GCP_PROJECT_ID}"
 
