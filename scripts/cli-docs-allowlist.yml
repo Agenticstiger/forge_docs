@@ -16,9 +16,16 @@ undocumented_ok:
   - viz-plan         # hidden (argparse.SUPPRESS) — deprecated, use `plan --html`
 
 # Doc pages with no matching CLI subcommand (e.g. conceptual / index pages).
-# Names are filename stems without the .md extension.
+# Keys are paths relative to docs/cli/, without the .md extension — pages in
+# subdirectories are keyed with their directory (`tasks/switch-clouds`). An
+# entry ending in `/` allowlists that whole subtree.
 docs_only_ok:
   - README           # CLI Reference index page
+  - catalogs/        # one page per catalog target (BigQuery, Glue, Unity, ...),
+                     # not per CLI command; the commands behind them are
+                     # `fluid publish` / `fluid market`. Whole subtree.
+  - tasks/           # task-shaped how-tos ("switch clouds", "debug a failed
+                     # run") that cut across several commands. Whole subtree.
   - generate-artifacts  # subcommand of `generate`, not a top-level command;
                      # dedicated page because it's the stage-3 surface of the
                      # 11-stage pipeline and operators look up the full name.
@@ -36,3 +43,31 @@ docs_only_ok:
                     # odps-v4.1`; only the deprecated `export-opds` alias still
                     # registers (undocumented_ok above). Page kept as the
                     # migration reference for the historical surface.
+
+# Fenced `fluid ...` invocations the flag oracle must not report.
+# Two forms:
+#   - docs/path/page.md                     whole page (glob syntax allowed)
+#   - docs/path/page.md::fluid foo --bar    one invocation on that page
+# Prefer the second form: it keeps the rest of the page under the gate.
+# This is the escape hatch for pages that document a genuinely unreleased
+# capability, or a command the core CLI does not register. Say which, and why.
+flag_oracle_ok:
+  - docs/cli/export-odps.md
+                     # The whole page documents the retired top-level
+                     # `fluid export-odps`; see the docs_only_ok entry above for
+                     # why the page is kept. Every invocation on it is
+                     # historical by construction.
+  - docs/sdk-and-plugins/**::fluid generate-custom-scaffold
+                     # Registered by the companion package
+                     # `data-product-forge-custom-scaffold` (pinned in
+                     # cli-version.json as supportedCustomScaffoldInstallSpec)
+                     # through the command-plugin entry point, so it is absent
+                     # from the core CLI's parser. The pages tell the reader to
+                     # pip install it first. Scoped to this one invocation.
+
+# Files the version sweep must not scan, as paths relative to the repo root
+# (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and
+# needs no entry here. Prefer the in-page `<!-- cli-version: historical -->`
+# marker over an entry in this list: the marker exempts one line or one fenced
+# block, an entry here blinds a whole file.
+version_sweep_ok:

@@ -23,14 +23,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build docs (fail on broken internal links)
-        run: |
-          set -o pipefail
-          npm run docs:build 2>&1 | tee build.log
-          if grep -q "Broken links found" build.log; then
-            echo "::error::VuePress reported broken internal links — fix them before merge."
-            echo "::error::Base-prefixed links must use /forge_docs/<path>.html (not .md); or use a relative ./<path>.md path."
-            grep "Broken links found" build.log
-            exit 1
-          fi
-          echo "✅ No broken internal links."
+      # The build is the gate. docs/.vuepress/config.ts sets the theme's
+      # linksCheck plugin to `build: 'error'`, so VuePress throws and exits
+      # non-zero on a dead internal link. Nothing here greps the log: a
+      # log-string check passes whenever the message wording changes, and it
+      # passed for exactly that reason before.
+      - name: Build docs (fails on broken internal links)
+        run: npm run docs:build

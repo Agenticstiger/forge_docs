@@ -2,17 +2,30 @@ name: Link Check
 
 # Catches broken docs links before they ship.
 #
-# Three jobs:
+# Three jobs. Each one first proves it is actually inspecting something,
+# because the failure mode that bit us was not a false alarm: it was a gate
+# reporting green (or blaming flaky hosts) while checking nothing at all.
+#
 #   1. base-prefix-check — fast shell regex catching the SPECIFIC bug class
-#      that bit us once: an absolute link like [x](/cli/foo) in body markdown
-#      that VuePress does NOT auto-prefix with the /forge_docs/ base, so it
-#      404s in the rendered HTML. The grep is precise: it flags every body
-#      link to a known internal route prefix that isn't already
-#      base-prefixed.
-#   2. lychee-source — lychee --offline on source markdown to catch
-#      relative-link typos and missing files.
-#   3. lychee-external — weekly cron (skipped on PRs) checking external
-#      URLs with retries and rate-limit tolerance.
+#      that bit us: an absolute link like [x](/cli/foo) in body markdown that
+#      VuePress does NOT auto-prefix with the /forge_docs/ base, so it 404s in
+#      the rendered HTML. The route list is derived from the real top-level
+#      entries of docs/ and docs/.vuepress/public/ (a hand-typed list drifted),
+#      and matching is per-occurrence, not per-line (a line carrying a good and
+#      a broken link together used to be filtered out whole). Self-tests the
+#      matcher on exactly that mixed line before trusting a clean result.
+#   2. lychee-source — lychee --offline over the source markdown, against a
+#      mirror of the rendered route tree, so an absolute link such as
+#      /forge_docs/cli/init.html is resolved to docs/cli/init.md (or
+#      docs/<dir>/README.md, or a file shipped in .vuepress/public). Fails the
+#      build on any broken link — this is the job that catches a link to a page
+#      that does not exist at all, which the regex above cannot see. Two
+#      canaries (one link that must resolve, one that must not) run first, so a
+#      mirror or an argument that stopped working cannot pass as "no breakage".
+#   3. external — weekly cron (skipped on PRs) checking external URLs with
+#      retries and rate-limit tolerance. Opens an issue instead of failing CI,
+#      but only when lychee actually produced a report; a usage or tooling
+#      error fails the job instead of being written off as a flaky host.
 
 on:
   push:
@@ -49,24 +62,202 @@ jobs:
 
       - name: Verify all internal absolute links carry the /forge_docs/ base
         run: |
+          set -uo pipefail
+
           # VuePress base is /forge_docs/. Sidebar/navbar links auto-prefix,
           # but body markdown links do NOT — so an absolute link like
           # [x](/cli/foo) renders as <a href="/cli/foo"> which 404s.
-          # Internal route prefixes that MUST be base-prefixed when written
-          # as absolute paths in body markdown:
-          PREFIXES='cli|getting-started|providers|walkthrough|advanced|contributing|vision|RELEASE_NOTES_'
+          #
+          # The set of internal route prefixes is whatever sits at the top of
+          # the site root, which is docs/ merged with .vuepress/public/. Derive
+          # it; do not hand-maintain it. The previous hand-typed list had
+          # drifted so far that /reels/, /concepts/, /recipes/, /demos/, /faq/,
+          # /playground/, /sdk-and-plugins/ and /data-products/ were unwatched.
+          NAMES="$(
+            { ls -A docs; ls -A docs/.vuepress/public 2>/dev/null; } \
+              | grep -vE '^\.' \
+              | sed -E 's/\.md$//' \
+              | grep -vE '^(README|index)$' \
+              | sort -u
+          )"
+          if [ -z "$NAMES" ]; then
+            echo "::error::Derived an empty route list — this check would inspect nothing. Refusing to pass."
+            exit 1
+          fi
+          # Escape regex metacharacters (RELEASE_NOTES_0.15.0, og-card.svg, ...)
+          PREFIXES="$(printf '%s\n' "$NAMES" | sed -E 's/[].[^$*+?(){}|\\/]/\\&/g' | paste -sd'|' -)"
+          echo "Watching $(printf '%s\n' "$NAMES" | wc -l | tr -d ' ') top-level routes."
 
-          # Find lines like ](/cli...) that AREN'T already ](/forge_docs/cli...).
-          # Restricted to known-internal prefixes — won't flag external sites.
-          if grep -rIn -E "\]\(/(${PREFIXES})[^)]*\)" docs/ --include="*.md" \
-             | grep -v "(/forge_docs/" ; then
+          # Per-OCCURRENCE, never per-line. A single line often carries a
+          # correct /forge_docs/ link and a broken one; filtering whole lines
+          # with grep -v threw the broken one away with the good one.
+          offenders() {
+            grep -vE '\]\(/forge_docs/' | grep -E "\]\(/(${PREFIXES})[/).#?]"
+          }
+
+          # Self-test: one good and one bad link on the SAME line. Only the bad
+          # one may survive. If this ever stops holding, the gate is blind and
+          # must not report green.
+          probe="$(printf '%s\n' \
+            'probe.md:1:](/forge_docs/cli/init.html)' \
+            'probe.md:1:](/cli/init.html)' | offenders || true)"
+          if [ "$probe" != 'probe.md:1:](/cli/init.html)' ]; then
+            echo "::error::Self-test failed: the base-prefix matcher is not working. Got: ${probe:-<nothing>}"
+            exit 1
+          fi
+
+          # `|| true`: grep exits 1 when it finds nothing, which is the happy
+          # path here, and the runner's shell is `bash -e`.
+          findings="$(grep -rIno -E '\]\(/[^)]+\)' docs --include='*.md' | offenders || true)"
+          if [ -n "$findings" ]; then
+            printf '%s\n' "$findings"
             echo ""
             echo "::error::Found internal absolute markdown links that are missing the /forge_docs/ base prefix."
             echo "::error::These will render as <a href=\"/cli/...\"> and 404 on the live site."
             echo "::error::Fix: rewrite [text](/cli/foo) → [text](/forge_docs/cli/foo) (or use a relative path)."
             exit 1
           fi
-          echo "✅ All internal absolute body links carry the /forge_docs/ base."
+          echo "All internal absolute body links carry the /forge_docs/ base."
+
+  lychee-source:
+    name: Source links (offline)
+    runs-on: ubuntu-latest
+    env:
+      LINKCHECK_ROOT: ${{ github.workspace }}/.linkcheck-root
+      LINKCHECK_CANARY: ${{ github.workspace }}/.linkcheck-canary
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Mirror the rendered route tree
+        run: |
+          set -euo pipefail
+          ROOT="$LINKCHECK_ROOT"
+          rm -rf "$ROOT" "$LINKCHECK_CANARY"
+          mkdir -p "$ROOT/forge_docs"
+
+          # docs/ is served at /forge_docs/. Everything else in the repo sits
+          # beside it, because markdown reaches it with ../../ escapes
+          # (e.g. ../../examples/bitcoin-tracker/).
+          for entry in *; do
+            [ "$entry" = "docs" ] && continue
+            ln -s "$PWD/$entry" "$ROOT/$entry"
+          done
+
+          link() {  # link <path-in-repo> <path-under-mirror>
+            mkdir -p "$(dirname "$2")"
+            ln -sf "$PWD/$1" "$2"
+          }
+
+          # Every file under docs/ keeps its source name (that is what lychee
+          # reads), and every page additionally gets its RENDERED name, which
+          # is what absolute links actually point at: foo.md -> foo.html, and
+          # <dir>/README.md -> <dir>/index.html.
+          while IFS= read -r f; do
+            rel="${f#docs/}"
+            link "$f" "$ROOT/forge_docs/$rel"
+            case "$rel" in
+              *.md)
+                if [ "$(basename "$rel")" = "README.md" ]; then
+                  : > "$(dirname "$ROOT/forge_docs/$rel")/index.html"
+                else
+                  : > "$ROOT/forge_docs/${rel%.md}.html"
+                fi ;;
+            esac
+          done < <(find docs -type f \
+                     -not -path 'docs/.vuepress/dist/*' \
+                     -not -path 'docs/.vuepress/.cache/*' \
+                     -not -path 'docs/.vuepress/.temp/*' | sort)
+
+          # .vuepress/public is copied to the site root at build time, so
+          # /forge_docs/reels/x.html and /forge_docs/demos/x.svg resolve.
+          if [ -d docs/.vuepress/public ]; then
+            while IFS= read -r p; do
+              link "$p" "$ROOT/forge_docs/${p#docs/.vuepress/public/}"
+            done < <(find docs/.vuepress/public -type f)
+          fi
+
+          # Canaries. These exist so the job cannot report green while
+          # resolving nothing: one link that MUST pass, one that MUST fail.
+          mkdir -p "$LINKCHECK_CANARY"
+          echo '[resolves](/forge_docs/see-it-run.html)' > "$LINKCHECK_CANARY/good.md"
+          echo '[does not resolve](/forge_docs/no-such-page-here.html)' > "$LINKCHECK_CANARY/bad.md"
+
+          echo "Mirrored $(find "$ROOT/forge_docs" -name '*.html' | wc -l | tr -d ' ') rendered routes."
+
+      - name: Canary — a good absolute link must resolve
+        id: canary_good
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --offline
+            --no-progress
+            --fallback-extensions html,md
+            --root-dir ${{ env.LINKCHECK_ROOT }}
+            ${{ env.LINKCHECK_CANARY }}/good.md
+          fail: false
+
+      - name: Canary — a broken absolute link must be caught
+        id: canary_bad
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --offline
+            --no-progress
+            --fallback-extensions html,md
+            --root-dir ${{ env.LINKCHECK_ROOT }}
+            ${{ env.LINKCHECK_CANARY }}/bad.md
+          fail: false
+
+      - name: The canaries must have behaved
+        run: |
+          set -u
+          # lychee exit codes: 0 success, 1 unexpected failure (e.g. a missing
+          # input file), 2 broken links found. A bad command line also exits 2,
+          # so 2 alone is ambiguous — but canary_good proves the command line
+          # and the mirror are sound, which leaves only "it found the break".
+          good='${{ steps.canary_good.outputs.exit_code }}'
+          bad='${{ steps.canary_bad.outputs.exit_code }}'
+          echo "canary good=$good (want 0)  bad=$bad (want 2)"
+          if [ "$good" != "0" ]; then
+            echo "::error::A link that must resolve did not (exit $good). The route mirror, the arguments or --root-dir are wrong; link results this run mean nothing."
+            exit 1
+          fi
+          if [ "$bad" != "2" ]; then
+            echo "::error::A deliberately broken link was not reported (exit $bad). The link checker is blind; refusing to report green."
+            exit 1
+          fi
+
+      - name: Check source links
+        id: lychee_source
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --offline
+            --no-progress
+            --fallback-extensions html,md
+            --root-dir ${{ env.LINKCHECK_ROOT }}
+            --exclude-path ${{ env.LINKCHECK_ROOT }}/forge_docs/.vuepress
+            '${{ env.LINKCHECK_ROOT }}/forge_docs/**/*.md'
+          fail: false
+
+      - name: Report broken source links
+        run: |
+          set -u
+          code='${{ steps.lychee_source.outputs.exit_code }}'
+          if [ -f ./lychee/out.md ]; then
+            # Report the real repository paths, not the mirror's.
+            sed -i "s#file://${LINKCHECK_ROOT}/forge_docs/#/forge_docs/#g; \
+                    s#${LINKCHECK_ROOT}/forge_docs/#docs/#g; \
+                    s#file://${LINKCHECK_ROOT}/#/#g" ./lychee/out.md
+            cat ./lychee/out.md
+          fi
+          case "$code" in
+            0) echo "Every link in the source markdown resolves." ;;
+            2) echo "::error::Broken links in docs/. A link to /forge_docs/x.html needs a docs/x.md (or docs/x/README.md, or a file in .vuepress/public); a link written without the /forge_docs/ base 404s on the live site."
+               exit 1 ;;
+            *) echo "::error::lychee exited $code — it did not complete a check. Treating that as a failure rather than a pass."
+               exit 1 ;;
+          esac
 
   external:
     name: External URLs
@@ -79,18 +270,41 @@ jobs:
         id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
+          # No --exclude-mail: lychee removed that flag (mail is skipped by
+          # default now, and --include-mail is the opt-in). Passing it made
+          # lychee exit 2 before checking a single URL, which is how 12
+          # consecutive scheduled runs "ran" while checking nothing.
           args: >-
             --no-progress
             --max-retries 3
             --max-concurrency 8
             --timeout 20
             --exclude-loopback
-            --exclude-mail
             './docs/**/*.md'
           fail: false   # external blips should not fail CI; we open an issue instead
 
+      - name: Triage the result (a bad argument must not read as "all clear")
+        id: triage
+        run: |
+          set -u
+          code='${{ steps.lychee.outputs.exit_code }}'
+          if [ "$code" = "0" ]; then
+            echo "state=ok" >> "$GITHUB_OUTPUT"
+            echo "External URLs all reachable."
+            exit 0
+          fi
+          # 2 with a report written = broken links. 2 with no report, or any
+          # other non-zero, means lychee never checked a URL: fail the job
+          # rather than quietly attributing it to flaky external hosts.
+          if [ "$code" = "2" ] && [ -s ./lychee/out.md ]; then
+            echo "state=broken" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::lychee exited $code without producing a report — a usage or tooling error, not a broken link. No URLs were checked."
+          exit 1
+
       - name: Open issue if external links broke
-        if: steps.lychee.outputs.exit_code != '0'
+        if: steps.triage.outputs.state == 'broken'
         uses: peter-evans/create-issue-from-file@v6
         with:
           title: "Link Check: broken external links found"
