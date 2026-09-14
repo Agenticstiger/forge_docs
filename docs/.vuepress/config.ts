@@ -1,7 +1,6 @@
 import { defineUserConfig } from 'vuepress'
 import { defaultTheme } from '@vuepress/theme-default'
 import { viteBundler } from '@vuepress/bundler-vite'
-import { copyCodePlugin } from '@vuepress/plugin-copy-code'
 import { searchPlugin } from '@vuepress/plugin-search'
 import { sitemapPlugin } from '@vuepress/plugin-sitemap'
 import { markdownChartPlugin } from '@vuepress/plugin-markdown-chart'
@@ -52,6 +51,14 @@ export default defineUserConfig({
   ],
 
   theme: defaultTheme({
+    // The theme already registers @vuepress/plugin-links-check; by default it
+    // only warns. `build: 'error'` makes the build itself throw on a dead
+    // internal link, so a broken link fails CI natively instead of relying on
+    // a workflow that greps the build log for a warning string.
+    themePlugins: {
+      linksCheck: { build: 'error' },
+    },
+
     // Dark is the brand default (matches agenticstransformation.com).
     // The navbar toggle still switches to the refined light theme.
     colorMode: 'dark',
@@ -484,7 +491,6 @@ export default defineUserConfig({
   }),
 
   // Phase 2A foundation plugins.
-  // - copy-code: one-click copy on every fenced code block
   // - search: client-side fuzzy search (Cmd+K / "/" hotkey). DocSearch
   //   was the original target; client-side keeps us free of external
   //   indexing dependencies and works offline in dev.
@@ -492,8 +498,11 @@ export default defineUserConfig({
   // - markdown-chart: renders ```mermaid blocks at build time so they
   //   show on the live site (without this plugin Mermaid only renders
   //   on github.com READMEs).
+  //
+  // copy-code is NOT listed here: @vuepress/theme-default registers it
+  // already (themePlugins.copyCode defaults to true). Registering it a
+  // second time made the build warn "has been used multiple times".
   plugins: [
-    copyCodePlugin({}),
     searchPlugin({
       maxSuggestions: 12,
       hotKeys: ['s', '/'],

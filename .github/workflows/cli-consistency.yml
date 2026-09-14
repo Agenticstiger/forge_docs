@@ -4,9 +4,12 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'docs/cli/**'
-      - 'docs/providers/**'
-      - 'docs/.vuepress/cli-version.json'
+      # Every page under docs/, not just docs/cli/ and docs/providers/. The
+      # gate now reads fenced `fluid ...` invocations and version claims out of
+      # the whole tree, and those live in walkthroughs, concepts, recipes and
+      # sdk-and-plugins as much as in the command reference. A narrower filter
+      # means a PR can add a broken invocation and never run this job.
+      - 'docs/**'
       - 'scripts/check_cli_docs.py'
       - 'scripts/check_providers.py'
       - 'scripts/cli-docs-allowlist.yml'
@@ -18,6 +21,11 @@ on:
     # ships on PyPI but no docs PR opens, by re-running against the same pin.
     - cron: '17 6 * * 1'
   workflow_dispatch:
+
+# Read-only. This job installs a package named by a file in the PR branch and
+# runs it, so it must never hold a write token.
+permissions:
+  contents: read
 
 jobs:
   consistency:
@@ -43,15 +51,23 @@ jobs:
           echo "Pinned CLI install spec: ${INSTALL_SPEC}"
 
       - name: Install fluid CLI
+        # INSTALL_SPEC comes from a JSON file in the PR branch. Interpolating it
+        # into the script body with ${{ ... }} would splice attacker-controlled
+        # text into the shell before it runs; passing it through env: makes it a
+        # shell variable that quoting can contain.
+        env:
+          INSTALL_SPEC: ${{ steps.pin.outputs.install_spec }}
         run: |
           python -m pip install --upgrade pip
-          pip install "${{ steps.pin.outputs.install_spec }}"
+          pip install "$INSTALL_SPEC"
           fluid --version
 
       - name: Verify fluid --version matches pin
         run: python scripts/check_cli_docs.py --version-only
 
-      - name: Verify documented commands match fluid --help
+      - name: Verify docs match the pinned CLI
+        # Command/page coverage, the quickstart scaffold pin, the contract-schema
+        # pins, the fence-flag oracle and the version sweep.
         run: python scripts/check_cli_docs.py
 
       - name: Verify documented providers match fluid providers
