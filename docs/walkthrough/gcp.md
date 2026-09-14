@@ -13,7 +13,7 @@
 />
 
 ::: warning Compatibility note
-The contract snippets on this page use `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so these examples remain valid. For the current `0.7.2` contract shape, run `fluid init my-project --quickstart` or browse the bundled templates with `fluid init --list-templates`.
+The contract snippets on this page use `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so these examples remain valid. For new contracts the current stable schema is `0.7.5` — `fluid forge` scaffolds a contract on it; `fluid init my-project --quickstart` copies a bundled template pinned at `0.7.2`, which the CLI still validates. Browse the bundled templates with `fluid init --list-templates`.
 :::
 
 ---
@@ -23,7 +23,7 @@ The contract snippets on this page use `fluidVersion: "0.7.1"`. The CLI validate
 This walkthrough deploys a **production-ready Bitcoin price tracking data product** to **Google Cloud Platform** using BigQuery with real-time CoinGecko API integration.
 
 ::: tip Working Example
-**Want to jump straight to code?** A complete, runnable example is available in [examples/bitcoin-tracker](../../examples/bitcoin-tracker/) with deployment scripts for both US and Germany regions!
+**Want to jump straight to code?** A complete, runnable example is available in [examples/bitcoin-tracker](https://github.com/Agenticstiger/forge_docs/tree/main/examples/bitcoin-tracker) with deployment scripts for both US and Germany regions!
 :::
 
 ### What You'll Build
@@ -699,10 +699,10 @@ The [Open Data Product Specification](https://github.com/Open-Data-Product-Initi
 
 ```bash
 # Export to ODPS v4.1 format
-fluid odps export contract.fluid.yaml --output bitcoin-tracker.odps.json
+fluid odps export contract.fluid.yaml --spec odps-4.1 --out bitcoin-tracker.odps.json
 
 # Expected output:
-# ✓ Exported to ODPS v4.1: bitcoin-tracker.odps.json
+# ✓ Exported to ODPS v4.1 (LF/ODPI): bitcoin-tracker.odps.json
 #   Specification: https://github.com/Open-Data-Product-Initiative/v4.1
 ```
 

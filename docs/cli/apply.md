@@ -81,6 +81,8 @@ When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` 
 
 This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryptographically.
 
+Pass the bundle with `--bundle <path-to.tgz>`: the tgz this `plan.json` was generated against. When omitted, `apply` auto-discovers a single sibling `.tgz` / `.tar.gz` next to the `plan.json`. If several are present it logs a warning and leaves the bundle unresolved, so pass `--bundle` to disambiguate; a plan carrying a `bundleDigest` with no locatable bundle fails closed with `PlanBindingError(kind="bundle-missing")` rather than silently skipping verification.
+
 ## Key options
 
 ### General
@@ -108,6 +110,8 @@ This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryp
 | `--require-approval` | Require explicit approval for destructive work |
 | `--backup-state` | Create a backup before execution |
 | `--validate-dependencies` | Validate dependencies before execution |
+| `--force-pattern-drift` | Override apply-time plugin hooks that detect drift (for example a scaffold-bundle digest mismatch). Use with care: drift normally means the inputs have changed and a fresh generate is needed. |
+| `--allow-skipped-builds` | Exit 0 from a build-augmented mode even when every build was skipped (missing dbt project or driver script). Without this the apply exits 1, because DDL-only success on an empty table is a broken deployment reported green. |
 
 ### Reporting
 
@@ -137,6 +141,10 @@ This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryp
 | `--state-file STATE_FILE` | Custom state file location |
 | `--config-override` | Override contract config with JSON |
 | `--provider-config` | Path to provider-specific configuration |
+| `--provider` | Override the provider name (default: from the contract binding). |
+| `--project` | Override the project / account (default: from the contract). |
+| `--region` | Override the region / location (default: from the contract). |
+| `--state-backend` | OpenTofu remote state backend for cloud apply (`s3://bucket/key` or `gcs://bucket/prefix`). Required for shared remote state when a team applies from CI. |
 
 ## Examples
 

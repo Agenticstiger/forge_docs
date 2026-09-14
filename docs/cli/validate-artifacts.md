@@ -16,8 +16,13 @@ fluid validate-artifacts ARTIFACTS_DIR
 | --- | --- |
 | `ARTIFACTS_DIR` | Path to the artifacts directory (typically `dist/artifacts/`). |
 | `--manifest` | Path to the MANIFEST to verify against (default `<ARTIFACTS_DIR>/MANIFEST.json`). |
-| `--report` | Output JSON report path (default `runtime/validate-artifacts-report.json`). |
-| `--strict` | Treat warnings as errors. |
+| `--report` | Write a structured JSON report to PATH (same shape as `fluid validate <tgz> --report`). No default — omit it and no report file is written. |
+| `--strict` | Treat warnings as errors in the final status; hard-fail when optional tools (jsonschema, conftest, dbt) are absent. |
+| `--opa-policy-dir` | Directory containing `*.rego` files for OPA conftest. Default `tests/policies`. Skipped silently if the directory is absent or empty; a missing `conftest` binary is INFO without `--strict` and ERROR with it. |
+| `--fail-fast` | Stop at the first error-severity issue instead of collect-all. |
+| `--format {text,json}` | stdout format (`text` = human summary, `json` = full report). Default `text`. |
+| `--verbose`, `-v` | Print every issue, not just the summary. |
+| `--quiet`, `-q` | Suppress status output; rely on exit code and `--report`. |
 
 ## What it checks
 

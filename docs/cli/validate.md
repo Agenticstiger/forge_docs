@@ -32,6 +32,7 @@ fluid validate CONTRACT
 | `--show-schema` | Show the schema used for validation |
 | `--probe` | Run live external connectivity probes for sources / sinks declared in `acquisition` builds. |
 | `--report PATH` | Write the structured validation report to a file (in addition to stdout) |
+| `--fail-fast` | When validating a `.tgz` bundle, stop traversal at the first error-severity issue. The default is collect-all, so one bad file does not hide issues in others. Warnings and infos never stop traversal. No effect on single-contract validation. |
 
 ## Examples
 

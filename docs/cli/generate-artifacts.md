@@ -7,7 +7,7 @@ Added in `0.8.0` as a top-level subcommand of [`fluid generate`](./generate.md).
 ## Syntax
 
 ```bash
-fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--env ENV]
+fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--manifest PATH]
 ```
 
 `CONTRACT` can be a contract YAML file OR a tgz bundle emitted by [`fluid bundle --format tgz`](./bundle.md). When it's a tgz, `generate artifacts` extracts the content-addressable bundle first and validates its MANIFEST — so stage 3 can't be fed a tampered bundle.
@@ -18,9 +18,8 @@ fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--env ENV]
 | --- | --- |
 | `CONTRACT` | Contract YAML file or tgz bundle (positional, required). |
 | `--out PATH` | Output directory. Default `dist/artifacts/`. |
-| `--emit KEYS` | Comma-separated emit keys. Default: `odps-bitol,odcs,schedule,policies`. See emit-set table below. |
-| `--env ENV` | Environment overlay. |
-| `--no-generate-artifacts` | CI helper: auto-skip if the contract is reference-only. Useful in generated pipeline templates. |
+| `--emit KEYS` | Comma-separated emit keys. Default: `odps-bitol,odcs,opds,schedule,policies`. See emit-set table below. |
+| `--manifest PATH` | Path to write the unified `MANIFEST.json` (SHA-256 per file + merkle root). Default `<out>/MANIFEST.json`. Stage 4 re-verifies it. |
 
 ## Emit set
 
@@ -28,6 +27,7 @@ fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--env ENV]
 | --- | --- | --- |
 | `odcs` | ODCS v3.1.0 contract files under `odcs/` (one per expose port) | Default on. Schema vendored from `bitol-io/open-data-contract-standard`. |
 | `odps-bitol` | ODPS-Bitol v1.0.0 product file under `odps-bitol/` | Default on. Schema vendored from `bitol-io/open-data-product-standard`. |
+| `opds` | OPDS v4.1 (LF/ODPI) product file under `opds/` (`<product>.opds.json`) | Default on. `odps` is accepted as a deprecated alias of `opds` and warns. |
 | `schedule` | DAG / flow files under `schedule/` (airflow / dagster / prefect) | Default on. Auto-skipped for reference-only contracts + contracts without `orchestration.engine`. |
 | `policies` | `policy/bindings.json` (compiled IAM / GRANT bindings) | Default on. Auto-skipped for reference-only contracts. |
 
@@ -62,12 +62,6 @@ fluid generate artifacts contract.fluid.yaml --emit odcs,odps-bitol
 fluid generate artifacts contract.fluid.yaml --emit schedule,policies
 ```
 
-### With environment overlay
-
-```bash
-fluid generate artifacts contract.fluid.yaml --env prod --out dist/artifacts-prod/
-```
-
 ## Output shape
 
 ```
@@ -75,6 +69,7 @@ dist/artifacts/
 ├── MANIFEST.json                            # SHA-256 per file + merkle root
 ├── odcs/product.odcs.<exposeId>.yaml        # one per exposed port
 ├── odps-bitol/<product>.odps-bitol.yaml
+├── opds/<product>.opds.json                 # OPDS v4.1 (LF/ODPI)
 ├── schedule/
 │   ├── dags/<product>_dag.py                # Airflow
 │   └── flows/<product>_flow.py              # Prefect

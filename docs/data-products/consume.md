@@ -18,9 +18,9 @@ This page is the consumer front door. It shows you how to **discover** a publish
 
 | You are… | You want to… | Jump to |
 | --- | --- | --- |
-| **An analyst / BI user** | Read the published data with SQL, a notebook, or a dashboard | [Pattern 1 — Consume as a human](#pattern-1-consume-as-a-human-sql-exports-bi) |
-| **Building a downstream product** | Pull this product into your own pipeline without re-typing its schema | [Pattern 2 — Consume as a downstream product](#pattern-2-consume-as-a-downstream-product-consumes) |
-| **Wiring an AI agent** | Let an LLM query the product safely, under contract-declared rules | [Pattern 3 — Consume as an AI agent](#pattern-3-consume-as-an-ai-agent-mcp-output-port) |
+| **An analyst / BI user** | Read the published data with SQL, a notebook, or a dashboard | [Pattern 1 — Consume as a human](#pattern-1-—-consume-as-a-human-sql-exports-bi) |
+| **Building a downstream product** | Pull this product into your own pipeline without re-typing its schema | [Pattern 2 — Consume as a downstream product](#pattern-2-—-consume-as-a-downstream-product-consumes) |
+| **Wiring an AI agent** | Let an LLM query the product safely, under contract-declared rules | [Pattern 3 — Consume as an AI agent](#pattern-3-—-consume-as-an-ai-agent-mcp-output-port) |
 
 Whichever row you're in, you start the same way: **discover the product**, then **read its contract**.
 

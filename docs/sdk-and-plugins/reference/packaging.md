@@ -300,7 +300,7 @@ Semantic versioning. For SDK plugins specifically:
 
 For the SDK dependency, pin to `data-product-forge-sdk>=0.10,<1` (until the SDK ships 1.0; bump the upper bound when it does).
 
-For the CLI dependency (if your plugin needs runtime CLI features), pin to the minor line: `data-product-forge>=0.10,<0.11`.
+For the CLI dependency (if your plugin needs runtime CLI features), pin to the minor line: `data-product-forge>=0.15,<0.16`.
 
 ## Changelog
 

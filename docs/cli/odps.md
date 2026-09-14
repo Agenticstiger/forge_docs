@@ -3,12 +3,12 @@
 Unified command for the Open Data Product Standard (ODPS). Dispatches between:
 
 - **Bitol ODPS v1.0.0** — the center-stage format for Entropy Data / Data Mesh Manager marketplace integrations (`--spec bitol-1.0.0` or omit for the default).
-- **LF/ODPI ODPS v4.1** — the Linux Foundation / Open Data Product Initiative specification, opt-in via `--spec odps-v4.1`.
+- **LF/ODPI ODPS v4.1** — the Linux Foundation / Open Data Product Initiative specification, opt-in via `--spec odps-4.1`.
 
 ## Syntax
 
 ```bash
-fluid odps export CONTRACT  [--spec SPEC] [--out PATH] [--out-dir DIR] [--env ENV] [--no-validate] [--compact]
+fluid odps export CONTRACT  [--spec SPEC] [--out PATH] [--out-dir DIR] [--env ENV] [--no-validate-strict] [--compact]
 fluid odps import PATH       [--spec SPEC] [--allow-remote] [-o OUTPUT]
 fluid odps validate FILE     [--spec SPEC] [--no-full-schema]
 fluid odps info              [--spec SPEC] [--json]
@@ -21,11 +21,11 @@ fluid odps info              [--spec SPEC] [--json]
 | Option | Description |
 | --- | --- |
 | `CONTRACT` | Path to FLUID contract file (YAML/JSON). |
-| `--spec` | `bitol-1.0.0` (default, center-stage) or `odps-v4.1` (LF/ODPI, opt-in). |
+| `--spec` | `bitol-1.0.0` (default, center-stage) or `odps-4.1` (LF/ODPI, opt-in). `odpi-4.1` is still accepted as a deprecated alias that warns. Note: `fluid generate standard` spells the same spec `--format odps-v4.1`. |
 | `--out` | Output file path, or `-` for stdout. Default `-`. |
 | `--out-dir` | Write to a named directory (useful for Bitol bundles which emit a product doc + sibling ODCS files). |
 | `--env` | Environment name for overlay application. |
-| `--validate` / `--no-validate` | Validate output against the spec schema. Default on. |
+| `--validate-strict` / `--no-validate-strict` | Validate output against the spec schema. Default on. |
 | `--pretty` / `--compact` | Pretty-print or compact JSON output. Default pretty. |
 
 ### `odps import`
@@ -63,7 +63,7 @@ fluid odps export contract.yaml --out product.odps.yaml
 fluid odps export contract.yaml --out-dir ./dist/odps-bundle/
 
 # LF/ODPI v4.1 (opt-in)
-fluid odps export contract.yaml --spec odps-v4.1 --out product.odps.json
+fluid odps export contract.yaml --spec odps-4.1 --out product.odps.json
 
 # Import a Bitol ODPS product (or bundle) back to FLUID
 fluid odps import product.odps.yaml -o recovered.fluid.yaml
@@ -71,7 +71,7 @@ fluid odps import ./odps-bundle/ -o recovered.fluid.yaml --allow-remote
 
 # Validate an existing ODPS file
 fluid odps validate product.odps.yaml
-fluid odps validate product.odps.json --spec odps-v4.1
+fluid odps validate product.odps.json --spec odps-4.1
 
 # List available specs
 fluid odps info
@@ -83,10 +83,10 @@ fluid odps info --spec bitol-1.0.0 --json
 | `--spec` | Standard | Governed by | Typical use |
 | --- | --- | --- | --- |
 | `bitol-1.0.0` *(default)* | Open Data Product Standard v1.0.0 | [Bitol.io](https://bitol.io) | Entropy Data / DMM marketplace |
-| `odps-v4.1` | Open Data Product Specification v4.1 | LF / Open Data Product Initiative | ODPI-aligned catalogs |
+| `odps-4.1` | Open Data Product Specification v4.1 | LF / Open Data Product Initiative | ODPI-aligned catalogs |
 
 ::: warning Deprecation — `--spec odpi-4.1`
-The old `--spec odpi-4.1` token (note the letter swap) is accepted with a WARNING and redirected to `odps-v4.1`. Update any scripts that use `--spec odpi-4.1`.
+The old `--spec odpi-4.1` token (note the letter swap) is accepted with a WARNING and redirected to `odps-4.1`. Update any scripts that use `--spec odpi-4.1`.
 :::
 
 ## Notes

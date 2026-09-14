@@ -316,7 +316,7 @@ You wrote a `CustomScaffold` that emits one file from contract data. Three direc
 
 When you're ready to ship the plugin to PyPI, read [Packaging](./reference/packaging.md) — covers `py.typed`, classifiers, and trusted-publishing.
 
-Once installed, `fluid plugins --detailed` surfaces a plugin's declared metadata, and operators can gate which plugins load with `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` — see the [trust model](./reference/trust-model.md#operator-governance-allowlist-and-blocklist).
+Once installed, `fluid plugins --detailed` surfaces a plugin's declared metadata, and operators can gate which plugins load with `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` — see the [trust model](./reference/trust-model.md#operator-governance-—-allowlist-and-blocklist).
 
 ## Source
 

@@ -119,7 +119,8 @@ namespace, not an inconsistency.
 
 The same release makes a published contract readable on a default OSS install at all.
 The ODCS document was linked rather than inlined, but the link resolves only when
-`spec_source_base_url` is configured — a field no factory sets — and
+`spec_source_base_url` is configured — unset unless an operator supplies it via
+`FLUID_CATALOG_DATAHUB_SPEC_BASE_URL` or the catalog config key — and
 `DataContract.rawContract` is absent from the OSS GraphQL schema, so on a stock
 install the contract was neither inlined, nor linked, nor readable. Large specs are
 now linked when a base URL is set and inlined when it is not, so expect larger entity

@@ -45,7 +45,7 @@ All inherit from `FluidUserError` (which subclasses `Exception`). Each has a `fo
 
 | Class | When it fires |
 |---|---|
-| `SchemaValidationError` | A contract field didn't satisfy the v0.7.3 JSON schema. The `what` field cites the JSON-pointer path. |
+| `SchemaValidationError` | A contract field didn't satisfy the bundled JSON schema for the version the contract declares (`0.7.1`–`0.7.6`). The `what` field cites the JSON-pointer path. |
 | `SchemaDriftError` | The source schema changed between runs and the policy doesn't accept the kind of change. |
 
 ### Capability negotiation
@@ -77,7 +77,7 @@ All inherit from `FluidUserError` (which subclasses `Exception`). Each has a `fo
 |---|---|
 | `BudgetExceededError` | The projected run cost would exceed the contract's monthly budget cap; `cost.onExceed=fail`. |
 | `SovereigntyViolationError` | A connector / sink combination is not allowed in the declared jurisdiction. |
-| `ResidencyViolationError` | A data transfer would violate `metadata.dataResidency.region` / `prohibitTransferTo`. |
+| `ResidencyViolationError` | The binding region is barred by the contract's `sovereignty` block — the region is listed in `deniedRegions`, or an `allowedRegions` allow-list is declared and the region is not on it. |
 | `SupplyChainViolationError` | A container image failed Cosign signature verification — its signature couldn't be verified with the configured public key, or its signer isn't on `sovereignty.allowedSigners`. Fix: pin a Cosign-signed image signed with the configured key, or update `sovereignty.allowedSigners`. |
 | `InfraDriftError` | The live infrastructure version doesn't match what was declared (e.g. Helm chart drift). |
 

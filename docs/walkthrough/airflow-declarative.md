@@ -3,7 +3,7 @@
 **Learn how FLUID transforms your data product contract into production-ready Airflow DAGs without writing orchestration code.**
 
 ::: warning Compatibility note
-The contract snippets on this page use `fluidVersion: "0.7.1"`, and the generated DAG example uses `fluid generate-airflow`. The CLI validates each contract against its own declared version, so these examples remain valid. For the current `0.7.2` contract shape run `fluid init my-project --quickstart`; for the current orchestration path prefer [`fluid generate schedule --scheduler airflow`](/forge_docs/cli/generate.html#fluid-generate-schedule).
+The contract snippets on this page use `fluidVersion: "0.7.1"`, and the generated DAG example uses `fluid generate-airflow`. The CLI validates each contract against its own declared version, so these examples remain valid. For new contracts the current stable schema is `0.7.5` — `fluid forge` scaffolds a contract on it; `fluid init my-project --quickstart` copies a bundled template pinned at `0.7.2`, which the CLI still validates. For the current orchestration path prefer [`fluid generate schedule --scheduler airflow`](/forge_docs/cli/generate.html#fluid-generate-schedule).
 :::
 
 ---
@@ -188,6 +188,7 @@ builds:
 
   - id: calculate_daily_summary
     description: Calculate daily price statistics
+    pattern: hybrid-reference
     engine: dbt
     repository: ./dbt
     properties:
@@ -197,6 +198,7 @@ builds:
 
   - id: calculate_price_trends
     description: Calculate moving averages
+    pattern: hybrid-reference
     engine: dbt
     repository: ./dbt
     properties:
@@ -209,6 +211,7 @@ exposes:
   - exposeId: bitcoin_prices_table
     kind: table
     title: Bitcoin Prices Table
+    description: "Real-time Bitcoin prices from CoinGecko API"
     
     binding:
       platform: gcp
@@ -220,7 +223,6 @@ exposes:
         region: us-central1
 
     contract:
-      description: "Real-time Bitcoin prices from CoinGecko API"
       schema:
         - name: price_timestamp
           type: TIMESTAMP
@@ -648,8 +650,8 @@ fluid generate-airflow contract.yaml \
 - [GCP Cloud Composer](https://cloud.google.com/composer/docs)
 
 ### Examples
-- [Bitcoin Tracker Example](../../examples/bitcoin-tracker/) - Working code with this walkthrough
-- [Netflix Preferences Example](../../examples/netflix-preferences-local/) - Local development example
+- [Bitcoin Tracker Example](https://github.com/Agenticstiger/forge_docs/tree/main/examples/bitcoin-tracker) - Working code with this walkthrough
+- [Netflix Preferences Example](https://github.com/Agenticstiger/forge_docs/tree/main/examples/netflix-preferences-local) - Local development example
 
 ---
 

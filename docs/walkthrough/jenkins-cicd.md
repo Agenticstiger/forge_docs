@@ -3,7 +3,7 @@
 This walkthrough demonstrates how to implement end-to-end CI/CD for declarative data products using Jenkins and the FLUID framework.
 
 ::: warning Compatibility note
-The contracts and pipeline output shown on this page reference FLUID schema `0.7.1`. The CLI validates each contract against its own declared version, so these examples remain valid. For new contracts, prefer the current `0.7.2` shape — run `fluid init my-project --quickstart` to scaffold one, and use [`fluid generate ci --system jenkins`](/forge_docs/cli/generate.html#fluid-generate-ci) to regenerate a matching Jenkinsfile.
+The contracts and pipeline output shown on this page reference FLUID schema `0.7.1`. The CLI validates each contract against its own declared version, so these examples remain valid. For new contracts the current stable schema is `0.7.5` — `fluid forge` scaffolds a contract on it; `fluid init my-project --quickstart` copies a bundled template pinned at `0.7.2`, which the CLI still validates. Use [`fluid generate ci --system jenkins`](/forge_docs/cli/generate.html#fluid-generate-ci) to regenerate a matching Jenkinsfile.
 :::
 
 ## 📋 Overview

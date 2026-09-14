@@ -185,7 +185,7 @@ exposes:
         change_tracking: true
     policy:
       classification: Internal
-      authn: snowflake_rbac
+      authn: custom
       authz:
         readers:
           - role:FINANCE_ANALYST

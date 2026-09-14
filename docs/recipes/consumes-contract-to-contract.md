@@ -99,5 +99,5 @@ The picker runs the same composition-rule validation up-front, so you can't pre-
 ## See also
 
 - [Product Types → Composition rules](/forge_docs/data-products/product-type.html#composition-rules) — what can consume what
-- [`fluid forge --from-product`](../cli/forge.md#--from-product--composition) — pre-fill `consumes[]` from existing products
+- [`fluid forge --from-product`](../cli/forge.md#from-product-—-composition) — pre-fill `consumes[]` from existing products
 - [Builds, Exposes, Bindings](../concepts/builds-exposes-bindings.md) — the canonical contract surface

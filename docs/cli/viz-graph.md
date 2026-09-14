@@ -5,7 +5,7 @@ Render a FLUID contract as an interactive lineage and build graph (SVG, PNG, HTM
 ## Syntax
 
 ```bash
-fluid viz-graph CONTRACT [--out PATH] [--format FMT] [--theme THEME] [--plan PLAN_JSON] [options]
+fluid viz-graph [CONTRACT] [--mesh] [--mesh-root DIR] [--out PATH] [--format FMT] [--theme THEME] [--plan PLAN_JSON] [options]
 ```
 
 ## Key options
@@ -14,16 +14,18 @@ fluid viz-graph CONTRACT [--out PATH] [--format FMT] [--theme THEME] [--plan PLA
 
 | Option | Description |
 | --- | --- |
-| `CONTRACT` | Path to `contract.fluid.yaml`. |
+| `CONTRACT` | Path to `contract.fluid.yaml`. Optional, and ignored, when `--mesh` is used. |
 | `--env` | Environment overlay to apply (e.g. `dev`, `prod`). |
 | `--plan` | Optional `plan.json` file to overlay build actions on the graph. |
 | `--out`, `--output` | Output file path. Default `runtime/graph/contract.svg`. |
+| `--mesh` | Mesh mode: walk `**/*.fluid.yaml` under the mesh root and render the cross-product DAG (SDP→ADP→CDP) built from each contract's `consumes[]`, instead of one contract's internal DAG. |
+| `--mesh-root` | Root directory for the mesh-mode walk. Default `.`. Ignored without `--mesh`. |
 
 ### Format & appearance
 
 | Option | Description |
 | --- | --- |
-| `--format` | Output format: `dot`, `svg`, `png`, `html`. Default `svg`. |
+| `--format` | Output format: `dot`, `svg`, `png`, `html` in single-contract mode; `--mesh` additionally accepts `mermaid` and `json`. Default `svg`. `svg` / `png` / `html` need Graphviz; `dot` / `mermaid` / `json` are pure-text. Passing `mermaid` or `json` without `--mesh` is rejected with `ERR_VALIDATION_ERROR`. |
 | `--theme` | Color theme name. Default `dark`. |
 | `--custom-theme` | Path to a custom theme JSON or YAML file. |
 | `--rankdir` | Graph layout direction: `LR`, `TB`, `RL`, `BT`. Default `LR`. |

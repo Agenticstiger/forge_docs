@@ -108,7 +108,7 @@ builds:
 - **Data-product-specific abstractions** — `exposes`, `dq.rules`, `agentPolicy`, `sovereignty`, `lineage` — try expressing these in Terraform. You can't, except as ad-hoc resource configurations that drift.
 - **Schema-as-contract** — Forge validates the schema against the actual deployed table. Terraform doesn't know what a "schema" is.
 - **One contract, three clouds** — Terraform requires three different sets of resource definitions to deploy "the same" BigQuery table on Snowflake and Athena. Forge does it with one binding swap.
-- **Compiles to Terraform** — `fluid generate artifacts --target terraform` emits Terraform HCL when you want to inherit your Terraform pipeline downstream.
+- **Compiles to OpenTofu/Terraform** — `fluid generate iac` emits a deterministic `main.tf.json` module when you want to inherit your Terraform pipeline downstream.
 
 ### How they fit together
 Forge sits **on top of** Terraform conceptually. Many teams use Forge for the data-product layer and inherit their Terraform pipeline for the surrounding infra (VPCs, KMS keys, etc). Forge's `policy-apply` can either apply IAM directly or emit Terraform for human review.
@@ -175,7 +175,7 @@ Forge is currently CLI + GitHub Actions / GitLab CI / Jenkins / Tekton (any CI).
 **Use them together** when:
 - You want Forge's contract + governance with dbt's SQL: `engine: dbt`
 - You want Forge's contract with Dagster's runtime: `fluid generate schedule --scheduler dagster`
-- You want Forge's contract layered on top of Terraform: `fluid generate artifacts --target terraform`
+- You want Forge's contract layered on top of Terraform: `fluid generate iac`
 
 The unification value is highest when **at least two of (multi-cloud, governance, AI gating)** apply to your data products. If only one applies, the dedicated tool for that one thing is usually a better fit.
 

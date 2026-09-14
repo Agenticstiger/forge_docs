@@ -25,6 +25,6 @@ fluid product-new --id silver.orders_v1 --out-dir services
 ## Notes
 
 - Creates `<out-dir>/<id-with-underscores>/contract.fluid.json` containing a minimal `DataProduct` skeleton (one `dbt` build with a 02:15 daily cron, empty `consumes`/`exposes`).
-- The scaffolded contract uses `fluidVersion: 0.7.5` — the current schema version emitted by every scaffolder.
+- The scaffolded contract uses `fluidVersion: 0.7.3`. Other scaffolding paths differ: `fluid init --quickstart` copies the `customer-360` template verbatim, which is pinned at `fluidVersion: 0.7.2`. `0.7.5` is the CLI's default and latest stable schema, but no scaffolder emits it; `fluid validate` checks a contract against the `fluidVersion` the contract itself declares.
 - For a fuller, opinionated scaffold (with sample data, overlays, and CI), use [`fluid init`](./init.md) or [`fluid demo`](./demo.md). For AI-guided creation, use [`fluid forge`](./forge.md).
 - To extend an existing product contract with sources, exposures, or DQ checks, use [`fluid product-add`](./product-add.md).

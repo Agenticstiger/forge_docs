@@ -195,10 +195,14 @@ Every successful credential resolution writes an audit event:
 ```
 
 The actual secret values are NEVER in the audit event — only the
-metadata about which source supplied them. Query with:
+metadata about which source supplied them. The events live in
+`~/.fluid/store/audit/`, one JSON file per event named
+`{timestamp}_{suffix}_{event}.json`, so filter by event name over
+the store:
 
 ```bash
-fluid memory show audit --filter credential.resolved
+ls ~/.fluid/store/audit/ | grep credential.resolved
+cat ~/.fluid/store/audit/*_credential.resolved.json
 ```
 
 ## Failure modes

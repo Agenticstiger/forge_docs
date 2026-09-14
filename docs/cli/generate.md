@@ -5,7 +5,7 @@ Unified artifact generation from FLUID contracts.
 ## Syntax
 
 ```bash
-fluid generate <transformation|speed-transformation|dbt|dbt-tests|schedule|ci|standard|artifacts>
+fluid generate <transformation|speed-transformation|dbt|dbt-tests|schedule|ci|standard|artifacts|iac|vector>
 ```
 
 ## Subcommands
@@ -119,7 +119,7 @@ Key options:
 | Option | Description |
 | --- | --- |
 | `contract` | Contract path. Defaults to `contract.fluid.yaml` when omitted. |
-| `--system` | Target CI system: `jenkins`, `github`, `gitlab`, `azure`, `bitbucket`, `circle`, or `tekton`. |
+| `--system` | Target CI system: `jenkins`, `github`, `gitlab`, `azure`, `bitbucket`, `circleci`, or `tekton`. Default `gitlab`. Hyphen/underscore variants (`github-actions`, `azure-devops`, `gitlab-ci`, `circle-ci`, …) are also accepted. |
 | `--out PATH` | Override the primary output path. Multi-file systems still write their supporting files to canonical locations. |
 | `--no-generate-artifacts` | Skip transformation/schedule artifact stages for reference-only contracts. Reference-only builds are also auto-detected from `builds[].pattern`. |
 | `--install-mode {pypi,dev-source}` | Jenkins only. `pypi` installs `data-product-forge`; `dev-source` installs from a `/forge-cli-src` bind mount for contributor labs. |
@@ -185,21 +185,21 @@ The ODPS exporter reads a few environment variables for output shape:
 
 All formats are deterministic — identical input yields byte-identical output, so the result is safe to check into version control.
 
-#### Shortcut — `fluid export-odps`
+#### Shortcut — `fluid export-opds` (deprecated alias)
 
-For a one-shot file write of the ODPS format:
+For a one-shot file write of the LF/ODPI ODPS v4.1 JSON:
 
 ```bash
-fluid export-odps CONTRACT [--env ENV] [--out PATH]
+fluid export-opds CONTRACT [--env ENV] [--out PATH]
 ```
 
 | Option | Description |
 | --- | --- |
 | `CONTRACT` | Path to `contract.fluid.yaml` (positional, required) |
 | `--env ENV` | Apply an environment overlay |
-| `--out PATH` | Output file path (default: `runtime/exports/product.odps.json`) |
+| `--out PATH` | Output file path (default: `runtime/exports/product.odps-v4.1.json`) |
 
-Produces the same output as `fluid generate standard --format odps`.
+Produces the same output as `fluid generate standard --format odps-v4.1`. The command is a deprecated alias and prints a deprecation warning; prefer `fluid generate standard --format odps-v4.1` in new scripts. (The center-stage `--format odps` emits Bitol ODPS v1.0.0 to `runtime/exports/product.odps.yaml` instead.)
 
 ## Examples
 

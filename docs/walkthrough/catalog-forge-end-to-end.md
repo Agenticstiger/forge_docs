@@ -233,8 +233,8 @@ Every catalog read writes an audit event under
 `~/.fluid/store/audit/`. Query with:
 
 ```bash
-fluid memory show audit --filter catalog
-fluid memory show audit --window 24h --filter forge_from_source
+fluid memory search catalog --ns audit
+fluid memory search forge_from_source --ns audit
 ```
 
 Credentials are NEVER in the audit. Only metadata about the call

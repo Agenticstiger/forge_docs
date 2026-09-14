@@ -7,7 +7,7 @@ Convert between FLUID contracts and the Open Data Contract Standard (ODCS) v3.1.
 ```bash
 fluid odcs export CONTRACT [--output PATH] [--format FMT] [--no-quality] [--no-sla]
 fluid odcs import ODCS_FILE [--output PATH] [--format FMT]
-fluid odcs validate ODCS_FILE
+fluid odcs validate ODCS_FILE [--report PATH] [--roundtrip] [--no-vowl]
 fluid odcs info
 ```
 
@@ -36,6 +36,9 @@ fluid odcs info
 | Option | Description |
 | --- | --- |
 | `ODCS_FILE` | Path to an ODCS file to validate against the v3.1.0 JSON schema. |
+| `--report PATH` | Write a structured JSON validation report to this path (for CI gates). |
+| `--roundtrip` | Also verify the contract round-trips losslessly through `OdcsProvider.import_contract` → `render` and report any diff. Requires `deepdiff`, which ships only in the `dev` extra — without it the pass reports `ModuleNotFoundError`. |
+| `--no-vowl` | Skip the vowl second-pass even if installed. |
 
 ### `odcs info`
 

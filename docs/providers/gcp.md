@@ -165,7 +165,7 @@ An Iceberg expose on a GCP binding fell through the emit dispatch and produced
 nothing — silently. As of `0.14.0`, `fluid validate` errors on missing Iceberg
 prerequisites instead (for example, no derivable bucket), naming the missing
 field — see
-[Iceberg prerequisite checks](../cli/validate.md#iceberg-prerequisite-checks).
+[Iceberg prerequisite checks](../cli/validate.md#iceberg-prerequisite-checks-since-0-14-0).
 :::
 
 ### ✅ Cloud Storage

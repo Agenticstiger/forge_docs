@@ -107,7 +107,6 @@ sovereignty:
     - SCCs
   regulatoryFramework:
     - GDPR
-    - SOC2
   enforcementMode: advisory
   validationRequired: true
 
@@ -153,7 +152,7 @@ exposes:
     # Governance policies
     policy:
       classification: Internal
-      authn: snowflake_rbac
+      authn: custom
       authz:
         readers:
           - role:DATA_ANALYST
@@ -419,10 +418,18 @@ to the provider. An operator who keeps setting `SNOWFLAKE_ACCOUNT` in that form 
 from failing to working. Anything you set explicitly wins, so the two v2 variables
 always override what fluid would derive.
 
-The one shape that still cannot plan is a bare account locator with no organisation
-(`xy12345`): it keeps its legacy value deliberately, so the provider's actionable
-"enable the experiment" error survives instead of degrading to a vaguer "account is
-empty". For a locator-style identifier, set the pair yourself:
+Only the literal `<org>-<account>` form is bridged. Every other format on the accepted
+list above still cannot `tofu plan`, in one of two ways. A bare account locator with no
+organisation (`xy12345`) keeps its legacy value deliberately, so the provider's
+actionable "enable the experiment" error survives instead of degrading to a vaguer
+"account is empty". Every remaining form is mis-derived instead: the overlay reads the
+raw environment variable, without the normalisation described above, and splits it on
+its *first* hyphen, so `xy12345.eu-central-1` (and its `.aws` and `.privatelink`
+variants) becomes organisation `xy12345.eu` and account `central-1`, and a browser
+hostname such as `https://xy12345.eu-central-1.aws.snowflakecomputing.com` becomes
+organisation `https://xy12345.eu`. Those forms do get the legacy variable blanked, so
+rather than the experiment error you get a plan against an account that does not exist.
+Unless your `SNOWFLAKE_ACCOUNT` is literally `<org>-<account>`, set the pair yourself:
 
 ```bash
 export SNOWFLAKE_ORGANIZATION_NAME=myorg
@@ -440,7 +447,7 @@ Create a Jenkins **Secret File** credential containing your Snowflake env vars:
 
 ```bash
 # File contents (plain key=value, no 'export' prefix)
-SNOWFLAKE_ACCOUNT=xy12345.eu-central-1
+SNOWFLAKE_ACCOUNT=myorg-myaccount
 SNOWFLAKE_USER=FLUID_SERVICE
 SNOWFLAKE_PASSWORD=xxxxxxxxxx
 SNOWFLAKE_WAREHOUSE=COMPUTE_WH
@@ -456,7 +463,7 @@ The [Universal Pipeline](/forge_docs/walkthrough/universal-pipeline) auto-detect
 ```bash
 # .env file (same format as Jenkins)
 cat > .env << 'EOF'
-SNOWFLAKE_ACCOUNT=xy12345.eu-central-1
+SNOWFLAKE_ACCOUNT=myorg-myaccount
 SNOWFLAKE_USER=FLUID_SERVICE
 SNOWFLAKE_PASSWORD=xxxxxxxxxx
 SNOWFLAKE_WAREHOUSE=COMPUTE_WH
@@ -530,7 +537,7 @@ sovereignty:
   allowedRegions: [eu-west-1, eu-central-1, europe-west4]
   deniedRegions: [us-east-1, us-west-2, us-central1]
   crossBorderTransfer: false
-  regulatoryFramework: [GDPR, SOC2]
+  regulatoryFramework: [GDPR]
   enforcementMode: advisory  # or strict (blocks deployment)
 ```
 

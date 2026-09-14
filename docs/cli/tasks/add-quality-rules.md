@@ -140,11 +140,10 @@ fluid validate contract.fluid.yaml --strict
 
 ## Step 7 — test against actual data
 
-`fluid test` runs the rules against the current state of the deployed product (or a sample if you pass `--sample`):
+`fluid test` runs the rules against the current state of the deployed product:
 
 ```bash
-fluid test contract.fluid.yaml --sample
-# ⏳ Loading 10,000-row sample from runtime/out/bitcoin_prices.parquet...
+fluid test contract.fluid.yaml
 # ✓ price_not_null: 10,000 / 10,000 (100.0%) — pass
 # ✓ schema_stability: no changes detected — pass
 # ⚠ hourly_freshness: 1h 4m since last update — warn

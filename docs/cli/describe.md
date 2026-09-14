@@ -26,7 +26,7 @@ fluid describe --self --json  # stable JSON for scripts / CI
 
 ```json
 {
-  "fluid_version": "0.10.0",
+  "fluid_version": "0.15.0",
   "python_version": "3.12.13",
   "schema_version": "0.7.5",
   "providers": ["local", "gcp", "aws", "snowflake"],
@@ -38,4 +38,5 @@ fluid describe --self --json  # stable JSON for scripts / CI
 ## Notes
 
 - Pairs with [`fluid doctor`](/forge_docs/cli/doctor.html): `describe` reports *what is installed*; `doctor` reports *whether it works*.
+- The block above shows the keys most scripts gate on. `--self --json` also emits four further top-level keys: `commands` (the full argparse tree), `provider_engine_compatibility` (provider name to supported build engines), `capabilities` (`lineage`, `airflow_dag_gen`, `engine_api`) and `warnings`.
 - `schema_version` is the contract `fluidVersion` this CLI emits and validates — pin against it when a workflow depends on a specific schema generation.

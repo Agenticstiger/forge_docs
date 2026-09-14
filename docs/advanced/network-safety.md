@@ -83,6 +83,6 @@ lint-imports
 ## See also
 
 - [Environment variables](./environment-variables.md) — full env-var index including the SSRF allowlists
-- [`fluid forge`](../cli/forge.md#remote-seeds-opt-in-to-https-fetch) — where `--seed-allow-remote` applies
+- [`fluid forge`](../cli/forge.md#remote-seeds-—-opt-in-to-http-s-fetch) — where `--seed-allow-remote` applies
 - [`fluid odps import`](../cli/odps-bitol.md#unified-fluid-odps-since-v0-8-3) — where `--allow-remote` applies
 - [Catalog overview](../cli/catalogs/overview.md) — publish-side registrars all use the safe-HTTP layer

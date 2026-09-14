@@ -62,7 +62,7 @@ fluid plan $CONTRACT --out runtime/plan.json --html --env dev
 fluid apply runtime/plan.json --mode amend --env dev --yes --report runtime/apply-report.html
 
 # Stage 8 — policy apply (stage between apply + verify so GRANTs land before transforms run)
-fluid policy apply dist/artifacts/policy/bindings.json --mode enforce --env dev
+fluid policy apply dist/artifacts/policy/bindings.json --mode enforce
 
 # Stage 9 — verify (multi-dimensional schema / types / constraints / location)
 fluid verify $CONTRACT --env dev --strict --out runtime/verify-report.json

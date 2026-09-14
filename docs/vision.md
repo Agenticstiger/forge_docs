@@ -59,6 +59,7 @@ exposes:
     kind: table
     binding:
       platform: gcp
+      format: bigquery_table
       location:
         dataset: analytics
         table: customers
@@ -156,7 +157,8 @@ That split is intentional. The CLI release and the contract schema version move 
 | Milestone | Notes |
 | --- | --- |
 | `0.8.0` baseline | 11-stage production pipeline, signed bundles, rollback, DMM Access lineage, Jenkins generation defaults |
-| `0.8.4`–`0.10.0` (current) | OpenTofu/IaC autogeneration for cloud `apply`, the MCP output-port gateway with runtime `agentPolicy` enforcement, three plugin extension points + a companion SDK, and pluggable modeling techniques / metadata-source adapters for `fluid forge data-model` |
+| `0.8.4`–`0.10.0` | OpenTofu/IaC autogeneration for cloud `apply`, the MCP output-port gateway with runtime `agentPolicy` enforcement, three plugin extension points + a companion SDK, and pluggable modeling techniques / metadata-source adapters for `fluid forge data-model` |
+| `0.11.0`–`0.15.0` (current) | Vector/embeddings output ports and the `ai_ready` agent for RAG (`0.11.0`), the dbt integration wave plus contract schema `0.7.5` promoted to stable (`0.12.0`), `fluid mission` with deterministic, zero-LLM success criteria (`0.13.0`), the dbt Iceberg loop across all three cloud warehouses (`0.13.1`/`0.14.0`), and data-residency sovereignty enforcement (`0.14.1`/`0.15.0`) |
 | Plugin governance + spec exporters | **Shipped in `0.10.0`** — operator allow/block gate (`FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`), the `fluid plugins` roster, and `fluid exporters` (ODCS / ODPS / ODPS-Bitol reclassified from providers to spec exporters) |
 | Streaming Kafka → Iceberg sink | **Shipped in `0.9.0`** — opt-in via `fluidVersion: 0.7.5` (Kafka-Connect + Debezium Iceberg sinks, Confluent Tableflow plugin) |
 | Azure provider | On the roadmap |

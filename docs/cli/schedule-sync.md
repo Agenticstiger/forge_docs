@@ -23,7 +23,7 @@ fluid schedule-sync --scheduler NAME --dags-dir PATH [--destination URL] [option
 
 | Option | Scheduler | Description |
 | --- | --- | --- |
-| `--destination URL` | `airflow` / `mwaa` | Destination for the DAG files. Supports `s3://`, `gs://`, `az://`, `file://`, `ssh://`, `scp://`, or a bare path. Required for `airflow` and `mwaa`. |
+| `--destination URL` | `airflow` / `mwaa` | Destination for the DAG files. Supports `s3://`, `gs://`, `az://`, `file://`, `ssh://`, `scp://`, `git+ssh://`, or a bare path. Required for `airflow` and `mwaa`. |
 | `--environment-name NAME` | `composer` / `astronomer` | Composer environment name or Astronomer deployment name. |
 | `--location REGION` | `composer` | GCP region (e.g. `europe-west1`). |
 | `--workspace NAME` | `prefect` / `dagster` | Prefect workspace or dagster-cloud deployment name. |
@@ -37,6 +37,9 @@ fluid schedule-sync --scheduler NAME --dags-dir PATH [--destination URL] [option
 | `--bundle PATH` | Path to the signed source tgz bundle the DAGs were generated from. Required whenever `--verify-signature` is set; ignored otherwise. |
 | `--verify-signature` | Refuse to push DAGs unless the bundle's cosign signature verifies. **Requires `--bundle PATH`** — passing `--verify-signature` alone aborts with `schedule_sync_verify_signature_missing_bundle`. See [`fluid verify-signature`](./verify-signature.md). |
 | `--verify-key PATH` | Keyed-mode verification public key (path or KMS URI), matching bundles signed with `bundle --sign --sign-key`. Selects keyed verification over the default keyless mode. Ignored unless `--verify-signature` is set. |
+| `--verify-identity-regexp REGEXP` | Regexp matching the acceptable OIDC signer identity (keyless mode). Default `.*` accepts **any** signer — pin this in production to `https://github.com/<your-org>/.*` or equivalent. Ignored unless `--verify-signature` is set, and ignored in keyed mode (`--verify-key`). |
+| `--verify-oidc-issuer-regexp REGEXP` | Regexp matching the acceptable OIDC issuer (keyless mode). Default `.*` accepts any. Pin to `https://token.actions.githubusercontent.com` to force GitHub Actions signers only, or to your GitLab OIDC issuer URL. Ignored unless `--verify-signature` is set, and ignored in keyed mode (`--verify-key`). |
+| `--git-commit-author "Name <email@host>"` | Override the git commit author for `git+ssh://` destinations. When unset, git uses the runner's `user.name` / `user.email` from git config. Recommended for CI / service-account use so commits are attributable to a deterministic identity (e.g. `fluid-bot <bot@example.com>`). |
 | `--timeout SECONDS` | Per-subprocess timeout. Default 600, hard cap 3600. |
 | `--report PATH` | JSON result summary. |
 

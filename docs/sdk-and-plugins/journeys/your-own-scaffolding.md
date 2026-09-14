@@ -86,7 +86,7 @@ Output:
 
 ## Step 1 — set up the bundle
 
-Same as the CI bundle. Reuse [steps 1–2 from your-own-ci](./your-own-ci.md#step-1-set-up-the-bundle-repo) — bundle directory, `fluid-scaffold.yaml` manifest, etc. The only difference is the `templates:` list in the manifest now points at project-skeleton templates instead of CI templates.
+Same as the CI bundle. Reuse [steps 1–2 from your-own-ci](./your-own-ci.md#step-1-—-set-up-the-bundle-repo) — bundle directory, `fluid-scaffold.yaml` manifest, etc. The only difference is the `templates:` list in the manifest now points at project-skeleton templates instead of CI templates.
 
 ```yaml
 # fluid-scaffold.yaml
@@ -166,7 +166,7 @@ keywords = [
 
 dependencies = [
     "pydantic>=2.0",
-    "data-product-forge=={{ fluid_cli_version | default('0.10.0') }}",
+    "data-product-forge=={{ fluid_cli_version | default('0.15.0') }}",
 ]
 
 [project.optional-dependencies]

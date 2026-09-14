@@ -87,7 +87,8 @@ group. Invoked by the CLI early in ``fluid apply``, after the contract is
 loaded but before any provider executes.
 
 Hook contract (see entry-points reference):
-    hook(contract_dir: Path, contract: Dict, errors: List[str]) -> None
+    hook(contract_dir: Path, contract: Dict, errors: List[str],
+         env: Optional[str] = None) -> None
 
 Append messages to ``errors`` to fail the apply; leave it empty to pass.
 Plugin exceptions are trapped, redacted, and added to errors automatically
@@ -98,14 +99,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 REQUIRED_ENV_VAR = "FLUID_PROD_DEPLOY_KEY"
-# Convention: your deploy runner / CI job sets DEPLOY_ENV before invoking
-# `fluid apply`. The CLI itself doesn't pass `--env` to apply hooks (see
-# "Known limitation" note further down), so hooks rely on a runner-set
-# env var to know what target environment is being deployed.
+# Fallback for applies that don't pass `--env`: your deploy runner / CI job
+# sets DEPLOY_ENV before invoking `fluid apply`. The CLI itself does not set
+# it — see the "Apply hooks can receive `--env`" note further down.
 DEPLOY_ENV_VAR = "DEPLOY_ENV"
 
 
@@ -113,9 +113,13 @@ def check_prod_deploy_key(
     contract_dir: Path,
     contract: Dict[str, Any],
     errors: List[str],
+    env: Optional[str] = None,
 ) -> None:
     """Fail prod applies when FLUID_PROD_DEPLOY_KEY isn't set."""
-    if os.environ.get(DEPLOY_ENV_VAR, "") != "prod":
+    # `env` is the resolved `--env` value the CLI was invoked with, or None
+    # when the flag was omitted. DEPLOY_ENV is the runner-set fallback.
+    target = env or os.environ.get(DEPLOY_ENV_VAR, "")
+    if target != "prod":
         return  # not a prod apply — nothing to check
 
     if not os.environ.get(REQUIRED_ENV_VAR):
@@ -127,20 +131,20 @@ def check_prod_deploy_key(
         )
 ```
 
-The hook is **just a function**, not a class. The signature is fixed by the entry-point contract: `(contract_dir, contract, errors) -> None`. Append messages to `errors` to fail the apply; leave it empty to pass.
+The hook is **just a function**, not a class. The entry-point contract is `(contract_dir, contract, errors) -> None`, with an optional 4th `env` parameter the CLI fills in when your signature asks for it. Append messages to `errors` to fail the apply; leave it empty to pass.
 
 Three things to know:
 
-- **`DEPLOY_ENV` is a convention env var, not something the CLI sets.** Your CI runner / deploy script must `export DEPLOY_ENV=prod` (or `staging` / `dev`) before invoking `fluid apply`. Apply hooks have no built-in way to read the `--env` flag the CLI was invoked with — see the "Known limitation" note below.
+- **The `env` parameter is the CLI's own signal; `DEPLOY_ENV` is the fallback.** `fluid apply --env prod` reaches the hook as `env="prod"`. `DEPLOY_ENV` is a convention env var your CI runner / deploy script exports, and it covers applies invoked without `--env`. Order matters here: `env` first means a CI job that forgets to export `DEPLOY_ENV` still gets the guard — see the note below.
 - **Append, don't raise.** Raising an exception inside a hook is captured and converted to an error string automatically (the CLI defends against it), but appending to `errors` is the documented contract and produces cleaner output.
 - **Be specific in error messages.** Tell the user *what's wrong*, *what to do about it*, and *what the escape hatch is*. The example above does all three; copy that shape.
 
-::: warning Known limitation — apply hooks don't see `--env`
-As of CLI `0.10.0`, `fluid apply` does not pass `args.env` (the `--env` flag) into apply hooks. Hooks receive `(contract_dir, contract, errors)` — that's it. The `contract` is post-overlay (env values are baked in), but there's no explicit "target environment was prod" signal.
+::: tip Apply hooks can receive `--env`
+As of CLI `0.15.0`, `fluid apply` forwards the resolved `--env` value to apply hooks that opt in via their signature (available since `0.11.0`). Declare a keyword-compatible `env` parameter (or `**kwargs`) and you receive it as `env="prod"`; a hook with a 4th positional parameter receives it positionally. Legacy `(contract_dir, contract, errors)` hooks are called exactly as before, so nothing breaks.
 
-The pragmatic workaround used in this example: have the deploy runner set a `DEPLOY_ENV` env var that hooks read. Most CI systems already do something similar (`CI_ENVIRONMENT_NAME` on GitLab, `GITHUB_REF_NAME` on Actions, etc.).
+The value is `None` when `--env` was omitted, which is why this hook still falls back to `DEPLOY_ENV`: that covers applies invoked without the flag, and keeps the hook working under a pre-`0.11.0` CLI. Most CI systems already export something similar (`CI_ENVIRONMENT_NAME` on GitLab, `GITHUB_REF_NAME` on Actions).
 
-If you need this fixed in the CLI itself, file an issue on `Agenticstiger/forge-cli` requesting `args.env` be passed to apply hooks (or surfaced as `os.environ["FLUID_APPLY_ENV"]`). It's a 1-line change in `cli/apply.py::_run_apply_hooks`.
+Prefer `env` as the primary signal. A guard keyed only on a runner-set env var fails open: if CI forgets the `export`, the check silently passes on a prod deploy.
 :::
 
 ## `tests/test_hook.py`
@@ -175,9 +179,9 @@ def test_non_prod_target_passes_without_key(monkeypatch):
 
 
 def test_no_deploy_env_passes(monkeypatch):
-    """If DEPLOY_ENV isn't set, the hook can't tell what's being deployed —
-    pass through. The convention here is opt-in: set DEPLOY_ENV when you
-    want the guard to run."""
+    """No `--env`, and no DEPLOY_ENV: the hook can't tell what's being
+    deployed — pass through. The convention here is opt-in: pass `--env` or
+    set DEPLOY_ENV when you want the guard to run."""
     errors: list[str] = []
     check_prod_deploy_key(Path("/tmp"), {}, errors)
     assert errors == []
@@ -198,6 +202,16 @@ def test_prod_target_with_key_passes(monkeypatch):
     errors: list[str] = []
     check_prod_deploy_key(Path("/tmp"), {}, errors)
     assert errors == []
+
+
+def test_env_argument_fires_without_deploy_env():
+    """`fluid apply --env prod` reaches the hook directly — no DEPLOY_ENV
+    needed, so a CI job that forgets to export it can't silently skip the
+    guard."""
+    errors: list[str] = []
+    check_prod_deploy_key(Path("/tmp"), {}, errors, env="prod")
+    assert len(errors) == 1
+    assert REQUIRED_ENV_VAR in errors[0]
 ```
 
 No conformance harness inheritance — apply hooks are functions, not classes. Test what your specific hook needs to enforce.
@@ -210,7 +224,7 @@ mkdir prod-key-guard && cd prod-key-guard
 
 pip install -e ".[dev]"
 pytest
-# ============== 4 passed in 0.04s ===============
+# ============== 5 passed in 0.04s ===============
 ```
 
 Verify the CLI picks it up. As of CLI `0.10.0`, `fluid plugins` lists installed plugins per role with their allow/block status — or query `importlib.metadata` directly:
@@ -232,28 +246,34 @@ If the output is empty, `pip install -e .` didn't re-read your entry-points — 
 End-to-end against a real apply:
 
 ```bash
-# Your deploy runner sets DEPLOY_ENV. For ad-hoc local testing, set it manually.
-unset FLUID_PROD_DEPLOY_KEY
-DEPLOY_ENV=prod fluid apply contract.fluid.yaml --env prod
+# --env alone is enough: the CLI hands the flag's value to the hook.
+unset FLUID_PROD_DEPLOY_KEY DEPLOY_ENV
+fluid apply contract.fluid.yaml --env prod
 # ✗ apply hook: prod-key-guard:
 #   FLUID_PROD_DEPLOY_KEY is not set in the environment.
 #   ...
 
 export FLUID_PROD_DEPLOY_KEY="example-secret"
-DEPLOY_ENV=prod fluid apply contract.fluid.yaml --env prod
+fluid apply contract.fluid.yaml --env prod
 # (proceeds normally)
 
-DEPLOY_ENV=dev fluid apply contract.fluid.yaml --env dev
+fluid apply contract.fluid.yaml --env dev
 # (proceeds normally — non-prod targets are unaffected)
+
+# The DEPLOY_ENV fallback still works for applies invoked without --env.
+unset FLUID_PROD_DEPLOY_KEY
+DEPLOY_ENV=prod fluid apply contract.fluid.yaml
+# ✗ apply hook: prod-key-guard: ...
 ```
 
 ## You'll know it worked when
 
-- `pytest` reports 4 passes against the hook.
+- `pytest` reports 5 passes against the hook.
 - The `importlib.metadata` one-liner above prints `prod-key-guard: prod_key_guard.hook:check_prod_deploy_key`.
-- `DEPLOY_ENV=prod fluid apply --env prod` fails with the structured message **when** `FLUID_PROD_DEPLOY_KEY` is unset.
+- `fluid apply --env prod` fails with the structured message **when** `FLUID_PROD_DEPLOY_KEY` is unset, with no `DEPLOY_ENV` exported.
 - The same command succeeds when the deploy-key env var is set.
-- `DEPLOY_ENV=dev fluid apply --env dev` passes regardless of the deploy-key env var.
+- `fluid apply --env dev` passes regardless of the deploy-key env var.
+- `DEPLOY_ENV=prod fluid apply` (no `--env`) still fails — the fallback path works.
 - `--force-pattern-drift` downgrades the error to a WARNING and allows the apply to proceed.
 
 ## Common gotchas
@@ -263,10 +283,10 @@ Same root cause as the quickstart's troubleshooting: pip didn't re-read the entr
 :::
 
 ::: details `DEPLOY_ENV` is unset and my hook quietly passes when I expected it to fail
-By design — the example's contract is "opt in by setting `DEPLOY_ENV`." If you want the hook to be enforcement-by-default (fail unless explicitly overridden), invert the check:
+First check whether you passed `--env` — with it, the hook doesn't need `DEPLOY_ENV` at all. Without either signal it's by design: the example's contract is "opt in by passing `--env` or setting `DEPLOY_ENV`." If you want the hook to be enforcement-by-default (fail unless explicitly overridden), invert the check:
 
 ```python
-deploy_env = os.environ.get(DEPLOY_ENV_VAR)
+deploy_env = env or os.environ.get(DEPLOY_ENV_VAR)
 if deploy_env is None:
     errors.append("prod-key-guard: DEPLOY_ENV must be set to one of: dev, staging, prod")
     return
@@ -279,14 +299,14 @@ Pick the policy your team wants. Opt-in is friendlier for local testing; enforce
 :::
 
 ::: details I want the hook to read the --env flag fluid apply was invoked with
-You can't, yet. The CLI doesn't pass `args.env` into apply hooks as of `0.10.0`. The "Known limitation" callout earlier on this page explains the workarounds. For testing in isolation:
+You can. Add a keyword-compatible `env` parameter (or `**kwargs`) to your hook and the CLI forwards the resolved `--env` value; a 4th positional parameter works too, and hooks that keep the legacy `(contract_dir, contract, errors)` signature are called unchanged. The hook above already does this — `check_prod_deploy_key(contract_dir, contract, errors, env=None)` branches on `env` and falls back to `DEPLOY_ENV` only when the flag was omitted. For testing in isolation:
 
 ```bash
-DEPLOY_ENV=prod python -c "
+python -c "
 from prod_key_guard.hook import check_prod_deploy_key
 from pathlib import Path
 errs = []
-check_prod_deploy_key(Path('/tmp'), {}, errs)
+check_prod_deploy_key(Path('/tmp'), {}, errs, env='prod')
 print(errs)
 "
 ```

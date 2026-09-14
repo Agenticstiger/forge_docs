@@ -63,6 +63,7 @@ labels:
   cost-center: analytics
   business_criticality: "high"
   compliance_gdpr: "true"
+  compliance_soc2: "true"
   platform: "aws"
 
 metadata:
@@ -86,7 +87,6 @@ sovereignty:
     - SCCs
   regulatoryFramework:
     - GDPR
-    - SOC2
   enforcementMode: advisory
   validationRequired: true
 
@@ -286,7 +286,7 @@ fluid apply contract.fluid.yaml --mode amend-and-build
 fluid generate-airflow contract.fluid.yaml --output airflow-dags/bitcoin_aws.py
 
 # Export standards
-fluid odps export contract.fluid.yaml --output standards/product.odps.json
+fluid odps export contract.fluid.yaml --out standards/product.odps.json --format json
 fluid odcs export contract.fluid.yaml --output standards/product.odcs.yaml
 ```
 
@@ -457,7 +457,7 @@ sovereignty:
   allowedRegions: [eu-central-1, eu-west-1]
   deniedRegions: [us-east-1, us-west-2]
   crossBorderTransfer: false
-  regulatoryFramework: [GDPR, SOC2]
+  regulatoryFramework: [GDPR]
   enforcementMode: advisory  # or strict (blocks deployment)
 ```
 

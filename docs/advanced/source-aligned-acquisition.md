@@ -35,7 +35,7 @@ builds:
     properties:
       source:              # WHERE to read from
         kind: postgres
-        connection: { url: ${POSTGRES_URL} }
+        connection: { url: "${POSTGRES_URL}" }
         tables: [public.orders, public.customers]
       sink:                # WHERE to land it
         format: parquet
@@ -98,7 +98,7 @@ deployment:
     platform: docker      # docker | kubernetes | terraform
 ```
 
-The infra layer is hyperscaler-agnostic — no `boto3`, `google.cloud`, or `azure` imports. `kubernetes` mode emits Helm with Flux-style HelmRelease CRs and ExternalSecret + NetworkPolicy resources; `terraform` mode emits OpenTofu modules. Sovereignty constraints (`metadata.dataResidency`) propagate into the values overlay automatically.
+The infra layer is hyperscaler-agnostic — no `boto3`, `google.cloud`, or `azure` imports. `kubernetes` mode emits Helm with Flux-style HelmRelease CRs and ExternalSecret + NetworkPolicy resources; `terraform` mode emits OpenTofu modules. Sovereignty constraints (the top-level `sovereignty` block) propagate into the values overlay automatically.
 
 ## Delivery guarantees
 

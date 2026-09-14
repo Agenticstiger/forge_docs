@@ -209,13 +209,24 @@ The entry-point name surfaces in the error namespace (`apply hook 'my-hook' rais
 
 ### What hooks know about the target environment
 
-**Known limitation (CLI `0.10.0`):** apply hooks do not receive `args.env` (the `--env` flag) as a parameter, env var, or contract field. The hook signature is exactly `(contract_dir, contract, errors)`. The `contract` is post-overlay (env values baked in), but no semantic "this is the prod env" signal is preserved.
+**Since CLI `0.11.0`:** apply hooks receive the resolved `--env` value via backward-compatible signature dispatch (pluggy's `argnames` opt-in model). A legacy 3-parameter hook `(contract_dir, contract, errors)` is called unchanged; a hook declaring a keyword-compatible `env` parameter or `**kwargs` receives `env=<value>`; a hook with a 4th positional slot or `*args` receives it positionally. A callable whose signature cannot be introspected falls back to the legacy 3-argument call. The `contract` remains post-overlay (env values baked in).
 
-Workarounds today:
+```python
+import os
 
-- **Runner-set convention env var.** Have your CI runner / deploy script `export DEPLOY_ENV=...` (or your team's chosen name) before invoking `fluid apply`. The hook reads that env var. This is the pattern used in the [apply-hook example](../examples/apply-hook-prod-key-guard.md) and [journey](../journeys/apply-hook.md).
+
+def hook(contract_dir, contract, errors, env=None):
+    # env == "prod" when `fluid apply --env prod` ran; None when --env was omitted.
+    if env == "prod" and not os.environ.get("PROD_DEPLOY_KEY"):
+        errors.append("my-hook: PROD_DEPLOY_KEY is not set")
+```
+
+The value is the argparse-validated `--env` string, or `None` when the flag was omitted, so an env-aware hook must handle `None`.
+
+Two other signals are still available, and are what a hook that has to keep the legacy 3-parameter signature reaches for:
+
+- **Runner-set convention env var.** Have your CI runner / deploy script `export DEPLOY_ENV=...` (or your team's chosen name) before invoking `fluid apply`. The hook reads that env var. This is the pattern used in the [apply-hook example](../examples/apply-hook-prod-key-guard.md) and [journey](../journeys/apply-hook.md). Note the failure mode the `env` parameter avoids: if CI forgets to export the var, the guard silently passes.
 - **Branch on post-overlay contract values.** If your contract carries an env-distinguishing field (e.g. `metadata.deploy_target` set differently per env in the overlay), the hook can read it. Brittle — couples to contract content.
-- **Future fix.** Passing `args.env` to apply hooks is a 1-line change in `cli/apply.py::_run_apply_hooks`. File a follow-up on `Agenticstiger/forge-cli` if you'd like this addressed.
 
 ### Example
 
@@ -342,7 +353,7 @@ CLI **0.10.0** gates **every code-executing entry-point group BEFORE load** with
 
 A blocked plugin's code never executes. Governed groups: `providers`, `validators`, `catalog_adapters`, `commands`, `apply_hooks`, `extension_schemas`, `extension_validators`, `modeling_techniques`, `source_adapters`, `iac_providers`. `fluid plugins` surfaces each plugin's allow/block status.
 
-An opt-in compat gate, **`FLUID_PLUGIN_STRICT_COMPAT=1`**, additionally refuses to load any plugin whose declared `requires_cli` (a PEP 440 specifier from the SDK's `PluginMetadata`) the running CLI version does not satisfy. Default (unset) is warn-only. See the [trust model](./trust-model.md#operator-governance-allowlist-and-blocklist) for the full operator story.
+An opt-in compat gate, **`FLUID_PLUGIN_STRICT_COMPAT=1`**, additionally refuses to load any plugin whose declared `requires_cli` (a PEP 440 specifier from the SDK's `PluginMetadata`) the running CLI version does not satisfy. Default (unset) is warn-only. See the [trust model](./trust-model.md#operator-governance-—-allowlist-and-blocklist) for the full operator story.
 
 ## Trust model
 
