@@ -333,6 +333,14 @@ def _iter_doc_files(root: Path) -> list[Path]:
         if _SKIP_DIR_PARTS & set(path.relative_to(root).parts):
             continue
         out.append(path)
+    # The repo-root README is a docs surface with the widest audience of all -
+    # it is what GitHub shows first - but it lives outside docs/, so the sweep
+    # never saw it. It sat seven releases stale (0.8.11 against a 0.15.0 pin)
+    # while every in-tree page was green.
+    if root == DOCS_DIR:
+        root_readme = REPO_ROOT / "README.md"
+        if root_readme.is_file():
+            out.append(root_readme)
     return out
 
 
@@ -831,7 +839,10 @@ _VERSION_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     ),
     (
         "CLI release bullet",
-        re.compile(r"(?i)^\s*[-*]\s*CLI\s+release\s*" + _V),
+        # Tolerates words between "CLI release" and the version - the repo-root
+        # README writes "Current CLI release documented here: `x.y.z`", which the
+        # tighter form missed, letting it sit seven releases stale.
+        re.compile(r"(?i)^\s*[-*]\s*(?:current\s+)?CLI\s+release\b[^.\n]{0,32}?" + _V),
         "cli",
     ),
     (

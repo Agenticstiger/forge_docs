@@ -10,6 +10,10 @@ on:
       # sdk-and-plugins as much as in the command reference. A narrower filter
       # means a PR can add a broken invocation and never run this job.
       - 'docs/**'
+      # The repo-root README is a docs surface too, and it is the one GitHub
+      # shows first. It is now swept for version claims, so a change to it must
+      # run this job.
+      - 'README.md'
       - 'scripts/check_cli_docs.py'
       - 'scripts/check_providers.py'
       - 'scripts/cli-docs-allowlist.yml'
