@@ -41,8 +41,29 @@ export default defineUserConfig({
 
   bundler: viteBundler(),
 
-  shouldPrefetch: false,
-  shouldPreload: false,
+  // Both of these default to TRUE in VuePress. They were set to false in the
+  // initial commit with no rationale, and the cost is paid on every single
+  // navigation: with prefetch off the built HTML carries zero
+  // `<link rel="prefetch">`, so clicking through to a page blocks on fetching
+  // that page's chunk. Measured on the built site: 0 prefetch links across 213
+  // pages, against 310 chunks.
+  //
+  // Turning prefetch fully back on is not right either. Of 19 MB of chunks,
+  // 12.4 MB is Monaco - the `ts` / `css` / `html` / `json` workers plus
+  // `editor.api` and `vs` - and that is reachable only from /playground/.
+  // Prefetching it for every visitor would trade one problem for a worse one.
+  //
+  // So: prefetch the route chunks (299 of the 310 are under 100 KB), and skip
+  // the editor. The remaining page chunks are what make navigation feel
+  // instant.
+  shouldPrefetch: (file, type) => {
+    if (type !== 'script') return false
+    return !/(?:ts|css|html|json)\.worker-|editor\.api-|(?:^|\/)vs-/.test(file)
+  },
+
+  // Preload only covers files the CURRENT page needs, so the default is simply
+  // correct - including on /playground/, where Monaco genuinely is needed.
+  shouldPreload: true,
 
   head: [
     // Favicon. This was `logo.png`, which is 69,734 bytes at 256x139 — a
