@@ -40,3 +40,7 @@ docs/.vuepress/public/demos/*.cast
 # Python bytecode from scripts/
 __pycache__/
 *.pyc
+
+# dbt build output and local telemetry id — never committed
+**/target/
+**/.user.yml

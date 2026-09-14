@@ -14,8 +14,8 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Configuration
-EXAMPLE_DIR="/home/dustlabs/fluid-mono/forge_docs/examples/bitcoin-tracker"
-CLI_DIR="/home/dustlabs/fluid-mono/forge-cli"
+EXAMPLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLI_DIR="${FORGE_CLI_DIR:-$EXAMPLE_DIR/../../../forge-cli}"
 FLUID_CMD="python3 -m fluid_build.cli"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"

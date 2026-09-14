@@ -58,7 +58,8 @@ except ImportError:
         return True
 
 # Configuration from environment variables
-GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "dust-labs-485011")
+GCP_PROJECT_ID = os.environ["GCP_PROJECT_ID"]  # required: fail at parse time rather than
+# targeting a placeholder project that does not exist
 BQ_DATASET = os.environ.get("BQ_DATASET", "crypto_data")
 BQ_TABLE = os.environ.get("BQ_TABLE", "bitcoin_prices")
 

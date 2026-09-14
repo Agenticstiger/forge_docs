@@ -201,7 +201,7 @@ http://localhost:8082/job/bitcoin-price-tracker-0.7.1/build
 
 # Via curl (with parameters)
 curl -X POST http://localhost:8082/job/bitcoin-price-tracker-0.7.1/buildWithParameters \
-  --user admin:$(cat /home/dustlabs/fluid-mono/secret-file) \
+  --user admin:$(cat /path/to/fluid-mono/secret-file) \
   --data "PROFILE=beta&RUN_DATA_INGESTION=true"
 ```
 

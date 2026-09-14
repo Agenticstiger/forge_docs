@@ -38,7 +38,7 @@ dag = DAG(
 # Provision dataset: bitcoin_prices_table
 provision_bitcoin_prices_table = BashOperator(
     task_id="provision_bitcoin_prices_table",
-    bash_command="bq mk --project_id=dust-labs-485011 --dataset crypto_data || true",
+    bash_command="bq mk --project_id=your-gcp-project-id --dataset crypto_data || true",
     dag=dag
 )
 
@@ -46,7 +46,7 @@ provision_bitcoin_prices_table = BashOperator(
 # Provision dataset: daily_price_summary
 provision_daily_price_summary = BashOperator(
     task_id="provision_daily_price_summary",
-    bash_command="bq mk --project_id=dust-labs-485011 --dataset crypto_data || true",
+    bash_command="bq mk --project_id=your-gcp-project-id --dataset crypto_data || true",
     dag=dag
 )
 
@@ -54,7 +54,7 @@ provision_daily_price_summary = BashOperator(
 # Provision dataset: price_trends
 provision_price_trends = BashOperator(
     task_id="provision_price_trends",
-    bash_command="bq mk --project_id=dust-labs-485011 --dataset crypto_data || true",
+    bash_command="bq mk --project_id=your-gcp-project-id --dataset crypto_data || true",
     dag=dag
 )
 

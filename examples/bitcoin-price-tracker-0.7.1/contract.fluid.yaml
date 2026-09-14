@@ -186,7 +186,7 @@ exposes:
       platform: gcp
       format: bigquery_table
       location:
-        project: dust-labs-485011
+        project: your-gcp-project-id
         dataset: crypto_data_labeled_1
         table: bitcoin_prices
         region: EU  # Multi-region required for Data Catalog policy tags
@@ -284,7 +284,7 @@ exposes:
           labels:
             policyTag: "financial_metrics"
             taxonomy: "financial_data"
-            datacatalog_project: "dust-labs-485011"
+            datacatalog_project: "your-gcp-project-id"
             datacatalog_location: "eu"
             currency: "USD"
             precision: "2"
@@ -302,7 +302,7 @@ exposes:
           labels:
             policyTag: "financial_metrics"
             taxonomy: "financial_data"
-            datacatalog_project: "dust-labs-485011"
+            datacatalog_project: "your-gcp-project-id"
             datacatalog_location: "eu"
             currency: "EUR"
             precision: "2"
@@ -320,7 +320,7 @@ exposes:
           labels:
             policyTag: "financial_metrics"
             taxonomy: "financial_data"
-            datacatalog_project: "dust-labs-485011"
+            datacatalog_project: "your-gcp-project-id"
             datacatalog_location: "eu"
             currency: "GBP"
             precision: "2"
@@ -338,7 +338,7 @@ exposes:
           labels:
             policyTag: "market_metrics"
             taxonomy: "financial_data"
-            datacatalog_project: "dust-labs-485011"
+            datacatalog_project: "your-gcp-project-id"
             datacatalog_location: "eu"
             metric_type: "market_cap"
             currency: "USD"
@@ -356,7 +356,7 @@ exposes:
           labels:
             policyTag: "market_metrics"
             taxonomy: "financial_data"
-            datacatalog_project: "dust-labs-485011"
+            datacatalog_project: "your-gcp-project-id"
             datacatalog_location: "eu"
             metric_type: "volume"
             currency: "USD"
