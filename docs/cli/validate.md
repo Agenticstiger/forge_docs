@@ -84,9 +84,29 @@ The emitters themselves are unchanged — the validator is the loud half. See th
 A Snowflake Iceberg catalog that authenticates with a secret — `polaris`, `unity`, `rest` / `iceberg_rest`, `nessie` — is *understood but not emitted*: its `CATALOG INTEGRATION` needs an OAuth secret or bearer token, and the emitted OpenTofu module is credential-free. `fluid validate` now surfaces that as a warning, and because `--strict` promotes warnings to errors, **CI pipelines running `fluid validate --strict` on such contracts start failing on `0.14.0`**. Either run those contracts without `--strict`, or create the catalog integration out of band and take the secret-authenticated catalog out of the contract binding.
 :::
 
+## GCP binding checks (since 0.15.0)
+
+The GCP IaC emitter is *emit-when-derivable*, so a `platform: gcp` expose it cannot resolve to a BigQuery / Cloud Storage / Pub-Sub target emits nothing and says nothing. Since `0.15.0`, `fluid validate` reports those exposes — resolved through the **emitter's own** dispatch, so the gate can neither block a contract that would have emitted nor wave through one that emits nothing.
+
+The error/warning split is deliberate, because `fluid validate` runs for contracts that never reach `fluid generate iac`:
+
+- **Error** — a `format` that *names* a GCP container while omitting the `binding.location` key that container needs. In practice, `format: gcs_file` with no `location.bucket`.
+- **Warning** — everything else that resolves to nothing, including the `other` escape hatch. [A resource-free module is itself a hard failure](./generate-iac.md#a-resource-free-module-is-an-error-since-0-15-0) at the stage that actually needs the resource, so the loud stop is already in the right place and this only has to explain it early.
+
+Formats with no `hashicorp/google` resource by design stay silent (`http_api`, `grpc_api`, `kafka_topic`, a store on another platform), and Iceberg exposes are left to the Iceberg gate above, which owns a more specific message for the same input.
+
+## Schema dialect (since 0.15.0)
+
+Since `0.15.0`, every schema is validated with the dialect it declares instead of with a pinned `Draft7Validator` — and Draft 7 ignores keywords it does not recognise rather than rejecting them, so any constraint expressed in a newer keyword was silently dropped.
+
+**`fluid validate` on a contract behaves identically today.** The bundled FLUID schemas declare 2020-12 but have so far used only `$defs`, which Draft 7 resolves as an ordinary JSON pointer; 52 example contracts validate identically either way. The observable effect of the fix is on [`fluid validate-artifacts`](./validate-artifacts.md#schema-dialect-since-0-15-0), where the vendored ODCS v3.1.0 schema declares 2019-09 and guards nine objects with `unevaluatedProperties: false`.
+
+One thing did change on this path, in the fail-safe direction: `schema_manager`'s `jsonschema` probe no longer names the unused `Draft7Validator` or the deprecated `RefResolver`. An `ImportError` in that probe sets `JSONSCHEMA_AVAILABLE = False`, which makes contract validation **skip** rather than error — so the day a `jsonschema` release drops `RefResolver`, the probe would have quietly disabled validation across the CLI.
+
 ## Notes
 
-- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.10.0`. Schema `0.7.5` is GA as of `0.10.0`.
+- A contract can legitimately use `fluidVersion: 0.7.2` even when the installed CLI release is `0.15.0`. Schema `0.7.5` is GA as of `0.10.0`.
+- *(since 0.15.0)* `fluid validate` shares its sovereignty checker with [`fluid plan --check-sovereignty`](./plan.md#sovereignty-gate-since-0-15-0), and `sovereignty.enforcementMode` now decides severity in both directions: a `strict` contract whose binding region resolves outside its declared `jurisdiction` newly **fails** with exit 1, and an `advisory` contract that failed now only warns. Full table, and the region-table derivation that changes verdicts on contracts nobody edited: [Governance → Sovereignty enforcement modes](../advanced/governance.md#sovereignty-enforcement-modes-since-0-15-0).
 - For most users, plain `fluid validate contract.fluid.yaml` is enough. Reach for explicit schema flags when you are debugging compatibility or working across versions.
 
 ## Extension point: custom validators

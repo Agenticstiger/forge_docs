@@ -175,13 +175,13 @@ Every `tools/call` runs through a fixed gauntlet. The order is deliberate: cheap
 
 1. **Identity binding.** The caller's `model_id`, `useCase`, and any extra `clientInfo` fields are read from the MCP `initialize` handshake and bound to the session on the first call. Missing identity is treated as `missing-model-identity` (fail-closed at the model gate).
 2. **Rate limit.** A sliding-window deque caps calls per window (default 60 calls / 60s). Over the cap returns a `RateLimitExceeded` envelope.
-3. **agentPolicy gate.** `OutputPortPolicy.check_tool_call` evaluates, first-deny-wins: tool denylist → tool allowlist → model denylist → use-case denylist → model allowlist → use-case allowlist. A deny returns an `AgentPolicyDenied` envelope.
+3. **agentPolicy gate.** `OutputPortPolicy.check_tool_call` evaluates first-deny-wins, in the precedence listed under [Decision precedence and reason codes](#decision-precedence-and-reason-codes-since-0-15-0). A deny returns an `AgentPolicyDenied` envelope.
 4. **Circuit breaker.** If recent driver failures tripped the breaker, the call fast-fails with a `CircuitOpen` envelope instead of queueing behind another doomed connection.
 5. **Token budget (pre-check).** `agentPolicy.maxTokensPerDay` is checked against a rolling 24-hour counter. Over budget returns `TokenBudgetExceeded`.
 6. **Backpressure.** An `asyncio.Semaphore` bounds concurrent dispatches (default 8) so a runaway agent can't saturate the engine connection pool.
 7. **Dispatch + post-checks.** The tool runs in an executor (driver SDKs are blocking). After it returns, `agentPolicy.maxTokensPerRequest` is checked against the actual response size, the daily counter is topped up, and the circuit breaker records success/failure.
 
-**Every decision — allow and deny — is written to the audit trail**, tagged with the `policySource` that produced it (`rate-limit`, `circuit-breaker`, `token-budget`, `contract`, `cli`, …).
+**Every decision — allow and deny — is written to the audit trail**, tagged with the `policySource` that produced it (`rate-limit`, `circuit-breaker`, `token-budget`, `contract`, `cli`, …) and, *(since 0.15.0)*, with the `callerJurisdiction` the decision was made under.
 
 ::: tip Self-attested vs. cryptographic identity
 Over **stdio**, the caller's `model_id` / `useCase` come from `clientInfo` — self-attested, and a buggy or malicious client can lie. The gateway prints a loud startup warning whenever a model/use-case gate is active so operators don't mistake it for cryptographic identity. Over **HTTP**, configure JWT or mTLS (below) so identity is cryptographically bound; JWT claims and the mTLS cert subject then *override* self-attestation for downstream `rowFilter` resolution.
@@ -209,6 +209,65 @@ CLI overrides (`--allow-models`, `--deny-models`, `--allow-use-cases`, `--deny-u
 `fluid validate` warns when an expose opts into the gateway (carries an `mcp` block) but declares neither `allowedModels` nor `deniedModels` — without one, the runtime gate is open and the contract's intent to govern downstream LLM access is silently lost.
 :::
 
+### Decision precedence and reason codes (since 0.15.0)
+
+Since `0.15.0` every `agentPolicy` decision comes from one function (`fluid_build/policy/decision.py::decide`) over a closed reason vocabulary of eleven codes, and precedence is **data** rather than an accident of statement order. `CHECK_ORDER`, in full:
+
+1. `tool-not-allowed` — denied outright, or absent from a declared tool allowlist.
+2. `missing-caller-jurisdiction`
+3. `in-denied-jurisdiction`
+4. `not-in-allowed-jurisdictions`
+5. `missing-model-identity`
+6. `in-deniedModels`
+7. `in-deniedUseCases`
+8. `not-in-allowedModels`
+9. `missing-use-case-with-allowlist`
+10. `not-in-allowedUseCases`
+
+plus `allowed` when nothing fires. Two principles set that order: bounded surfaces are checked first, and an **explicit denial beats absence from an allowlist**. Jurisdiction sits above the identity gates on a third — a legal constraint outranks a usage constraint as the *reported* reason, because "your model is not on the allowlist" describes the least important thing wrong with a request from a caller who may not receive the data at all.
+
+The wire values are the existing kebab-case strings, so a caller comparing against `"tool-not-allowed"` keeps working. What is new is that an unenumerated reason now raises instead of quietly becoming a reason nobody defined.
+
+::: warning Behavior change in 0.15.0
+**No verdict changes, but a reported reason does.** `check_tool_call` documented its precedence as tool denylist → tool allowlist → model denylist → use-case denylist → model allowlist → use-case allowlist, then evaluated the whole model stage before the use-case stage. So a caller whose model was merely *absent from* `allowedModels` and whose use case was *explicitly denied* reported `not-in-allowedModels`; it now reports `in-deniedUseCases`, as the documented precedence always promised. Exercised across 1,728 policy and request combinations, every allow and every deny is identical to `0.14.1` and 48 reported reason codes differ — all of them that one swap. **Operators routing alerts, dashboards or audit queries on those two strings should re-check their rules**, since the reason is what you route on and what an auditor reads.
+:::
+
+A decision record (`Decision.to_record()`) carries `allow`, `reasonCode`, the request identity, and *(since 0.15.0)* three new fields:
+
+| Field | Meaning |
+| --- | --- |
+| `policyDigest` | `"<scheme>:<sha256>"` over the RFC 8785 (JCS) canonical form of the **effective** rule lists, sorted and de-duplicated so authoring order cannot change it. `None` and `()` digest differently, because "no allowlist" and "allow nothing" are different policies. The scheme is part of the value so the algorithm can be migrated without invalidating stored records. |
+| `callerJurisdiction` | The caller's jurisdiction as the gate saw it, or `null`. |
+| `callerJurisdictionSource` | Structured provenance — `"jwt:<claim>"` — rather than a bare `verified: true` boolean. |
+
+35 portable conformance vectors ship inside the wheel at `policy/data/vectors/agent-policy-vectors.json`, so a consumer can check their own gate without cloning the repo. The digest is reachable from `OutputPortPolicy.policy_digest()` and `Decision.to_record()`, and since 0.15.0 every `data_access` audit record carries it as `policyDigest`, alongside `policySource` and `callerJurisdiction`.
+
+### Caller-jurisdiction enforcement (since 0.15.0)
+
+Before `0.15.0`, `sovereignty` bound provisioning and nothing else: a contract declaring `jurisdiction: EU` refused to provision into `us-east-1`, then answered a tool call from a caller sitting there. Since `0.15.0` the gateway derives a **query-time** caller-jurisdiction rule from the contract's own `sovereignty` block.
+
+**Enforced, not advisory, and on by default.** There is no flag to switch it on and none to switch it off — the escape hatches are all in the contract:
+
+| Contract state | Gate |
+| --- | --- |
+| `jurisdiction` pinned, `crossBorderTransfer` unset or `false` (the schema's own default) | **Enforced.** Every `tools/call` needs a verified caller jurisdiction that matches. |
+| `crossBorderTransfer: true` | Not enforced — the contract permits the transfer this gate exists to prevent. |
+| `jurisdiction: Global` or `Multi-Region` | Not enforced — the contract is explicitly not pinned to one jurisdiction. |
+| No `jurisdiction` at all | Not enforced. Every contract that has never pinned one is entirely unaffected, policy digest included. |
+
+**Verified claims only, and fail-closed.** The claim is admissible only from `request.scope["fluid_auth_attrs"]`, which the HTTP `_AuthMiddleware` writes *after* validating a JWT or mTLS identity — never from the caller's self-attested `clientInfo`. A client typing `jurisdiction: "EU"` into its own handshake satisfies nothing and collapses to the same `missing-caller-jurisdiction` denial as no claim at all. There is no no-auth fallback, on purpose. Matching is **exact and case-sensitive**: a verified `"eu"` against a contract pinning `"EU"` is refused.
+
+::: warning Startup refusal, new in `0.15.0`
+A jurisdiction-pinned contract **refuses to serve and exits 2** on the two deployments that could never satisfy the rule, rather than denying every call one at a time:
+
+- `--transport stdio` — the **default**, and a pipe carries no headers, so the middleware never runs.
+- `--transport http` with `FLUID_MCP_AUTH_MODE` unset, `none`, `off` or `disabled` — the middleware short-circuits before stamping anything.
+
+Both messages name the contract's jurisdiction and give the command that fixes it: serve over HTTP with `FLUID_MCP_AUTH_MODE=jwt` (plus `FLUID_MCP_JWT_ISSUER` / `_AUDIENCE` / `_JWKS_URL`), or set `sovereignty.crossBorderTransfer: true` if the data may leave. The most common desktop-client setup — stdio — is therefore the one configuration such a contract cannot serve.
+:::
+
+`jurisdiction` is also one of the [default JWT claim mappings](#authentication-modes), and it is the one default whose absence **closes** the gate rather than widening it: an operator whose IdP calls the claim something else locks themselves out of a jurisdiction-pinned contract until they map it.
+
 ### Authentication modes
 
 Identity is resolved once at gateway start from `FLUID_MCP_AUTH_MODE`. There are three modes plus an explicit opt-out:
@@ -217,12 +276,32 @@ Identity is resolved once at gateway start from `FLUID_MCP_AUTH_MODE`. There are
 | --- | --- | --- |
 | `shared-token` *(default)* | Symmetric bearer token compared with `hmac.compare_digest` (constant-time). One secret, every client uses the same value. | `FLUID_MCP_AUTH_TOKEN` |
 | `jwt` | RFC 7519 bearer. Validates the signature against an issuer's **JWKS** endpoint (`RS256` / `ES256` / `EdDSA`), checks `iss` / `aud` / `exp` / `nbf`, and maps configured claims into `caller_attributes`. Works with Auth0, Okta, Keycloak, AWS Cognito, Google IAP, Azure AD. JWKS keys are cached in-process with a TTL. | `FLUID_MCP_JWT_ISSUER`, `FLUID_MCP_JWT_AUDIENCE`, `FLUID_MCP_JWT_JWKS_URL`, optional `FLUID_MCP_JWT_ALGORITHMS`, `FLUID_MCP_JWT_CLAIM_MAPPING` |
-| `none` | Operator explicitly opts out. Every request is allowed; the audit trail records `identity_kind=none` so un-authed traffic is greppable. | — |
-| *(unconfigured)* | If `shared-token` has no token, or JWT is missing issuer/audience/JWKS, the gateway runs **unauthenticated** and emits a loud startup warning. | — |
+| `none` | Operator explicitly opts out. Every request is allowed; the audit trail records `identity_kind=none` so un-authed traffic is greppable. *(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` refuses to start in this mode — see below. | — |
+| *(unconfigured)* | If `shared-token` has no token, or JWT is missing issuer/audience/JWKS, the gateway runs **unauthenticated** and emits a loud startup warning. *(since 0.15.0)* Same exception: a jurisdiction-pinned contract refuses to start instead. | — |
+
+::: warning Startup refusal for a jurisdiction-pinned contract, new in `0.15.0`
+The two rows above no longer hold for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`. Because the caller-jurisdiction gate admits only claims the auth middleware verified, an unauthenticated gateway would deny **every** call — so `fluid mcp output-port serve` writes a refusal to stderr and **returns exit code 2** before binding, for `--transport stdio` (any auth mode: a pipe carries no headers) and for `--transport http` with `FLUID_MCP_AUTH_MODE` unset, `none`, `off` or `disabled`. See [Caller-jurisdiction enforcement](#caller-jurisdiction-enforcement-since-0-15-0).
+:::
 
 **mTLS** is handled by the reverse proxy in front of the gateway, not inside it. The proxy terminates the client cert and forwards `X-Client-CN` + `X-Client-Fingerprint`; the gateway reads those headers (`extract_mtls_identity`) and stamps the cert identity onto the audit event **alongside** the JWT claims, so a call carries both "which token" and "which cert."
 
 `FLUID_MCP_JWT_CLAIM_MAPPING` is a comma-separated `claim=attr` list, e.g. `sub=principal,https://fluid/model=model,https://fluid/tenant=tenant_id`. Mapped claims land in `caller_attributes`, which is exactly what `rowFilters` `${caller.<attr>}` placeholders resolve against — so on the JWT path, per-tenant filters resolve **cryptographically** rather than from self-attested `clientInfo`.
+
+*(since 0.15.0)* The value **merges over** the default mappings instead of replacing them. Those defaults are:
+
+| Claim | `caller_attributes` key | Why it is load-bearing |
+| --- | --- | --- |
+| `sub` | `sub` | Interpolated by `${caller.sub}` row filters. |
+| `model` | `model` | Input to the `agentPolicy` model gate. |
+| `use_case` | `use_case` | Input to the `agentPolicy` use-case gate. |
+| `tenant_id` | `tenant_id` | Interpolated by `${caller.tenant_id}` row filters. |
+| `jurisdiction` | `jurisdiction` | *(since 0.15.0)* The verified claim the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0) reads. |
+
+::: warning Behavior change in 0.15.0
+On `0.14.1` and earlier the parsed value was assigned **wholesale**, so mapping one extra claim silently dropped all four defaults — turning off the `agentPolicy` model and use-case gates and emptying every `${caller.*}` row filter, with no error and a server still reporting healthy. Mapping a default away explicitly still works; what no longer happens is losing one by accident while adding something unrelated.
+
+Note the asymmetry for the newest default: losing `sub` / `model` / `use_case` / `tenant_id` **widens** access, while losing `jurisdiction` **closes** the gate completely — an operator who remaps their IdP's jurisdiction claim to some other attribute name locks themselves out of a jurisdiction-pinned contract rather than letting strangers in. That is the correct direction for a sovereignty control, and this mapping is where to look when it happens.
+:::
 
 ::: warning
 There is no `--auth-token` CLI flag. Auth is configured entirely through `FLUID_MCP_*` environment variables, so the same contract can be served at different trust levels without editing it.
@@ -346,7 +425,7 @@ This is **defence-in-depth** — every layer stops a different failure:
 | `FLUID_MCP_AUTH_TOKEN` | Shared bearer token (shared-token mode + HTTP 401 gate). |
 | `FLUID_MCP_JWT_ISSUER` / `_AUDIENCE` / `_JWKS_URL` | JWT issuer, audience, and JWKS endpoint. |
 | `FLUID_MCP_JWT_ALGORITHMS` | Override the accepted algorithms (default `RS256,ES256,EdDSA`). |
-| `FLUID_MCP_JWT_CLAIM_MAPPING` | `claim=attr` comma list mapping JWT claims into `caller_attributes`. |
+| `FLUID_MCP_JWT_CLAIM_MAPPING` | `claim=attr` comma list mapping JWT claims into `caller_attributes`. *(since 0.15.0)* Merges over the [default mappings](#authentication-modes) (`sub`, `model`, `use_case`, `tenant_id`, `jurisdiction`) rather than replacing them. |
 | `FLUID_MCP_RATE_LIMIT` / `FLUID_MCP_RATE_WINDOW_SECONDS` | Sliding-window rate limit (default 60 / 60s; `0` disables). |
 | `FLUID_MCP_MAX_CONCURRENCY` | Concurrent-dispatch cap (default 8; `0` disables). |
 | `FLUID_MCP_CIRCUIT_THRESHOLD` / `_WINDOW_SECONDS` / `_COOLDOWN_SECONDS` | Circuit breaker (defaults 5 / 60 / 30). |

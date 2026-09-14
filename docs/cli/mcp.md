@@ -67,7 +67,35 @@ Inline catalog credentials are blocked by default. Configure source credentials 
 
 ### Server internals
 
-`fluid mcp serve` is built on the official MCP Python SDK (`FastMCP`) and speaks MCP protocol version `2025-06-18`. It advertises **16 typed tools** — including `forge_run`, which can drive a full forge from inside the client. Each tool carries an MCP `inputSchema`, so clients can offer typed autocomplete and validate arguments before dispatch. See the [Advanced MCP server guide](../advanced/mcp.md) for the complete authoring-tool catalog and the LLM sampling backchannel.
+`fluid mcp serve` is built on the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) and speaks MCP protocol version `2025-06-18`. It advertises **16 typed tools** — including `forge_run`, which can drive a full forge from inside the client. Each tool carries an MCP `inputSchema`, so clients can offer typed autocomplete and validate arguments before dispatch. See the [Advanced MCP server guide](../advanced/mcp.md) for the complete authoring-tool catalog and the LLM sampling backchannel.
+
+### Tool errors
+
+`forge_run` is the only tool on this server that raises. *(since 0.15.0)* An anticipated failure — an IDE that does not advertise the `sampling` capability, say — reaches the client as the SDK's own `ToolError`, carrying the message that names the capability and its two ways out: `mode='blank'`, or shelling out to `fluid forge --agent --blank`.
+
+On **MCP SDK 2.x** those six failures previously arrived as the generic string `Error executing tool forge_run`, because 2.x treats any exception that is not a `ToolError` as a crash and substitutes its own text. It failed in the quiet direction: the call still returned `isError: true`, so nothing looked broken, and the only thing lost was the part that helped. SDK 1.x was never affected, and its behaviour is unchanged.
+
+---
+
+## Supported MCP SDK versions
+
+Both servers on this page run on the official `mcp` Python SDK, and both support **two generations of it**.
+
+| | |
+| --- | --- |
+| **Dependency pin** | `mcp>=1.20,<3.0` *(since 0.15.0; it was `mcp>=1.20,<2.0` through `0.14.1`)* |
+| **Supported** | `1.x` from 1.20, and `2.x`. Verified against 1.29.0 and 2.0.0; a nightly canary installs the latest `2.x` and asserts which major it resolved. |
+| **What a fresh install resolves** | **2.x.** `mcp` is a core dependency rather than an extra, so `pip install data-product-forge` picks it up. |
+| **Existing environments** | Do not move until you upgrade them. Pinning `mcp>=1.20,<2.0` yourself remains supported. |
+| **3.x** | Not supported. A warn-only CI leg tracks the latest release as an early warning. |
+
+All branching on SDK generation is confined to one compatibility seam, `fluid_build/_mcp_compat.py`. SDK 2.0 renamed a dozen model fields from camelCase to snake_case **on attribute access**, a rename that fails silently — the old spelling returns the attribute default instead of raising, so an error would read as success and a tool schema as empty — and `tests/test_mcp_sdk_rename_guard.py` fails the build if any module reads one by its old name, or calls `model_dump()` on an SDK model without `by_alias=True`.
+
+::: warning Client-side behaviour difference on SDK 2.x
+On 1.x a client could self-attest identity — `model`, `useCase`, tenant attributes — as **extra fields on `clientInfo`**, because v1's `Implementation` model is `extra="allow"`. **2.x drops unknown fields at wire-parse**, so a third-party client hard-coded to that shape stops being attested, with no error raised.
+
+Declare those fields in the client's **capabilities**, under `experimental.fluid`, which both generations parse. This only ever reaches the self-attested path: self-attested identity does not bind when authentication is enforced, so a gateway using JWT or mTLS is unaffected — see [authentication modes](../advanced/mcp.md#authentication-modes).
+:::
 
 ---
 
@@ -127,7 +155,7 @@ fluid mcp output-port serve ./contract.fluid.yaml \
 | `--allow-sql` | OFF | Enable the free-form `query_sql` tool. Even when on, every statement passes through the SQL-safety allowlist. Use only with trusted internal copilots. |
 | `--max-sample-rows N` | `100` | Hard cap on rows returned by `sample`. Asking for more silently returns the cap. |
 | `--query-timeout-seconds SEC` | `60` | Statement timeout passed to the engine driver where supported (Snowflake, BigQuery). |
-| `--transport {stdio,http}` | `stdio` | MCP transport. `stdio` for desktop tool integrations; `http` for MCP-SSE on `--host:--port`. |
+| `--transport {stdio,http}` | `stdio` | MCP transport. `stdio` for desktop tool integrations; `http` for MCP-SSE on `--host:--port`. *(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true` **refuses to serve over `stdio`** and exits 2 — a pipe carries no headers, so no credential can supply the verified caller jurisdiction the gate needs. Serve it over HTTP with auth: [caller-jurisdiction enforcement](../advanced/mcp.md#caller-jurisdiction-enforcement-since-0-15-0). |
 | `--host HOST` | `127.0.0.1` | Bind host for `--transport http`. |
 | `--port PORT` | `8765` | Bind port for `--transport http`. |
 | `--allow-models MODEL[,MODEL...]` | contract | Override `agentPolicy.allowedModels`. The caller's `model_id` (declared at MCP `initialize`) must be in this list. When unset, the contract value is used. |
@@ -136,7 +164,7 @@ fluid mcp output-port serve ./contract.fluid.yaml \
 | `--deny-use-cases USE_CASE[,...]` | contract | Override `agentPolicy.deniedUseCases`. Evaluated before the allowlist so denial wins. |
 
 ::: warning HTTP transport has no built-in auth flag
-There is **no `--auth-token` flag.** When `--transport http` is used, authentication is configured through environment variables (`FLUID_MCP_AUTH_TOKEN` for a shared bearer token, or `FLUID_MCP_AUTH_MODE=jwt` for JWT). With no auth configured the gateway binds `--host:--port` **unauthenticated** and warns loudly at startup. Always front the HTTP transport with an mTLS / OAuth reverse proxy for production — see the [Caddy / nginx templates](../advanced/mcp.md#http-and-sse-transport-and-the-reverse-proxy-templates) and the full auth-mode reference in the deep dive.
+There is **no `--auth-token` flag.** When `--transport http` is used, authentication is configured through environment variables (`FLUID_MCP_AUTH_TOKEN` for a shared bearer token, or `FLUID_MCP_AUTH_MODE=jwt` for JWT). With no auth configured the gateway binds `--host:--port` **unauthenticated** and warns loudly at startup — except *(since 0.15.0)* for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`, where it instead writes a refusal to stderr and exits 2, because the auth middleware never runs and so every call would be denied. Always front the HTTP transport with an mTLS / OAuth reverse proxy for production — see the [Caddy / nginx templates](../advanced/mcp.md#http-and-sse-transport-and-the-reverse-proxy-templates) and the full auth-mode reference in the deep dive.
 :::
 
 ### The four agent tools

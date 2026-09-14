@@ -219,6 +219,14 @@ raise CredentialNotFoundError(
 
 The next-action is in the message — not buried in the docs.
 
+::: warning `SNOWFLAKE_ACCOUNT` on the IaC path *(since 0.15.0)*
+`SNOWFLAKE_ACCOUNT` above is the **source-connection** credential and is still exactly right there. On the [`fluid apply`](../cli/apply.md) / OpenTofu path it is not: from Snowflake's OpenTofu provider 2.x the bare `account` field is gated behind the `PROVIDER_CONFIGURATION_ACCOUNT_FALLBACK` experiment, and the provider **errors the moment it sees the legacy variable** — whether or not the v2 `SNOWFLAKE_ORGANIZATION_NAME` + `SNOWFLAKE_ACCOUNT_NAME` pair is also present. Measured on provider 2.19.0 / OpenTofu 1.12.0: legacy only → rejected; legacy plus both v2 vars → rejected; v2 vars with the legacy variable blanked → `tofu plan` succeeds.
+
+Since `0.15.0` the IaC credential overlay derives the v2 pair from the `<org>-<account>` form and **blanks** `SNOWFLAKE_ACCOUNT` in the environment handed to `tofu` once a complete v2 identity is available — blanked rather than removed, because callers apply the overlay with `env.update()`, which cannot delete, and an empty value reads as unset to the provider. **No contract or configuration change is needed:** an operator who keeps setting `SNOWFLAKE_ACCOUNT` in the standard `<org>-<account>` form goes from failing to working.
+
+The one shape that still cannot plan is a bare account locator with no organisation (`xy12345`), which deliberately keeps its legacy value so the provider's actionable "enable the experiment" error survives instead of degrading to a vaguer "account is empty". That operator sets the two v2 variables directly, or opts into the experiment.
+:::
+
 ## See also
 
 - [Catalogs index](../cli/catalogs/README.md) — per-catalog auth options

@@ -173,6 +173,8 @@ See [`fluid generate iac`](../cli/generate-iac.md).
 |---|---|
 | `FLUID_TOFU_TIMEOUT_SECONDS` | Per-`tofu` subprocess timeout. Default `1800`. |
 | `FLUID_OPENTOFU_VERSION` | *(since 0.8.8)* Pin the OpenTofu version that [`fluid apply --ensure-opentofu`](../cli/apply.md) provisions when `tofu` is missing. Defaults to a recent stable build at/above the engine's version floor. |
+| `SNOWFLAKE_ORGANIZATION_NAME` / `SNOWFLAKE_ACCOUNT_NAME` | *(since 0.15.0; not `FLUID_*` — the Snowflake OpenTofu provider's own v2 variables)* The account identity the generated module's `snowflakedb/snowflake ~> 2.0` provider expects. fluid derives them from a `SNOWFLAKE_ACCOUNT` in `<org>-<account>` form when they are not set. |
+| `SNOWFLAKE_ACCOUNT` | The legacy single-value account variable. *(since 0.15.0)* **Blanked** in the environment handed to `tofu` once a complete v2 identity resolves — provider 2.x errors merely on seeing it, even alongside the v2 pair. Unchanged as a source credential; see [Credential resolver](./credential-resolver.md). |
 
 ## Marketplace
 
@@ -203,6 +205,12 @@ See [`fluid generate iac`](../cli/generate-iac.md).
 | `FLUID_PIP_INDEX_URL` / `FLUID_PIP_EXTRA_INDEX_URL` | Custom PyPI indexes. |
 | `FLUID_MAJORS` | Pin the major-version line during bootstraps. |
 | `FLUID_MAX_FILE_SIZE_MB` | Reject contract / artifact files larger than this. |
+
+::: warning Python 3.10 and the litellm cap *(since 0.15.0)*
+litellm 1.98.0 added a module that imports `NotRequired` straight from `typing`, which landed there only in 3.11 (PEP 655), so **merely importing litellm raised `ImportError` on 3.10** — while litellm's own metadata still declared `requires_python ">=3.10,<3.15"`. litellm is a core dependency rather than an extra, so a `pip install` on 3.10 produced a package that could not import.
+
+`pyproject.toml` now splits the pin on an environment marker: `litellm>=1.83.7,<2` on 3.11 and newer, `litellm>=1.83.7,<1.98` below it. The `>=1.83.7` floor is unchanged on both branches, so the CVSS 9.3 SQL-injection fix it exists for stays in force. The second line goes away once upstream guards that import with `typing_extensions`.
+:::
 
 ## See also
 

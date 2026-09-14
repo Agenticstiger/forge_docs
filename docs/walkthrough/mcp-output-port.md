@@ -142,6 +142,18 @@ fluid mcp output-port serve examples/mcp-output-port/contract.fluid.yaml
 
 `--expose-id` is omitted because there is exactly one expose; the server logs `auto-selected expose 'customer_segments'` to stderr and then blocks, waiting for an MCP client to drive it over stdin/stdout.
 
+::: warning stdio is refused for a jurisdiction-pinned contract *(new in `0.15.0`)*
+The contract used here declares no `sovereignty` block, so this step is unaffected.
+But if a contract pins `sovereignty.jurisdiction` without
+`crossBorderTransfer: true`, every tool call needs a cryptographically verified
+caller jurisdiction — and stdio carries no headers, so no credential can supply one.
+Rather than deny every call one at a time, `fluid mcp output-port serve` now writes a
+refusal to stderr and **exits 2** before binding, naming the jurisdiction and the
+command that fixes it. `--transport http` with `FLUID_MCP_AUTH_MODE` unset is refused
+the same way, because the auth middleware never runs. See
+[auth modes](../advanced/mcp.md#authentication-modes).
+:::
+
 In another terminal, drive it with the official **MCP Inspector CLI** — no editor needed. First, list the tools:
 
 ```bash
@@ -214,7 +226,7 @@ Now gate **which model** may read the product. Add an `agentPolicy` block to the
           - gpt-4o-mini
 ```
 
-Only those two models may now call any tool. The caller declares its model id in the MCP `initialize` handshake (`clientInfo`). To simulate a **disallowed** model from the CLI without editing the contract again, use the operational override — `--allow-models` *replaces* the contract list for this run, so serve with a list that excludes whatever your client reports:
+Only those two models may now call any tool. The caller declares its model id in the MCP `initialize` handshake — on `clientInfo`, or under its declared `experimental.fluid` capability, which is the only one of the two that survives MCP SDK 2.x (see below). To simulate a **disallowed** model from the CLI without editing the contract again, use the operational override — `--allow-models` *replaces* the contract list for this run, so serve with a list that excludes whatever your client reports:
 
 ```bash
 # Pin the allowlist to a single approved model for this run.
@@ -235,8 +247,45 @@ A client that initializes as any other model (or declares none) is refused on **
 
 The deny — like every allow — is written to `~/.fluid/store/audit/` with the tool, the model id, the reason, and `policySource: "cli"` (or `"contract"` when the gate came from the YAML). A missing model id fails closed (`missing-model-identity`): the gateway never serves data under undefined identity.
 
+::: tip New in `0.15.0`
+Every `data_access` record — allow and deny alike — now also carries `policyDigest`, a
+`jcs-sha256:<hex>` hash of the rule lists that actually produced the decision.
+`policySource` only says *where* the rules came from, so it cannot tell the contract
+before an `allowedModels` edit from the contract after it, and a denial stopped being
+reconstructable once the contract moved on. The digest is RFC 8785-canonical, so the
+same rules hash identically however the YAML was written. One added key, nothing
+renamed or removed — only a reader validating against a closed key set notices.
+:::
+
 ::: tip Self-attested over stdio
 Over stdio the model id comes from `clientInfo` and a client could lie. That's fine for a trusted desktop tool; for an untrusted network you bind identity cryptographically with JWT or mTLS — see [auth modes](../advanced/mcp.md#authentication-modes).
+:::
+
+::: warning Self-attestation moved channel on MCP SDK 2.x *(since `0.15.0`)*
+`0.15.0` widens the `mcp` pin from `<2.0` to `<3.0`, so the `pip install` in Step 1
+resolves the 2.x generation in a fresh environment. On 1.x a client could hang
+`model`, `useCase` and tenant attributes off `clientInfo` as extra fields, because
+v1's `Implementation` model allowed unknown ones; 2.x drops them at wire-parse, so
+they never reach the gateway. A client relying on that shape is no longer attested and
+gets no error about it — the call fails closed as `missing-model-identity` rather than
+the `not-in-allowedModels` shown above.
+
+Clients built through fluid's own helper are unaffected, and the Inspector CLI used
+here never attested a model in the first place, so Step 6 reads the same. If you
+hand-rolled a client that puts identity on `clientInfo`, move it to the client's
+declared capabilities under `experimental.fluid`, which both SDK generations parse:
+
+```jsonc
+"capabilities": {
+  "experimental": {
+    "fluid": { "model": "claude-haiku-4-5-20251001", "useCase": "analytics" }
+  }
+}
+```
+
+An existing environment does not move until it is upgraded, and pinning
+`mcp>=1.20,<2.0` still works. None of this applies once authentication is enforced:
+verified JWT or mTLS claims replace self-attestation outright.
 :::
 
 ---

@@ -146,7 +146,7 @@ fluid market --search "customer analytics"
 
 ## Versioning in the docs
 
-- Current CLI release baseline: `0.10.0`
+- Current CLI release baseline: `0.15.0`
 - Current scaffolded contract examples: `fluidVersion: 0.7.5`
 
 That split is intentional. The CLI release and the contract schema version move on related but different timelines.

@@ -1,7 +1,7 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.10.0`<br>
+**Docs Baseline:** CLI `0.15.0`<br>
 **Services:** BigQuery, Cloud Storage, IAM, Cloud Run, Pub/Sub
 
 > **Why it matters**
@@ -248,6 +248,63 @@ can be attached per expose with `binding.labels`.
 > Note: cost-control knobs such as `enable_bi_engine`, `max_bytes_billed`, and
 > VPC networking have no current contract-schema equivalent — manage them
 > outside the contract.
+
+### How a GCP expose resolves to a target (since 0.15.0)
+
+`binding.format` refines the target; it is no longer the whole answer. Since
+`0.15.0` one resolver decides what a GCP expose is provisioned as, and
+`fluid generate iac`, `fluid apply`, `fluid validate` and `fluid verify` all route
+through it — so the stages cannot disagree about what an expose *is*:
+
+| Step | What is read | Outcome |
+|------|--------------|---------|
+| 1 | An explicit GCP `binding.format` | `bigquery_table` / `bigquery_view` → BigQuery, `gcs_bucket` → Cloud Storage, `pubsub_topic` → Pub/Sub, an Iceberg format with a derivable bucket → the Iceberg warehouse bucket |
+| 2 | Otherwise, the shape of `binding.location` on a GCP-platform binding | a `dataset` key → BigQuery, `bucket` → Cloud Storage, `topic` → Pub/Sub |
+| 3 | Neither matched | the expose resolves to no GCP resource, and `fluid validate` reports it |
+
+Step 2 is what stops a `platform: gcp` expose whose `format` is absent, or is the
+schema-valid `gcs_file`, from emitting nothing. The platform token goes through the
+same alias table the provider detector uses, so `google`, `gcs` and `bigquery` are
+read as GCP for both questions — "which plugin runs?" and "which exposures are
+mine?".
+
+Formats that name no `hashicorp/google` resource by design stay silent rather than
+being reported as a no-op: `http_api`, `grpc_api`, `kafka_topic`, and stores on
+another platform (`snowflake_table`, `s3_file`, `athena_table`, `redshift_table`,
+`postgres_table` and friends). Iceberg exposes are left to the
+[Iceberg prerequisite checks](/forge_docs/cli/validate.html#iceberg-prerequisite-checks-since-0-14-0),
+which name the specific missing input instead of reporting the same cause twice.
+
+::: warning Before `0.15.0`
+The emitter dispatched on `binding.format` alone, against five spellings — two of
+which (`bigquery_view`, `gcs_bucket`) appear in no shipped `fluid-schema-*.json`,
+while the one schema-valid Cloud Storage spelling, `gcs_file`, matched none of
+them. So a fully schema-valid expose — `platform: gcp`, `format: gcs_file`,
+`location.bucket: acme-raw` — validated clean and then emitted **nothing**, a
+silent no-op on a correctly auto-detected provider. As of `0.15.0` that expose
+emits its bucket, and a GCP expose that still resolves to nothing is reported at
+validate time: an **error** when a format names a container while
+`binding.location` omits the key that container needs (in practice `gcs_file` with
+no `location.bucket`), a **warning** otherwise. A resource-free module is also a
+hard `generate_iac_empty_module` failure in `0.15.0`, so a contract that used to
+generate an empty module and exit 0 now stops the stage that needs the resource.
+:::
+
+`fluid verify` asks the same resolver *(since 0.15.0)*. Stage 9 used to dispatch on
+the single literal `format: bigquery_table`, so a BigQuery-provisioned expose whose
+format read `csv` fell through to the local-file branch and returned
+`status: error` with "no location.path declared" — diagnosing a missing file for a
+table that exists, which fails the run with or without `--strict`. A BigQuery table
+or view now goes to the BigQuery verifier and is addressed by the name the emitter
+actually used (an expose with no `location.table` is named for its `exposeId`); a
+GCS bucket, Pub/Sub topic or Iceberg warehouse reports `unsupported`, which means
+"not checked" rather than "check failed". Non-GCP bindings, local files, Snowflake
+and the legacy `format` + `properties` dialect take the old format chain unchanged.
+
+Brownfield note: `discover_imports` filtered on a literal `platform: gcp` and
+lacked the emitter's `exposeId` table-name fallback, so a table the emitter
+declared had no import block and a brownfield apply tried to create one that
+already exists. Both are fixed in `0.15.0`.
 
 ---
 
@@ -638,7 +695,10 @@ WHERE event_time >= '2026-01-20'
 
 Expose a GCS dataset as a `file` binding. Bucket-specific options such as
 storage class and lifecycle rules are provider-specific keys under
-`binding.properties`:
+`binding.properties`. `format: gcs_file` with a `location.bucket` resolves to a
+Cloud Storage bucket *(since 0.15.0)* — before that release this exact shape
+emitted no resource at all, see
+[How a GCP expose resolves to a target](#how-a-gcp-expose-resolves-to-a-target-since-0-15-0):
 
 ```yaml
 exposes:
