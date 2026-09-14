@@ -70,6 +70,52 @@ body {
 }
 
 // ---------------------------------------------------------------------
+// Skip-to-content link (WCAG 2.1 SC 2.4.1, Bypass Blocks, Level A).
+// Rendered by layouts/Layout.vue as the first focusable element in the
+// document; it targets the id that layout puts on the <main> landmark.
+//
+// Hidden by translation, never `display: none` or `visibility: hidden`
+// — either of those would drop it out of the tab order and it would
+// never be reachable to begin with.
+//
+// z-index clears the navbar (20) and the sidebar, both of which are
+// fixed and would otherwise paint over it.
+// ---------------------------------------------------------------------
+.ff-skip-link {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 100;
+  transform: translate(-50%, -110%);
+
+  padding: 0.7rem 1.35rem;
+  border-radius: 0 0 10px 10px;
+  background: var(--vp-c-accent);
+  color: var(--vp-c-accent-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;   // wrapped to two lines at narrow widths
+  text-decoration: none;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, .55);
+  transition: transform .15s ease;
+
+  // Styled on :focus, not :focus-visible. The pill is off-screen unless
+  // it is focused, so there is no case where showing the ring would be
+  // unwanted, and it stops the indicator depending on the browser's
+  // :focus-visible heuristic (which does not fire for a programmatic
+  // focus() in some engines).
+  //
+  // The ring is the pill's own text colour, inset, because the global
+  // :focus-visible ring is accent-on-accent here and so invisible.
+  &:focus {
+    transform: translate(-50%, 0);
+    outline: 2px solid var(--vp-c-accent-text);
+    outline-offset: -5px;
+  }
+}
+
+// ---------------------------------------------------------------------
 // Homepage hero (.vp-hero) — eyebrow pill, animated gradient headline,
 // pill CTAs, faint engineering-grid texture. Built-in `home: true`
 // markup; styled entirely here, no custom components.
@@ -363,6 +409,10 @@ div[class*="language-"] {
 @media (prefers-reduced-motion: reduce) {
   #main-title {
     animation: none;
+  }
+
+  .ff-skip-link {
+    transition: none;
   }
 
   .vp-hero-action-button,

@@ -1,20 +1,39 @@
 import { defineUserConfig } from 'vuepress'
 import { defaultTheme } from '@vuepress/theme-default'
 import { viteBundler } from '@vuepress/bundler-vite'
-import { searchPlugin } from '@vuepress/plugin-search'
-import { sitemapPlugin } from '@vuepress/plugin-sitemap'
+import { slimsearchPlugin } from '@vuepress/plugin-slimsearch'
 import { markdownChartPlugin } from '@vuepress/plugin-markdown-chart'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+// Deployment origin and base, kept as separate values on purpose.
+//
+// `hostname` must be the BARE ORIGIN, with no base path in it. Both
+// @vuepress/plugin-seo and @vuepress/plugin-sitemap build absolute URLs as
+// `hostname + base + path` (seo's getUrl; sitemap's robots.txt line is
+// `Sitemap: ${hostname}${base}${sitemapFilename}`), so a hostname that already
+// carries `/forge_docs/` doubles the base. That is what produced the 404ing
+// `.../forge_docs/forge_docs/sitemap.xml` in robots.txt.
+//
+// The sitemap's <loc> entries were correct even with the doubled hostname,
+// because the `sitemap` package resolves the root-relative `/forge_docs/x.html`
+// against the origin and discards the hostname's own path. They stay correct
+// with the bare origin, which is the same resolution with nothing to discard.
+const HOSTNAME = 'https://agenticstiger.github.io'
+const BASE = '/forge_docs/'
+
+// Origin + base with no trailing slash. plugin-seo builds each canonical as
+// `removeEndingSlash(canonical) + page.path`, and page.path excludes the base.
+const CANONICAL_ROOT = `${HOSTNAME}${BASE.replace(/\/$/, '')}`
+
 export default defineUserConfig({
   lang: 'en-US',
   title: 'Fluid Forge',
   description: 'Declarative data products for local and multi-cloud delivery with a contract-first CLI.',
 
-  base: '/forge_docs/',
+  base: BASE,
 
   // Loads client.ts so <CliCast> is registered globally for markdown pages
   // and the branded NotFound layout overrides the theme's default 404.
@@ -26,41 +45,84 @@ export default defineUserConfig({
   shouldPreload: false,
 
   head: [
-    ['link', { rel: 'icon', href: '/forge_docs/logo.png' }],
+    // Favicon. This was `logo.png`, which is 69,734 bytes at 256x139 — a
+    // full wordmark lockup shipped to every visitor on all 213 pages to
+    // fill a 16px tab slot, and referenced from nowhere else in the site.
+    //
+    // favicon-32.png is that same file scaled down, nothing else:
+    //   sips -Z 32 docs/.vuepress/public/logo.png \
+    //        --out docs/.vuepress/public/favicon-32.png
+    //
+    // 2,076 bytes, 32x17, alpha preserved. Deliberately NOT padded to a
+    // square: sips can only pad with an opaque colour, and a white pad
+    // would put a white box behind the mark on dark tab bars, where the
+    // browser currently letterboxes it transparently. Aspect and alpha are
+    // unchanged, so it renders identically to what shipped before — the
+    // browser was already downscaling the 256px original to the same size.
+    //
+    // logo.png stays in public/ as the full-size brand asset. It is now
+    // unreferenced by the site, so it costs dist size but no page weight.
+    ['link', { rel: 'icon', href: '/forge_docs/favicon-32.png' }],
     ['meta', { name: 'theme-color', content: '#050813' }], // brand deep-navy
     ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
     ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' }],
 
-    // Open Graph — full social card (Phase 2A polish)
-    ['meta', { property: 'og:title', content: 'Fluid Forge — Declarative Data Products' }],
-    ['meta', { property: 'og:description', content: 'Write YAML, deploy anywhere. One contract, every cloud. What Terraform did for infrastructure, Fluid Forge does for data products.' }],
-    ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:url', content: 'https://agenticstiger.github.io/forge_docs/' }],
-    ['meta', { property: 'og:image', content: 'https://agenticstiger.github.io/forge_docs/og-card.png' }],
+    // Open Graph — static social card only.
+    //
+    // og:title, og:description, og:url, og:type and og:site_name are NOT set
+    // here: @vuepress/plugin-seo (registered by the theme, see `hostname`
+    // below) emits all five per page. A site-wide copy of any of them is not
+    // just redundant, it is wrong on 212 of 213 pages — the old hard-coded
+    // og:url pointed every page at the homepage — and og:type genuinely varies
+    // (the plugin emits `article` for content pages, `website` for the home
+    // page), so a fixed `website` would contradict the plugin's own tag.
+    //
+    // og:image stays static and site-wide: it is the branded 1200x630 card,
+    // and the plugin only emits an og:image of its own when a page declares a
+    // frontmatter cover or embeds an image, which no page here does.
+    ['meta', { property: 'og:image', content: `${CANONICAL_ROOT}/og-card.png` }],
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
-    ['meta', { property: 'og:site_name', content: 'Fluid Forge' }],
 
-    // Twitter / X
+    // Twitter / X. Kept hand-written: plugin-seo emits twitter:* tags only
+    // when a page declares a frontmatter cover, so these do not collide.
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'Fluid Forge — Declarative Data Products' }],
     ['meta', { name: 'twitter:description', content: 'Write YAML, deploy anywhere. One contract, every cloud.' }],
-    ['meta', { name: 'twitter:image', content: 'https://agenticstiger.github.io/forge_docs/og-card.png' }],
+    ['meta', { name: 'twitter:image', content: `${CANONICAL_ROOT}/og-card.png` }],
 
     ['meta', { name: 'keywords', content: 'fluid forge, data products, declarative data engineering, duckdb, bigquery, snowflake, aws, cli' }],
   ],
 
   theme: defaultTheme({
-    // The theme already registers @vuepress/plugin-links-check; by default it
-    // only warns. `build: 'error'` makes the build itself throw on a dead
-    // internal link, so a broken link fails CI natively instead of relying on
-    // a workflow that greps the build log for a warning string.
+    // The theme gates BOTH its bundled @vuepress/plugin-seo and its bundled
+    // @vuepress/plugin-sitemap on exactly this option
+    // (`hostname && (themePlugins.seo ?? true) ? seoPlugin({ hostname }) : []`
+    // in @vuepress/theme-default 2.0.0-rc.132 dist/node/index.js). Without it
+    // neither plugin was ever registered, which is why every page carried the
+    // same hand-written og:url and none carried a canonical.
+    hostname: HOSTNAME,
+
     themePlugins: {
+      // The theme already registers @vuepress/plugin-links-check; by default it
+      // only warns. `build: 'error'` makes the build itself throw on a dead
+      // internal link, so a broken link fails CI natively instead of relying on
+      // a workflow that greps the build log for a warning string.
       linksCheck: { build: 'error' },
+
+      // plugin-seo emits rel="canonical" only when `canonical` is set; passing
+      // `hostname` alone gives per-page og:* but no canonical at all.
+      seo: { canonical: CANONICAL_ROOT },
     },
 
     // Dark is the brand default (matches agenticstransformation.com).
     // The navbar toggle still switches to the refined light theme.
+    // The theme hides the .vp-site-name span whenever logoAlt resolves equal to
+    // the site title (VPNavbarBrand: navBarLogoAltMatchesTitle), which is what
+    // `logoAlt ?? title` gives when no logo is configured - leaving the brand
+    // anchor with no unhidden child and an EMPTY accessible name on every page.
+    // An explicit logoAlt breaks that equality so the wordmark stays readable.
+    logoAlt: 'Fluid Forge home',
     colorMode: 'dark',
     colorModeSwitch: true,
 
@@ -69,6 +131,26 @@ export default defineUserConfig({
     // "Fluid Forge" wordmark instead (and still links home, so a "Home"
     // navbar item is redundant). Add a transparent `logo` / `logoDark`
     // asset later to bring the mark back.
+    //
+    // `logoAlt: ''` is what gives the brand/home link an accessible name,
+    // and it is load-bearing despite there being no logo to describe.
+    // VPNavbarBrand computes
+    //   logoAlt        = themeLocale.logoAlt ?? siteLocale.title
+    //   aria-hidden    = logoAlt.toUpperCase().trim() === title.toUpperCase().trim()
+    // on the <span class="vp-site-name"> that holds the wordmark. The
+    // intent is to stop a screen reader saying "Fluid Forge" twice when an
+    // <img alt="Fluid Forge"> already sits next to the text. With no logo
+    // there is no img, so the guard compared the title against itself,
+    // resolved true, and hid the anchor's ONLY child: the link came out as
+    // `<a href="/forge_docs/"><span aria-hidden="true">Fluid Forge</span></a>`,
+    // an interactive element with an empty accessible name on all 213 pages
+    // (WCAG 2.1 SC 2.4.4 Link Purpose, SC 4.1.2 Name/Role/Value).
+    //
+    // '' is not ?? -coalesced away (?? only falls back on null/undefined), so
+    // it survives as the alt, compares unequal to the title, and the wordmark
+    // is exposed. It is also the correct alt for the logo if one is ever
+    // added back: a mark sitting beside its own wordmark is decorative.
+    logoAlt: '',
     navbar: [
       { text: 'Why Forge', link: '/why' },
       { text: 'Concepts', link: '/concepts/' },
@@ -491,10 +573,9 @@ export default defineUserConfig({
   }),
 
   // Phase 2A foundation plugins.
-  // - search: client-side fuzzy search (Cmd+K / "/" hotkey). DocSearch
-  //   was the original target; client-side keeps us free of external
-  //   indexing dependencies and works offline in dev.
-  // - sitemap: writes /sitemap.xml at build time using the canonical URL
+  // - slimsearch: client-side search ("s" or "/" hotkey). DocSearch was the
+  //   original target; client-side keeps us free of external indexing
+  //   dependencies and works offline in dev.
   // - markdown-chart: renders ```mermaid blocks at build time so they
   //   show on the live site (without this plugin Mermaid only renders
   //   on github.com READMEs).
@@ -502,13 +583,32 @@ export default defineUserConfig({
   // copy-code is NOT listed here: @vuepress/theme-default registers it
   // already (themePlugins.copyCode defaults to true). Registering it a
   // second time made the build warn "has been used multiple times".
+  //
+  // sitemap is NOT listed here either, for the same reason: now that the theme
+  // has `hostname` it registers @vuepress/plugin-sitemap itself, with the same
+  // single `hostname` option this file used to pass. Keeping the manual
+  // registration would have run the plugin twice and left two competing
+  // onGenerated hooks writing robots.txt.
   plugins: [
-    searchPlugin({
-      maxSuggestions: 12,
-      hotKeys: ['s', '/'],
-    }),
-    sitemapPlugin({
-      hostname: 'https://agenticstiger.github.io/forge_docs/',
+    // slimsearch replaces @vuepress/plugin-search. The old plugin inlined the
+    // whole index into the entry chunk as a virtual module, so every visitor
+    // downloaded and parsed it on first paint whether or not they ever
+    // searched. slimsearch bakes the index into `slimsearch.worker.js` at the
+    // site root and fetches it only when the search modal opens, off the main
+    // thread. It also indexes section text, not just titles and headings.
+    //
+    // `hotKeys` MUST be KeyOptions objects, not bare strings. Strings are
+    // accepted by the runtime matcher but the SSR key-hint renderer reads
+    // `hotKeys[0].key`, and a string there throws during prerender. VuePress
+    // swallows that error per page: the build still exits 0 and every page
+    // ships with no search box at all.
+    //
+    // `suggestion: false` is what keeps the worker lazy. With suggestions on,
+    // the query-suggestion composable spins the worker up in onMounted, so the
+    // index is fetched on every page load and the saving is lost.
+    slimsearchPlugin({
+      hotKeys: [{ key: 's' }, { key: '/' }],
+      suggestion: false,
     }),
     markdownChartPlugin({}),
   ],
