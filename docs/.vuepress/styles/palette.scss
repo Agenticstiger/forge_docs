@@ -152,7 +152,15 @@ $ff-red:        #ef4444;   // retained for "danger" callout semantics only
 
   --vp-c-text:          #0b1020;
   --vp-c-text-mute:     #475079;
-  --vp-c-text-subtle:   #6b7596;
+  // #6b7596 was 4.25:1 on --vp-c-bg-alt (#f5f7fc) — under the 4.5:1 AA
+  // floor for normal text, and that pairing is real: .ff-playground__hint
+  // sits on a .ff-playground__actions bar painted --vp-c-bg-alt. Darkened
+  // on the same hue (a uniform 0.935 of each channel) to the first value
+  // that clears AA on every light surface the token lands on:
+  //   on #ffffff (--vp-c-bg / -bg-elv / -bg-elv-up)  5.11:1
+  //   on #f5f7fc (--vp-c-bg-alt)                     4.77:1
+  //   on #eef1f8 (--vp-c-gutter)                     4.52:1
+  --vp-c-text-subtle:   #646d8c;
 
   --vp-c-divider:       #e4e8f3;
   --vp-c-border:        #e4e8f3;

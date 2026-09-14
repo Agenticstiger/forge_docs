@@ -13,7 +13,7 @@
 -->
 
 <template>
-  <div class="ff-404">
+  <main class="ff-404">
     <div class="ff-404__hero">
       <div class="ff-404__sigil">404</div>
       <h1 class="ff-404__title">This page took a wrong turn.</h1>
@@ -52,7 +52,7 @@
          rel="noopener">open an issue</a>
       so it doesn't trip the next visitor.
     </p>
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
