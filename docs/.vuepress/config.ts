@@ -149,6 +149,7 @@ export default defineUserConfig({
             '/concepts/contract.md',
             '/concepts/quality-sla-lineage.md',
             '/concepts/governance-policy.md',
+            '/concepts/sovereignty.md',
             '/concepts/agent-policy.md',
             '/concepts/providers-vs-platforms.md',
             '/concepts/vs-alternatives.md'
