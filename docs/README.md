@@ -21,14 +21,14 @@ features:
     details: Install the CLI, scaffold a project, validate it, and run it locally before you touch cloud credentials.
   - title: Contract-Driven
     details: Use one FLUID contract to describe the data product, then plan, test, verify, and publish from the same source of truth.
-  - title: Promoted CLI Surface
-    details: These docs track the current "fluid --help" experience so new users are not sent down stale or deprecated command paths.
+  - title: Sovereignty Enforced
+    details: Pin a jurisdiction in the contract and the engine blocks a mismatched binding. An EU contract on us-east-1 fails "fluid validate" with exit 1, and strict is the default.
   - title: AI-Optional
     details: Start with "fluid init" for a quickstart or use "fluid forge" when you want AI-assisted scaffolding and discovery.
   - title: Multi-Target Delivery
     details: Build locally with DuckDB, then target GCP, AWS, Snowflake, or standards/export flows when you are ready.
-  - title: Compatibility Aware
-    details: Legacy commands still exist in the docs where they matter, but primary pages lead with the current recommended workflow.
+  - title: Deterministic Plans
+    details: Run "fluid plan" ten times over one unchanged contract and the plan digest comes back identical ten times. Only the generated_at timestamp moves.
 
 footer: Apache 2.0 Licensed | Documentation for the Fluid Forge CLI
 ---
@@ -46,13 +46,13 @@ Fluid Forge replaces the five-tool stack most data teams currently maintain. Wit
 - **No 27 questions before you ship.** `fluid forge` infers from your local files; you answer 4.
 - **No dbt project layout decisions.** Forge wraps dbt; you write the contract, dbt does what it does best.
 - **No AI access surprises.** `agentPolicy` declares which LLMs can read what, with audit logs, before any model gets a row.
-- **No vendor lock.** `binding.platform: snowflake` → `binding.platform: bigquery` is the only line that moves.
+- **No vendor lock.** The swap is confined to the `binding` block. Measured with `diff` against the published [`sovereignty-platform-swap` example](https://github.com/Agenticstiger/forge-cli/tree/v0.15.0/examples/sovereignty-platform-swap): **11 changed lines** to move one product from AWS to GCP, **12** to move it to Snowflake, one hunk each, nothing outside `binding` touched — schema, quality rules, ownership and SLO all stay byte-identical.
 
 → See the comparison page: [Forge vs dbt / Dagster / Terraform / Snowpark](/forge_docs/concepts/vs-alternatives.html) for the honest breakdown of when Forge does and doesn't fit.
 
 ## See it run
 
-A 60-second walkthrough of the core move: write one `contract.fluid.yaml`, build and test it locally on DuckDB, then ship the **same file** to BigQuery and Snowflake — the only line that changes is `binding.platform`.
+A 60-second walkthrough of the core move: write one `contract.fluid.yaml`, build and test it locally on DuckDB, then ship the **same contract** to BigQuery and Snowflake — every changed line lands inside the `binding` block (11 of them for GCP, 12 for Snowflake; run the `diff` yourself in the [example](https://github.com/Agenticstiger/forge-cli/tree/v0.15.0/examples/sovereignty-platform-swap)).
 
 <iframe
   src="/forge_docs/reels/one-contract-every-cloud.html"
@@ -80,8 +80,10 @@ fluid apply contract.fluid.yaml --yes
 
 This docs site currently tracks:
 
-- CLI release `0.10.0`
-- Scaffolded contract examples using `fluidVersion: 0.7.5` (older `0.7.4` / `0.7.3` / `0.7.2` contracts remain valid)
+- CLI release `0.15.0`
+- Contract schema `0.7.5` as the stable default, with `0.7.6` open as an opt-in preview
+
+Which `fluidVersion` a fresh scaffold actually writes depends on which scaffold path you took, and the quickstart is not the same as the factory. The rule, with the per-path numbers, lives in one place: [Understand the version numbers](/forge_docs/getting-started/#understand-the-version-numbers). Run `fluid version` for the authoritative list of accepted schema versions on the CLI you have installed.
 
 `fluid version` and `fluidVersion` are different things. The first is the CLI release you installed. The second is the schema version inside a contract.
 
@@ -107,17 +109,21 @@ For every AI and data-model journey, including hosted provider strict mode, Olla
 
 ## Promoted command groups
 
+These are the groups `fluid --help` prints on `0.15.0`. Run it yourself to confirm the table below.
+
 | Group | Commands |
 | --- | --- |
-| Core Workflow | `init`, `forge`, `forge data-model`, `validate`, `plan`, `apply`, `ship` |
-| Generate | `generate transformation`, `generate dbt-tests`, `generate schedule`, `generate ci`, `generate standard` |
-| Integrations | `publish`, `market`, `import` |
-| Quality & Governance | `policy-check`, `diff`, `test`, `verify`, `contract` |
-| Day-2 Ops | `runs`, `retention`, `secrets`, `stats` |
-| Utilities | `config`, `split`, `bundle`, `auth`, `doctor`, `providers`, `memory`, `mcp`, `version` |
+| Core Workflow | `init`, `forge`, `validate`, `plan`, `apply` |
+| Generate | `generate transformation`, `generate schedule`, `generate ci`, `generate standard` |
+| Integrations | `publish`, `market`, `import`, `mcp` |
+| Quality & Governance | `policy-check`, `test` |
+| Safety & Supply Chain | `rollback`, `verify-signature` |
+| Utilities | `config`, `ai`, `split`, `auth`, `doctor`, `providers`, `exporters`, `version` |
 
-::: tip Current release — `0.12.0`, schema **0.7.5** stable (GA)
-`0.12.0` is the current release ([release notes](/forge_docs/RELEASE_NOTES_0.12.0.html)). Its headline is **dbt integration + schema GA**: contract schema **`0.7.5` is promoted to stable** and becomes the default for untagged contracts — the vector/embeddings `vectorConfig` output port ([`fluid generate vector`](/forge_docs/cli/generate-vector.html), shipped as a preview in `0.11.0`) and the Redshift-Serverless/Kinesis binding fields are GA, and `0.7.6` opens as the next opt-in preview. The dbt wave lands a faithful **brownfield importer** ([`fluid import dbt`](/forge_docs/cli/import.html) reads `target/manifest.json`), **dbt model contracts** (`--model-contracts`), a **MetricFlow bridge** (semantic_models + metrics YAML from the contract semantics block), auto-emitted `packages.yml` + `sources.yml` freshness, `run_results.json` parsed into [`fluid runs status`](/forge_docs/cli/runs.html) and [`fluid verify`](/forge_docs/cli/verify.html) checks, and **dbt Fusion / dbt Core v2** detection with engine-aware `tests:`/`data_tests:` emission. `fluid verify` also gains **`--reconcile-lineage`** — a local-only cross-check of declared vs observed vs published lineage. Recent releases below it: `0.11.0` brought the **AI-ready / RAG** surface (vector output port preview, semantic-drift guard, `ai_ready` agent, LocalStack-compatible AWS apply); `0.10.0` matured the **plugin platform** (operator trust boundary via `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`, [`fluid plugins`](/forge_docs/cli/plugins.html) + [`fluid exporters`](/forge_docs/cli/exporters.html), and the `odps` / `odcs` provider→exporter reclassification); the streaming **Kafka → Iceberg sink** shipped in `0.9.0`; and the **MCP output-port gateway** — runtime `agentPolicy` enforcement with JWT-bearer + mTLS identity — arrived in `0.8.7` ([`fluid mcp`](/forge_docs/cli/mcp.html)). The platform builds on the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel), and a companion **SDK** (`data-product-forge-sdk`). See [SDK & Plugins](/forge_docs/sdk-and-plugins/), [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), and [Product Types](/forge_docs/data-products/product-type.html) for the full picture.
+`--help` promotes a short surface, not the whole one. Commands such as `bundle`, `diff`, `verify`, `publish`, `runs`, `stats`, `ship` and [`mission`](/forge_docs/cli/mission.html) are real and documented, and `--help` itself names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. See the [CLI Reference](/forge_docs/cli/) for everything.
+
+::: tip Current release — `0.15.0`, schema **0.7.5** stable (GA)
+`0.15.0` is the current release ([release notes](/forge_docs/RELEASE_NOTES_0.15.0.html)). Its headline is **sovereignty enforcement**: data-residency controls that previously reported clean while checking nothing now actually block, with `sovereignty.enforcementMode` driving severity in both directions, engine defaults realigned to the schema's, and the region→jurisdiction table derived from vendor data. A contract that passed [`fluid validate`](/forge_docs/cli/validate.html) on `0.14.1` can fail here. Recent releases below it: [`0.14.0`](/forge_docs/RELEASE_NOTES_0.14.0.html) was the **live-verification hardening** release (the dbt Iceberg loop reaching all three cloud warehouses); [`0.13.0`](/forge_docs/RELEASE_NOTES_0.13.0.html) brought **verifiable autonomy + declarative packaging** with the new [`fluid mission`](/forge_docs/cli/mission.html) command; [`0.12.0`](/forge_docs/RELEASE_NOTES_0.12.0.html) landed **dbt integration + schema GA**, promoting contract schema `0.7.5` to stable as the default for untagged contracts and shipping the brownfield [`fluid import dbt`](/forge_docs/cli/import.html) importer, the MetricFlow bridge and `fluid verify --reconcile-lineage`; `0.11.0` brought the **AI-ready / RAG** surface (vector output port preview, semantic-drift guard, `ai_ready` agent, LocalStack-compatible AWS apply); `0.10.0` matured the **plugin platform** (operator trust boundary via `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`, [`fluid plugins`](/forge_docs/cli/plugins.html) + [`fluid exporters`](/forge_docs/cli/exporters.html), and the `odps` / `odcs` provider→exporter reclassification); the streaming **Kafka → Iceberg sink** shipped in `0.9.0`; and the **MCP output-port gateway** — runtime `agentPolicy` enforcement with JWT-bearer + mTLS identity — arrived in `0.8.7` ([`fluid mcp`](/forge_docs/cli/mcp.html)). The platform builds on the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel), and a companion **SDK** (`data-product-forge-sdk`). See [SDK & Plugins](/forge_docs/sdk-and-plugins/), [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), and [Product Types](/forge_docs/data-products/product-type.html) for the full picture.
 :::
 
 ## Where to go next
@@ -127,6 +133,7 @@ For every AI and data-model journey, including hosted provider strict mode, Olla
 - [Forge Data Model](/forge_docs/forge-data-model.html) for intent, DDL, and catalog-driven model generation
 - [AI Forge And Data-Model Journeys](/forge_docs/walkthrough/ai-forge-data-model.html) for end-to-end AI-assisted and deterministic flows
 - [CLI Reference](/forge_docs/cli/) for the promoted command surface
+- [Governance & Sovereignty](/forge_docs/advanced/governance.html) for how `sovereignty` and `agentPolicy` are enforced, and where
 - [Providers](/forge_docs/providers/) for platform-specific guidance
 - [Walkthroughs](/forge_docs/walkthrough/local) for end-to-end examples
 

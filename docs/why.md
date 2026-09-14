@@ -57,7 +57,7 @@ A Fluid Forge contract **is** that context — made machine-readable and shipped
 | Whether to trust it | `dq.rules` (completeness, freshness, drift) + `exposes[].qos` (freshness / availability SLOs) |
 | Who may use it, and for what | `accessPolicy` (people & services) + `agentPolicy` (which models, which use-cases) |
 | Where it came from | `lineage` + the SDP → ADP → CDP `consumes[]` chain |
-| Where it may physically live | `sovereignty` (jurisdiction, regulation) |
+| Where it may physically live | `sovereignty` (`jurisdiction`, `allowedRegions`, `regulatoryFramework`) |
 | Who owns it | `metadata.owner` + business context |
 
 Because the context travels *inside* the contract — versioned, validated, and portable — it doesn't rot in a wiki or get stranded inside one BI tool. When the product ships, its meaning ships with it. That's what makes the contract so powerful: a downstream consumer doesn't re-derive the meaning, and an **agent reads it instead of guessing**. Over [`fluid mcp output-port serve`](/forge_docs/walkthrough/mcp-output-port.html), the *same* governed surface serves the data **and** the context that makes it safe to act on.
@@ -72,7 +72,7 @@ Because the context travels *inside* the contract — versioned, validated, and 
 > Collapse the five-tool, five-language stack into one specification — fewer drift incidents, fewer 3am pages, faster delivery.
 > You change the contract and re-apply, instead of editing four systems in lockstep and hoping they agree.
 
-A single `contract.fluid.yaml` carries the schema, `exposes` / `binding` (the infrastructure), the schedule, `accessPolicy`, `agentPolicy`, and `sovereignty` — and compiles to native provider DDL plus OpenTofu infrastructure. → [What is a contract?](/forge_docs/concepts/contract.html)
+A single `contract.fluid.yaml` carries the schema, `exposes` / `binding` (the infrastructure), the schedule, `accessPolicy`, `agentPolicy`, and [`sovereignty`](/forge_docs/concepts/sovereignty.html) — and compiles to native provider DDL plus OpenTofu infrastructure. → [What is a contract?](/forge_docs/concepts/contract.html)
 
 ### Trustworthy by construction, enforced in CI
 
@@ -87,6 +87,21 @@ The `validate → plan → apply` lifecycle is bound by cryptographic digests (`
 > Most organizations are already multi-cloud — one team on Snowflake, another on BigQuery, a third on S3 + Athena. One contract works across all of them, with no per-cloud rewrite and no lock-in at the contract layer.
 
 Change `binding.platform` and the same contract retargets `local` (DuckDB) → `aws` (Athena / Glue) → `gcp` (BigQuery) → `snowflake`. Every provider implements the same interface, so the compiled output changes without touching the contract. → [Providers](/forge_docs/providers/)
+
+### Residency you declare, and the CLI blocks
+
+> **Why it matters**
+> "This data stays in the EU" is usually a sentence in a DPIA, checked by whoever reviews the Terraform. Here it's a field in the contract, and a binding in the wrong jurisdiction fails the build — in code review, before anything is provisioned.
+
+`sovereignty.jurisdiction` states where the product's data may reside. `fluid validate` resolves every `binding.location.region` to a jurisdiction and compares. Since `0.15.0`, `enforcementMode` defaults to `strict`, so a contract pinning `EU` with an expose bound to `us-east-1` fails with **exit 1** — no flag to enable, and nothing to remember to switch on:
+
+```bash
+fluid validate contract.fluid.yaml
+# ❌  Region 'us-east-1' (jurisdiction: US) does not match required jurisdiction: EU
+# exit 1
+```
+
+The rule doesn't stop at provisioning. A jurisdiction-pinned product served over `fluid mcp output-port serve` also gates the **caller**: an agent whose verified jurisdiction sits outside the contract's is refused the read. Two gates, two different escape hatches — and `advisory` mode relaxes only the first of them. → [Sovereignty](/forge_docs/concepts/sovereignty.html)
 
 ### AI agents get a contract, not raw access
 
