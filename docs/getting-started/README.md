@@ -38,7 +38,7 @@ The current docs baseline is `0.15.0` — the stable tag was cut on `2026-09-14`
 
 ```bash
 pip install --upgrade data-product-forge
-pip install "data-product-forge==0.15.0"    # exact pin
+pip install "data-product-forge==0.15.1"    # exact pin
 ```
 
 Pre-releases (when published) ship to PyPI as PEP 440 pre-releases — `pip install` skips them by default. The `--pre` flag opts in.
@@ -58,7 +58,7 @@ fluid version
 fluid doctor
 ```
 
-This docs set tracks CLI release `0.15.0`. Docs updates land in lockstep with each release; if you're on an older CLI, some `--mode` / `--target` flags mentioned here won't be present yet — see the [CLI index](../cli/README.md) for what maps to what.
+This docs set tracks CLI release `0.15.1`. Docs updates land in lockstep with each release; if you're on an older CLI, some `--mode` / `--target` flags mentioned here won't be present yet — see the [CLI index](../cli/README.md) for what maps to what.
 
 > **Extending the CLI?** Fluid Forge ships three plugin extension points and a companion SDK on PyPI. If your team has its own CI templates, scaffolding standards, or governance rules, see **[SDK & Plugins](../sdk-and-plugins/)**.
 

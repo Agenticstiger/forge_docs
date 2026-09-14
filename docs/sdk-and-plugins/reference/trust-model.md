@@ -167,7 +167,7 @@ Plugins are tested, scanned, and approved by your platform team before showing u
 
 ```toml
 # In your deploy environment's pyproject.toml or requirements:
-data-product-forge==0.15.0
+data-product-forge==0.15.1
 data-product-forge-sdk==0.10.0
 data-product-forge-custom-scaffold==0.4.1
 my-org-validators==1.2.0
