@@ -425,3 +425,25 @@ div[class*="language-"] {
     transform: none;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Wide content scrolls inside its own box; the page never scrolls sideways.
+//
+// Code blocks already do this - the theme gives `pre` overflow-x: auto, which
+// is why a 798px bash line sits happily in a 307px column. Tables had no such
+// containment: a three-column table renders at its natural 595px and pushes the
+// whole document to 619px against a 357px viewport, so the entire page scrolls
+// horizontally on a phone. Found by measuring the rendered page, not the HTML -
+// `getBoundingClientRect` on clipped code reports full width and sends you
+// after the wrong element.
+//
+// `display: block` is what makes overflow-x apply at all; a `display: table`
+// box ignores it. `width: fit-content` keeps narrow tables their natural size
+// rather than stretching them to the column.
+// ---------------------------------------------------------------------------
+.vp-page table {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
