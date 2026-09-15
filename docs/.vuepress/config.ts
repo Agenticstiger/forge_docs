@@ -39,6 +39,66 @@ export default defineUserConfig({
   // and the branded NotFound layout overrides the theme's default 404.
   clientConfigFile: resolve(__dirname, './client.ts'),
 
+  // Monaco's CSS ships to every page. That is a RECORDED DECISION to leave it
+  // alone, not an oversight.
+  //
+  // Measured on a fresh build, 2026-09-15, monaco-editor as installed: the
+  // site emits exactly ONE stylesheet, assets/style-<hash>.css, 251,769 bytes,
+  // linked render-blocking from all 213 pages. Monaco is 162,004 of those
+  // bytes (64.3%), about 24 KB of the file's 41 KB gzipped. The editor is used
+  // on ONE page: `<Playground>` appears only in docs/playground/README.md.
+  //
+  // Monaco's JAVASCRIPT is split correctly, and that contrast is the whole
+  // point. Playground.vue reaches it through `await import('monaco-editor')`,
+  // so editor.api, vs and the four language workers land in async-only chunks
+  // totalling 13.1 MB that NO prerendered page references or prefetches (the
+  // shouldPrefetch filter below skips them by name). A visitor who never opens
+  // /playground/ fetches none of it. Only the CSS leaks.
+  //
+  // Cause: @vuepress/bundler-vite 2.0.0-rc.31 hard-sets `cssCodeSplit: false`
+  // inside its `build` block at
+  // node_modules/@vuepress/bundler-vite/dist/index.js:108. That is not a Vite
+  // default and not exposed as a bundler option. With CSS splitting off Vite
+  // has nowhere else to put style reachable only through an async-only chunk,
+  // so Monaco's sheet is concatenated into the single entry stylesheet even
+  // though its JS never is.
+  //
+  // Two fixes were considered and both declined:
+  //
+  // 1. Override it — viteBundler({ viteOptions: { build: { cssCodeSplit: true } } }).
+  //    This does work mechanically: the bundler's own `vuepress:user-config`
+  //    plugin is `enforce: 'post'`, so viteOptions win over line 108. Declined
+  //    because it fights a deliberate framework choice about style ordering
+  //    under static rendering. With one sheet, the prerendered HTML carries the
+  //    <link> and cascade order is fixed at build time. Split per chunk, an
+  //    async chunk's CSS is injected by the chunk loader after hydration and is
+  //    referenced from no prerendered HTML, so theme-vs-editor precedence
+  //    becomes load-order dependent and /playground/ shows an unstyled editor
+  //    until its chunk lands.
+  //
+  // 2. Load Monaco's CSS at runtime — keep it out of the bundle and inject a
+  //    <link> from Playground.vue. Declined because it means hand-managing what
+  //    the bundler currently guarantees: emitting the file, hashing it for
+  //    cache-busting, and ordering it after the theme.
+  //
+  // Before changing this, RE-MEASURE rather than trusting the numbers above.
+  // They move with every monaco-editor bump: earlier passes recorded 58.6% and
+  // 65.9% for what is 64.3% today.
+  //
+  //   rm -rf docs/.vuepress/dist && npm run docs:build
+  //   # one stylesheet, on every page -> 213
+  //   grep -rl 'assets/style-.*\.css' --include='*.html' docs/.vuepress/dist | wc -l
+  //   # Monaco's JS still async-only -> 0 pages reference a Monaco chunk
+  //   grep -rlE 'assets/(editor\.api-|[a-z]+\.worker-)' --include='*.html' docs/.vuepress/dist | wc -l
+  //   # Monaco's share of the sheet -> total, Monaco bytes, percent
+  //   python3 -c "import glob;p=glob.glob('docs/.vuepress/dist/assets/*.css')[0];s=open(p,'rb').read();b=s.index(b'.monaco-aria-container');print(len(s),len(s)-b,round(100*(len(s)-b)/len(s),1))"
+  //
+  // That last command assumes Monaco's block is CONTIGUOUS and runs to EOF,
+  // which holds today: nothing after byte 89,765 contains `--vp-` and nothing
+  // before it contains `--vscode-`. Verify that assumption before believing
+  // the percentage, because an interleaved bundle would make it silently
+  // undercount and read as an improvement. Then confirm /playground/ still
+  // paints a styled editor with no flash.
   bundler: viteBundler(),
 
   // Both of these default to TRUE in VuePress. They were set to false in the

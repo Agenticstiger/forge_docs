@@ -49,20 +49,27 @@ This walkthrough deploys a **production-ready Bitcoin price tracking data produc
 
 ### Create GCP Project
 
+::: warning Substitute your own project id
+`my-project-id` is a placeholder. Project ids are unique across the whole of Google Cloud, so this
+one will not be free: replace it with your own everywhere it appears on this page, and set
+`GCP_PROJECT_ID` before running any of the Python. The scripts below deliberately have no default,
+so an unset variable stops them rather than writing to a project you do not own.
+:::
+
 ```bash
-# Create project (or use existing)
-gcloud projects create fluid-crypto-tracker \
+# Create project (or use existing) - swap in your own id
+gcloud projects create my-project-id \
   --name="Fluid Forge Crypto Tracker"
 
 # Set as active project
-gcloud config set project fluid-crypto-tracker
+gcloud config set project my-project-id
 
 # Link billing account (required for BigQuery)
 # Get billing account ID
 gcloud billing accounts list
 
 # Link it to project
-gcloud billing projects link fluid-crypto-tracker \
+gcloud billing projects link my-project-id \
   --billing-account=XXXXXX-XXXXXX-XXXXXX
 ```
 
@@ -109,6 +116,7 @@ import requests
 from google.cloud import bigquery
 from datetime import datetime
 import os
+import sys
 
 def fetch_bitcoin_price():
     """Fetch current Bitcoin price from CoinGecko API"""
@@ -150,7 +158,18 @@ def insert_to_bigquery(row, project_id, dataset_id="crypto_data", table_id="bitc
     print(f"✅ Inserted Bitcoin price: ${row['price_usd']:,.2f} at {row['price_timestamp']}")
 
 if __name__ == "__main__":
-    project_id = os.getenv("GCP_PROJECT_ID", "fluid-crypto-tracker")
+    # No default project: an unset variable stops the script rather than
+    # writing to whichever project happens to own that id.
+    project_id = os.getenv("GCP_PROJECT_ID")
+
+    if not project_id and len(sys.argv) > 1:
+        project_id = sys.argv[1]
+
+    if not project_id:
+        print("❌ Error: GCP_PROJECT_ID environment variable not set")
+        print("Usage: python ingest_bitcoin_prices.py [PROJECT_ID]")
+        print("   or: export GCP_PROJECT_ID=your-project-id && python ingest_bitcoin_prices.py")
+        sys.exit(1)
     
     # Fetch price
     price_data = fetch_bitcoin_price()
@@ -221,7 +240,7 @@ builds:
           MAX(price_usd) as max_price_usd,
           STDDEV(price_usd) as daily_volatility,
           SUM(volume_24h_usd) as total_volume_usd
-        FROM `fluid-crypto-tracker.crypto_data.bitcoin_prices`
+        FROM `my-project-id.crypto_data.bitcoin_prices`
         GROUP BY DATE(price_timestamp)
         ORDER BY date DESC
     outputs:
@@ -252,7 +271,7 @@ exposes:
       platform: gcp
       format: bigquery_table
       location:
-        project: fluid-crypto-tracker
+        project: my-project-id
         dataset: crypto_data
         table: bitcoin_prices
         region: us-central1
@@ -400,7 +419,7 @@ exposes:
       platform: gcp
       format: bigquery_table
       location:
-        project: fluid-crypto-tracker
+        project: my-project-id
         dataset: crypto_data
         table: daily_summary
     
@@ -516,7 +535,7 @@ See what will be created before deploying:
 ```bash
 # Set provider and project via environment variables
 export FLUID_PROVIDER=gcp
-export FLUID_PROJECT=fluid-crypto-tracker
+export FLUID_PROJECT=my-project-id
 
 fluid plan contract.fluid.yaml
 
@@ -549,13 +568,13 @@ Use `FLUID_PROVIDER` and `FLUID_PROJECT` environment variables instead of comman
 ```bash
 # Ensure environment variables are set
 export FLUID_PROVIDER=gcp
-export FLUID_PROJECT=fluid-crypto-tracker
+export FLUID_PROJECT=my-project-id
 
 fluid apply contract.fluid.yaml
 
 # Expected output:
 # ☁️ Deploying to Google Cloud Platform
-# Project: fluid-crypto-tracker
+# Project: my-project-id
 # 
 # ⏳ Creating dataset 'crypto_data'... ✅ Created (1.2s)
 # ⏳ Creating table 'bitcoin_prices'...
@@ -566,12 +585,12 @@ fluid apply contract.fluid.yaml
 # ✨ Deployment successful!
 # 
 # 📊 Resources created in BigQuery:
-#   • Dataset: fluid-crypto-tracker.crypto_data
+#   • Dataset: my-project-id.crypto_data
 #   • Table: bitcoin_prices (partitioned)
 #   • View: daily_summary
 # 
 # 🔗 View in BigQuery Console:
-#   https://console.cloud.google.com/bigquery?project=fluid-crypto-tracker&d=crypto_data
+#   https://console.cloud.google.com/bigquery?project=my-project-id&d=crypto_data
 # 
 # 💰 Estimated cost: $0.00/month (within free tier)
 ```
@@ -584,7 +603,7 @@ Run the ingestion script to load the first price data point:
 
 ```bash
 # Set environment variable
-export GCP_PROJECT_ID=fluid-crypto-tracker
+export GCP_PROJECT_ID=my-project-id
 
 # Run ingestion
 python ingest_bitcoin_prices.py
@@ -653,7 +672,7 @@ bq query --use_legacy_sql=false \
 bq extract \
   --destination_format CSV \
   crypto_data.bitcoin_prices \
-  gs://fluid-crypto-tracker-exports/bitcoin_prices_*.csv
+  gs://my-project-id-exports/bitcoin_prices_*.csv
 ```
 
 ---
@@ -663,7 +682,7 @@ bq extract \
 ```bash
 # Verify deployment against contract
 export FLUID_PROVIDER=gcp
-export FLUID_PROJECT=fluid-crypto-tracker
+export FLUID_PROJECT=my-project-id
 
 fluid verify contract.fluid.yaml
 
@@ -809,7 +828,10 @@ import os
 @functions_framework.http
 def main(request):
     """HTTP Cloud Function for Bitcoin price ingestion"""
-    project_id = os.getenv("GCP_PROJECT_ID", "fluid-crypto-tracker")
+    # No default: refuse to run rather than write to some other account's project.
+    project_id = os.getenv("GCP_PROJECT_ID")
+    if not project_id:
+        return {"status": "error", "message": "GCP_PROJECT_ID is not set on this function"}, 500
     
     try:
         # Fetch and insert price data
@@ -835,14 +857,14 @@ gcloud functions deploy bitcoin-price-ingestion \
   --trigger-http \
   --entry-point main \
   --source . \
-  --set-env-vars GCP_PROJECT_ID=fluid-crypto-tracker \
+  --set-env-vars GCP_PROJECT_ID=my-project-id \
   --region us-central1 \
   --allow-unauthenticated
 
 # Create Cloud Scheduler job (runs hourly)
 gcloud scheduler jobs create http bitcoin-hourly-ingest \
   --schedule="0 * * * *" \
-  --uri="https://us-central1-fluid-crypto-tracker.cloudfunctions.net/bitcoin-price-ingestion" \
+  --uri="https://us-central1-my-project-id.cloudfunctions.net/bitcoin-price-ingestion" \
   --http-method=GET \
   --location=us-central1
 
@@ -981,7 +1003,7 @@ The labels from your FLUID contract automatically appear in BigQuery for cost tr
 
 ```bash
 # View table with labels
-bq show --format=prettyjson fluid-crypto-tracker:crypto_data.bitcoin_prices | \
+bq show --format=prettyjson my-project-id:crypto_data.bitcoin_prices | \
   jq '.labels'
 
 # Expected output:
@@ -1004,7 +1026,7 @@ SELECT
   REGEXP_EXTRACT(option_value, r'cost-center:([^,}]+)') as cost_center,
   SUM(size_bytes) / POW(10,9) as size_gb,
   SUM(size_bytes) / POW(10,9) * 0.02 as monthly_storage_cost_usd
-FROM `fluid-crypto-tracker.crypto_data.INFORMATION_SCHEMA.TABLE_OPTIONS`
+FROM `my-project-id.crypto_data.INFORMATION_SCHEMA.TABLE_OPTIONS`
 WHERE option_name = 'labels'
 GROUP BY table_schema, table_name, cost_center;
 
@@ -1036,8 +1058,8 @@ SELECT
   SUM(total_rows) as total_rows,
   SUM(size_bytes) / POW(10,9) as size_gb,
   SUM(size_bytes) * 0.02 / POW(10,9) as monthly_cost_usd
-FROM `fluid-crypto-tracker.crypto_data.INFORMATION_SCHEMA.TABLES` t
-LEFT JOIN `fluid-crypto-tracker.crypto_data.INFORMATION_SCHEMA.TABLE_OPTIONS` o
+FROM `my-project-id.crypto_data.INFORMATION_SCHEMA.TABLES` t
+LEFT JOIN `my-project-id.crypto_data.INFORMATION_SCHEMA.TABLE_OPTIONS` o
   ON t.table_name = o.table_name
 WHERE option_name = "labels"
 GROUP BY table_name, team, cost_center
@@ -1155,7 +1177,7 @@ entry for the view-definition SQL and an `exposes[]` entry it produces:
             ORDER BY price_timestamp
             ROWS BETWEEN 167 PRECEDING AND CURRENT ROW
           ) as deviation_from_7day_ma
-        FROM `fluid-crypto-tracker.crypto_data.bitcoin_prices`
+        FROM `my-project-id.crypto_data.bitcoin_prices`
         ORDER BY price_timestamp DESC
     outputs:
       - price_trends
@@ -1168,7 +1190,7 @@ entry for the view-definition SQL and an `exposes[]` entry it produces:
       platform: gcp
       format: bigquery_table
       location:
-        project: fluid-crypto-tracker
+        project: my-project-id
         dataset: crypto_data
         table: price_trends
     
@@ -1240,7 +1262,7 @@ exposes:
       platform: gcp
       format: bigquery_table
       location:
-        project: fluid-crypto-tracker
+        project: my-project-id
         dataset: crypto_data
         table: ethereum_prices
 ```
@@ -1248,7 +1270,7 @@ exposes:
 ### 📊 BI Dashboards
 
 Connect Looker, Tableau, or Google Data Studio:
-- Dataset: `fluid-crypto-tracker.crypto_data`
+- Dataset: `my-project-id.crypto_data`
 - Tables: `bitcoin_prices`, views: `daily_summary`, `price_trends`
 - Credentials: Service account with BigQuery Data Viewer role
 
@@ -1292,7 +1314,7 @@ FROM `crypto_data.bitcoin_prices`;
 
 Grant yourself BigQuery Admin role:
 ```bash
-gcloud projects add-iam-policy-binding fluid-crypto-tracker \
+gcloud projects add-iam-policy-binding my-project-id \
   --member="user:YOUR_EMAIL@example.com" \
   --role="roles/bigquery.admin"
 ```
@@ -1333,7 +1355,7 @@ To avoid any charges, delete everything:
 
 ```bash
 # Delete BigQuery dataset and all tables
-bq rm -r -f -d fluid-crypto-tracker:crypto_data
+bq rm -r -f -d my-project-id:crypto_data
 
 # Delete Cloud Function
 gcloud functions delete bitcoin-price-ingestion --region us-central1
@@ -1342,7 +1364,7 @@ gcloud functions delete bitcoin-price-ingestion --region us-central1
 gcloud scheduler jobs delete bitcoin-hourly-ingest --location us-central1
 
 # Delete project (removes everything)
-gcloud projects delete fluid-crypto-tracker
+gcloud projects delete my-project-id
 ```
 
 ---
