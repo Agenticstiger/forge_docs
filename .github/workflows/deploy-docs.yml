@@ -40,6 +40,24 @@ jobs:
       - name: Build docs
         run: npm run docs:build
 
+      # The same artifact gate docs-pr-check.yml runs, here as well, because that
+      # workflow is `pull_request`-only and this one is what actually ships.
+      # Without this step a direct push to main uploads to Pages with nothing
+      # checking it, and two individually-green pull requests can combine into a
+      # broken artifact: each was checked against its own base, neither against
+      # the merge result. Measured on 92925e5: a one-character typo in the
+      # config.ts navbar leaves `npm run docs:build` exiting 0 while shipping 424
+      # dead references across 212 of 213 rendered pages.
+      #
+      # No `continue-on-error`, no `|| true`, and deliberately NOT `if: always()`.
+      # A failed build leaves no artifact, and measuring an absent or stale dist
+      # is the exact failure this exists to prevent - the script refuses to run
+      # when dist is missing, so a green result here always means it read the
+      # bytes this job is about to upload. It runs BEFORE `.nojekyll` and
+      # `upload-pages-artifact` so a bad artifact is never published at all.
+      - name: Check the built artifact for dead internal links
+        run: node scripts/check-dist-links.mjs
+
       - name: Add .nojekyll
         run: touch docs/.vuepress/dist/.nojekyll
 
