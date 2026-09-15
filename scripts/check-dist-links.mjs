@@ -147,24 +147,13 @@ const ZERO_REF_ALLOWLIST = [/^reels\/[^/]+\.html$/]
 //
 // KNOWN GAPS, stated plainly so nobody mistakes this for total coverage:
 //   (a) fragment/anchor targets are not verified (#no-such-heading passes);
-//   (b) relative refs default to warn. There is one real live 404 today,
-//       confirmed against the published site on 2026-09-15:
-//         curl -s -o /dev/null -w '%{http_code}\n' \
-//           https://agenticstiger.github.io/forge_docs/.vuepress/cli-version.json
-//         -> 404   (the page carrying the link, RELEASE_NOTES_0.7.11.html, -> 200)
-//       docs/RELEASE_NOTES_0.7.11.md links ./.vuepress/cli-version.json, and
-//       .vuepress/ is not copied into dist. lychee-source resolves it against a
-//       mirror where docs/.vuepress/ IS present, so it passes there;
-//       links-check ignores it because the target is not .md. Fix it the way
-//       docs/contributing.md already does (link the file on github.com), then
-//       switch the workflow step to --relative=error and delete this paragraph.
-//       RELEASE_NOTES files are frozen, so this gate does not fail on it —
-//       a red gate nobody is allowed to fix is a gate that gets disabled.
-//   (c) CSS url(...) references are not read.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Reference extraction: a tag-aware scan, not a bare regex over the file.
+//   (b) relative refs are checked at --relative=error. They were warn-only while
+//       docs/RELEASE_NOTES_0.7.11.md linked ./.vuepress/cli-version.json, a live
+//       404 in a file under a content freeze: a red gate nobody is permitted to
+//       fix is a gate that gets disabled. That link now points at the GitHub blob
+//       URL that docs/contributing.md already used for the same file, which
+//       changes a destination and not a single claim the release note makes. With
+//       the exception gone the leniency goes too.
 //
 // A bare /href="([^"]*)"/ over the raw bytes also matches text that merely
 // LOOKS like an attribute inside a <script> body or a highlighted code sample.
@@ -495,7 +484,7 @@ function main(argv) {
     return argv[i + 1] ?? fallback
   }
   const selfTestOnly = argv.includes('--self-test') || argv.includes('--self-test-only')
-  const relativeMode = arg('relative', 'warn')
+  const relativeMode = arg('relative', 'error')
   if (!['warn', 'error'].includes(relativeMode)) {
     annotate('error', `--relative must be warn or error, got "${relativeMode}"`)
     return 1
@@ -632,7 +621,7 @@ function main(argv) {
       annotate('error', msg)
       return 1
     }
-    annotate('warning', `${msg} NOT failing the build, because --relative defaults to warn: one of these lives in a RELEASE_NOTES file that is frozen. Fix them and switch the step to --relative=error.`)
+    annotate('warning', `${msg} NOT failing the build, because this run passed --relative=warn. The default is error.`)
   }
 
   console.log(`Clean: all ${num(census.absolute)} absolute references across ${num(census.pages)} built pages carry the ${base} base and name a file that exists in the artifact.`)

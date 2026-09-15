@@ -5,7 +5,7 @@
 
 ## What changed in the docs
 
-- Pinned the supported CLI version in [`docs/.vuepress/cli-version.json`](./.vuepress/cli-version.json). One file to bump per CLI release.
+- Pinned the supported CLI version in [`docs/.vuepress/cli-version.json`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/.vuepress/cli-version.json). One file to bump per CLI release.
 - New CI workflow `cli-consistency.yml` installs the pinned CLI from PyPI and fails on docs ↔ CLI drift (version, command list, provider list).
 - Documented every command registered by the CLI's `fluid_build/cli/bootstrap.py`. New pages:
   - `demo`, `skills`, `ai`

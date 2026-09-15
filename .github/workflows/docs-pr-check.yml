@@ -60,7 +60,7 @@ jobs:
       #   asset <script src> / <img src> in dist      |   -   |      -      |       -       | YES
       #   external URL reachability                   |   -   |      -      |       -       |  -   (link-check.yml `external`, weekly)
       #   #fragment / anchor targets                  |   -   |      -      |       -       |  -   (unguarded; see the script header)
-      #   relative ./x refs in built HTML             |   -   |      -      |    partly     | warn (see the script header)
+      #   relative ./x refs in built HTML             |   -   |      -      |    partly     | YES
       #
       # The lychee-source cell for the raw-HTML row is measured, not inferred:
       # appending <a href="/cli/init.html"> to a page makes lychee report
