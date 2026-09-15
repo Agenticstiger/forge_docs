@@ -1,7 +1,7 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.15.2`<br>
+**Docs Baseline:** CLI `0.15.3`<br>
 **Services:** BigQuery, Cloud Storage, IAM, Cloud Run, Pub/Sub
 
 > **Why it matters**

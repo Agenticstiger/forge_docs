@@ -1,6 +1,6 @@
 # Generating Orchestration Code from Contracts
 
-**Docs Baseline:** CLI `0.15.2`<br>
+**Docs Baseline:** CLI `0.15.3`<br>
 **Status:** ✅ Production Ready
 
 ::: warning Compatibility note

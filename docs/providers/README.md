@@ -8,7 +8,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 ## Docs baseline
 
-- CLI release covered by the primary docs: `0.15.2`
+- CLI release covered by the primary docs: `0.15.3`
 - Default scaffold (`fluid init --quickstart`) emits `fluidVersion: 0.7.2`
 - Discovery-based scaffolds (`fluid init --discover`, `fluid forge`, `fluid product-new`) emit `fluidVersion: 0.7.5` — the latest bundled schema
 

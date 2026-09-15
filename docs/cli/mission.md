@@ -222,7 +222,7 @@ cosmetics ([`0.13.0` security fixes](../RELEASE_NOTES_0.13.0.md#security)).
 ```yaml
 - name: Mission gate
   run: |
-    pip install data-product-forge==0.15.2
+    pip install data-product-forge==0.15.3
     fluid mission check quality-coverage contract.fluid.yaml
 ```
 
