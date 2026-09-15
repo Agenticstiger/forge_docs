@@ -122,9 +122,52 @@ These are the groups `fluid --help` prints on `0.15.0`. Run it yourself to confi
 
 `--help` promotes a short surface, not the whole one. Commands such as `bundle`, `diff`, `verify`, `publish`, `runs`, `stats`, `ship` and [`mission`](/forge_docs/cli/mission.html) are real and documented, and `--help` itself names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. See the [CLI Reference](/forge_docs/cli/) for everything.
 
-::: tip Current release — `0.15.0`, schema **0.7.5** stable (GA)
-`0.15.0` is the current release ([release notes](/forge_docs/RELEASE_NOTES_0.15.0.html)). Its headline is **sovereignty enforcement**: data-residency controls that previously reported clean while checking nothing now actually block, with `sovereignty.enforcementMode` driving severity in both directions, engine defaults realigned to the schema's, and the region→jurisdiction table derived from vendor data. A contract that passed [`fluid validate`](/forge_docs/cli/validate.html) on `0.14.1` can fail here. Recent releases below it: [`0.14.0`](/forge_docs/RELEASE_NOTES_0.14.0.html) was the **live-verification hardening** release (the dbt Iceberg loop reaching all three cloud warehouses); [`0.13.0`](/forge_docs/RELEASE_NOTES_0.13.0.html) brought **verifiable autonomy + declarative packaging** with the new [`fluid mission`](/forge_docs/cli/mission.html) command; [`0.12.0`](/forge_docs/RELEASE_NOTES_0.12.0.html) landed **dbt integration + schema GA**, promoting contract schema `0.7.5` to stable as the default for untagged contracts and shipping the brownfield [`fluid import dbt`](/forge_docs/cli/import.html) importer, the MetricFlow bridge and `fluid verify --reconcile-lineage`; `0.11.0` brought the **AI-ready / RAG** surface (vector output port preview, semantic-drift guard, `ai_ready` agent, LocalStack-compatible AWS apply); `0.10.0` matured the **plugin platform** (operator trust boundary via `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`, [`fluid plugins`](/forge_docs/cli/plugins.html) + [`fluid exporters`](/forge_docs/cli/exporters.html), and the `odps` / `odcs` provider→exporter reclassification); the streaming **Kafka → Iceberg sink** shipped in `0.9.0`; and the **MCP output-port gateway** — runtime `agentPolicy` enforcement with JWT-bearer + mTLS identity — arrived in `0.8.7` ([`fluid mcp`](/forge_docs/cli/mcp.html)). The platform builds on the **SDP / ADP / CDP** Data Mesh vocabulary alongside the medallion `Bronze / Silver / Gold` layers, **six ingestion engines** (`duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect`, `debezium`), the guided `fluid forge` UX (mode picker, welcome scan, slash commands, preview panel), and a companion **SDK** (`data-product-forge-sdk`). See [SDK & Plugins](/forge_docs/sdk-and-plugins/), [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), and [Product Types](/forge_docs/data-products/product-type.html) for the full picture.
+:::: tip Current release — `0.15.1`, schema **0.7.5** stable (GA)
+`pip install data-product-forge` gives you `0.15.1`. The `0.15.x` changes landed in `0.15.0`, which
+documents them together with `0.14.1` in one baseline (there is no separate `0.15.1` page):
+[`0.15.0` release notes](/forge_docs/RELEASE_NOTES_0.15.0.html).
+
+**Coming from `0.14.1` or earlier? One thing can break you.** A contract that passed
+[`fluid validate`](/forge_docs/cli/validate.html) on `0.14.1` can fail now, with no edit of yours.
+`0.15.0` is the **sovereignty enforcement** release: residency controls that reported clean while
+checking nothing now actually block.
+
+- **`strict` blocks, `advisory` warns, `audit` informs.** `sovereignty.enforcementMode` drives
+  severity in both directions, and the engine's own defaults — previously the permissive inverse of
+  the schema's — now match the schema, where `strict` is the default.
+- **Three regions changed jurisdiction.** The region→jurisdiction table is derived from the vendors'
+  own data instead of typed by hand, which is how it had placed London in the EU and treated
+  Singapore and Seoul as pass-anything wildcards. Re-validate any contract bound there.
+- **A jurisdiction-pinned MCP output port refuses to start** on the default stdio transport, or on
+  HTTP with no auth mode configured: caller jurisdiction is enforced at query time, fail-closed, and
+  neither of those can prove where the caller is.
+
+The notes carry the thirteen-step upgrade checklist and three further risks outside sovereignty.
+`0.14.1`, in the same baseline, closed two HIGH authorisation bypasses in the MCP output port.
+
+::: details Before that, each release keeping its own work
+- [`0.14.0`](/forge_docs/RELEASE_NOTES_0.14.0.html) — live-verification hardening: the dbt Iceberg
+  loop reaching all three cloud warehouses.
+- [`0.13.0`](/forge_docs/RELEASE_NOTES_0.13.0.html) — verifiable autonomy and declarative packaging,
+  with the [`fluid mission`](/forge_docs/cli/mission.html) command.
+- [`0.12.0`](/forge_docs/RELEASE_NOTES_0.12.0.html) — dbt integration and schema GA: `0.7.5` promoted
+  to stable as the default for untagged contracts, plus the brownfield
+  [`fluid import dbt`](/forge_docs/cli/import.html) importer.
+- [`0.11.0`](/forge_docs/RELEASE_NOTES_0.11.0.html) — the AI-ready / RAG surface: vector output port,
+  semantic-drift guard, `ai_ready` agent.
+- [`0.10.0`](/forge_docs/RELEASE_NOTES_0.10.0.html) — plugin governance: an operator trust boundary
+  over plugins, with [`fluid plugins`](/forge_docs/cli/plugins.html) and
+  [`fluid exporters`](/forge_docs/cli/exporters.html).
+- [`0.9.0`](/forge_docs/RELEASE_NOTES_0.9.0.html) — the streaming Kafka → Iceberg sink.
+- [`0.8.6`](/forge_docs/RELEASE_NOTES_0.8.6.html) — the [`fluid mcp`](/forge_docs/cli/mcp.html)
+  output-port gateway: `agentPolicy` enforced at runtime, with JWT-bearer and mTLS identity.
 :::
+
+The vocabulary and the product types behind all of it:
+[SDK & Plugins](/forge_docs/sdk-and-plugins/),
+[Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html),
+[Product Types](/forge_docs/data-products/product-type.html).
+::::
 
 ## Where to go next
 

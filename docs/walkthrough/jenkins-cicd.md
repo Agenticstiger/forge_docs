@@ -102,6 +102,12 @@ bitcoin-tracker/
 
 ### 1. Jenkins Setup
 
+::: warning Substitute your own project id
+`my-project-id` on this page is a placeholder. Project ids are unique across the whole of Google
+Cloud, so replace it with your own in the commands, the credential, and the `environment` block
+below.
+:::
+
 **Prerequisites:**
 - Jenkins 2.x or later
 - Plugins:
@@ -118,7 +124,7 @@ bitcoin-tracker/
 // 1. Add GCP credentials
 Credentials → Add Credentials
   Kind: Google Service Account from private key
-  Project Name: fluid-crypto-tracker
+  Project Name: my-project-id
   ID: gcp-data-product-deployer
 
 // 2. Configure tools
@@ -151,16 +157,16 @@ Pipeline → Definition → Pipeline script from SCM
 # 1. Create service account
 gcloud iam service-accounts create fluid-cicd \
   --display-name="FLUID CI/CD Service Account" \
-  --project=fluid-crypto-tracker
+  --project=my-project-id
 
 # 2. Grant permissions
-gcloud projects add-iam-policy-binding fluid-crypto-tracker \
-  --member="serviceAccount:fluid-cicd@fluid-crypto-tracker.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding my-project-id \
+  --member="serviceAccount:fluid-cicd@my-project-id.iam.gserviceaccount.com" \
   --role="roles/bigquery.admin"
 
 # 3. Create key
 gcloud iam service-accounts keys create ~/fluid-cicd-key.json \
-  --iam-account=fluid-cicd@fluid-crypto-tracker.iam.gserviceaccount.com
+  --iam-account=fluid-cicd@my-project-id.iam.gserviceaccount.com
 
 # 4. Add to Jenkins credentials
 # Upload fluid-cicd-key.json as "Secret file" credential
@@ -177,7 +183,7 @@ gcloud auth application-default login
 In Jenkins job configuration:
 ```groovy
 environment {
-    GCP_PROJECT_ID = 'fluid-crypto-tracker'
+    GCP_PROJECT_ID = 'my-project-id'
     GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-data-product-deployer')
 }
 ```
