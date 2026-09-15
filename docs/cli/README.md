@@ -8,7 +8,7 @@ The page you actually want is [**CLI by task →**](./tasks/) — narrative walk
 
 ## Read this first
 
-- CLI release examples in this section use `0.15.2`
+- CLI release examples in this section use `0.15.3`
 - Contract examples use `fluidVersion: 0.7.2`
 - `fluid version` and `fluidVersion` are different things
 - The pinned CLI version is recorded in [`docs/.vuepress/cli-version.json`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/.vuepress/cli-version.json) and enforced by the [`cli-consistency`](https://github.com/Agenticstiger/forge_docs/actions/workflows/cli-consistency.yml) workflow.
