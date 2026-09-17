@@ -6,6 +6,7 @@ import requests
 from google.cloud import bigquery
 from datetime import datetime
 import os
+import sys
 import json
 import tempfile
 
@@ -67,7 +68,17 @@ def load_to_bigquery_batch(row, project_id, dataset_id="crypto_data", table_id="
         os.unlink(temp_file)
 
 if __name__ == "__main__":
-    project_id = os.getenv("GCP_PROJECT_ID", "<<YOUR_PROJECT_HERE>>")
+    # Get project ID from environment or command line
+    project_id = os.getenv("GCP_PROJECT_ID")
+
+    if not project_id and len(sys.argv) > 1:
+        project_id = sys.argv[1]
+
+    if not project_id:
+        print("❌ Error: GCP_PROJECT_ID environment variable not set")
+        print("Usage: python load_bitcoin_price_batch.py [PROJECT_ID]")
+        print("   or: export GCP_PROJECT_ID=your-project-id && python load_bitcoin_price_batch.py")
+        sys.exit(1)
     
     print(f"🚀 Fetching Bitcoin price...")
     price_data = fetch_bitcoin_price()

@@ -18,7 +18,12 @@ NC='\033[0m' # No Color
 # Configuration
 PROJECT_DIR=$(pwd)
 AIRFLOW_HOME=${AIRFLOW_HOME:-$HOME/airflow}
-GCP_PROJECT_ID=${GCP_PROJECT_ID:-<<YOUR_PROJECT_HERE>>}
+GCP_PROJECT_ID=${GCP_PROJECT_ID:-}
+if [ -z "$GCP_PROJECT_ID" ]; then
+    echo "❌ Error: GCP_PROJECT_ID environment variable not set"
+    echo "Usage: export GCP_PROJECT_ID=your-project-id && ./airflow-quickstart.sh"
+    exit 1
+fi
 
 echo -e "${BLUE}Configuration:${NC}"
 echo "  Project Directory: $PROJECT_DIR"

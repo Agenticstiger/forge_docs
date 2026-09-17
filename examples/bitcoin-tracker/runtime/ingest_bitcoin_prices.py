@@ -12,6 +12,19 @@ import sys
 
 def main():
     """Fetch Bitcoin price from CoinGecko API and insert to BigQuery"""
+    # Resolve the target project before doing any work, so a missing
+    # GCP_PROJECT_ID fails here rather than silently targeting a placeholder.
+    project_id = os.getenv("GCP_PROJECT_ID")
+
+    if not project_id and len(sys.argv) > 1:
+        project_id = sys.argv[1]
+
+    if not project_id:
+        print("❌ Error: GCP_PROJECT_ID environment variable not set")
+        print("Usage: python ingest_bitcoin_prices.py [PROJECT_ID]")
+        print("   or: export GCP_PROJECT_ID=your-project-id && python ingest_bitcoin_prices.py")
+        sys.exit(1)
+
     print("🚀 Starting Bitcoin price ingestion...")
     
     # Fetch from CoinGecko API (free tier, no auth required)
@@ -47,7 +60,6 @@ def main():
     }
     
     # Insert to BigQuery
-    project_id = os.getenv("GCP_PROJECT_ID", "<<YOUR_PROJECT_HERE>>")
     dataset_id = "crypto_data"
     table_id = "bitcoin_prices"
     
