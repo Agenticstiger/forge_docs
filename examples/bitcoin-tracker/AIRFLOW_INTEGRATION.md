@@ -200,6 +200,10 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + "/../.."))
 
 from ingest_bitcoin_prices import fetch_bitcoin_price, insert_to_bigquery
 
+# Configuration from environment variables
+GCP_PROJECT_ID = os.environ["GCP_PROJECT_ID"]  # required: fail at parse time rather than
+# targeting a placeholder project that does not exist
+
 # Default arguments
 default_args = {
     "owner": "data-engineering",
@@ -256,7 +260,7 @@ with DAG(
         """Insert price data to BigQuery."""
         price_data = context["ti"].xcom_pull(task_ids="fetch_bitcoin_price")
         
-        project_id = os.environ.get("GCP_PROJECT_ID", "<<YOUR_PROJECT_HERE>>")
+        project_id = GCP_PROJECT_ID
         dataset = "crypto_data"
         table = "bitcoin_prices"
         
@@ -286,7 +290,7 @@ with DAG(
         task_id="check_data_quality",
         sql=f"""
         SELECT COUNT(*) > 0
-        FROM `{os.environ.get('GCP_PROJECT_ID', '<<YOUR_PROJECT_HERE>>')}.crypto_data.bitcoin_prices`
+        FROM `{GCP_PROJECT_ID}.crypto_data.bitcoin_prices`
         WHERE DATE(timestamp) = CURRENT_DATE()
         """,
         use_legacy_sql=False,
@@ -297,7 +301,7 @@ with DAG(
         task_id="verify_transformations",
         sql=f"""
         SELECT COUNT(*) > 0
-        FROM `{os.environ.get('GCP_PROJECT_ID', '<<YOUR_PROJECT_HERE>>')}.crypto_data.daily_price_summary`
+        FROM `{GCP_PROJECT_ID}.crypto_data.daily_price_summary`
         WHERE price_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
         """,
         use_legacy_sql=False,
