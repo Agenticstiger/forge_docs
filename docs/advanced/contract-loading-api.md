@@ -64,10 +64,10 @@ try:
     load_contract("contract.fluid.yaml", env="../../etc/x")
 except ContractLoadError as err:
     err.event  # 'contract_env_invalid'
-    str(err)
-    # "env '../../etc/x' is not an environment name: an env names an overlay file
+    print(err)
+    # env '../../etc/x' is not an environment name: an env names an overlay file
     # next to the contract, so it must be one path component: not empty, not '.' or
-    # '..', no '/', '\' or NUL, not drive-qualified ('C:prod')"
+    # '..', no '/', '\' or NUL, not drive-qualified ('C:prod')
 ```
 
 Refused: `""` (not read as `None`), `.`, `..`, anything holding `/`, `\` or a

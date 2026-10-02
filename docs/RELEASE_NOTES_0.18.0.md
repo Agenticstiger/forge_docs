@@ -35,7 +35,6 @@ engine read files and URLs its operator never meant to expose.
 | declare inputs, outputs or acquisition sources at absolute paths elsewhere (`/data/landing/*.csv`) | [allow the directory](#sql-or-declarations-that-read-outside-the-contract-directory) |
 | read an `http(s)://`, `gs://` or Azure URL directly in contract SQL (`read_csv('https://…')`) | [land the data first](#urls-other-than-s3-in-contract-sql) |
 | `SET` or `PRAGMA` a DuckDB setting in contract SQL (`memory_limit`, `threads`, `TimeZone`, …) | [remove the statement](#set-and-pragma-in-contract-sql) |
-| declare `fluid contract-tests` local action inputs or outputs outside the working directory | [allow the directory](#fluid-contract-tests-local-actions) |
 | call `read_xlsx`, `sqlite_scan`, `ST_Read`, `delta_scan` or `iceberg_scan` in contract SQL | [convert or land the data](#functions-duckdb-used-to-autoload) |
 | install DuckDB yourself at a version below 1.5.0 | [upgrade DuckDB](#upgrade-duckdb) |
 
@@ -176,22 +175,6 @@ The SQL was `SET memory_limit='1GB'; SELECT …`. `PRAGMA threads=2` and
 with an explicit offset (or convert with `AT TIME ZONE`) instead of setting
 `TimeZone`.
 
-### `fluid contract-tests` local actions
-
-The DuckDB connection of each `fluid contract-tests` local action can reach
-only the input and output files that action declares, and each of those must
-sit under the working directory or a `FLUID_DUCKDB_ALLOWED_DIRS` directory.
-A file declared elsewhere is refused:
-
-```console
-The contract declares '/etc/hosts' (/private/etc/hosts), outside the directories it
-may read and write (/work/ct). The operator can allow a directory with
-FLUID_DUCKDB_ALLOWED_DIRS.
-```
-
-**Migrate** by running from a directory that holds the files, or by allowing
-their directory with `FLUID_DUCKDB_ALLOWED_DIRS`.
-
 ### OpenAPI fragments with an external `$ref`
 
 `fluid validate` on a bundle (`fluid bundle --format tgz`) now reports an
@@ -203,8 +186,10 @@ not a same-document `#/…` pointer:
 - Relative refs such as `./schemas.yaml#/Order` were already reported as
   unresolvable (`OAS001`); they are now reported as `OAS-REF-EXTERNAL`.
 - A `$ref` key inside an `example`, `examples.*.value` or `x-*` payload is now
-  reported too. This is the case where a bundle that validated before can now
-  fail.
+  reported too.
+
+A bundle that validated before can now fail if it holds a resolvable `file://`
+or `http(s)://` ref, or a `$ref` key in an example or `x-*` payload.
 
 **Migrate** by inlining the referenced schemas under `components`, and by
 renaming a `$ref` key in an example payload (for example to `ref`) or
@@ -254,6 +239,11 @@ object-store builds use the credential-chain secret the engine creates.
   test fails if a new `duckdb.connect` bypasses the helper.
 - Each action's DuckDB connection is closed when the action ends, including
   when it fails (#689).
+- The legacy local-provider module `fluid_build.contract_tests`, which no
+  `fluid` command uses, confines each action's DuckDB connection to the files
+  that action declares, under the working directory or a
+  `FLUID_DUCKDB_ALLOWED_DIRS` directory (#689). `fluid contract-tests` does not
+  run DuckDB and is unchanged.
 
 ## Added
 
