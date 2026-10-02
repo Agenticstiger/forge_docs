@@ -614,6 +614,18 @@ export default defineUserConfig({
             '/advanced/v1.5-release-notes.md'
           ]
         },
+        // CLI 0.18.0: contract confinement (forge-cli #687, #688, #689).
+        // A group of its own so it merges cleanly with edits to the
+        // Concepts / Advanced / Project lists.
+        {
+          text: 'Contract loading & sandboxing',
+          children: [
+            '/concepts/contract-refs.md',
+            '/advanced/duckdb-sandbox.md',
+            '/advanced/contract-loading-api.md',
+            '/RELEASE_NOTES_0.18.0.md'
+          ]
+        },
         {
           text: 'Project',
           children: [
