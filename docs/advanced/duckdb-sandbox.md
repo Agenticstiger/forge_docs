@@ -127,7 +127,7 @@ acquisition build first.
 | Embedded-SQL build on the local DuckDB engine (`builds[].properties.sql`) | the contract's directory, the FLUID workspace it sits in (`fluid.workspace.yaml`), `./runtime`, the run's scratch directory, each declared `parameters.inputs[].path`, each resolved `consumes[]` upstream, the expose's landing path, and the `s3://` prefixes those name. A declared local path counts only [inside the allowed directories](#declared-locations-stay-inside-the-allowed-directories). |
 | DuckDB acquisition build (`pattern: acquisition`, `engine: duckdb`) | the contract's directory, the declared `source.connection.uri` (or stream paths), and each stream's landing file, each inside the allowed directories. A `mysql` source is attached before the sandbox closes; so is a `sqlite` source, and its file must also be inside the allowed directories. |
 | `fluid validate` quality rules, `fluid verify`, `fluid diff` | the one file being checked |
-| `fluid contract-tests` local actions | each declared input file and each output file |
+| Legacy local-provider module `fluid_build.contract_tests` (no `fluid` command uses it) | each declared input file and each output file, each under the working directory or a `FLUID_DUCKDB_ALLOWED_DIRS` directory |
 | Discovery (`fluid forge data-model from-source`, `discover`) | the one file or URL being introspected; a JDBC source is attached first |
 | MCP output port (DuckDB driver) | the bound file |
 
