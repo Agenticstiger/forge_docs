@@ -21,6 +21,10 @@ database, install an extension, or change those settings.
 - **Contract SQL can no longer read `http(s)://`, `gs://` or Azure URLs**,
   declared or not. Only declared `s3://` locations are reachable; land other
   remote data with an acquisition build first.
+- **`SET` and `PRAGMA` statements that change a DuckDB setting**
+  (`memory_limit`, `threads`, `TimeZone`, …) in contract SQL now fail the
+  action with `Cannot change configuration option "memory_limit" - the
+  configuration has been locked`. Remove them from the SQL.
 - The `local` extra requires **`duckdb>=1.5.0`**, and the engine refuses to
   open DuckDB on anything older.
 
@@ -84,10 +88,10 @@ The same message (`DuckDB refused it: …`) follows each of these:
 |---|---|
 | `read_csv('/etc/passwd')`, `read_text(...)`, `read_blob(...)`, `read_parquet(...)`, `read_json(...)`, `glob('/etc/*')` on a path outside the list | `Permission Error: Cannot access file …` |
 | `read_csv('../shared/x.csv')`, `<dir>/./../`, a symlink that points outside | `Permission Error: Cannot access file …` |
-| `read_csv('https://example.com/x.csv')`, or any `http(s)://`, `gs://` or Azure URL, declared or not (only declared `s3://` locations are readable) | `File https://… requires the extension httpfs to be loaded` |
+| `read_csv('https://example.com/x.csv')`, or any `http(s)://`, `gs://` or Azure URL, declared or not (only declared `s3://` locations are readable) | When the build declares no `s3://` location: `File https://example.com/x.csv requires the extension httpfs to be loaded`. When it declares one (so `httpfs` is loaded): `Permission Error: Cannot access file "https://example.com/x.csv" - file system operations are disabled by configuration`, because the URL is outside `allowed_directories` |
 | `INSTALL httpfs` | `Permission Error: Cannot access directory "~/.duckdb/extensions/…"` |
 | `LOAD httpfs`, or `LOAD` of any extension that is not built in (a built-in one such as `json` still loads) | `Permission Error: Loading external extensions is disabled through configuration` |
-| `SET enable_external_access = true`, or any other `SET` | `Cannot change configuration option … - the configuration has been locked` |
+| `SET enable_external_access = true`, or any other `SET` or `PRAGMA` that changes a setting (`SET memory_limit='1GB'`, `PRAGMA threads=2`, `SET TimeZone='UTC'`) | `Invalid Input Error: Cannot change configuration option "memory_limit" - the configuration has been locked` |
 | `read_xlsx(...)`, `sqlite_scan(...)`, `ST_Read(...)`, `delta_scan(...)`, `iceberg_scan(...)` | `Catalog Error: Table Function with name "read_xlsx" is not in the catalog` |
 
 `ATTACH` of another database file and `COPY … TO` / `COPY … FROM` a location
@@ -123,7 +127,7 @@ acquisition build first.
 | Embedded-SQL build on the local DuckDB engine (`builds[].properties.sql`) | the contract's directory, the FLUID workspace it sits in (`fluid.workspace.yaml`), `./runtime`, the run's scratch directory, each declared `parameters.inputs[].path`, each resolved `consumes[]` upstream, the expose's landing path, and the `s3://` prefixes those name. A declared local path counts only [inside the allowed directories](#declared-locations-stay-inside-the-allowed-directories). |
 | DuckDB acquisition build (`pattern: acquisition`, `engine: duckdb`) | the contract's directory, the declared `source.connection.uri` (or stream paths), and each stream's landing file, each inside the allowed directories. A `mysql` source is attached before the sandbox closes; so is a `sqlite` source, and its file must also be inside the allowed directories. |
 | `fluid validate` quality rules, `fluid verify`, `fluid diff` | the one file being checked |
-| `fluid contract-tests` local actions | each declared input file and each output file |
+| `fluid contract-tests` local actions | each declared input file and each output file. Each must sit under the working directory or a `FLUID_DUCKDB_ALLOWED_DIRS` directory, or the action is refused before its SQL runs (new in 0.18.0). |
 | Discovery (`fluid forge data-model from-source`, `discover`) | the one file or URL being introspected; a JDBC source is attached first |
 | MCP output port (DuckDB driver) | the bound file |
 
@@ -349,9 +353,8 @@ guide gives.
   `~/.duckdb/stored_secrets` are no longer loaded; object-store builds use the
   credential-chain secret the engine creates.
 - **Defense in depth, not isolation.** DuckDB describes these settings as not a
-  substitute for proper sandboxing. A service that runs other people's
-  contracts (the Command Center, a shared CI runner) should still run each one
-  in its own container.
+  substitute for proper sandboxing. Services, CI jobs or shared hosts that run
+  contracts other people wrote should still run each one in its own container.
 
 ## Related
 

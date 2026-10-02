@@ -19,9 +19,9 @@ A contract can no longer make the engine read the machine it runs on.
 - **A new public API loads a contract exactly as `fluid plan` sees it.**
   ([forge-cli #688](https://github.com/Agenticstiger/forge-cli/pull/688))
 
-These changes come from a security review of the FLUID Command Center, which
-runs the engine on user-supplied contracts. The same holes apply to any
-service, CI job or shared host that runs contracts its operator did not write.
+These changes matter most to services, CI jobs or shared hosts that run
+contracts other people wrote: before 0.18.0, such a contract could make the
+engine read files and URLs its operator never meant to expose.
 
 ## Do I need to change anything?
 
@@ -34,6 +34,8 @@ service, CI job or shared host that runs contracts its operator did not write.
 | run SQL only on files under the contract's directory or workspace | nothing |
 | declare inputs, outputs or acquisition sources at absolute paths elsewhere (`/data/landing/*.csv`) | [allow the directory](#sql-or-declarations-that-read-outside-the-contract-directory) |
 | read an `http(s)://`, `gs://` or Azure URL directly in contract SQL (`read_csv('https://…')`) | [land the data first](#urls-other-than-s3-in-contract-sql) |
+| `SET` or `PRAGMA` a DuckDB setting in contract SQL (`memory_limit`, `threads`, `TimeZone`, …) | [remove the statement](#set-and-pragma-in-contract-sql) |
+| declare `fluid contract-tests` local action inputs or outputs outside the working directory | [allow the directory](#fluid-contract-tests-local-actions) |
 | call `read_xlsx`, `sqlite_scan`, `ST_Read`, `delta_scan` or `iceberg_scan` in contract SQL | [convert or land the data](#functions-duckdb-used-to-autoload) |
 | install DuckDB yourself at a version below 1.5.0 | [upgrade DuckDB](#upgrade-duckdb) |
 
@@ -136,6 +138,11 @@ because DuckDB autoloaded `httpfs`. With autoloading off it fails:
       File https://… requires the extension httpfs to be loaded
 ```
 
+That is the error when the build declares no `s3://` location. When it
+declares one, `httpfs` is loaded and DuckDB refuses the URL as outside
+`allowed_directories` instead:
+`Permission Error: Cannot access file "https://…" - file system operations are disabled by configuration`.
+
 Declaring the URL does not fix it. The local provider treats only `s3://`
 locations as remote: for those it loads `httpfs` and creates a credential
 secret before the sandbox closes. Any other declared URL is taken as a local
@@ -149,14 +156,55 @@ can reach declared `s3://` locations only, and no contract setting brings back
 can be copied to the contract's directory, its workspace, or an `s3://`
 location.
 
+### `SET` and `PRAGMA` in contract SQL
+
+The sandbox locks DuckDB's configuration before contract SQL runs, so a `SET`
+or `PRAGMA` statement that changes a setting (`memory_limit`, `threads`,
+`TimeZone`, …) now fails the action:
+
+```console
+$ fluid apply contract.fluid.yaml --mode amend-and-build --yes
+🔷 Build 'summarise' (embedded-SQL / local DuckDB)
+   ❌ Failed: 1 action(s) failed
+      Invalid Input Error: Cannot change configuration option "memory_limit" - the
+      configuration has been locked ...
+```
+
+The SQL was `SET memory_limit='1GB'; SELECT …`. `PRAGMA threads=2` and
+`SET TimeZone='UTC'` fail the same way, naming `threads` and `TimeZone`.
+**Migrate** by removing the statement from the contract SQL. Write timestamps
+with an explicit offset (or convert with `AT TIME ZONE`) instead of setting
+`TimeZone`.
+
+### `fluid contract-tests` local actions
+
+The DuckDB connection of each `fluid contract-tests` local action can reach
+only the input and output files that action declares, and each of those must
+sit under the working directory or a `FLUID_DUCKDB_ALLOWED_DIRS` directory.
+A file declared elsewhere is refused:
+
+```console
+The contract declares '/etc/hosts' (/private/etc/hosts), outside the directories it
+may read and write (/work/ct). The operator can allow a directory with
+FLUID_DUCKDB_ALLOWED_DIRS.
+```
+
+**Migrate** by running from a directory that holds the files, or by allowing
+their directory with `FLUID_DUCKDB_ALLOWED_DIRS`.
+
 ### OpenAPI fragments with an external `$ref`
 
 `fluid validate` on a bundle (`fluid bundle --format tgz`) now reports an
 `OAS-REF-EXTERNAL` error for any `$ref` in a bundled OpenAPI document that is
-not a same-document `#/…` pointer. That includes relative refs such as
-`./schemas.yaml#/Order`, which openapi-spec-validator used to follow, and a
-`$ref` key inside an `example`, `examples.*.value` or `x-*` payload. A bundle
-that validated before can now fail.
+not a same-document `#/…` pointer:
+
+- `file://` and `http(s)://` refs used to be followed by
+  openapi-spec-validator. They are now reported, not followed.
+- Relative refs such as `./schemas.yaml#/Order` were already reported as
+  unresolvable (`OAS001`); they are now reported as `OAS-REF-EXTERNAL`.
+- A `$ref` key inside an `example`, `examples.*.value` or `x-*` payload is now
+  reported too. This is the case where a bundle that validated before can now
+  fail.
 
 **Migrate** by inlining the referenced schemas under `components`, and by
 renaming a `$ref` key in an example payload (for example to `ref`) or
@@ -204,6 +252,8 @@ object-store builds use the credential-chain secret the engine creates.
   extensions, and `lock_configuration = true`. Contract SQL can no longer
   read host files, URLs or other databases, or change those settings. A guard
   test fails if a new `duckdb.connect` bypasses the helper.
+- Each action's DuckDB connection is closed when the action ends, including
+  when it fails (#689).
 
 ## Added
 
@@ -214,11 +264,6 @@ object-store builds use the credential-chain secret the engine creates.
   rewrites, plus its plan-digest canonicalisation (`.digest`). Failures raise
   a typed `ContractLoadError`. The `fluid_build.api` version is now `1.1`.
   See [Contract loading API](./advanced/contract-loading-api.md).
-
-## Fixed
-
-- One failed SQL action no longer makes every later action of the same local
-  apply fail with "configuration has been locked" (#689).
 
 ## See also
 

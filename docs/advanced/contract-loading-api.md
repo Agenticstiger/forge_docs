@@ -34,7 +34,9 @@ loaded = load_contract("orders/contract.fluid.yaml")
 
 loaded.origin           # 'file'
 loaded.digest           # 'sha256:ffb903222a5ab79af24df49dcf2729924b7756dc11e0ab221775df93df6dd391'
-loaded.files            # contract.fluid.yaml, owner.yaml, parts/build.yaml, parts/policy.yaml
+loaded.files
+# (PosixPath('/work/orders/contract.fluid.yaml'), PosixPath('/work/orders/owner.yaml'),
+#  PosixPath('/work/orders/parts/build.yaml'), PosixPath('/work/orders/parts/policy.yaml'))
 loaded.unresolved_refs  # ()
 loaded.contract["exposes"][0]["policy"]
 # {'classification': 'Internal', 'authz': {'readers': ['group:sales-analysts']}}
@@ -56,8 +58,16 @@ or an absolute path would merge whichever file it named into the contract. An
 env that is not a single path component is refused before a file is read:
 
 ```python
-load_contract("contract.fluid.yaml", env="../../etc/x")
-# ContractLoadError: contract_env_invalid
+from fluid_build.api import ContractLoadError
+
+try:
+    load_contract("contract.fluid.yaml", env="../../etc/x")
+except ContractLoadError as err:
+    err.event  # 'contract_env_invalid'
+    str(err)
+    # "env '../../etc/x' is not an environment name: an env names an overlay file
+    # next to the contract, so it must be one path component: not empty, not '.' or
+    # '..', no '/', '\' or NUL, not drive-qualified ('C:prod')"
 ```
 
 Refused: `""` (not read as `None`), `.`, `..`, anything holding `/`, `\` or a

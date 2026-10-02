@@ -167,14 +167,17 @@ in /work/orders/contract.fluid.yaml is a URL; remote refs (including file://) ar
 supported — use a relative path to a file inside the ref root
 ```
 
-Every message names the ref, the JSON pointer of the `$ref` node, and the file
-it was written in.
+Each of these confinement refusals (a URL, an absolute path, an escape from
+the ref root) names the ref, the JSON pointer of the `$ref` node, and the file
+it was written in. Other ref errors, such as a ref blocked because it resolves
+into a system directory, a missing target file, or a JSON pointer that does not
+resolve, do not carry all three.
 
 ::: tip Why the root exists
-Contracts are often untrusted input. A platform such as the FLUID Command
-Center runs `fluid validate` and `fluid bundle` on contracts its users upload.
-Without a root, a contract could compose any YAML or JSON file the process can
-read into itself, and `fluid bundle` would print it back.
+Contracts are often untrusted input: services, CI jobs or shared hosts run
+`fluid validate` and `fluid bundle` on contracts other people wrote. Without a
+root, a contract could compose any YAML or JSON file the process can read into
+itself, and `fluid bundle` would print it back.
 :::
 
 ## Widening the root for a monorepo
