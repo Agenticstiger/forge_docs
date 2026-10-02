@@ -30,8 +30,10 @@ service, CI job or shared host that runs contracts its operator did not write.
 | use `$ref` only to files under the contract's own directory | nothing |
 | use `$ref: ../…` to reach another product's or a shared directory | [widen the ref root](#ref-to-files-outside-the-contract-directory) |
 | use a `$ref` with a URL (`file://`, `https://`) or an absolute path | [copy the fragment in](#ref-to-files-outside-the-contract-directory) |
+| ship OpenAPI documents in a bundle that `$ref` another file or URL, or carry a `$ref` key in an example or `x-*` payload | [inline the schemas or rename the key](#openapi-fragments-with-an-external-ref) |
 | run SQL only on files under the contract's directory or workspace | nothing |
 | declare inputs, outputs or acquisition sources at absolute paths elsewhere (`/data/landing/*.csv`) | [allow the directory](#sql-or-declarations-that-read-outside-the-contract-directory) |
+| read an `http(s)://`, `gs://` or Azure URL directly in contract SQL (`read_csv('https://…')`) | [land the data first](#urls-other-than-s3-in-contract-sql) |
 | call `read_xlsx`, `sqlite_scan`, `ST_Read`, `delta_scan` or `iceberg_scan` in contract SQL | [convert or land the data](#functions-duckdb-used-to-autoload) |
 | install DuckDB yourself at a version below 1.5.0 | [upgrade DuckDB](#upgrade-duckdb) |
 
@@ -78,15 +80,21 @@ Full reference: [Composing a contract with `$ref`](./concepts/contract-refs.md).
 
 ### SQL or declarations that read outside the contract directory
 
-SQL in a contract can read and write only:
+SQL in an embedded-SQL build on the local provider can read and write only:
 
 - the contract's directory and its FLUID workspace;
 - `./runtime` and the run's scratch directory;
-- the locations the contract declares, and only those inside the same roots;
-- any directory the operator lists in `FLUID_DUCKDB_ALLOWED_DIRS`.
+- the locations the contract declares, and only those inside the roots above,
+  the upstream roots in `FLUID_UPSTREAM_CONTRACTS`, or a directory the
+  operator lists in `FLUID_DUCKDB_ALLOWED_DIRS`.
 
-A declared input, output or acquisition source outside those roots is refused
-before any SQL runs:
+A DuckDB acquisition build is narrower: its declared sources and landings may
+sit only in the contract's directory, its workspace, or a
+`FLUID_DUCKDB_ALLOWED_DIRS` directory (not `./runtime`, the scratch directory
+or a `FLUID_UPSTREAM_CONTRACTS` root).
+
+A declared input, output or acquisition source outside its allowed roots is
+refused before any SQL runs:
 
 ```console
 $ fluid apply contract.fluid.yaml --mode amend-and-build --yes
@@ -107,15 +115,53 @@ FLUID_DUCKDB_ALLOWED_DIRS=/work/reference \
   fluid apply contract.fluid.yaml --mode amend-and-build --yes
 ```
 
-SQL that reads a path the contract does not declare (`read_csv('/etc/passwd')`,
-`../`, an undeclared URL) is refused by DuckDB itself. Declare the location as
-an input.
+SQL that reads a local path the contract does not declare
+(`read_csv('/etc/passwd')`, `../`) is refused by DuckDB itself. Declare the
+location as an input. For a URL, declaring it helps only for `s3://`; see
+[URLs other than `s3://`](#urls-other-than-s3-in-contract-sql).
 
 A declared glob grants the directory above its first wildcard, because DuckDB
 expands the glob again when the SQL runs; that directory must itself be
 inside the allowed roots.
 
 Full reference: [DuckDB sandbox for contract SQL](./advanced/duckdb-sandbox.md).
+
+### URLs other than `s3://` in contract SQL
+
+Before 0.18.0, `read_csv('https://…')` in an embedded-SQL build worked
+because DuckDB autoloaded `httpfs`. With autoloading off it fails:
+
+```console
+   ❌ Failed: 1 action(s) failed
+      File https://… requires the extension httpfs to be loaded
+```
+
+Declaring the URL does not fix it. The local provider treats only `s3://`
+locations as remote: for those it loads `httpfs` and creates a credential
+secret before the sandbox closes. Any other declared URL is taken as a local
+path, so an `https://` input fails with `Input file not found`. Embedded SQL
+can reach declared `s3://` locations only, and no contract setting brings back
+`http(s)://`, `gs://` or Azure reads.
+
+**Migrate** by landing the data with a DuckDB acquisition build first
+(`pattern: acquisition`, `engine: duckdb`, `source.kind: http` with
+`source.connection.uri`), then reading the landed file. Data in GCS or Azure
+can be copied to the contract's directory, its workspace, or an `s3://`
+location.
+
+### OpenAPI fragments with an external `$ref`
+
+`fluid validate` on a bundle (`fluid bundle --format tgz`) now reports an
+`OAS-REF-EXTERNAL` error for any `$ref` in a bundled OpenAPI document that is
+not a same-document `#/…` pointer. That includes relative refs such as
+`./schemas.yaml#/Order`, which openapi-spec-validator used to follow, and a
+`$ref` key inside an `example`, `examples.*.value` or `x-*` payload. A bundle
+that validated before can now fail.
+
+**Migrate** by inlining the referenced schemas under `components`, and by
+renaming a `$ref` key in an example payload (for example to `ref`) or
+dropping the example. See
+[OpenAPI fragments inside a bundle](./concepts/contract-refs.md#openapi-fragments-inside-a-bundle).
 
 ### Functions DuckDB used to autoload
 

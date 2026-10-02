@@ -8,8 +8,8 @@ description: What SQL inside a contract can read and write on the local DuckDB e
 From CLI 0.18.0, every DuckDB connection the engine opens runs inside
 DuckDB's own sandbox. SQL in a contract can read and write the contract's
 directory and the locations the contract declares. It cannot read the rest of
-the host, fetch a URL the contract does not declare, attach another database,
-install an extension, or change those settings.
+the host, fetch a URL other than a declared `s3://` location, attach another
+database, install an extension, or change those settings.
 
 ::: warning Breaking in 0.18.0
 - A declared input, output or acquisition source **outside the allowed
@@ -18,6 +18,9 @@ install an extension, or change those settings.
   [`FLUID_DUCKDB_ALLOWED_DIRS`](#reading-a-file-from-another-directory).
 - **Functions DuckDB used to autoload no longer work in contract SQL**:
   `sqlite_scan`, `read_xlsx`, `ST_Read`, `delta_scan`, `iceberg_scan`.
+- **Contract SQL can no longer read `http(s)://`, `gs://` or Azure URLs**,
+  declared or not. Only declared `s3://` locations are reachable; land other
+  remote data with an acquisition build first.
 - The `local` extra requires **`duckdb>=1.5.0`**, and the engine refuses to
   open DuckDB on anything older.
 
@@ -66,6 +69,13 @@ The list in parentheses is exactly what that build's SQL may touch: the
 contract's directory, `./runtime`, the run's scratch directory, and the
 declared output.
 
+A relative path in SQL is opened relative to the working directory, and
+`./runtime` is the working directory's `runtime/`. Run `fluid` from the
+contract's directory, as above, or write paths that resolve inside it: the
+same build run as `fluid apply orders/contract.fluid.yaml` from the parent
+directory is refused (`Cannot access file "data/orders.csv"`), and its list
+shows `<cwd>/runtime` rather than `orders/runtime`.
+
 ## What SQL is refused
 
 The same message (`DuckDB refused it: …`) follows each of these:
@@ -74,8 +84,9 @@ The same message (`DuckDB refused it: …`) follows each of these:
 |---|---|
 | `read_csv('/etc/passwd')`, `read_text(...)`, `read_blob(...)`, `read_parquet(...)`, `read_json(...)`, `glob('/etc/*')` on a path outside the list | `Permission Error: Cannot access file …` |
 | `read_csv('../shared/x.csv')`, `<dir>/./../`, a symlink that points outside | `Permission Error: Cannot access file …` |
-| `read_csv('https://example.com/x.csv')`, or any URL the contract does not declare | `File https://… requires the extension httpfs to be loaded` |
-| `INSTALL httpfs`, `LOAD …` | `Permission Error: Cannot access directory "~/.duckdb/extensions/…"` |
+| `read_csv('https://example.com/x.csv')`, or any `http(s)://`, `gs://` or Azure URL, declared or not (only declared `s3://` locations are readable) | `File https://… requires the extension httpfs to be loaded` |
+| `INSTALL httpfs` | `Permission Error: Cannot access directory "~/.duckdb/extensions/…"` |
+| `LOAD httpfs`, or `LOAD` of any extension that is not built in (a built-in one such as `json` still loads) | `Permission Error: Loading external extensions is disabled through configuration` |
 | `SET enable_external_access = true`, or any other `SET` | `Cannot change configuration option … - the configuration has been locked` |
 | `read_xlsx(...)`, `sqlite_scan(...)`, `ST_Read(...)`, `delta_scan(...)`, `iceberg_scan(...)` | `Catalog Error: Table Function with name "read_xlsx" is not in the catalog` |
 
@@ -119,16 +130,24 @@ acquisition build first.
 ## Declared locations stay inside the allowed directories
 
 Each declared input and output is granted to the build's SQL, and whoever
-writes the contract writes the declarations. So a declaration grants a local
-path only inside these directories:
+writes the contract writes the declarations. So, in an embedded-SQL build on
+the local provider, a declaration grants a local path only inside these
+directories:
 
 - the contract's directory and the FLUID workspace it sits in;
 - `./runtime` and the run's scratch directory;
 - the upstream roots in `FLUID_UPSTREAM_CONTRACTS`;
 - the directories the operator lists in `FLUID_DUCKDB_ALLOWED_DIRS`.
 
-Anything else is refused before any SQL runs. Declaring an innocuous glob in
-`$HOME` does not make `~/.aws/credentials` readable:
+A DuckDB acquisition build (`pattern: acquisition`, `engine: duckdb`) is
+narrower: its sources and landings may sit only in the contract's directory,
+its workspace, or a `FLUID_DUCKDB_ALLOWED_DIRS` directory. A source or landing
+under `./runtime`, the scratch directory or a `FLUID_UPSTREAM_CONTRACTS` root
+is refused there.
+
+Anything else is refused before any SQL runs. Unless the operator has allowed
+`$HOME`, declaring an innocuous glob in it does not make `~/.aws/credentials`
+readable:
 
 ```yaml
 properties:
@@ -259,8 +278,19 @@ message now includes the declared file:
         FLUID_DUCKDB_ALLOWED_DIRS entry '/' is the filesystem root
   ```
 
-- It lets a contract *declare* a location in that directory. It does not make
-  the directory readable to SQL that has not declared it.
+- It lets a contract *declare* a location in that directory; the directory is
+  not readable to SQL that declares nothing in it. But a declared glob grants
+  the whole directory above its first wildcard, and a declared directory its
+  subtree, and the contract author writes those declarations.
+
+::: warning Allow the narrowest directory
+Allowing a directory makes its whole subtree readable and writable to any
+contract that process runs, because a contract can declare `<dir>/*` or the
+directory itself. With `FLUID_DUCKDB_ALLOWED_DIRS=$HOME`, a contract that
+declares `$HOME/*.csv` can read `~/.aws/credentials`. Allow the narrowest
+directory that holds the data, never `$HOME` or a directory that holds
+credentials.
+:::
 
 A product inside a FLUID workspace can also read its sibling products' files
 by path, because the workspace is an allowed directory, and a `consumes[]`

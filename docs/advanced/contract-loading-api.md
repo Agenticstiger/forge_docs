@@ -130,8 +130,10 @@ submitted.unresolved_refs  # ('./owner.yaml', 'parts/build.yaml', 'parts/policy.
 
 ### Text with its fragments and an overlay
 
-Pass `base_dir` to resolve file refs against a directory, under the same
-[ref root rules](../concepts/contract-refs.md#the-ref-root) as a file load:
+Pass `base_dir` to resolve file refs against a directory. The refs are
+confined to `base_dir`, as the
+[ref root](../concepts/contract-refs.md#the-ref-root); `FLUID_REF_ROOT` is not
+consulted on this path (see [below](#fluid-ref-root)):
 
 ```python
 loaded = load_contract_from_text(text, base_dir="orders")
@@ -150,8 +152,9 @@ loaded = load_contract_from_text(
 
 With `base_dir` set to a contract's directory and `overlay` set to the parsed
 overlay file `--env` would select, the result equals
-`load_contract(that_file, env=...)`. Without `base_dir`, passing `overlay` for
-a document that holds file `$ref` values raises
+`load_contract(that_file, env=...)`, provided no ref needs a root wider than
+`base_dir` (see [`FLUID_REF_ROOT`](#fluid-ref-root)). Without `base_dir`,
+passing `overlay` for a document that holds file `$ref` values raises
 `contract_overlay_needs_base_dir`, because whether the engine would apply the
 overlay depends on what the fragments hold.
 
@@ -195,10 +198,23 @@ contract that has overlays.
 
 ### `FLUID_REF_ROOT`
 
-These functions have no `ref_root` argument. They go through the engine's
-loader, so `FLUID_REF_ROOT` in the process environment applies to them as it
-does to the CLI. To widen the root for one call, use
-`fluid_build.loader.load_contract(path, ref_root=...)`; see
+These functions have no `ref_root` argument, and the environment variable
+reaches only one of them.
+
+- **`load_contract(path)`**, the file form, goes through the engine's file
+  loader, so `FLUID_REF_ROOT` in the process environment applies to it as it
+  does to the CLI.
+- **`load_contract_from_text` and `load_contract_from_dict`** with `base_dir`
+  always use `base_dir` as the ref root. `FLUID_REF_ROOT` is not consulted, and
+  a ref that leaves `base_dir` is refused with `ContractLoadError`, even when
+  the same contract loads from its file with `FLUID_REF_ROOT` set. The error
+  text still suggests setting `FLUID_REF_ROOT`; on this path that has no effect.
+
+To compose a monorepo fragment in memory, pass the wider directory as
+`base_dir` and write the refs relative to it (`./shared/policy.yaml#/gold`
+with `base_dir` at the repository root, not `../shared/...` with `base_dir` at
+the product). Otherwise write the contract to a file and use `load_contract`,
+or call `fluid_build.loader.load_contract(path, ref_root=...)`; see
 [Widening the root for a monorepo](../concepts/contract-refs.md#widening-the-root-for-a-monorepo).
 
 ## Reference

@@ -211,7 +211,9 @@ print(contract["exposes"][0]["policy"]["classification"])
 
 The [public contract-loading API](../advanced/contract-loading-api.md)
 (`fluid_build.api.load_contract`) has no `ref_root` argument. It goes through
-the same loader, so it honours `FLUID_REF_ROOT`.
+the same loader, so it honours `FLUID_REF_ROOT`. Its in-memory forms
+(`load_contract_from_text`, `load_contract_from_dict`) do not: their ref root
+is always the `base_dir` you pass.
 
 ### Rules for the wider root
 
