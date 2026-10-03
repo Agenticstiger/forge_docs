@@ -3,7 +3,7 @@
 The `fluid_build.api` package is the **stable extension surface** that out-of-tree runners, providers, catalog registrars, lineage emitters, and pre-land hooks target. Anything outside this package is internal and may change without notice.
 
 ::: tip Where this fits
-The public API shipped alongside the source-aligned acquisition stack (schema `0.7.3`) and is current. It's pinned at version `1.0` (`__api_version__ = "1.0"`).
+The public API shipped alongside the source-aligned acquisition stack (schema `0.7.3`) at version `1.0`. As of CLI `0.18.0` it is at version `1.1` (`__api_version__ = "1.1"`): 1.1 added the [contract-loading API](./contract-loading-api.md) (`load_contract`, `load_contract_from_text`, `load_contract_from_dict`).
 :::
 
 ## SemVer policy
@@ -11,7 +11,7 @@ The public API shipped alongside the source-aligned acquisition stack (schema `0
 ```python
 import fluid_build.api
 print(fluid_build.api.__api_version__)
-# "1.0"
+# 1.1
 ```
 
 The API version is declared in `fluid_build/api/__init__.py`. SemVer applies:
