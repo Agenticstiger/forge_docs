@@ -1,7 +1,7 @@
 # Local Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.15.3`<br>
+**Docs Baseline:** CLI `0.18.1`<br>
 **Database:** DuckDB, SQLite
 
 > **Why it matters**

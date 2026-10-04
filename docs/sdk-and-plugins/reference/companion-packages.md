@@ -48,7 +48,7 @@ The PyPI name reflects the product brand (`data-product-forge`). The import path
 
 ```toml
 dependencies = [
-    "data-product-forge==0.15.3",  # pin exact for reproducibility
+    "data-product-forge==0.18.1",  # pin exact for reproducibility
 ]
 ```
 

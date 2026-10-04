@@ -80,7 +80,7 @@ fluid apply contract.fluid.yaml --yes
 
 This docs site currently tracks:
 
-- CLI release `0.15.3`
+- CLI release `0.18.1`
 - Contract schema `0.7.5` as the stable default, with `0.7.6` open as an opt-in preview
 
 Which `fluidVersion` a fresh scaffold actually writes depends on which scaffold path you took, and the quickstart is not the same as the factory. The rule, with the per-path numbers, lives in one place: [Understand the version numbers](/forge_docs/getting-started/#understand-the-version-numbers). Run `fluid version` for the authoritative list of accepted schema versions on the CLI you have installed.
@@ -122,8 +122,8 @@ These are the groups `fluid --help` prints on `0.15.0`. Run it yourself to confi
 
 `--help` promotes a short surface, not the whole one. Commands such as `bundle`, `diff`, `verify`, `publish`, `runs`, `stats`, `ship` and [`mission`](/forge_docs/cli/mission.html) are real and documented, and `--help` itself names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. See the [CLI Reference](/forge_docs/cli/) for everything.
 
-:::: tip Current release — `0.15.3`, schema **0.7.5** stable (GA)
-`pip install data-product-forge` gives you `0.15.3`. The `0.15.x` changes landed in `0.15.0`, which
+:::: tip Current release — `0.18.1`, schema **0.7.5** stable (GA)
+`pip install data-product-forge` gives you `0.18.1`. The `0.15.x` changes landed in `0.15.0`, which
 documents them together with `0.14.1` in one baseline (`0.15.1`, `0.15.2` and `0.15.3` are front-door
 patches with no notes page of their own — documentation links in the CLI's own output that were dead, or
 live and owned by somebody else):
