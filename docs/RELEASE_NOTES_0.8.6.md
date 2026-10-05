@@ -34,7 +34,7 @@ Caller identity is no longer self-attested. A new `AuthValidator` strategy suppo
 - **`jwt`** — RS256 / ES256 / EdDSA validated against an issuer's JWKS endpoint (checks `iss` / `aud` / `exp` / signature). Configured JWT claims map into `caller_attributes`, so `policy.rowFilters` `${caller.<attr>}` placeholders resolve **cryptographically** rather than via self-attestation.
 - **`none`** — operator opt-out; the gateway warns loudly at startup.
 
-**mTLS** metadata forwarded by a reverse proxy (`X-Client-CN` + `X-Client-Fingerprint`) is mirrored into the identity for combined attribution. Reverse-proxy templates for production (Caddy + nginx, with mTLS + bearer token + SSE buffering) ship in `examples/mcp-output-port-docker/proxy/`.
+**mTLS** metadata forwarded by a reverse proxy (`X-Client-CN` + `X-Client-Fingerprint`) is mirrored into the identity for combined attribution. *(Correction, checked against `0.18.1`: those headers reach the gateway's caller attributes unverified, only when `shared-token` or `jwt` is enforced. They never supply `model`, `use_case`, `tenant_id` or `jurisdiction`, and no `data_access` audit record carries them. Only the `jwt` mode binds identity; see [Authentication modes](./advanced/mcp.md#authentication-modes).)* Reverse-proxy templates for production (Caddy + nginx, with mTLS + bearer token + SSE buffering) ship in `examples/mcp-output-port-docker/proxy/`.
 
 ### 3 — Real cloud-IAM compilers (defence-in-depth beyond the gateway)
 

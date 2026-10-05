@@ -9,7 +9,7 @@ description: Why Fluid Forge exists, what we believe, and where we are headed.
 
 Modern data engineering still feels like 2015 infrastructure work. You write SQL in dbt. You write IAM in Terraform. You write DAGs in Airflow. You write policies in OPA. You write masking rules in your warehouse's UI. Five tools, five languages, five ways for those four things to drift from each other. When the schema changes, **someone has to remember to update all four**, or production breaks at 3am.
 
-Fluid Forge starts from a different premise: **a data product is a contract, not a pipeline.** A contract describes what the product is — its schema, its quality rules, its access policy, its AI gating, its sovereignty constraints — in one file. The pipeline is what falls out when a CLI compiles that contract for a target cloud.
+Fluid Forge starts from a different premise: **a data product is a contract, not a pipeline.** A contract describes what the product is — its schema, its quality rules, its access policy, its AI gating, its sovereignty constraints — in one place. The pipeline is what falls out when a CLI compiles that contract for a target cloud.
 
 That inversion changes how teams work. Instead of writing infrastructure code, you write the product specification. Instead of debugging four-tool drift, you change the contract and re-apply. Instead of asking *"who owns this DAG?"* you ask *"who owns this product?"* and the contract tells you.
 
@@ -17,7 +17,7 @@ That inversion changes how teams work. Instead of writing infrastructure code, y
 
 These are the convictions baked into Forge. If you disagree with any of them, Forge is probably the wrong choice for your team — and that's fine.
 
-1. **Schema, infrastructure, orchestration, policy, and AI gating belong in one file.** Splitting them across four tools is the source of most data-product incidents.
+1. **Schema, infrastructure, orchestration, policy, and AI gating belong in one contract.** Splitting them across four tools is the source of most data-product incidents. The contract can be one file, or a root file plus fragments joined by [`$ref`](./concepts/contract-refs.md); the engine reads one resolved document either way.
 2. **Local-first development is non-negotiable.** You should be able to ship a working data product on your laptop with no cloud account, no credit card, no waiting on a platform team. `pipx install "data-product-forge[local]"` and you're three commands from a deployed product.
 3. **Multi-cloud is the default state, not a migration.** Most companies are already multi-cloud (one team on Snowflake, another on BigQuery, a third on S3+Athena). Tools that pretend you're on a single cloud are lying to you.
 4. **Governance is not a separate phase.** It's part of the contract from line one. Adding `accessPolicy` and `agentPolicy` after the fact is when teams discover that everything they shipped six months ago is non-compliant.
@@ -45,7 +45,7 @@ Most teams still build data products with a pile of provider-specific scripts, I
 Fluid Forge shifts that work into one contract-driven workflow:
 
 ```yaml
-fluidVersion: "0.7.4"
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: analytics.customers
 name: Customer Analytics
@@ -147,7 +147,7 @@ fluid market --search "customer analytics"
 
 ## Versioning in the docs
 
-- Current CLI release baseline: `0.15.3`
+- Current CLI release baseline: `0.18.1`
 - Current scaffolded contract examples: `fluidVersion: 0.7.5`
 
 That split is intentional. The CLI release and the contract schema version move on related but different timelines.
@@ -158,7 +158,8 @@ That split is intentional. The CLI release and the contract schema version move 
 | --- | --- |
 | `0.8.0` baseline | 11-stage production pipeline, signed bundles, rollback, DMM Access lineage, Jenkins generation defaults |
 | `0.8.4`–`0.10.0` | OpenTofu/IaC autogeneration for cloud `apply`, the MCP output-port gateway with runtime `agentPolicy` enforcement, three plugin extension points + a companion SDK, and pluggable modeling techniques / metadata-source adapters for `fluid forge data-model` |
-| `0.11.0`–`0.15.0` (current) | Vector/embeddings output ports and the `ai_ready` agent for RAG (`0.11.0`), the dbt integration wave plus contract schema `0.7.5` promoted to stable (`0.12.0`), `fluid mission` with deterministic, zero-LLM success criteria (`0.13.0`), the dbt Iceberg loop across all three cloud warehouses (`0.13.1`/`0.14.0`), and data-residency sovereignty enforcement (`0.14.1`/`0.15.0`) |
+| `0.11.0`–`0.15.0` | Vector/embeddings output ports and the `ai_ready` agent for RAG (`0.11.0`), the dbt integration wave plus contract schema `0.7.5` promoted to stable (`0.12.0`), `fluid mission` with deterministic, zero-LLM success criteria (`0.13.0`), the dbt Iceberg loop across all three cloud warehouses (`0.13.1`/`0.14.0`), and data-residency sovereignty enforcement (`0.14.1`/`0.15.0`) |
+| `0.16.0`–`0.18.1` (current) | Security fixes for generated code: a stage name such as `../../ESCAPED` can no longer make `fluid generate transformation` write outside `--output`, and contract values are escaped in generated Airflow, Prefect and Dagster code (`0.16.0`); one contract deployed to AWS and Google Cloud through `--env` overlays and governed the same on both, with retention, encryption and column restrictions checked by `fluid verify`, and dataset grants applied but not yet verified (`0.16.5`–`0.17.0`), a live drift gate and a generated 11-stage pipeline that runs as generated (`0.16.3`–`0.16.5`), per-provider state and Command Center run reporting (`0.17.0`), and contract confinement: `$ref` root, DuckDB sandbox and a public contract-loading API (`0.18.0`). See the [upgrade guide](./upgrading.md) |
 | Plugin governance + spec exporters | **Shipped in `0.10.0`** — operator allow/block gate (`FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`), the `fluid plugins` roster, and `fluid exporters` (ODCS / ODPS / ODPS-Bitol reclassified from providers to spec exporters) |
 | Streaming Kafka → Iceberg sink | **Shipped in `0.9.0`** — opt-in via `fluidVersion: 0.7.5` (Kafka-Connect + Debezium Iceberg sinks, Confluent Tableflow plugin) |
 | Azure provider | On the roadmap |

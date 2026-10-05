@@ -35,6 +35,13 @@ Every Fluid Forge command follows the same flow: **contract → provider → pla
   apply() → result   apply() → result  apply() → result
 ```
 
+Since 0.10.0 the cloud providers do not execute actions one by one. For `aws`, `gcp`, `snowflake` and `confluent`, `fluid apply` compiles the contract to an OpenTofu module (`main.tf.json`, the same module [`fluid generate iac`](../cli/generate-iac.md) writes) and runs `tofu init`, `plan` and `apply`; builds then run in `--mode amend-and-build`. Of the built-in providers, `local` is the one that runs the action list below in-process, on DuckDB. The `plan()` / `apply()` interface on this page is what a [custom provider](./custom-providers.md) implements.
+
+| Provider | How `fluid apply` provisions |
+|---|---|
+| `local` | native: `plan()` returns actions, `apply()` runs them on DuckDB |
+| `aws`, `gcp`, `snowflake`, `confluent` | OpenTofu module, then `tofu` (needs `tofu` 1.6 or later on `PATH`) |
+
 This design gives you:
 
 - **One contract, multiple targets** — the same YAML runs locally for development, then deploys to any cloud in production
@@ -54,7 +61,7 @@ Reads the contract and returns a list of **actions** — plain Python dicts desc
 actions = provider.plan(contract)
 # [
 #   {"op": "load_data", "path": "data/customers.csv", "table_name": "customers"},
-#   {"op": "execute_sql", "sql": "SELECT * FROM customers WHERE active", ...},
+#   {"op": "sql", "sql": "SELECT * FROM customers WHERE active", ...},
 #   {"op": "materialize", "source_table": "result", "path": "out/active.csv"}
 # ]
 ```
@@ -74,7 +81,7 @@ result = provider.apply(actions)
 #   timestamp="2026-03-05T10:30:00Z",
 #   results=[
 #     {"i": 0, "status": "ok", "op": "load_data"},
-#     {"i": 1, "status": "ok", "op": "execute_sql"},
+#     {"i": 1, "status": "ok", "op": "sql"},
 #     {"i": 2, "status": "ok", "op": "materialize"}
 #   ]
 # )
@@ -82,7 +89,7 @@ result = provider.apply(actions)
 
 ## Provider Discovery
 
-When you run any `fluid` command, the CLI automatically discovers all available providers. You never need to configure this — it just works.
+When you run a `fluid` command, the CLI discovers the installed providers.
 
 ### How Discovery Finds Providers
 
@@ -99,10 +106,7 @@ Discovery is **lazy** (runs on first access), **idempotent** (subsequent calls a
 
 ### Selecting a Provider
 
-The CLI resolves which provider to use in this order:
-
-1. The `--provider` flag: `fluid --provider gcp plan contract.yaml`
-2. The `FLUID_PROVIDER` environment variable: `export FLUID_PROVIDER=gcp`
+The provider comes from the contract: each expose's `binding.platform` names it, so `fluid plan contract.fluid.yaml` needs no flag. `--provider` (or `FLUID_PROVIDER`) disambiguates a contract that spans clouds or declares none. Since 0.15.0 a `--provider` that contradicts every platform the contract declares is rejected before anything is written; to move a product to another cloud, edit its `binding`.
 
 ```bash
 # List all discovered providers
@@ -126,34 +130,30 @@ Fluid Forge ships with these providers:
 > **Standards export is not a provider.** ODPS and ODCS serialize a contract to an open spec rather than deploying infrastructure. They are surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html), not `fluid providers` — see [the exporters reference](/forge_docs/cli/exporters.html).
 
 ```bash
-# Local development
-fluid --provider local apply contract.yaml --yes
+# The provider is read from binding.platform
+fluid apply contract.fluid.yaml --yes
 
-# Deploy to GCP
-fluid --provider gcp apply contract.yaml --project my-gcp-project
-
-# Deploy to Snowflake
-fluid --provider snowflake apply contract.yaml
-
-# Deploy to AWS
-fluid --provider aws apply contract.yaml --region us-east-1
+# Per-environment bindings (for example one overlay per cloud)
+fluid apply contract.fluid.yaml --env gcp --yes
 ```
+
+Project, region and account live in each binding's `location` (for GCP, `location.project` and `location.region`), not in CLI flags.
 
 ## The Action System
 
-Actions are the intermediate representation between planning and execution. Each action is a plain dict with an `op` field that identifies the operation.
+The local provider's run log (`runtime/out/local_apply_log.jsonl`) records these ops for each apply. Actions are the intermediate representation between planning and execution on the native path (`local`, and custom providers). Each action is a plain dict with an `op` field that identifies the operation.
 
 ### Standard Action Types
 
 | Op | Purpose | Key fields |
 |----|---------|------------|
 | `load_data` | Import a file into the query engine | `path`, `table_name`, `format` |
-| `execute_sql` | Run a SQL transformation | `sql`, `output_table`, `resource_id` |
+| `sql` | Run a SQL transformation (the local provider also accepts `execute_sql` and `query`) | `sql`, `inputs`, `outputs` |
 | `materialize` | Write results to an output file | `source_table`, `path`, `format` |
 | `copy` | Copy or export data | `source`, `destination`, `format` |
 | `noop` | Placeholder (no operation) | — |
 
-Cloud providers define their own ops (e.g., `ensure_dataset`, `ensure_table`, `create_view`, `grant_role`).
+A custom provider defines its own ops. The built-in cloud providers emit OpenTofu resources instead of ops.
 
 ### Dependency Resolution
 
@@ -161,7 +161,7 @@ The planner builds a dependency graph and uses **topological sorting** to determ
 
 ```
 load_data(customers.csv)  ──┐
-                             ├──▶  execute_sql(transform)  ──▶  materialize(output.csv)
+                             ├──▶  sql(transform)  ──▶  materialize(output.csv)
 load_data(orders.csv)     ──┘
 ```
 

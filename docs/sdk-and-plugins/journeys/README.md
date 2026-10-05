@@ -17,7 +17,7 @@ If you're new to plugin authoring, **read the [quickstart](../quickstart.md) fir
 
 ## What every journey has in common
 
-All four journey guides share the same shape, so you can scan them the same way:
+The journey guides share a shape, so you can scan them the same way:
 
 1. **The problem in one paragraph** — what you have, what you want, why this pattern is the right fit.
 2. **The mental model in one diagram** — boxes and arrows for the data flow.
@@ -26,7 +26,7 @@ All four journey guides share the same shape, so you can scan them the same way:
 5. **Cloud / CI variations split out** — sub-pages per provider (e.g. GitLab / GitHub Actions / Jenkins / CircleCI for the CI journey) so the hub page stays scannable for the 80% who only care about one of them.
 6. **"You'll know it worked when…"** — concrete acceptance criteria.
 7. **"When NOT to use this pattern"** — honest about the limits.
-8. **"Common gotchas"** — the failure modes I've seen, with the fix inlined.
+8. **"Common gotchas"** — failure modes, with the fix inlined.
 
 ## Source code
 
@@ -35,4 +35,4 @@ The plugins built in these journeys are mirrored from the SDK's `examples/` dire
 - **SDK examples:** [`Agenticstiger/forge-cli-sdk/examples/`](https://github.com/Agenticstiger/forge-cli-sdk/tree/main/examples)
 - **Custom-scaffold reference bundle:** [`Agenticstiger/data-product-forge-custom-scaffold/tests/fixtures/reference_bundle/`](https://github.com/Agenticstiger/data-product-forge-custom-scaffold/tree/main/tests/fixtures/reference_bundle)
 
-Every code block in the journeys is copy-paste runnable — no `# ...` stubs, no `raise NotImplementedError`.
+The CI, scaffolding, validator and apply-hook walkthroughs were run on CLI 0.18.1 with SDK 0.10.0 and `data-product-forge-custom-scaffold` 0.4.1. The bundle examples bind the bundle with `kind: path`, because the engine refuses `file://` git URLs, so the git clone path was not run. The "Variations" snippets in the apply-hook pages, other than the scaffold-lock check, were not run.

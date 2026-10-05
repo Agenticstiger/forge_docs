@@ -221,7 +221,7 @@ exposes:
       format: s3_file
       location:
         bucket: example-data-lake
-        prefix: events/web_clickstream/
+        path: events/web_clickstream/
         region: eu-west-1
     contract:
       schema:

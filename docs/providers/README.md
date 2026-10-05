@@ -3,27 +3,27 @@
 Fluid Forge uses one contract format across local and provider-backed execution targets.
 
 > **Why it matters**
-> Target a new cloud by changing one line — no per-cloud rewrite, no lock-in at the contract layer.
-> Swap `binding.platform` and the same contract recompiles for `local` (DuckDB), `aws`, `gcp`, or `snowflake`; every provider implements the same interface.
+> Target a new cloud by editing `binding`, not the rest of the contract.
+> Change an expose's `binding` (its `platform`, `format` and `location`) and the same contract compiles for `local` (DuckDB), `aws`, `gcp` or `snowflake`.
 
 ## Docs baseline
 
-- CLI release covered by the primary docs: `0.15.3`
-- Default scaffold (`fluid init --quickstart`) emits `fluidVersion: 0.7.2`
-- Discovery-based scaffolds (`fluid init --discover`, `fluid forge`, `fluid product-new`) emit `fluidVersion: 0.7.5` — the latest bundled schema
-
-Some deep-dive provider pages still preserve older `0.7.1` snippets for backward-compatibility context. Those examples should not be read as “current version” guidance.
+- CLI release covered by the primary docs: `0.18.1`
+- Contract schema: `0.7.5` is the current stable version; `0.7.6` is a preview you opt into with `fluidVersion: "0.7.6"`. The GCP retention, encryption and `binding.principals` fields need `0.7.6`.
+- Which `fluidVersion` each scaffolding command writes is listed in [`fluid init`](../cli/init.md#which-fluidversion-each-path-writes).
 
 ## Provider overview
 
-Fluid Forge registers four apply-capable cloud providers (plus the `local` DuckDB target). The full roster reported by `fluid providers` is `aws`, `datamesh_manager`, `gcp`, `local`, `redshift`, `snowflake`:
+`fluid providers` reports `aws`, `datamesh_manager`, `gcp`, `local`, `redshift` and `snowflake`. These have a provider page:
 
 | Provider | Plan / Apply | Scheduling docs stance | Status |
 | --- | --- | --- | --- |
-| [GCP](./gcp.md) | Yes | Prefer `fluid generate schedule` | Production |
-| [AWS](./aws.md) | Yes | Prefer `fluid generate schedule` | Production |
-| [Snowflake](./snowflake.md) | Yes | Prefer `fluid generate schedule` | Production |
-| [Local](./local.md) | Yes | Local-first onboarding | Production |
+| [GCP](./gcp.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
+| [AWS](./aws.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
+| [Snowflake](./snowflake.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
+| [Local](./local.md) | Yes (native DuckDB) | Local-first onboarding | Production |
+
+"Production" covers provisioning and builds. Governance differs by cloud: on GCP, `fluid apply` emits dataset grants, column policy tags and, on `0.7.6`, retention and Cloud KMS keys; on Snowflake, as of 0.18.1, `accessPolicy` grants, column restrictions and masking are not applied. Each provider page lists what its module emits.
 
 > **ODCS / ODPS are spec exporters, not providers.** As of `v0.10.0` the open-standards exports (ODCS, ODPS, ODPS-Bitol) are surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html) — they serialize a contract to a spec and do **not** deploy infrastructure, so they no longer appear in the `fluid providers` roster.
 
@@ -38,23 +38,25 @@ Compatibility note:
 
 ## Quick start by provider
 
-Each snippet assumes the contract's own `binding.platform` names that cloud.
+Each snippet assumes the contract's own `binding` names that cloud.
 `--provider` disambiguates a contract that spans clouds or declares none — it does
 not retarget one, and *since 0.15.0* a `--provider` that contradicts every cloud the
 contract declares is rejected before anything is written, on both `fluid apply` and
 `fluid generate iac`. To move a product between clouds, edit `binding`: the
 [switch-clouds recipe](/forge_docs/recipes/switch-clouds.html) shows the diff, and the
 [`sovereignty-platform-swap` example](https://github.com/Agenticstiger/forge-cli/tree/main/examples/sovereignty-platform-swap)
-carries the same product compiled against AWS, GCP and Snowflake with `binding` as the
-only difference between the three files.
+carries the same product for AWS, GCP and Snowflake; strip the `binding:` block from
+the three files and the remainder is identical.
 
 ### GCP
 
 ```bash
+pip install "data-product-forge[gcp,local]"
 gcloud auth application-default login
-gcloud config set project YOUR_PROJECT_ID
 fluid apply contract.fluid.yaml --provider gcp --yes
 ```
+
+The project and region come from each binding's `location.project` and `location.region`; see [GCP](./gcp.md#where-the-resources-go).
 
 ### AWS
 
@@ -74,10 +76,10 @@ fluid apply contract.fluid.yaml --provider snowflake --yes
 ### Local
 
 ```bash
-fluid init my-project --quickstart
-cd my-project
-fluid apply contract.fluid.yaml --yes
+pip install "data-product-forge[local]"
 ```
+
+Then follow [the local provider's quick start](./local.md#quick-start).
 
 ## Standards and catalogs
 
@@ -106,7 +108,7 @@ Exporter-specific entry points also remain: [`fluid odps-bitol`](/forge_docs/cli
 | DataHub | [`catalog overview`](/forge_docs/cli/catalogs/overview.html) → [DataHub publish](/forge_docs/cli/catalogs/datahub.html#publishing-to-datahub) |
 | OpenMetadata | [OpenMetadata publish](/forge_docs/cli/catalogs/openmetadata.html) |
 | Data Mesh Manager / Entropy Data | [DMM publish](/forge_docs/cli/catalogs/datamesh-manager.html#publishing-to-data-mesh-manager) |
-| FLUID Command Center | [`fluid publish`](/forge_docs/cli/publish.html) |
+| FLUID Command Center | [`fluid publish`](/forge_docs/cli/publish.html); since 0.17.0 `fluid apply` also reports each run to the Command Center configured for `fluid publish` (best effort, never changes the exit code; `FLUID_COMMAND_CENTER_ENABLED=false` turns it off) |
 
 ::: tip New in `0.15.0`
 **DataHub `customProperties` keys lose their dots.** `fluid.layer` → `fluid_layer`,
@@ -140,7 +142,8 @@ The previously-shipped `glue` and `snowflake_horizon` registrars were retired in
 
 ## Notes
 
-- Use [provider-specific guides](./gcp.md) when you need deep target details.
+- Publishing one contract from two clouds (`--env aws`, then `--env gcp`) updates one Command Center product, keyed by the contract id, so the last publish sets its platform and location. `fluid generate ci --no-publish-stage-default` leaves the publish stage off for a second cloud's pipeline.
+- Use the provider pages ([GCP](./gcp.md), [AWS](./aws.md), [Snowflake](./snowflake.md), [Local](./local.md)) when you need deep target details.
 - Use [CLI Reference](/forge_docs/cli/) for command syntax.
 - Use [Getting Started](/forge_docs/getting-started/) for the local-first workflow.
 

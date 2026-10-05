@@ -21,7 +21,7 @@ fluid odps-bitol info
 | Option | Description |
 | --- | --- |
 | `CONTRACT` | Path to FLUID contract file. |
-| `--output`, `-o` | Output file path. Default `<contract-name>-odps.<format>`. |
+| `--output`, `-o` | Output file path. Default: the contract file's name without its last extension, plus `-odps` and the format. `contract.fluid.yaml` writes `contract.fluid-odps.yaml`. |
 | `--format`, `-f` | Output format: `yaml` or `json`. Default `yaml`. |
 | `--no-custom` | Exclude custom properties from the output. |
 | `--api-version` | ODPS `apiVersion` to emit: `v1.0.0` or `v1.1.0`. Default `v1.0.0` (the released standard). `v1.1.0` (approved RFC 0029, since v0.13.1) adds the top-level `type` — `sourceAligned` / `aggregate` / `consumerAligned`, mapped 1:1 and bidirectionally to FLUID SDP / ADP / CDP (`metadata.productType`); stays opt-in until Bitol cuts the release. The `ODPS_API_VERSION` env var sets the default. |
@@ -66,6 +66,7 @@ fluid odps info              [--spec ...]
 ## Notes
 
 - Despite the source file being named `odps_standard.py`, the canonical command name registered in `fluid --help` is `odps-bitol`. This avoids confusion with the LF/ODPI variant.
+- `fluid generate standard --format odps-bitol` is an alias of `--format odps`: both emit the same Bitol v1.0.0 document. Only the default output filename differs. It is not a stricter mode.
 - For the unified dispatch (Bitol + LF/ODPI), use [`fluid odps`](./odps.md).
 - For the Open Data Contract Standard (ODCS), use [`fluid odcs`](./odcs.md).
 - Validation keys on the document's own `apiVersion` (`v1.0.0` or `v1.1.0`; since v0.13.1), requires `kind: DataProduct`, and verifies output ports have a `name` field. Custom org `type` values round-trip verbatim.

@@ -5,7 +5,7 @@
 <CliCast
   src="/forge_docs/demos/snowflake-real.svg"
   title="validate → plan → apply --mode dry-run → policy-apply --mode check"
-  caption="The flow at full fidelity: live env credentials sourced, validate --strict, plan against the live account, apply --mode dry-run rendering DDL without firing it, and policy-apply --mode check over the compiled IAM bindings. No DDL fires, no RBAC mutates — exactly what you'd run in a PR review before approving the merge."
+  caption="The flow at full fidelity: live env credentials sourced, validate --strict, plan against the live account, apply --mode dry-run rendering DDL without firing it, and policy-apply --mode check over the compiled bindings. No DDL fires, no RBAC mutates — exactly what you'd run in a PR review before approving the merge. (As of 0.18.1 policy-apply has no Snowflake applier; see Step 4.)"
   width="920"
   insight="The PR pre-flight you wish you had — every reviewer sees the deployed-state diff before merge, not after. | DDL rendered, RBAC bindings dry-checked, drift detected — zero side effects on the live account. | Drop this 4-command chain into your PR-merge GitHub Action and incidents shift left of merge."
 />
@@ -117,10 +117,10 @@ The CI version of this review flow should run with key-pair or OAuth credentials
 
 ### Sample Contract Excerpt In The PR
 
-This is the kind of first draft the data engineer might propose:
+This is the kind of first draft the data engineer might propose. It declares `fluidVersion: "0.7.5"`, the latest stable schema:
 
 ```yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: finance.customer_orders_weekly_revenue
 name: Customer Orders Weekly Revenue
@@ -196,8 +196,6 @@ exposes:
         masking:
           - column: "customer_email"
             strategy: "hash"
-            params:
-              algorithm: "SHA256"
     contract:
       schema:
         - name: customer_id
@@ -215,7 +213,22 @@ exposes:
           sensitivity: pii
 ```
 
-This draft is good enough to start a review, but it still contains exactly the kind of issues a team review should catch.
+This draft is good enough to start a review, but it still contains exactly the kind of issues a team review should catch. It passes the schema:
+
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+```
+
+and `fluid plan contract.fluid.yaml --out runtime/plan.json` lists two actions:
+
+```text
+Contract: Customer Orders Weekly Revenue
+Version: 0.7.5
+Total Actions: 2
+
+1. provision_weekly_revenue_table (provisionDataset)
+2. schedule_weekly_revenue (scheduleTask)
+```
 
 ---
 
@@ -227,8 +240,30 @@ The platform engineer pulls the branch and runs the standard checks:
 fluid validate contract.fluid.yaml
 fluid plan contract.fluid.yaml --out runtime/plan.json
 fluid policy-check contract.fluid.yaml
-fluid policy-compile contract.fluid.yaml --env dev --out runtime/policy/bindings.json
+fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json
 ```
+
+`fluid policy-check` passes the draft with one advisory, which points at the `customer_email` column:
+
+```text
+💡 🔄 Lifecycle Management (ADVISORY)
+└── ⚠️ WARNING (1)
+    └── Sensitive data should have explicit retention policy
+        ├── 📍 weekly_revenue_table
+        └── 💡 Remediation: Add lifecycle.retention (e.g., 'P90D' for 90 days)
+```
+
+`fluid policy-compile` writes `runtime/policy/bindings.json`, one binding per principal. For the draft it contains:
+
+| Principal | Compiled grants |
+| --- | --- |
+| `role:FINANCE_ANALYST` | `SELECT` |
+| `role:ANALYST_READWRITE` | `INSERT`, `UPDATE`, `DELETE`, `SELECT` |
+| `role:DATA_ENGINEER` | `INSERT`, `UPDATE`, `DELETE`, `SELECT` |
+
+::: warning Compiled bindings are not applied to Snowflake in 0.18.1
+`fluid policy-compile` produces the file the platform engineer reviews. Neither `fluid policy-apply` nor `fluid apply` turns `accessPolicy.grants` into Snowflake grants as of 0.18.1: `fluid policy-apply runtime/policy/bindings.json --mode check` prints `No policy bindings were enforced — the 'snowflake' provider has no standalone policy applier`, and the OpenTofu module `fluid apply` writes for this contract holds a database, a schema and the table, with no grant resources. Apply the grants your review approved through your own Snowflake RBAC process.
+:::
 
 ### What The Platform Engineer Checks
 
@@ -242,7 +277,7 @@ fluid policy-compile contract.fluid.yaml --env dev --out runtime/policy/bindings
 
 > Please do not hard-code `ANALYTICS` and `SHARED_MARTS` in the contract. We deploy separate Snowflake databases and schemas per environment, so this needs `{{ env.SNOWFLAKE_DATABASE }}` and `{{ env.SNOWFLAKE_SCHEMA }}` before merge.
 
-> `customer_email` should not be exposed in this mart. The finance dashboard only needs weekly revenue by `customer_id`, so please remove the column from the exposed table instead of relying on masking alone.
+> `customer_email` should not be exposed in this mart. The finance dashboard only needs weekly revenue by `customer_id`, so please remove the column from the exposed table instead of relying on masking. The `privacy.masking` block does not create a Snowflake masking policy: the module `fluid apply` writes for this draft has no masking resource, so the column would be exposed in the clear.
 
 > `role:ANALYST_READWRITE` is broader than we allow for analytics marts. Please narrow analyst access to read-only and keep write permissions with `role:DATA_ENGINEER`.
 
@@ -279,8 +314,18 @@ The data engineer addresses the review in one place: the contract.
 fluid validate contract.fluid.yaml
 fluid plan contract.fluid.yaml --out runtime/plan.json
 fluid policy-check contract.fluid.yaml
-fluid policy-compile contract.fluid.yaml --env dev --out runtime/policy/bindings.json
+fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json
 ```
+
+With the revisions below, `fluid policy-check` reports no advisory (`Compliance Score: 100/100`), and `bindings.json` holds three bindings:
+
+| Principal | Compiled grants |
+| --- | --- |
+| `role:FINANCE_ANALYST` | `SELECT` |
+| `role:BI_READER` | `SELECT` |
+| `role:DATA_ENGINEER` | `INSERT`, `UPDATE`, `DELETE`, `SELECT` |
+
+`create` in `DATA_ENGINEER`'s permission list does not compile to a grant. The `{{ env.SNOWFLAKE_DATABASE }}` and `{{ env.SNOWFLAKE_SCHEMA }}` placeholders stay as written in each binding's `resource_id`; they are resolved when `fluid apply` runs.
 
 ### Revised Contract Excerpt
 
@@ -331,6 +376,15 @@ exposes:
         table_type: "STANDARD"
         data_retention_time_in_days: 7
         change_tracking: false
+    policy:
+      classification: Internal
+      authn: custom
+      authz:
+        readers:
+          - role:FINANCE_ANALYST
+          - role:BI_READER
+        writers:
+          - role:DATA_ENGINEER
     contract:
       schema:
         - name: customer_id
@@ -352,12 +406,11 @@ exposes:
 > - `fluid validate contract.fluid.yaml`
 > - `fluid plan contract.fluid.yaml --out runtime/plan.json`
 > - `fluid policy-check contract.fluid.yaml`
-> - `fluid policy-compile contract.fluid.yaml --env dev --out runtime/policy/bindings.json`
+> - `fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json`
 >
 > Updated plan summary for review:
 > - ensure Snowflake table `{{ env.SNOWFLAKE_DATABASE }}.{{ env.SNOWFLAKE_SCHEMA }}.CUSTOMER_ORDERS_WEEKLY_REVENUE`
-> - apply read access for `role:FINANCE_ANALYST` and `role:BI_READER`
-> - keep write access scoped to `role:DATA_ENGINEER`
+> - compiled bindings: `SELECT` for `role:FINANCE_ANALYST` and `role:BI_READER`, write grants for `role:DATA_ENGINEER` only (the grants themselves are applied through our Snowflake RBAC process, not by `fluid apply`)
 
 ---
 
@@ -367,11 +420,14 @@ exposes:
 
 > Approved. The revised contract keeps PII out of the exposed mart, the Snowflake location is environment-safe, and the PR now includes the deployment impact I needed to review.
 
-At this point the team can merge and continue with the standard execution flow:
+At this point the team can merge and continue with the standard execution flow. Preview what the Snowflake provider will create first, then apply:
 
 ```bash
+fluid apply contract.fluid.yaml --dry-run
 fluid apply contract.fluid.yaml --yes
 ```
+
+`--dry-run` writes the OpenTofu module for Snowflake and runs `tofu plan` with the account's credentials. The module for this contract creates the database, the schema and the table, per the `location` block.
 
 ---
 

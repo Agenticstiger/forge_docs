@@ -2,7 +2,7 @@
 
 Plugins are **uncontained Python** loaded into the CLI process. Once a plugin is loaded there is no sandboxing, no per-plugin timeout, no resource limit. Trust in a plugin equals trust in whatever `pip` resolved when you installed it.
 
-The one operator control that runs **before** load is the allow/block gate (CLI 0.10.0): `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` decide whether a plugin's code is even imported — a blocked plugin never executes. That is a real trust boundary, not just a display filter. Everything below the gate (the "no sandbox once loaded" caveat) still holds.
+The operator control that runs **before** load is the allow/block gate: `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` decide whether a plugin's code is even imported — a blocked plugin never executes. That is a real trust boundary, not just a display filter. Everything below the gate (the "no sandbox once loaded" caveat) still holds.
 
 If you treat plugins as adversarial, you'd never install community plugins. Most users — correctly — treat their `pip install` source list as a small attack surface they've already chosen to trust (same as their `requirements.txt` for an application). This page describes:
 
@@ -13,14 +13,14 @@ If you treat plugins as adversarial, you'd never install community plugins. Most
 
 ## Operator governance — allowlist and blocklist
 
-CLI **0.10.0** adds two environment variables that gate **every code-executing entry-point group BEFORE the plugin is loaded**:
+Two environment variables gate the code-executing entry-point groups **before the plugin is loaded**:
 
 | Env var | Effect |
 |---|---|
 | `FLUID_PLUGINS_ALLOWLIST` | Comma-separated entry-point names. If set, **only** these plugins load; everything else is skipped. |
 | `FLUID_PLUGINS_BLOCKLIST` | Comma-separated entry-point names. These plugins **never** load. |
 
-The gate runs at discovery time, for every governed group — `providers`, `validators`, `catalog adapters`, `commands`, `apply_hooks`, `extension_schemas`, `extension_validators`, `modeling_techniques`, `source_adapters`, `iac_providers`. A blocked plugin's `load()` is never called, so its **code never executes** — not in a `try/except`, not behind a flag, not at all. This is the in-process complement to pip-level allowlisting (Policy 1/2 below): pip controls what is *installed*; these vars control what is *loaded* from whatever happens to be installed.
+The gate runs at discovery time for the governed groups: `providers`, `validators`, `catalog adapters`, `commands`, `apply_hooks`, `extension_schemas`, `extension_validators`, `modeling_techniques`, `source_adapters`, `iac_providers` and `llm_providers`. The `fluid_build.custom_scaffolds` group is walked by the scaffold engine rather than the CLI, and the engine applies the same two variables itself before it loads a plugin. A blocked plugin's `load()` is never called, so its **code never executes** — not in a `try/except`, not behind a flag, not at all. This is the in-process complement to pip-level allowlisting (Policy 1/2 below): pip controls what is *installed*; these vars control what is *loaded* from whatever happens to be installed.
 
 ```bash
 # Only the in-house validators load; nothing else, no matter what's pip-installed.
@@ -34,15 +34,15 @@ export FLUID_PLUGINS_BLOCKLIST="some-third-party-scaffold"
 
 ## SDK to CLI version-compat gate
 
-CLI **0.10.0** also adds an opt-in compatibility gate, `FLUID_PLUGIN_STRICT_COMPAT=1`. When set, the CLI reads a plugin's declared `requires_cli` (a PEP 440 specifier carried on the SDK's [`PluginMetadata`](./roles.md#sdk-to-cli-compat-declaration)) and **refuses to load** any plugin whose requirement the running CLI version does not satisfy. Default (unset) is **warn-only** — the plugin still loads, but a mismatch is logged.
+There is also an opt-in compatibility gate, `FLUID_PLUGIN_STRICT_COMPAT=1`. When set, the CLI reads a provider plugin's declared `requires_cli` (a PEP 440 specifier carried on the SDK's [`PluginMetadata`](./roles.md#sdk-to-cli-compat-declaration)) and **refuses to register** it if the running CLI version does not satisfy the requirement. Default (unset) is **warn-only**: the plugin still registers, and a mismatch is logged. The check is in the provider registry (`providers/__init__.py`); `fluid plugins` marks an incompatible plugin of any role with `INCOMPATIBLE (requires_cli)`.
 
-This is the dbt `require-dbt-version` model: the **SDK declares** compatibility, the **CLI gates** on it. A plugin pinned to `requires_cli=">=0.11"` running on CLI 0.10.0 loads with a warning by default, and is refused outright under strict compat.
+This is the dbt `require-dbt-version` model: the **SDK declares** compatibility, the **CLI gates** on it. A provider plugin declaring `requires_cli=">=0.19"` running on CLI 0.18.1 registers with a warning by default, and is refused under strict compat.
 
 ## What the CLI defends against
 
 ### 1. Crashes
 
-Every plugin's `load()` and invocation is wrapped in `try/except`. A plugin that raises `RuntimeError` or `ImportError` is logged at WARNING and the CLI continues with the next plugin. No exception escapes the CLI.
+Plugin `load()` and invocation calls are wrapped in `try/except`. A plugin that raises `RuntimeError` or `ImportError` is logged at WARNING and the CLI continues with the next plugin. No exception escapes the CLI.
 
 ```python
 # CLI loop (simplified, from cli/bootstrap.py / validate.py / apply.py)
@@ -55,7 +55,7 @@ for ep in entry_points:
         # CLI continues
 ```
 
-The CLI never crashes because of a plugin. Worst case: a plugin's intended functionality silently doesn't happen, with the failure logged.
+A plugin exception is caught and logged rather than crashing the CLI. Worst case: a plugin's intended functionality silently doesn't happen, with the failure logged.
 
 Pinned by `tests/test_cli_plugin_hooks.py::TestBootstrapCommands::test_plugin_load_failure_logged_not_raised` and siblings.
 
@@ -167,7 +167,7 @@ Plugins are tested, scanned, and approved by your platform team before showing u
 
 ```toml
 # In your deploy environment's pyproject.toml or requirements:
-data-product-forge==0.15.3
+data-product-forge==0.18.1
 data-product-forge-sdk==0.10.0
 data-product-forge-custom-scaffold==0.4.1
 my-org-validators==1.2.0
@@ -180,7 +180,7 @@ Public PyPI is reachable but every plugin is on a tracked list. Medium trust, me
 
 If `data-product-forge` is run by a small data platform team on a hardened CI runner, `pip install`-anything is fine — same security boundary as the rest of your CI environment. Lowest friction, highest trust on the runner image.
 
-The CLI doesn't care which policy you pick. It defends against the three failure modes above regardless.
+The CLI does not depend on which policy you pick. The defences above apply under each.
 
 ## What plugin authors should do
 

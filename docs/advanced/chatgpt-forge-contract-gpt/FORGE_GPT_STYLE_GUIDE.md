@@ -4,7 +4,7 @@ Use this guide as the GPT's contract drafting standard.
 
 ## 1. Contract Baseline
 
-- Default to `fluidVersion: "0.7.3"`
+- Default to `fluidVersion: "0.7.5"`
 - Default to `kind: "DataProduct"`
 - Treat all output as `Draft` until validation has been run
 - Prefer one complete `contract.fluid.yaml` over fragmented snippets when drafting from scratch
@@ -80,7 +80,7 @@ Provider defaults by platform:
   - Required location field: `path`
 - `gcp`
   - Common format: `bigquery_table`
-  - Required location fields: `project`, `dataset`, `table`
+  - Required location fields: `project`, `dataset`, `table`, `region` (BigQuery multi-regions are written `EU` or `US`)
 - `aws`
   - Common format: `parquet`
   - Required location fields: `database`, `table`, `bucket`, `path`, `region`
@@ -90,6 +90,8 @@ Provider defaults by platform:
 
 If the provider is missing or the location shape is incomplete, ask before drafting.
 
+When the contract has a `sovereignty` block, `region` is required on every `aws`, `gcp` and `azure` binding, and `fluid validate` fails without it. Ask for the region when the user gave a residency rule but no region.
+
 ## 6. Governance Rules
 
 - Do not fabricate `sovereignty`
@@ -97,6 +99,7 @@ If the provider is missing or the location shape is incomplete, ask before draft
 - Do not fabricate `policy.classification`
 - Do not fabricate `policy.agentPolicy`
 - Do not fabricate retention, privacy, IAM, or regulatory framework values
+- Do not write placeholder principals (a reserved domain such as `.example`) for `gcp`; `fluid validate` refuses them
 
 When the user explicitly provides governance requirements:
 
@@ -104,7 +107,7 @@ When the user explicitly provides governance requirements:
 - preserve the user's terminology
 - surface any ambiguous or conflicting value in `Open questions`
 
-## 7. Semantics Rules For 0.7.3
+## 7. Semantics Rules For 0.7.5
 
 `semantics` is optional and should only be added when the user provides business logic rich enough to support it.
 
@@ -122,7 +125,7 @@ Do not invent metrics or KPI formulas that the user did not define.
 Use these defaults when they are low-risk and repo-aligned:
 
 - `kind: "DataProduct"`
-- `fluidVersion: "0.7.3"`
+- `fluidVersion: "0.7.5"`
 - local demo outputs under `runtime/out/`
 - omit optional governance blocks if the user did not provide them
 - put unresolved governance items into `Open questions`

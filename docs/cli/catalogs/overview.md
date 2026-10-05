@@ -21,7 +21,7 @@ That's the entire contract-side surface. The `acquisitionCatalog` schema block c
 
 | Backend | Reference | Notes |
 |---|---|---|
-| `datahub` | [Publishing to DataHub](./datahub.md#publishing-to-datahub) | DataHub GMS REST + MCP. Emits `DataProduct` + `Domain` + `Datasets` + `DataContract` with full schema, ownership, tags, descriptions. `FLUID_LAYER_PROPERTY_ID` / `FLUID_PRODUCT_TYPE_PROPERTY_ID` structured properties surface medallion classification. |
+| `datahub` | [Publishing to DataHub](./datahub.md#publishing-to-datahub) | DataHub GMS REST + MCP. Emits `DataProduct` + `Domain` + `Datasets` + `DataContract` with full schema, ownership, tags, descriptions. The `fluid.layer` and `fluid.productType` structured properties, and the `fluid_layer`, `fluid_product_type`, `fluid_domain` and `fluid_version` custom properties, surface the medallion classification. |
 | `openmetadata` | [Publishing to OpenMetadata](./openmetadata.md) | OpenMetadata REST (Tables + extension fields). |
 | `datamesh_manager` | [Publishing to Data Mesh Manager](./datamesh-manager.md#publishing-to-data-mesh-manager) | Bidirectional. `PUT /api/dataproducts/{id}` in ODPS + `PUT /api/datacontracts/{product_id}.{expose_id}` in ODCS per asset. Emits proper `SourceSystem` lineage links (Phase 1 of the DMM flow); per-port `contractId` resolves to a sibling ODCS contract. |
 

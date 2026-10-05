@@ -213,6 +213,57 @@ fluid forge data-model from-intent intent.yaml \
   --require-llm
 ```
 
+## Shape the output
+
+```bash
+fluid forge data-model from-intent intent.yaml \
+  --technique dimensional \
+  -o customer_orders.fluid.yaml \
+  --emit-ddl-dir ddl \
+  --emit-dimensional-variants variants \
+  --osi-sidecar-format json
+```
+
+With a dimensional model this also writes the DDL files under `ddl/` and four alternative shapes of the model under `variants/`:
+
+```text
+variants/customer_orders.flat.model.json
+variants/customer_orders.galaxy.model.json
+variants/customer_orders.snowflake.model.json
+variants/customer_orders.star.model.json
+```
+
+As of 0.18.1, `--emit-dimensional-variants` on a Data Vault 2.0 model creates the directory, prints `Wrote dimensional variants`, and writes no file.
+
+## Flag reference
+
+`from-intent`, `from-ddl` and `from-source` share these flags; `from-ddl` and `from-source` require `--output`.
+
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `--modeling-technique`, `--technique` | the intent's `modeling.technique`, else the modeler picks (the example intent above gets `data_vault_2` on 0.18.1) | `dimensional`, `data_vault_2`, `flat` (source-aligned, 1:1) or `custom`. Aliases such as `data-vault-2` and `kimball` are accepted |
+| `--logical-model <path>` | — | With `--technique custom`, a `.model.json` used verbatim. `custom` without it is refused |
+| `--transformation-engine`, `--engine` | `dbt` | `dbt`, `sql`, `python`, `spark` or `custom`, stamped into the emitted contract's build |
+| `--output`, `-o` | — | Contract path; the sidecars are written next to it |
+| `--dry-run` | off | Preview without writing files |
+| `--review` | off | Open the logical sidecar in `$EDITOR` before the contract is finalised |
+| `--emit-ddl-dir <dir>` | — | Write DDL files for the logical model |
+| `--emit-dimensional-variants <dir>` | — | Write star, snowflake, galaxy and flat sidecars of a dimensional model |
+| `--emit-model-doc` / `--no-emit-model-doc` | on | The Mermaid and Markdown model document |
+| `--osi-sidecar-format` | `yaml` | `json` writes the shape dbt Core 1.12+ reads natively from its OSI directory |
+| `--industry <id>` | — | Lint the model against an industry pack's canonical skeleton (for example `telecommunications`, `retail`, `healthcare`, `finance`) and report coverage |
+| `--allow-semantic-warnings` | off | Write the artifacts even when industry coverage still has warnings |
+| `--deterministic` | off | Cache and tiering off, audit metadata on |
+| `--require-llm` | off | Fail when the configured LLM cannot run, instead of falling back to heuristics |
+| `--llm-provider`, `--llm-model`, `--llm-endpoint` | configured provider | Override the provider, model and endpoint for the staged modeler |
+| `--llm-routing-model`, `--llm-routing-endpoint` | — | A faster model for clarification and self-evaluation |
+| `--llm-timeout-seconds` | `120` | HTTP timeout for each staged LLM call |
+| `--tiered`, `--no-cache` | off | Per-stage model tiers; disable the staged LLM cache |
+
+`from-ddl` also takes `--ddl <file>...` and `--source-type` (`snowflake`, `bigquery`, `postgres`, `postgresql`, `oracle`, `mysql`). `from-source` also takes `--source`, `--uri`, `--credential-id`, `--database`, `--schema`, `--catalog`, `--tables`, `--name` and `--allow-metadata-service`. `--emit-osi-sidecar` writes the OSI interchange document next to the contract. The same table is in [`fluid forge`](./cli/forge.md#data-model-flags).
+
+Run `fluid forge data-model from-intent -h` for the full list on your version.
+
 ## Review and iteration
 
 Use `--review` to open the logical sidecar in `$EDITOR` before the contract is finalized:

@@ -10,6 +10,12 @@ fluid plan contract.fluid.yaml --provider <provider> --out plan.json
 
 Use an explicit provider when reviewing a draft so the plan is unambiguous.
 
+When the contract has a `sovereignty` block, add `--check-sovereignty`. A strict violation exits 1 and a contract with no `sovereignty` block prints `NOT CHECKED` and passes.
+
+```bash
+fluid plan contract.fluid.yaml --provider <provider> --out plan.json --check-sovereignty
+```
+
 ## What To Review In `plan.json`
 
 - resources to create

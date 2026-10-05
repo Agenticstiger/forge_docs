@@ -14,8 +14,8 @@ fluid contract-validation CONTRACT [--env ENV] [--provider NAME] [--project ID] 
 | --- | --- |
 | `CONTRACT` | Path to `contract.fluid.(yaml|json)` (positional, required). |
 | `--env` | Environment overlay (dev/test/prod). |
-| `--provider` | Override provider platform (gcp, snowflake, databricks, aws, azure). |
-| `--project` | Override project/account ID. |
+| `--provider` | Override the provider platform. See [Provider values](#provider-values). |
+| `--project` | Override project/account ID. For `--provider gcp`, set it or `FLUID_PROJECT`; without one the command logs `requires --project` and carries on. |
 | `--region` | Override region/location. |
 | `--strict` | Treat warnings as errors. |
 | `--no-data` | Skip data validation checks (structure only). |
@@ -44,4 +44,14 @@ fluid contract-validation contract.fluid.yaml --output-format json --output-file
 - Provider is auto-detected from `exposes[].binding.platform` (or `builds[].execution.runtime.platform`) — the `--provider`, `--project`, and `--region` flags only override the detected values.
 - Schema lookups are cached per `(table, provider)` for `--cache-ttl` seconds; use `--cache-clear` to force a refresh.
 - With `--check-drift`, results are compared against the recorded validation history for the same contract and resource.
-- Complementary to [`fluid contract-tests`](./contract-tests.md) (schema-only compatibility) and [`fluid validate`](./validate.md) (contract syntax).
+- Complementary to [`fluid contract-tests`](./contract-tests.md) (schema comparison against a baseline) and [`fluid validate`](./validate.md) (contract syntax).
+
+## Provider values
+
+`--provider` is checked against the providers registered in your install before the command runs. The test install for 0.18.1 registered `aws`, `datamesh_manager`, `gcp`, `local`, `redshift` and `snowflake`. A value outside that list exits `2`:
+
+```text
+⚠️ Unknown provider 'databricks' — installed providers: aws, datamesh_manager, gcp, local, redshift, snowflake (see `fluid providers`)
+```
+
+The option's help text still lists `databricks` and `azure`. As of 0.18.1 both are rejected this way, so leave `--provider` off and let the command detect the provider from `exposes[].binding.platform`. `--provider gcp` without `--project` (or `FLUID_PROJECT`) prints `Provider 'gcp' requires --project to be specified` and still runs.

@@ -106,7 +106,7 @@ fluid apply contract.fluid.yaml --env prod --yes
 # ⏳ Running bitcoin_price_ingestion (BigQuery SQL)...
 # ✓ transformation complete (24 rows in)
 # ⏳ Applying IAM bindings...
-# ✓ BigQuery roles/dataViewer granted to group:analysts@company.com
+# ✓ BigQuery roles/dataViewer granted to group:analysts@company.example.com
 # ✓ Pipeline complete in 4.83 s
 ```
 
@@ -129,7 +129,7 @@ Same pattern — change `binding.platform` to `aws` (or `snowflake`), re-`apply`
 ## What you DIDN'T have to do
 
 - Rewrite SQL for a new dialect (Forge handles dialect translation when `engine: sql`; rare cases that genuinely need a hand-tuned dialect can use `engine: dbt` with target-specific macros)
-- Re-author IAM in a new cloud's syntax (`accessPolicy.grants` → native IAM happens at `policy-apply`)
+- Re-author IAM in a new cloud's syntax (on GCP, `accessPolicy.grants` become native IAM when `fluid apply` runs; `policy-apply` changes nothing in 0.18.1)
 - Re-write your Airflow DAG (`fluid generate schedule --scheduler airflow` regenerates with the new platform)
 - Re-test quality rules (the same `dq.rules` block runs against the new cloud's storage)
 

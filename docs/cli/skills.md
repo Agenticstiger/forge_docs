@@ -29,7 +29,7 @@ No options. Pre-compiles `.fluid/skills.yaml` into `.fluid/skills.compiled.json`
 
 | Option | Description |
 | --- | --- |
-| `INDUSTRY` | Industry key (`telco`, `retail`, `healthcare`, `finance`). Optional — omit for an interactive picker. |
+| `INDUSTRY` | Industry key (`telco`, `retail`, `healthcare`, `finance`, `other`). Optional — omit for an interactive picker. |
 
 ## Examples
 
@@ -43,7 +43,7 @@ fluid skills show
 
 ## Notes
 
-- All subcommands require a FLUID workspace; if `find_workspace_root()` returns nothing, the command exits with an error suggesting [`fluid init`](./init.md).
+- All subcommands require a FLUID workspace (a directory with `fluid.workspace.yaml`, which [`fluid init`](./init.md) writes). Elsewhere the command exits `1` with `Not inside a FLUID workspace. Run 'fluid init' first.`
 - `install` writes `.fluid/skills.yaml` and then auto-runs `compile` so the AI copilot picks up the new pack immediately.
 - Bundled industry packs are shipped under `fluid_build/cli/industry_skills/`. Unknown keys fall back to a clear error listing the available options (`telco`, `retail`, `healthcare`, `finance`, `other`).
 - The file is consumed by [`fluid forge`](./forge.md) to tailor copilot prompts to the installed industry.

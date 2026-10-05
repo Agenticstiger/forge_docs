@@ -1,6 +1,6 @@
 # FLUID Forge Contract GPT Packet
 
-> **Building a custom GPT or plugin around Fluid Forge?** This section collects the artifacts you need to spin one up: the FLUID 0.7.3 schema knowledge file, validation reference, plan reference, conversation starters, and the upload manifest. **End users running `fluid forge` from the CLI can safely skip this section** — those workflows live under [`fluid forge`](/forge_docs/cli/forge.html) and the [Forge Copilot guides](/forge_docs/advanced/forge-copilot-discovery).
+> **Building a custom GPT or plugin around Fluid Forge?** This section collects the artifacts you need to spin one up: the FLUID 0.7.5 schema knowledge file, validation reference, plan reference, conversation starters, and the upload manifest. **End users running `fluid forge` from the CLI can safely skip this section** — those workflows live under [`fluid forge`](../../cli/forge.md) and the [Forge Copilot guides](../forge-copilot-discovery.md).
 
 ---
 
@@ -8,8 +8,8 @@ This folder is a self-contained builder packet for a ChatGPT custom GPT (or othe
 
 It is designed around these rules:
 
-- Default to FLUID `0.7.3`
-- Ask for provider before drafting
+- Default to FLUID `0.7.5`
+- Ask for provider before drafting, and for the region when a residency rule names none
 - Output `contract.fluid.yaml` first
 - Add `Assumptions`, `Open questions`, and `Validation next steps`
 - Treat every response as `Draft` until `fluid validate --strict` and `fluid plan --out plan.json` have been reviewed
@@ -28,13 +28,27 @@ Upload these as GPT knowledge:
 - [`FORGE_GPT_STYLE_GUIDE.md`](./FORGE_GPT_STYLE_GUIDE.md)
 - [`FORGE_GPT_REVIEW_CHECKLIST.md`](./FORGE_GPT_REVIEW_CHECKLIST.md)
 - [`FORGE_GPT_FEW_SHOTS.md`](./FORGE_GPT_FEW_SHOTS.md)
-- Everything in `knowledge/`: [`02_FLUID_VALIDATION_REFERENCE.md`](./knowledge/02_FLUID_VALIDATION_REFERENCE.md), [`03_FLUID_PLAN_REFERENCE.md`](./knowledge/03_FLUID_PLAN_REFERENCE.md), [`04_FORGE_OVERVIEW.md`](./knowledge/04_FORGE_OVERVIEW.md), plus the bundled `01_FLUID_SCHEMA_0.7.3.json` and the three `0.7.3` example contracts
+- Everything in `knowledge/`: [`02_FLUID_VALIDATION_REFERENCE.md`](./knowledge/02_FLUID_VALIDATION_REFERENCE.md), [`03_FLUID_PLAN_REFERENCE.md`](./knowledge/03_FLUID_PLAN_REFERENCE.md), [`04_FORGE_OVERVIEW.md`](./knowledge/04_FORGE_OVERVIEW.md), plus the bundled `01_FLUID_SCHEMA_0.7.5.json` and the three `0.7.5` example contracts
+
+## Keeping The Packet Current
+
+A GPT is only as good as the contracts it was taught from. The three example contracts in `knowledge/` pass `fluid validate --strict` on CLI 0.18.1, and the GCP example also passes `fluid plan --check-sovereignty`. Re-run this check whenever the CLI version this site documents changes:
+
+```bash
+for f in docs/advanced/chatgpt-forge-contract-gpt/knowledge/0[567]_*.yaml; do
+  fluid validate "$f" --strict
+done
+```
+
+Then validate the full contracts in `FORGE_GPT_FEW_SHOTS.md` the same way. The few-shot snippets that start at `binding:` or `sovereignty:` are fragments for review practice and are not meant to validate on their own.
+
+The `knowledge/` files named `01_`, `05_`, `06_` and `07_` carry the schema version in their file names. They were `*_0.7.3.*` before this site moved to schema 0.7.5 and are now `*_0.7.5.*`. If you uploaded the packet earlier, upload these four again under their new names.
 
 ## Source Material
 
 This packet is documented in `forge_docs`, but it was grounded in source-of-truth assets from the sibling `forge-cli` repository:
 
-- `forge-cli/fluid_build/schemas/fluid-schema-0.7.3.json`
+- `forge-cli/fluid_build/schemas/fluid-schema-0.7.5.json`
 - `forge-cli/README.md`
 - `forge-cli/examples/01-hello-world/contract.fluid.yaml`
 - `forge-cli/examples/05-data-quality-validation/contract.fluid.yaml`

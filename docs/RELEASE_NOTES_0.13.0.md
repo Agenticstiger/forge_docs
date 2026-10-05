@@ -164,7 +164,7 @@ accessPolicy:
   grants:
     - principal: "serviceAccount:consumer@other-project.iam.gserviceaccount.com"
       permissions: [read, select, query]
-    - principal: "group:data-analytics@company.com"
+    - principal: "group:data-analytics@company.example.com"
       permissions: [read]
 ```
 

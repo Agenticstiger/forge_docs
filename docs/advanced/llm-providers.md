@@ -10,26 +10,37 @@ fluid forge data-model from-intent intent.yaml \
 
 ```bash
 FLUID_LLM_PROVIDER=ollama \
-FLUID_OLLAMA_MODEL=gemma4:latest \
+FLUID_LLM_MODEL=gemma4:latest \
 fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
 ```
 
 ## Supported providers
 
-| Provider | Default / common model | Notes |
-| --- | --- | --- |
-| Anthropic | `claude-sonnet-4-6` | Tool-forced structured output and provider-native prompt caching. Streamed runs report accurate token usage in cost summaries (was previously "missing usage" on every streamed call). |
-| OpenAI | `gpt-4.1-mini` | Strict JSON Schema output where available; seed support. Tiered runs use `gpt-4.1` for deep logical modeling. Set `FLUID_OPENAI_STRICT_SCHEMA=1` to harden the response-format schema for `gpt-4o`/`gpt-4.1`/o-series models that reject permissive nested objects. |
-| Gemini | `gemini-2.5-pro` | Uses Gemini response schema where suitable and validator repair when needed |
-| Ollama | `FLUID_OLLAMA_MODEL` such as `gemma4:latest` | Local-only; JSON mode is model-gated. Capability + token-budget catalogs cover `gemma` 1–4, `qwen3-coder`, `qwen3`, `qwen2.5`, `llama3.1`/`3.2`/`3.3`, `mistral`, `mixtral`, `deepseek`, `phi`. See [Capability Warnings](capability-warnings.md) for tool-use accuracy notes per family. |
-| Azure OpenAI | `FLUID_AZURE_DEPLOYMENT` | OpenAI-compatible wire shape with deployment names |
+| Provider | `--llm-provider` | Default model | Notes |
+| --- | --- | --- | --- |
+| Anthropic | `anthropic` (alias `claude`) | `claude-sonnet-4-6` | Tool-forced structured output and provider-native prompt caching. Streamed runs report token usage in cost summaries. |
+| OpenAI | `openai` | `gpt-4.1-mini` | Strict JSON Schema output where available. Tiered runs use `gpt-4.1` for deep logical modeling. Set `FLUID_OPENAI_STRICT_SCHEMA=1` to harden the response-format schema for `gpt-4o`, `gpt-4.1` and o-series models that reject permissive nested objects. |
+| Gemini | `gemini` | `gemini-2.5-pro` | Uses Gemini response schema where suitable and validator repair when needed. |
+| Ollama | `ollama` | `gemma4:latest` | Local-only; JSON mode is model-gated. The capability and token-budget catalogs cover `gemma` 1 to 4, `qwen3-coder`, `qwen3`, `qwen2.5`, `llama3.1`, `llama3.2`, `llama3.3`, `mistral`, `mixtral`, `deepseek` and `phi`. See [Capability Warnings](capability-warnings.md) for tool-use accuracy notes per family. |
+| MCP sampling | `mcp-sampling` | none | No key of its own. When forge runs inside an MCP client, the model request goes back through the connection and the client's own LLM answers it. |
+| Local agent CLIs | `claude-code`, `codex`, `cursor`, `kiro` | the agent's own | Forge shells out to a coding-agent CLI you already have installed. Claude Code uses your subscription login; the others reuse `CODEX_API_KEY`, `CURSOR_API_KEY` and `KIRO_API_KEY`. |
+
+Those are the values `fluid forge --llm-provider` and `fluid forge data-model ... --llm-provider` accept. Other names LiteLLM understands, such as `bedrock`, `vertex` and `azure`, are rejected by the argument parser as of 0.18.1:
+
+```text
+fluid forge: error: argument --llm-provider: invalid choice: 'bedrock' (choose from 'openai', 'anthropic', 'claude', 'gemini', 'ollama', 'mcp-sampling', 'claude-code', 'codex', 'cursor', 'kiro')
+```
+
+Two flags apply only to some providers. `--forge-agent-mode envelope|agentic` chooses how a local agent CLI (`claude-code`, `codex`, `cursor`, `kiro`) hands the contract back: as JSON on stdout, or by writing `contract.fluid.yaml` into the workspace. `--llm-routing-model` and `--llm-routing-endpoint` name a cheaper model for interview clarification and self-evaluation. Their reference is [AI config](../cli/forge.md#ai-config) on the `fluid forge` page; setup, status and tests are under [`fluid ai`](../cli/ai.md).
 
 Inspect the active catalog with:
 
 ```bash
-fluid ai models
-fluid ai models --provider gemini --json
+fluid ai models          # a table of each provider's primary, routing and tier models
+fluid ai models --json   # the same plan as JSON, one object per provider
 ```
+
+`fluid ai models` prints one plan per provider and cannot be narrowed to one. As of 0.18.1 its `--provider` flag does not work: `fluid ai models --provider gemini` exits 2 with `Unknown provider 'gemini' — installed providers: aws, datamesh_manager, gcp, local, redshift, snowflake`, because the CLI checks the value against the infrastructure providers. Filter the JSON instead, for example with `jq .gemini`. `fluid ai test` and `fluid ai setup` take `--provider` and are not affected.
 
 ## Tiered mode
 
@@ -75,7 +86,7 @@ fluid forge data-model from-intent intent.yaml \
   --deterministic
 ```
 
-`--deterministic` disables cache and tiering for replayable output. Providers pin `temperature=0`; OpenAI, Ollama, and Azure OpenAI also pin seed where supported.
+`--deterministic` turns the staged cache and tiering off and records the run as deterministic in its audit metadata. The LiteLLM request uses a temperature of `0.0` unless the configuration sets another value. The CLI does not set a seed, so wording can still vary between runs of the same prompt.
 
 ## Environment variables
 
@@ -90,7 +101,6 @@ fluid forge data-model from-intent intent.yaml \
 | `ANTHROPIC_API_KEY` | Anthropic key |
 | `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Gemini key |
 | `OLLAMA_HOST` | Ollama endpoint; local addresses only |
-| `FLUID_OLLAMA_MODEL` | Ollama model name |
 
 ### Agent-loop tuning
 
@@ -100,13 +110,13 @@ fluid forge data-model from-intent intent.yaml \
 | `FLUID_COMPACTION_STRATEGY` | `truncate` (default — char/token-aware truncation), `summarize` (LLM-backed; calls your provider's fast tier once per compaction trigger), or `hybrid` (truncate first, then summarize the rest if still over budget). See [Agentic primitives → Token-budget pre-flight & compaction](agentic-primitives.md#token-budget-pre-flight-compaction). |
 | `FLUID_TOKEN_COUNTER` | Internal — selects the token-counting backend. Default is the pure-Python char-based heuristic; the CLI does not require an external tokenizer. |
 | `FLUID_OPENAI_STRICT_SCHEMA` | `1` to enable the recursive strict-schema walker for OpenAI's `response_format = json_schema` mode. Closes the "Invalid schema for response_format 'ForgeContract'" 400 some `gpt-4o`/`gpt-4.1`/o-series deployments return when nested objects are free-form. Free-form fields are rewritten to JSON-encoded strings under strict mode. |
-| `FLUID_QUIET` / `FLUID_NONINTERACTIVE` | `1` to silence the v2-preview banner and capability-degradation warnings. The warnings are still recorded to telemetry. |
+| `FLUID_QUIET` / `FLUID_NONINTERACTIVE` | `1` to silence capability-degradation warnings. The warnings are still recorded to telemetry. |
 
 Use `fluid ai setup` for interactive setup and key storage. Provider and model choices are saved in `~/.fluid/ai_config.json`; API keys go to the OS keyring by default. Plaintext API-key persistence requires explicit opt-in with `FLUID_ALLOW_PLAINTEXT_AI_SECRETS=1`.
 
 ## Run-start capability warnings
 
-When you pick a provider/model whose declared capabilities don't satisfy what the run needs (e.g. `gpt-3.5` in agent-loop mode, an Ollama model with no tool-use support, or a model not yet in the capability catalog), the CLI prints a one-paragraph warning at the start of `fluid forge data-model from-intent` and continues with degraded behaviour. See [Capability Warnings](capability-warnings.md) for the full matrix and the exact banner shape.
+`fluid forge data-model` checks the (provider, model) pair against the capability catalog before the run, only when you pass `--llm-provider`, `--llm-model` or `--llm-endpoint`. The check uses the `staged_pipeline` profile, and a pair that lacks structured output, or is not in the catalog, prints a warning and the run continues with degraded behaviour. See [Capability Warnings](capability-warnings.md) for the matrix and the exact output.
 
 ## Operator-facing errors
 

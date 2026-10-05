@@ -18,13 +18,13 @@ Upload in this order:
 1. `FORGE_GPT_STYLE_GUIDE.md`
 2. `FORGE_GPT_REVIEW_CHECKLIST.md`
 3. `FORGE_GPT_FEW_SHOTS.md`
-4. `knowledge/01_FLUID_SCHEMA_0.7.3.json`
+4. `knowledge/01_FLUID_SCHEMA_0.7.5.json`
 5. `knowledge/02_FLUID_VALIDATION_REFERENCE.md`
 6. `knowledge/03_FLUID_PLAN_REFERENCE.md`
 7. `knowledge/04_FORGE_OVERVIEW.md`
-8. `knowledge/05_EXAMPLE_LOCAL_HELLO_WORLD_0.7.3.yaml`
-9. `knowledge/06_EXAMPLE_LOCAL_DATA_QUALITY_0.7.3.yaml`
-10. `knowledge/07_EXAMPLE_GCP_CUSTOMER360_0.7.3.yaml`
+8. `knowledge/05_EXAMPLE_LOCAL_HELLO_WORLD_0.7.5.yaml`
+9. `knowledge/06_EXAMPLE_LOCAL_DATA_QUALITY_0.7.5.yaml`
+10. `knowledge/07_EXAMPLE_GCP_CUSTOMER360_0.7.5.yaml`
 
 ## Why This Set
 

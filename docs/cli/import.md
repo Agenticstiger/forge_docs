@@ -19,7 +19,7 @@ fluid import --yes
 
 | Option | Description |
 | --- | --- |
-| `--provider` | Provider for the generated contracts |
+| `--provider` | Provider for the generated contracts. The value must be a registered provider; `azure` is rejected as `Unknown provider 'azure'` in 0.18.1. `gcp` logs `Provider 'gcp' requires --project to be specified` unless the global `--project` or `FLUID_PROJECT` is set. |
 | `--dir`, `-C` | Directory to scan |
 | `--yes`, `-y` | Skip the confirmation prompt |
 
@@ -27,45 +27,97 @@ This is the promoted migration path for existing Terraform or SQL projects. A db
 
 ## Mode 2 — foreign tool importer
 
-Convert an existing tool project into FLUID contracts (one per discovered tap / connector / source for the ingestion tools; one per project for dbt):
+Convert an existing tool project into a FLUID contract. The ingestion importers (Meltano, Airbyte, dlt, Singer) write one Bronze acquisition contract each. The dbt importer writes one contract per dbt project by default.
 
 ```bash
-fluid import meltano <project-dir>       # Meltano project
-fluid import airbyte <workspace-id>      # Airbyte OSS / Cloud workspace
-fluid import dlt <pipeline-name>         # dlt pipeline
-fluid import singer <tap-config.json>    # Singer tap + target
-fluid import dbt <project-dir|manifest>  # dbt project (target/manifest.json)
+fluid import meltano <project-dir>                        # Meltano project (meltano.yml)
+fluid import airbyte <workspace-id> --server-url https://airbyte.example.com
+fluid import dlt <pipeline-name-or-dir>                   # dlt pipeline (state.json)
+fluid import singer <tap-config.json>[:<target-config.json>]
+fluid import dbt <project-dir|manifest>                   # dbt project (target/manifest.json)
 ```
 
 | Option | Description |
 | --- | --- |
 | `<engine> <source>` | Importer mode + source identifier |
-| `--out PATH` | Output contract path (default: one `contract.<id>.fluid.yaml` per discovered source in cwd); with `--split-by` producing multiple products, `--out` is the output **directory** |
+| `--server-url URL` | Airbyte API base URL, for `fluid import airbyte`. There is no default. Falls back to `FLUID_IMPORT_AIRBYTE_URL`. |
+| `--out PATH` | Output contract path (default: one `contract.<id>.fluid.yaml` in the current directory); with `--split-by` producing multiple products, `--out` is the output **directory** |
 | `--split-by {project\|folder\|group}` | dbt import product boundary: one contract per project (default), per top-level `models/` subfolder, or per dbt group — cross-split `ref()`s become cross-product `consumes[]`. *(since `0.13.1`)* |
-| `--provider {local\|gcp\|snowflake\|aws\|azure}` | Infrastructure provider for generated contracts. Default `local`. |
+| `--provider NAME` | Infrastructure provider for generated contracts. Default `local`. Same rules as in Mode 1. |
 | `--yes`, `-y` | Skip the confirmation prompt |
 
-What each importer does:
+What each importer reads and writes:
 
 | Importer | Reads | Emits |
 |---|---|---|
-| `meltano` | `meltano.yml` + `extract:` block | One `engine: meltano` acquisition contract per tap |
-| `airbyte` | Workspace config from REST API | One `engine: airbyte` acquisition contract per source |
-| `dlt` | `@dlt.source` modules in the pipeline | One `engine: dlt` acquisition contract per source |
-| `singer` | Tap + target config files | One `engine: meltano` acquisition contract (Meltano runs Singer protocol) |
+| `meltano` | `plugins.extractors` in `meltano.yml`, and `plugins.loaders` for the report | One `engine: meltano` contract, from the first extractor only. Streams come from the extractor's `select` entries. |
+| `airbyte` | The first source in a workspace, over the Airbyte REST API | One `engine: airbyte` contract, from the first source. `streams` is empty. |
+| `dlt` | `state.json` in the pipeline directory | One `engine: dlt` contract. Streams are the schema names in `state.json`. A bare name resolves to `$DLT_DATA_DIR/pipelines/<name>` (default `~/.dlt/pipelines/<name>`); a path containing `/` is used as given. |
+| `singer` | A tap config JSON, and optionally a target config after a colon | One `engine: meltano` contract (Meltano runs Singer taps). The tap kind comes from the file name (`tap-postgres.json` gives `postgres`). |
 | `dbt` | `target/manifest.json` (+ optional `catalog.json`) | One contract per project by default; `--split-by folder`/`group` splits along product boundaries — see below |
 
-**Secrets are auto-redacted** to `${ENV_VAR}` placeholders so the emitted contracts are safe to commit. Run [`fluid secrets login`](/forge_docs/cli/secrets.html) afterward to populate the keychain backend.
+The ingestion importers set `mode: full_refresh` and `fluidVersion: 0.7.3`, and use `owner.team: imported` as a placeholder. The dbt importer also writes `0.7.3`. A `0.7.3` contract validates; change the version line to `0.7.5` when you want a later version's fields.
+
+### Airbyte needs a server URL
+
+`fluid import airbyte` reads the workspace over the Airbyte REST API, and since 0.16.0 it has no default endpoint. Without `--server-url` or `FLUID_IMPORT_AIRBYTE_URL` it stops before opening a connection:
+
+```bash
+fluid import airbyte ws-123
+```
+
+```text
+✗ `fluid import airbyte` has no Airbyte server URL
+  why  Importing a workspace reads it over the Airbyte REST API, and no base URL was supplied on the command line, in the environment, or by the calling code. There is no default to fall back on.
+  fix  Pass `--server-url https://airbyte.example.com`, or set FLUID_IMPORT_AIRBYTE_URL in the environment.
+```
+
+```bash
+fluid import airbyte ws-123 --server-url https://airbyte.example.com
+# or
+export FLUID_IMPORT_AIRBYTE_URL=https://airbyte.example.com
+fluid import airbyte ws-123
+```
+
+The option wins over the variable. The importer sends no `Authorization` header, and 0.18.1 has no flag or environment variable that sets one, so it can read only a server that answers unauthenticated requests. An unreachable server fails with the connection error, for example `[Errno 61] Connection refused`.
+
+### Secrets become `{{ env.<NAME> }}` placeholders
+
+The `meltano`, `airbyte` and `singer` importers replace the value of any connection key whose name contains `token`, `password`, `secret`, `key` or `credential` with `{{ env.<KEY_UPPERCASED> }}`:
+
+```yaml
+connection:
+  host: db.internal
+  user: reader
+  password: '{{ env.PASSWORD }}'
+```
+
+In a contract, `{{ env.NAME }}` is the form the loader substitutes; a literal `${NAME}` would stay a literal string. Export the variable before `fluid apply`. Review the file anyway: the match is on the key name, so a secret under a key named something else is copied as written. The `dlt` importer writes an empty `connection`, and the `dbt` importer carries no connection. This is different from [`fluid init --discover`](./init.md#discover-—-introspect-a-source-into-a-bronze-contract), which does not redact.
 
 ### Example — migrating from Meltano
 
 ```bash
-fluid import meltano ./my-meltano-project --provider local --yes
-fluid validate *.fluid.yaml
-fluid apply contract.tap_postgres.fluid.yaml --yes
+fluid import meltano proj --provider local --yes
 ```
 
-The generated contract preserves Meltano's tap selections and the `state`/`incremental` mode mapping. See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) for engine-specific properties.
+```text
+📥 Importing meltano configuration from proj…
+✓ Wrote contract.bronze.dev_postgres.fluid.yaml
+
+  Mapped 1:1 (2):
+    • extractor.tap-postgres
+    • loader.target-jsonl
+```
+
+```bash
+fluid validate contract.bronze.dev_postgres.fluid.yaml
+```
+
+```text
+✅ Valid FLUID contract (schema v0.7.3)
+```
+
+The file name and id come from the project's `default_environment` and the tap (`dev` and `tap-postgres` give `bronze.dev_postgres`). Run [`fluid apply`](./apply.md) once the connection values resolve. See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) for engine-specific properties.
 
 ## Importing a dbt project
 

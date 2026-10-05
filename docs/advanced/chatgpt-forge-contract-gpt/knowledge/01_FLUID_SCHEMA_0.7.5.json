@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://open-data-protocol.github.io/fluid/schema/fluid-schema-0.7.3.json",
-  "title": "FLUID 0.7.3 — Source-Aligned Data Products",
-  "description": "FLUID Data Product contract (v0.7.3). Source-Aligned Acquisition Release:\n\n🔥 NEW in v0.7.3:\n• acquisition build pattern - First-class support for source-aligned data products that ingest external systems (Salesforce, Postgres, Kafka, files) into the mesh\n• Six ingestion engines - duckdb (zero-infra files/JDBC), airbyte (350+ SaaS connectors), meltano (600+ Singer taps), dlt (Python-native), kafka-connect (streaming), debezium (CDC)\n• Three deployment modes - embedded (in-process), bring-your-own (existing server), managed (Forge provisions via Helm/Compose/OpenTofu)\n• Capability-based negotiation - Runners declare {full_refresh, incremental_append, incremental_dedup, cdc, streaming, schema_discovery, dlp_scan, exactly_once}; contract asks validated against declarations\n• Schema evolution semantics - schemaPolicy ∈ {strict, discover_and_freeze, evolve_safe, evolve_all} with concrete per-change behavior\n• Delivery guarantees - at_most_once | at_least_once | exactly_once with idempotency keys and DLQ semantics\n• Source supply-chain security - Cosign image signature verification + SLSA provenance required in production\n• Top-level retention block - runState, runLogs, lineage, dlq durations\n• Extended sovereignty.dataResidency - region pinning + prohibitTransferTo for runtime enforcement\n• Backward compatible with v0.7.2 - All v0.7.2 contracts remain valid; new fields are additive and optional\n\n📋 Inherited from v0.7.2:\n• Semantic model definitions - Optional semantics block on each expose for entities, measures, dimensions, and metrics\n• Agent-consumable business logic - Eliminates semantic hallucination by providing machine-readable metric definitions\n• Industry-aligned primitives - Compatible with dbt MetricFlow, Snowflake Semantic Views, and OSI-aligned formats\n• Completes the agentic contract - semantics (how to act correctly) + agentPolicy (whether to act) = full agentic governance\n\n✅ BACKWARD COMPATIBLE with v0.7.1:\n• All v0.7.1 contracts remain valid (no breaking changes)\n• semantics is optional on each expose - zero existing contracts affected\n• All v0.7.1 features fully preserved (agentPolicy, sovereignty, orchestration)\n\n🔥 Inherited from v0.7.1 (Provider-First Orchestration + Agentic Governance):\n\n🔥 NEW in v0.7.1:\n• Agentic governance - AI/LLM usage policies (agentPolicy) control which models can consume data and for what purposes\n• Sovereignty constraints - Top-level jurisdiction and data residency requirements for compliance enforcement\n• Orchestration philosophy - Pragmatic engine enumeration (v0.7.x) with path to capability-based abstraction (v0.8.0+)\n\n🔥 NEW in v0.7.0:\n• Provider actions as first-class tasks - Direct invocation of provider actions (aws.s3.ensure_bucket, sf.table.ensure) without wrapper operators\n• Unified task type taxonomy - Simplified type system: provider_action, fluid_*, bash, python, sensor\n• Data product references in datasets - Link trigger datasets to actual exposes[] with strong typing and auto-URI generation\n• Task output → expose mapping - Formal produces[] declaration for automatic dataset registration and lineage\n• Cross-provider workflow patterns - Native support for multi-cloud pipelines with XCom data passing\n• Build step references - Link orchestration tasks to transformation steps via buildStepRef\n• Data product dependencies - Tasks can declare dependencies on other data products with version constraints\n• Enhanced error categorization - Retryable vs non-retryable errors with intelligent handling\n• Provider-specific operators - Native support for SnowflakeOperator, BigQueryOperator, GlueOperator, etc.\n• Cost tracking enhancements - Track actual vs estimated costs with budget enforcement\n\n✅ BACKWARD COMPATIBLE with v0.5.7:\n• All v0.5.7 contracts remain valid (no breaking changes)\n• New features are opt-in via new fields\n• Existing patterns (hybrid-reference, embedded-logic, multi-stage) fully preserved\n• All data quality, observability, policy, and lineage features retained\n\n📋 Inherited from v0.5.7:\n• Multiple build patterns with conditional validation\n• Enhanced build section for multi-modal concerns\n• Comprehensive data quality specs with anomaly detection\n• Detailed observability with default SLIs\n• Fine-grained policy controls (privacy, RBAC, column-level access)\n• Field-level lineage tracking\n• Schema evolution strategies\n• Machine learning model specifications\n• Environment-specific overrides\n• Simplified tagging maintained throughout\n\n🎯 Design Philosophy:\n• Provider actions = orchestration primitives\n• Contracts drive both infrastructure and workflows\n• Strong typing and validation\n• Natural multi-cloud/multi-provider patterns\n• Minimal abstraction layers\n• Agentic governance: Data owners control AI/LLM usage boundaries\n• Sovereignty-first: Jurisdiction constraints enforced at contract level\n\n⚙️ Orchestration Philosophy (v0.7.x):\n• Pragmatic approach: Enumerate known engines (airflow, dagster, prefect) for immediate adoption\n• Trade-off: Implementation-specific vs pure abstraction - favoring real-world deployment patterns\n• Future path: v0.8.0+ will evolve toward capability-based orchestration model\n• Escape hatch: 'custom' engine allows experimentation without schema changes",
+  "$id": "https://open-data-protocol.github.io/fluid/schema/fluid-schema-0.7.5.json",
+  "title": "FLUID 0.7.5 \u2014 Streaming Kafka\u2192Iceberg Sink & Confluent Tableflow",
+  "description": "FLUID Data Product contract (v0.7.5). Streaming Kafka\u2192Iceberg Sink & Confluent Tableflow Release.\n\n🔥 NEW in v0.7.5:\n\u2022 Streaming Iceberg sink \u2014 The `kafka-connect` acquisition pattern gains an opt-in Iceberg streaming sink: `iceberg_sink_enabled` (derive the sink connector config; off by default when a hand-written `sink_connector_config` is present), `streamingSink` (commit interval, dynamic routing, auto-create, schema-evolution tuning \u2014 RFC \u00a76.2), `sink_topics`, and `iceberg_catalog_overrides` (operator escape hatch merged last over the derived config).\n\u2022 Confluent Cloud Tableflow \u2014 `binding.platform: confluent` plus `binding.location` Tableflow fields (`environment_id`, `kafka_cluster_id`, `confluent_role_arn`) for the managed Kafka\u2192Iceberg emitter.\n\u2022 Backward compatible with v0.7.4 \u2014 All v0.7.4 contracts remain valid; the streaming-sink keys and the `confluent` binding are additive and optional.\n\n📋 Inherited from v0.7.4 (Runtime agentPolicy Enforcement at the MCP Gateway):\n\u2022 MCP output-port gateway \u2014 An `expose.mcp` block declares an expose as agent-consumable over MCP (sampling caps + classification); its presence opts the expose into `fluid mcp output-port serve`.\n\u2022 Runtime agentPolicy enforcement \u2014 When an `expose.mcp` block is present, `policy.agentPolicy.allowedModels` / `deniedModels` and `allowedUseCases` / `deniedUseCases` are enforced at the Fluid MCP gateway on every read.\n\n📋 Inherited from v0.7.3 (Source-Aligned Acquisition):\n\u2022 Acquisition build pattern \u2014 First-class support for source-aligned data products that ingest external systems (Salesforce, Postgres, Kafka, files) into the mesh.\n\u2022 Six ingestion engines \u2014 duckdb (zero-infra files/JDBC), airbyte (350+ SaaS connectors), meltano (600+ Singer taps), dlt (Python-native), kafka-connect (streaming), debezium (CDC).\n\u2022 Three deployment modes \u2014 embedded (in-process), bring-your-own (existing server), managed (Forge provisions via Helm/Compose/OpenTofu).\n\u2022 Capability-based negotiation \u2014 Runners declare {full_refresh, incremental_append, incremental_dedup, cdc, streaming, schema_discovery, dlp_scan, exactly_once}; contract asks validated against declarations.\n\u2022 Schema evolution semantics \u2014 schemaPolicy \u2208 {strict, discover_and_freeze, evolve_safe, evolve_all} with concrete per-change behavior.\n\u2022 Delivery guarantees \u2014 at_most_once | at_least_once | exactly_once with idempotency keys and DLQ semantics.\n\u2022 Source supply-chain security \u2014 Cosign image signature verification + SLSA provenance required in production.\n\u2022 Top-level retention block \u2014 runState, runLogs, lineage, dlq durations.\n\u2022 Extended sovereignty.dataResidency \u2014 region pinning + prohibitTransferTo for runtime enforcement.\n\n📋 Inherited from v0.7.2 (Semantic Layer):\n\u2022 Semantic model definitions \u2014 Optional `semantics` block on each expose for entities, measures, dimensions, and metrics.\n\u2022 Agent-consumable business logic \u2014 Eliminates semantic hallucination by providing machine-readable metric definitions.\n\u2022 Industry-aligned primitives \u2014 Compatible with dbt MetricFlow, Snowflake Semantic Views, and OSI-aligned formats.\n\n📋 Inherited from v0.7.1 (Provider-First Orchestration + Agentic Governance):\n\u2022 Agentic governance \u2014 AI/LLM usage policies (agentPolicy) declare which models can consume data and for what purposes (runtime enforcement added in v0.7.4 \u2014 see above).\n\u2022 Sovereignty constraints \u2014 Top-level jurisdiction and data residency requirements for compliance enforcement.\n\u2022 Orchestration philosophy \u2014 Pragmatic engine enumeration (v0.7.x) with path to capability-based abstraction (v0.8.0+).\n\u2022 Provider actions as first-class tasks \u2014 Direct invocation of provider actions (aws.s3.ensure_bucket, sf.table.ensure) without wrapper operators.\n\u2022 Unified task type taxonomy \u2014 provider_action, fluid_*, bash, python, sensor.\n\u2022 Data product references in datasets \u2014 Link trigger datasets to actual `exposes[]` with strong typing and auto-URI generation.\n\u2022 Task output \u2192 expose mapping \u2014 Formal `produces[]` declaration for automatic dataset registration and lineage.\n\u2022 Cross-provider workflow patterns \u2014 Native support for multi-cloud pipelines with XCom data passing.\n\u2022 Cost tracking \u2014 Track actual vs estimated costs with budget enforcement.\n\n🎯 Design Philosophy:\n\u2022 Provider actions = orchestration primitives.\n\u2022 Contracts drive both infrastructure and workflows.\n\u2022 Strong typing and validation.\n\u2022 Natural multi-cloud/multi-provider patterns.\n\u2022 Minimal abstraction layers.\n\u2022 Agentic governance: data owners control AI/LLM usage boundaries.\n\u2022 Sovereignty-first: jurisdiction constraints enforced at contract level.\n\n\u2699\ufe0f Orchestration Philosophy (v0.7.x):\n\u2022 Pragmatic approach: enumerate known engines (airflow, dagster, prefect) for immediate adoption.\n\u2022 Trade-off: implementation-specific vs pure abstraction \u2014 favouring real-world deployment patterns.\n\u2022 Future path: v0.8.0+ will evolve toward a capability-based orchestration model.\n\u2022 Escape hatch: `custom` engine allows experimentation without schema changes.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -99,9 +99,14 @@
     "fluidVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
-      "const": "0.7.3",
-      "description": "Contract schema version. Must be exactly '0.7.3' for source-aligned data products + acquisition pattern + ingestion engines with full backward compatibility to 0.7.2, 0.7.1, and 0.5.7.",
+      "enum": [
+        "0.7.3",
+        "0.7.4",
+        "0.7.5"
+      ],
+      "description": "Contract schema version. Accepts '0.7.3' (source-aligned data products + acquisition pattern + ingestion engines) or '0.7.4' (adds the MCP output-port gateway + runtime agentPolicy enforcement). 0.7.4 is fully backward-compatible with 0.7.3 \u2014 every 0.7.3 contract validates as 0.7.4 unchanged.",
       "examples": [
+        "0.7.4",
         "0.7.3"
       ]
     },
@@ -145,7 +150,7 @@
       "properties": {
         "provenance": {
           "type": "object",
-          "description": "Generation envelope injected by `fluid forge` / `fluid init` — records how, when and by which tool/command the contract was generated. Machine-written (not user-authored); additive metadata that does not affect the data product's semantic contract.",
+          "description": "Generation envelope injected by `fluid forge` / `fluid init` \u2014 records how, when and by which tool/command the contract was generated. Machine-written (not user-authored); additive metadata that does not affect the data product's semantic contract.",
           "properties": {
             "schema_version": {
               "type": "integer",
@@ -179,7 +184,7 @@
         },
         "layer": {
           "type": "string",
-          "description": "Data layer label (e.g., Bronze/Silver/Gold). Free-form. When set together with `productType`, the two MUST be consistent under the canonical mapping (Bronze↔SDP, Silver↔ADP, Gold↔CDP)."
+          "description": "Data layer label (e.g., Bronze/Silver/Gold). Free-form. When set together with `productType`, the two MUST be consistent under the canonical mapping (Bronze\u2194SDP, Silver\u2194ADP, Gold\u2194CDP)."
         },
         "productType": {
           "type": "string",
@@ -188,7 +193,7 @@
             "ADP",
             "CDP"
           ],
-          "description": "NEW in v0.7.3: Data Mesh data-product type. SDP = Source-Aligned Data Product (raw ingestion from external systems; corresponds to Bronze). ADP = Aggregated Data Product (cross-source joined / domain-modelled; corresponds to Silver). CDP = Consumption-Aligned Data Product (analytics- or product-shaped; corresponds to Gold). Either `metadata.layer` or `metadata.productType` is sufficient — the validator infers the missing one. When both are present they MUST agree."
+          "description": "NEW in v0.7.3: Data Mesh data-product type. SDP = Source-Aligned Data Product (raw ingestion from external systems; corresponds to Bronze). ADP = Aggregated Data Product (cross-source joined / domain-modelled; corresponds to Silver). CDP = Consumption-Aligned Data Product (analytics- or product-shaped; corresponds to Gold). Either `metadata.layer` or `metadata.productType` is sufficient \u2014 the validator infers the missing one. When both are present they MUST agree."
         },
         "classification": {
           "type": "string",
@@ -325,6 +330,10 @@
     "retention": {
       "$ref": "#/$defs/retention",
       "description": "NEW in v0.7.3: Retention durations for run state, run logs, lineage events, and DLQ records. Honored by the retention sweeper invoked from policy-apply."
+    },
+    "governance": {
+      "$ref": "#/$defs/governance",
+      "description": "Contract-level governance: account/project-wide settings (e.g. AWS Lake Formation admins and LF-tag definitions). Per-resource grants and tag associations live under binding.governance."
     }
   },
   "$defs": {
@@ -575,11 +584,18 @@
               "properties": {
                 "updateBehavior": {
                   "type": "string",
-                  "enum": ["UPDATE_IN_DATABASE", "LOG"]
+                  "enum": [
+                    "UPDATE_IN_DATABASE",
+                    "LOG"
+                  ]
                 },
                 "deleteBehavior": {
                   "type": "string",
-                  "enum": ["LOG", "DELETE_FROM_DATABASE", "DEPRECATE_IN_DATABASE"]
+                  "enum": [
+                    "LOG",
+                    "DELETE_FROM_DATABASE",
+                    "DEPRECATE_IN_DATABASE"
+                  ]
                 }
               }
             }
@@ -591,7 +607,11 @@
           "properties": {
             "writeFormat": {
               "type": "string",
-              "enum": ["parquet", "orc", "avro"],
+              "enum": [
+                "parquet",
+                "orc",
+                "avro"
+              ],
               "description": "Underlying file format for Iceberg data files."
             },
             "snapshotRetention": {
@@ -622,6 +642,10 @@
               }
             }
           }
+        },
+        "mcp": {
+          "$ref": "#/$defs/exposeMcp",
+          "description": "NEW in v0.7.4: Declares this expose as agent-consumable over MCP, with per-expose overrides for the consumer-side output-port server (`fluid mcp output-port serve`). Its presence opts the expose into the Fluid MCP gateway, where `policy.agentPolicy.allowedModels` / `allowedUseCases` are enforced at every read."
         }
       }
     },
@@ -698,7 +722,11 @@
           "description": "Simplified SQL-expression data quality rules (alternate form of dq.rules for inline assertions).",
           "items": {
             "type": "object",
-            "required": ["rule", "expression", "severity"],
+            "required": [
+              "rule",
+              "expression",
+              "severity"
+            ],
             "properties": {
               "rule": {
                 "type": "string",
@@ -710,7 +738,11 @@
               },
               "severity": {
                 "type": "string",
-                "enum": ["error", "warning", "info"],
+                "enum": [
+                  "error",
+                  "warning",
+                  "info"
+                ],
                 "description": "Severity when the rule fails."
               }
             }
@@ -751,7 +783,7 @@
           "minLength": 1
         },
         "type": {
-          "description": "Column data type. Accepts a canonical FLUID/SQL type name (case-insensitive) or a parameterized form such as decimal(18,4) or varchar(255). The enum lists the canonical bare types; the pattern additionally permits case variants and parameter suffixes. Intentionally generous — it rejects obvious garbage (e.g. MYSTERY_TYPE) while admitting the cross-dialect superset.",
+          "description": "Column data type. Accepts a canonical FLUID/SQL type name (case-insensitive) or a parameterized form such as decimal(18,4) or varchar(255). The enum lists the canonical bare types; the pattern additionally permits case variants and parameter suffixes. Intentionally generous \u2014 it rejects obvious garbage (e.g. MYSTERY_TYPE) while admitting the cross-dialect superset.",
           "anyOf": [
             {
               "type": "string",
@@ -1232,16 +1264,21 @@
             "snowflake",
             "databricks",
             "kafka",
+            "confluent",
             "local",
             "kubernetes",
+            "postgres",
+            "pgvector",
             "other"
-          ]
+          ],
+          "description": "Target platform. NEW in v0.7.5: 'pgvector' for the vector/embeddings output port (pgvector-on-PostgreSQL RAG target — emits the embeddings table + ANN index DDL for the ai-embeddable columns). NEW in v0.7.5: 'confluent' for the Confluent Cloud Tableflow managed Kafka→Iceberg emitter. NEW in v0.7.4: 'postgres' for the MCP output-port PostgreSQL driver (AWS Athena uses platform 'aws')."
         },
         "format": {
           "type": "string",
           "enum": [
             "bigquery_table",
             "snowflake_table",
+            "snowflake_view",
             "gcs_file",
             "s3_file",
             "http_api",
@@ -1253,8 +1290,16 @@
             "parquet",
             "csv",
             "json",
+            "redshift_table",
+            "redshift_serverless",
+            "redshift_external_schema",
+            "postgres_table",
+            "athena_table",
+            "glue_table",
+            "pgvector_table",
             "other"
-          ]
+          ],
+          "description": "Binding format. NEW in v0.7.5: 'pgvector_table' — a pgvector embeddings table target for the vector output port. NEW in v0.7.4: 'postgres_table' (PostgreSQL driver), 'athena_table' / 'glue_table' (AWS Athena driver) for the MCP output port."
         },
         "icebergConfig": {
           "type": "object",
@@ -1263,12 +1308,19 @@
           "properties": {
             "writeVersion": {
               "type": "integer",
-              "enum": [1, 2],
+              "enum": [
+                1,
+                2
+              ],
               "description": "Iceberg table format version"
             },
             "fileFormat": {
               "type": "string",
-              "enum": ["parquet", "orc", "avro"],
+              "enum": [
+                "parquet",
+                "orc",
+                "avro"
+              ],
               "description": "Underlying file format for data files"
             },
             "partitionSpec": {
@@ -1276,7 +1328,10 @@
               "description": "Partition transformation specifications",
               "items": {
                 "type": "object",
-                "required": ["sourceColumn", "transform"],
+                "required": [
+                  "sourceColumn",
+                  "transform"
+                ],
                 "properties": {
                   "name": {
                     "type": "string",
@@ -1288,7 +1343,15 @@
                   },
                   "transform": {
                     "type": "string",
-                    "enum": ["identity", "year", "month", "day", "hour", "bucket", "truncate"],
+                    "enum": [
+                      "identity",
+                      "year",
+                      "month",
+                      "day",
+                      "hour",
+                      "bucket",
+                      "truncate"
+                    ],
                     "description": "Partition transform function"
                   },
                   "numBuckets": {
@@ -1307,7 +1370,9 @@
               "description": "Sort order specifications for data files",
               "items": {
                 "type": "object",
-                "required": ["column"],
+                "required": [
+                  "column"
+                ],
                 "properties": {
                   "column": {
                     "type": "string",
@@ -1315,12 +1380,18 @@
                   },
                   "direction": {
                     "type": "string",
-                    "enum": ["asc", "desc"],
+                    "enum": [
+                      "asc",
+                      "desc"
+                    ],
                     "description": "Sort direction"
                   },
                   "nullOrder": {
                     "type": "string",
-                    "enum": ["nulls-first", "nulls-last"],
+                    "enum": [
+                      "nulls-first",
+                      "nulls-last"
+                    ],
                     "description": "NULL value ordering"
                   }
                 }
@@ -1331,6 +1402,93 @@
               "description": "Iceberg table properties",
               "additionalProperties": {
                 "type": "string"
+              }
+            }
+          }
+        },
+        "vectorConfig": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "NEW in v0.7.5: vector / embeddings output-port configuration (platform 'pgvector', format 'pgvector_table'). Consumed by fluid_build.output_ports.vector to emit the pgvector embeddings-table + ANN-index DDL and a RAG provenance manifest for the schema's ai-embeddable columns.",
+          "required": [
+            "dimensions"
+          ],
+          "properties": {
+            "dimensions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16000,
+              "description": "Embedding vector width (e.g. 1536 for OpenAI text-embedding-3-small, 1024 for Cohere embed-english-light). Maps to the pgvector column type vector(<dimensions>)."
+            },
+            "embeddingModel": {
+              "type": "string",
+              "description": "Provenance: the embedding model that produces the vectors (e.g. 'text-embedding-3-small'). Recorded in the RAG manifest and the embeddings-table's embedding_model column so a retriever can verify model parity."
+            },
+            "vectorType": {
+              "type": "string",
+              "enum": [
+                "vector",
+                "halfvec"
+              ],
+              "default": "vector",
+              "description": "pgvector column type: 'vector' (float32, up to 2000 dims) or 'halfvec' (float16, half the storage, up to 4000 dims)."
+            },
+            "indexType": {
+              "type": "string",
+              "enum": [
+                "hnsw",
+                "ivfflat",
+                "none"
+              ],
+              "default": "hnsw",
+              "description": "ANN index built on the embedding column. 'hnsw' (higher recall / lower query latency, buildable before data lands), 'ivfflat' (lower build cost, needs data first), or 'none' (no index — exact search only)."
+            },
+            "distanceMetric": {
+              "type": "string",
+              "enum": [
+                "cosine",
+                "l2",
+                "inner_product",
+                "l1"
+              ],
+              "default": "cosine",
+              "description": "Distance function the index optimises for → pgvector operator class: cosine→vector_cosine_ops, l2→vector_l2_ops, inner_product→vector_ip_ops, l1→vector_l1_ops."
+            },
+            "table": {
+              "type": "string",
+              "description": "Target embeddings table name. Defaults to '<exposeId>_embeddings' when omitted."
+            },
+            "sourceKeyColumn": {
+              "type": "string",
+              "description": "Provenance: the source primary-key column that ties each embedding row back to its origin row (written to the embeddings-table's source_key column). Enables update/delete propagation from the source product to the vector store."
+            },
+            "hnsw": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "HNSW index tuning (used when indexType is 'hnsw').",
+              "properties": {
+                "m": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Max bi-directional links per node (pgvector default 16)."
+                },
+                "efConstruction": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Build-time dynamic candidate-list size (pgvector default 64)."
+                }
+              }
+            },
+            "ivfflat": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "IVFFlat index tuning (used when indexType is 'ivfflat').",
+              "properties": {
+                "lists": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of inverted lists (pgvector guidance: rows/1000 for < 1M rows)."
+                }
               }
             }
           }
@@ -1350,6 +1508,10 @@
           "type": "object",
           "description": "Provider-specific binding properties (e.g., cluster_by, comment for Snowflake).",
           "additionalProperties": true
+        },
+        "governance": {
+          "$ref": "#/$defs/bindingGovernance",
+          "description": "Per-resource governance: registerLocation, principal grants, tag associations, row/column filters. Account-wide governance (admins, tag definitions) lives at the contract top-level governance block."
         }
       }
     },
@@ -1414,6 +1576,61 @@
         "zone": {
           "type": "string",
           "description": "Cloud zone"
+        },
+        "environment_id": {
+          "type": "string",
+          "description": "NEW in v0.7.5: Confluent Cloud environment id (env-xxxxx) for the Tableflow emitter."
+        },
+        "kafka_cluster_id": {
+          "type": "string",
+          "description": "NEW in v0.7.5: Confluent Cloud Kafka cluster id (lkc-xxxxx) the Tableflow topic belongs to."
+        },
+        "stream": {
+          "type": "string",
+          "description": "NEW in v0.7.5: AWS Kinesis Data Stream name — maps to aws_kinesis_stream in the streaming IaC emitter."
+        },
+        "namespace": {
+          "type": "string",
+          "description": "NEW in v0.7.5: Amazon Redshift Serverless namespace name — maps to aws_redshiftserverless_namespace."
+        },
+        "workgroup": {
+          "type": "string",
+          "description": "NEW in v0.7.5: Amazon Redshift Serverless workgroup name — maps to aws_redshiftserverless_workgroup."
+        },
+        "iam_role_arn": {
+          "type": "string",
+          "description": "NEW in v0.7.5: ARN of the IAM role attached to the Redshift Serverless namespace / used by the redshift-data CREATE EXTERNAL SCHEMA bridge."
+        },
+        "external_schema": {
+          "type": "string",
+          "description": "NEW in v0.7.5: Redshift external (Spectrum) schema name created over a Glue database via the redshift-data CREATE EXTERNAL SCHEMA bridge."
+        },
+        "glue_database": {
+          "type": "string",
+          "description": "NEW in v0.7.5: Glue Data Catalog database that backs the Redshift external schema."
+        },
+        "confluent_role_arn": {
+          "type": "string",
+          "description": "NEW in v0.7.5: ARN of the pre-created AWS IAM role Confluent Tableflow assumes (byob_aws). Its trust policy is updated post-apply with the provider integration's external_id (two-phase IAM)."
+        },
+        "catalog": {
+          "type": "string",
+          "description": "NEW in v0.7.5: Iceberg catalog kind/profile selector — maps to iceberg.catalog.type (e.g. glue, rest, nessie, hive). REST-fronted catalogs (polaris / unity / snowflake open catalog) map to 'rest'. Consumed by providers/_iceberg_catalog.py and the streaming-sink validator."
+        },
+        "warehouse": {
+          "type": "string",
+          "description": "NEW in v0.7.5: Iceberg warehouse — the canonical Iceberg REST 'warehouse' property (maps to iceberg.catalog.warehouse): an object-store URI (s3://|gs://|abfss://) for object-store catalogs, or the catalog/warehouse name for a REST catalog."
+        },
+        "uri": {
+          "type": "string",
+          "description": "NEW in v0.7.5: REST Iceberg catalog endpoint URL — the canonical Iceberg REST 'uri' property (maps to iceberg.catalog.uri)."
+        },
+        "partitionBy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "NEW in v0.7.5: Iceberg partition columns — a FLUID abstraction over the Iceberg PARTITIONED BY / PartitionSpec (maps to iceberg.tables.default-partition-by)."
         }
       }
     },
@@ -1754,7 +1971,15 @@
           "items": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9-_.]*[a-z0-9]$|^[a-z0-9]$",
-            "examples": ["gpt-4", "claude-3-opus", "claude-3-sonnet", "gemini-pro", "gemini-ultra", "llama-3", "mixtral-8x7b"]
+            "examples": [
+              "gpt-4",
+              "claude-3-opus",
+              "claude-3-sonnet",
+              "gemini-pro",
+              "gemini-ultra",
+              "llama-3",
+              "mixtral-8x7b"
+            ]
           },
           "uniqueItems": true
         },
@@ -1770,7 +1995,11 @@
           "type": "integer",
           "minimum": 1,
           "description": "Maximum tokens per AI request. Prevents excessive data exposure in single queries.",
-          "examples": [4096, 8192, 16384]
+          "examples": [
+            4096,
+            8192,
+            16384
+          ]
         },
         "maxTokensPerDay": {
           "type": "integer",
@@ -1798,7 +2027,18 @@
             ]
           },
           "uniqueItems": true,
-          "examples": [["inference", "reasoning", "summarization"], ["search", "qa", "rag"]]
+          "examples": [
+            [
+              "inference",
+              "reasoning",
+              "summarization"
+            ],
+            [
+              "search",
+              "qa",
+              "rag"
+            ]
+          ]
         },
         "deniedUseCases": {
           "type": "array",
@@ -1821,7 +2061,12 @@
             ]
           },
           "uniqueItems": true,
-          "examples": [["training", "fine_tuning"]]
+          "examples": [
+            [
+              "training",
+              "fine_tuning"
+            ]
+          ]
         },
         "canReason": {
           "type": "boolean",
@@ -1889,7 +2134,11 @@
             "Global",
             "Multi-Region"
           ],
-          "examples": ["EU", "US", "Global"]
+          "examples": [
+            "EU",
+            "US",
+            "Global"
+          ]
         },
         "allowedRegions": {
           "type": "array",
@@ -1898,7 +2147,16 @@
             "type": "string"
           },
           "uniqueItems": true,
-          "examples": [["eu-west-1", "eu-central-1"], ["us-east-1", "us-west-2"]]
+          "examples": [
+            [
+              "eu-west-1",
+              "eu-central-1"
+            ],
+            [
+              "us-east-1",
+              "us-west-2"
+            ]
+          ]
         },
         "deniedRegions": {
           "type": "array",
@@ -1953,11 +2211,26 @@
             ]
           },
           "uniqueItems": true,
-          "examples": [["GDPR"], ["GDPR", "CCPA"], ["HIPAA"]]
+          "examples": [
+            [
+              "GDPR"
+            ],
+            [
+              "GDPR",
+              "CCPA"
+            ],
+            [
+              "HIPAA"
+            ]
+          ]
         },
         "enforcementMode": {
           "type": "string",
-          "enum": ["strict", "advisory", "audit"],
+          "enum": [
+            "strict",
+            "advisory",
+            "audit"
+          ],
           "default": "strict",
           "description": "How sovereignty violations are handled. strict = block deployment, advisory = warn, audit = log only."
         },
@@ -1978,17 +2251,28 @@
       "examples": [
         {
           "jurisdiction": "EU",
-          "allowedRegions": ["eu-west-1", "eu-central-1"],
+          "allowedRegions": [
+            "eu-west-1",
+            "eu-central-1"
+          ],
           "dataResidency": true,
           "crossBorderTransfer": false,
-          "regulatoryFramework": ["GDPR"],
+          "regulatoryFramework": [
+            "GDPR"
+          ],
           "enforcementMode": "strict"
         },
         {
           "jurisdiction": "US",
-          "allowedRegions": ["us-east-1", "us-west-2"],
+          "allowedRegions": [
+            "us-east-1",
+            "us-west-2"
+          ],
           "dataResidency": true,
-          "regulatoryFramework": ["CCPA", "HIPAA"],
+          "regulatoryFramework": [
+            "CCPA",
+            "HIPAA"
+          ],
           "enforcementMode": "strict"
         }
       ]
@@ -2003,7 +2287,9 @@
           "description": "List of access grants to principals (users, groups, service accounts).",
           "items": {
             "type": "object",
-            "required": ["principal"],
+            "required": [
+              "principal"
+            ],
             "additionalProperties": false,
             "properties": {
               "principal": {
@@ -2034,7 +2320,17 @@
                   ]
                 },
                 "uniqueItems": true,
-                "examples": [["read", "select"], ["write", "insert", "update"]]
+                "examples": [
+                  [
+                    "read",
+                    "select"
+                  ],
+                  [
+                    "write",
+                    "insert",
+                    "update"
+                  ]
+                ]
               },
               "resources": {
                 "type": "array",
@@ -2061,11 +2357,20 @@
           "grants": [
             {
               "principal": "group:data-analytics@company.com",
-              "permissions": ["read", "select", "query"]
+              "permissions": [
+                "read",
+                "select",
+                "query"
+              ]
             },
             {
               "principal": "serviceAccount:pipeline@project.iam.gserviceaccount.com",
-              "permissions": ["write", "insert", "update", "delete"]
+              "permissions": [
+                "write",
+                "insert",
+                "update",
+                "delete"
+              ]
             }
           ]
         }
@@ -2164,26 +2469,33 @@
         },
         "engine": {
           "type": "string",
-          "enum": [
-            "dbt",
-            "sql",
-            "python",
-            "spark",
-            "glue",
-            "custom",
-            "duckdb",
-            "airbyte",
-            "meltano",
-            "dlt",
-            "kafka-connect",
-            "debezium"
+          "anyOf": [
+            {
+              "enum": [
+                "dbt",
+                "sql",
+                "python",
+                "spark",
+                "glue",
+                "custom",
+                "duckdb",
+                "airbyte",
+                "meltano",
+                "dlt",
+                "kafka-connect",
+                "debezium"
+              ]
+            },
+            {
+              "pattern": "^dbt-[a-z0-9]+([_-][a-z0-9]+)*$"
+            }
           ],
           "default": "dbt",
-          "description": "Build/ingestion engine. Transformation engines: dbt, sql, python, spark, glue, custom. Ingestion engines (acquisition pattern only): duckdb (zero-infra files/JDBC), airbyte (350+ SaaS), meltano (Singer 600+ taps), dlt (Python-native), kafka-connect (streaming), debezium (CDC). AWS Glue: glue (Spark ETL jobs managed by Glue)."
+          "description": "Build/ingestion engine. Transformation engines: dbt, sql, python, spark, glue, custom. Adapter-qualified dbt engines (dbt-<adapter>, e.g. dbt-glue, dbt-snowflake, dbt-bigquery) are accepted too and route through the dbt build runner, which derives the adapter from the suffix. Ingestion engines (acquisition pattern only): duckdb (zero-infra files/JDBC), airbyte (350+ SaaS), meltano (Singer 600+ taps), dlt (Python-native), kafka-connect (streaming), debezium (CDC). AWS Glue: glue (Spark ETL jobs managed by Glue)."
         },
         "capabilities": {
           "type": "array",
-          "description": "Capabilities the build asks for (acquisition pattern). Validation enforces capabilities ⊆ runner.declared_capabilities.",
+          "description": "Capabilities the build asks for (acquisition pattern). Validation enforces capabilities \u2286 runner.declared_capabilities.",
           "items": {
             "type": "string",
             "enum": [
@@ -2335,6 +2647,38 @@
         "model": {
           "type": "string"
         },
+        "target": {
+          "type": "string",
+          "description": "dbt profile target to run against. Forwarded to dbt as `--target <name>` by the build runner (allowlisted against the profile's real targets; falls back to the profile default when the requested target is unavailable)."
+        },
+        "select": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "dbt node selector(s) forwarded to `dbt --select`. Accepts a single selector string or an array of selector strings; the build runner drops flag-like values (those starting with '-')."
+        },
+        "models": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Legacy alias for `select` (dbt's older `--models` flag). Same string-or-array shape; `select` takes precedence when both are set."
+        },
         "vars": {
           "type": "object",
           "additionalProperties": true
@@ -2464,7 +2808,7 @@
     },
     "acquisitionPattern": {
       "type": "object",
-      "description": "NEW in v0.7.3: Source-aligned acquisition pattern. The build ingests data from an external system (no transformation). Engine ∈ {duckdb, airbyte, meltano, dlt, kafka-connect, debezium}.",
+      "description": "NEW in v0.7.3: Source-aligned acquisition pattern. The build ingests data from an external system (no transformation). Engine \u2208 {duckdb, airbyte, meltano, dlt, kafka-connect, debezium}.",
       "additionalProperties": false,
       "required": [
         "source"
@@ -2625,6 +2969,53 @@
             },
             "deployment": {
               "$ref": "#/$defs/acquisitionDeployment"
+            },
+            "iceberg_sink_enabled": {
+              "type": "boolean",
+              "description": "Opt-in: derive the Iceberg sink connector config. Defaults OFF when a hand-written sink_connector_config is present (RFC \u00a76.2)."
+            },
+            "sink_topics": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Explicit topics the derived Iceberg sink consumes (else derived from source streams)."
+            },
+            "iceberg_catalog_overrides": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Operator escape hatch: connector config keys merged LAST over the derived Iceberg sink config."
+            },
+            "streamingSink": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Optional Iceberg streaming-sink tuning (RFC \u00a76.2). All keys optional.",
+              "properties": {
+                "commitIntervalMs": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "routeField": {
+                  "type": "string"
+                },
+                "dynamicEnabled": {
+                  "type": "boolean"
+                },
+                "autoCreate": {
+                  "type": "boolean"
+                },
+                "evolveSchema": {
+                  "type": "boolean"
+                },
+                "upsertMode": {
+                  "type": "boolean"
+                },
+                "controlTopic": {
+                  "type": "string"
+                }
+              }
             }
           }
         },
@@ -2700,7 +3091,7 @@
             },
             "user": {
               "type": "string",
-              "description": "NEW in v0.7.3: Username/principal for SQL- or REST-style sources. Required by most database drivers (Postgres/MySQL/Oracle/etc.) — without it the underlying client falls back to the OS-user identity and typically fails authentication. Goes alongside ``secretRef`` (or an inline ``password``) for the credential pair."
+              "description": "NEW in v0.7.3: Username/principal for SQL- or REST-style sources. Required by most database drivers (Postgres/MySQL/Oracle/etc.) \u2014 without it the underlying client falls back to the OS-user identity and typically fails authentication. Goes alongside ``secretRef`` (or an inline ``password``) for the credential pair."
             },
             "schema": {
               "type": "string",
@@ -3118,6 +3509,7 @@
             "enum": [
               "datahub",
               "openmetadata",
+              "datamesh_manager",
               "unity",
               "glue",
               "snowflake_horizon"
@@ -3236,7 +3628,8 @@
               "enum": [
                 "docker",
                 "kubernetes",
-                "terraform"
+                "terraform",
+                "opentofu"
               ]
             },
             "profile": {
@@ -3478,7 +3871,10 @@
             "composer",
             "mwaa",
             "databricks",
-            "snowflake"
+            "snowflake",
+            "athena",
+            "glue",
+            "redshift"
           ]
         },
         "executor": {
@@ -4263,7 +4659,7 @@
         },
         "operator": {
           "type": "string",
-          "description": "DEPRECATED in v0.7.0: Use 'type' instead. Maintained for backward compatibility with v0.6.1 contracts. Maps to 'type' automatically (FluidExecuteOperator → fluid_execute, BashOperator → bash)."
+          "description": "DEPRECATED in v0.7.0: Use 'type' instead. Maintained for backward compatibility with v0.6.1 contracts. Maps to 'type' automatically (FluidExecuteOperator \u2192 fluid_execute, BashOperator \u2192 bash)."
         },
         "provider": {
           "type": "string",
@@ -4527,7 +4923,7 @@
             }
           },
           "then": {
-            "description": "Operator field is deprecated but still works. Maps: FluidExecuteOperator→fluid_execute, BashOperator→bash, etc."
+            "description": "Operator field is deprecated but still works. Maps: FluidExecuteOperator\u2192fluid_execute, BashOperator\u2192bash, etc."
           }
         },
         {
@@ -5030,6 +5426,205 @@
           ]
         }
       ]
+    },
+    "exposeMcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "NEW in v0.7.4: Per-expose overrides for the MCP output-port server \u2014 sampling caps + classification. The presence of this (non-empty) block opts the expose into the Fluid MCP gateway, where policy.agentPolicy is enforced at every read.",
+      "properties": {
+        "sampling": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxRows": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Hard cap for the `sample` MCP tool. Defends against an over-curious agent asking for petabyte-scale row counts. Default: 100."
+            }
+          }
+        },
+        "classification": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dataClass": {
+              "type": "string",
+              "enum": [
+                "public",
+                "internal",
+                "confidential",
+                "restricted"
+              ],
+              "description": "Surfaced on the `describe` tool so consumer agents can declare downstream handling. Advisory; the real gate is `policy.agentPolicy`."
+            }
+          }
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "description": "Account/project-wide governance settings. Today only the lakeFormation block is supported; future cloud-specific blocks may live alongside it (e.g. snowflake masking-policy registries, gcp organization-policies).",
+      "additionalProperties": false,
+      "properties": {
+        "lakeFormation": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "AWS Lake Formation account-wide settings: data-lake admins and LF-tag (TBAC) definitions. Applies to the AWS account the contract's IaC apply targets.",
+          "properties": {
+            "admins": {
+              "type": "array",
+              "description": "IAM principal ARNs (roles or users) granted Lake Formation admin privileges. Emitted as aws_lakeformation_data_lake_settings.admins. AUTHORITATIVE, not additive: Lake Formation's PutDataLakeSettings replaces the account's admin list with the one sent, so an admin NOT listed here is REMOVED on apply. List every principal that must stay a data lake admin, including the role or user that runs the apply: left out, it loses Lake Formation admin on that apply, and the Lake Formation grants and registrations that need an admin can then fail. The terraform-provider-aws resource also clears the data lake settings its configuration omits, and this block sets only the admins, so the account's create-database and create-table default permissions (the IAMAllowedPrincipals default for new databases and tables), trusted resource owners and parameters are cleared too. Destroying the resource empties the admin list and resets CROSS_ACCOUNT_VERSION to 1. Re-applying the same list is a no-op.",
+              "items": {
+                "type": "string",
+                "pattern": "^arn:aws[a-z0-9-]*:iam::"
+              },
+              "uniqueItems": true
+            },
+            "tagDefinitions": {
+              "type": "object",
+              "description": "LF-TBAC tag-key definitions. Each entry is a tag key mapped to its allowed string values. Emitted as one aws_lakeformation_lf_tag per key; values are the tag's allowed-values list. Field idiom borrowed from OpenMetadata's classification-label model \u2014 see ODCS roles + OpenMetadata data contracts spec.",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "bindingGovernance": {
+      "type": "object",
+      "description": "Per-resource (per-exposure) governance. Currently scoped to AWS Lake Formation; future cloud-specific blocks may sit alongside (e.g. gcpIamPolicy, snowflakeMaskingPolicy).",
+      "additionalProperties": false,
+      "properties": {
+        "lakeFormation": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-resource LF settings: location registration, principal grants, LF-tag associations, row/column filters. Applies only to formats backed by S3 + Glue catalog (iceberg/parquet/csv/json/avro/orc/delta).",
+          "properties": {
+            "registerLocation": {
+              "type": "boolean",
+              "default": false,
+              "description": "When true, emit aws_lakeformation_resource that registers the binding's S3 path with Lake Formation. Required before LF can manage access to objects under that path."
+            },
+            "grants": {
+              "type": "array",
+              "description": "Principal-based LF grants on this exposure's database/table. Each entry maps a principal to a permission set (and optional column projection). Emitted as aws_lakeformation_permissions resources. Field idiom adapted from ODCS v3 roles[] (principal + access-type), bound to IAM ARNs since LF is cloud-specific.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "principal",
+                  "permissions"
+                ],
+                "properties": {
+                  "principal": {
+                    "type": "string",
+                    "description": "IAM principal ARN (role or user) receiving the grant.",
+                    "pattern": "^arn:aws[a-z0-9-]*:iam::"
+                  },
+                  "permissions": {
+                    "type": "array",
+                    "description": "LF permissions granted. Valid values per the hashicorp/aws aws_lakeformation_permissions resource.",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "ALL",
+                        "SELECT",
+                        "ALTER",
+                        "DROP",
+                        "DELETE",
+                        "INSERT",
+                        "DESCRIBE",
+                        "CREATE_TABLE",
+                        "CREATE_DATABASE",
+                        "DATA_LOCATION_ACCESS"
+                      ]
+                    },
+                    "uniqueItems": true,
+                    "minItems": 1
+                  },
+                  "permissionsWithGrantOption": {
+                    "type": "array",
+                    "description": "Subset of permissions the principal can re-grant. Maps to aws_lakeformation_permissions.permissions_with_grant_option.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "columns": {
+                    "type": "array",
+                    "description": "Optional column-level restriction. When set, the grant is emitted against aws_lakeformation_permissions.table_with_columns instead of .table, allowing the principal to read only the listed columns.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  },
+                  "excludedColumns": {
+                    "type": "array",
+                    "description": "Opposite of columns: every column EXCEPT these is granted. Maps to table_with_columns.excluded_column_names. Mutually exclusive with columns.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "tags": {
+              "type": "object",
+              "description": "LF-tag (TBAC) associations applied to this table. Keys must reference tag definitions declared in the contract's top-level governance.lakeFormation.tagDefinitions. Emitted as aws_lakeformation_resource_lf_tags.",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "rowFilter": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Row-level (and optionally column-level) filter applied to all reads of this table via LF. Emitted as aws_lakeformation_data_cells_filter. The filter must then be granted to principals via grants[].permissions including SELECT \u2014 LF enforces both layers.",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Filter name (must be unique per table)."
+                },
+                "rowExpression": {
+                  "type": "string",
+                  "description": "PartiQL-flavoured row predicate. ``ALL`` lets every row through (use when only column filtering is intended)."
+                },
+                "columnNames": {
+                  "type": "array",
+                  "description": "Columns visible through the filter. Mutually exclusive with allColumns / excludedColumnNames.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "excludedColumnNames": {
+                  "type": "array",
+                  "description": "Columns hidden through the filter (everything else is visible).",
+                  "items": {
+                    "type": "string"
+                  },
+                  "uniqueItems": true
+                },
+                "allColumns": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Convenience for the LF column-wildcard form (every column visible). When true, columnNames / excludedColumnNames must be omitted."
+                }
+              },
+              "required": [
+                "name",
+                "rowExpression"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }

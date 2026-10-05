@@ -1,7 +1,11 @@
 # Fluid Forge Docs Baseline: CLI `0.15.0`
 
 **Release Date:** September 14, 2026
-**Status:** Current stable docs baseline (supersedes [`0.14.0`](./RELEASE_NOTES_0.14.0.md))
+**Status:** Superseded by [`0.16.0`](./RELEASE_NOTES_0.16.0.md); the current baseline is
+[`0.18.1`](./RELEASE_NOTES_0.18.0.md). Supersedes [`0.14.0`](./RELEASE_NOTES_0.14.0.md).
+Since `0.16.0`, the federation digest gate described in checklist step 11, in the git-backed
+digest items and under Fixed logs `apply_consumes_drift` and applies instead of exiting 1.
+The [upgrade guide](./upgrading.md) has a checklist for each version after this page.
 
 This baseline covers **two CLI releases**: `0.14.1` (August 3) and `0.15.0` (September 14). `0.14.1`
 did not receive its own docs pass, so both change sets are documented here.
@@ -104,6 +108,8 @@ Work through this before you upgrade a CI lane, not after.
     it has no expiry check, so a machine that already holds an entry keeps returning the `0.14.1`
     value. `--no-verify-federation` is the escape hatch while you work through them. `catalog` and
     `http_registry` upstreams are unaffected.
+    *Superseded in 0.16.0:* the gate warns (`apply_consumes_drift`) and no longer aborts; see
+    [the federated upstream check](./cli/apply.md#federated-upstream-check).
 12. **Update anything keyed on DataHub's dotted `customProperties`.** `fluid.layer` → `fluid_layer`,
     `fluid.productType` → `fluid_product_type`, `fluid.version` → `fluid_version`, plus a new
     `fluid_domain`. Structured properties keep their dotted `qualifiedName` — a different namespace,
@@ -269,8 +275,9 @@ Those are entirely unaffected, policy digest included, and all 25 pre-existing c
 keep their exact digest.
 
 The claim is admissible **only when verified**: `_resolve_verified_jurisdiction` reads the attributes
-the HTTP auth middleware writes after it validates a JWT or mTLS identity, and never the caller's
-self-attested `clientInfo`. A client typing `jurisdiction: "EU"` satisfies nothing and collapses to
+the HTTP auth middleware writes after it validates a credential, and never the caller's
+self-attested `clientInfo`. *(Checked against `0.18.1`: of the three auth modes, only a verified JWT carries a
+jurisdiction claim. A proxy-forwarded client certificate does not.)* A client typing `jurisdiction: "EU"` satisfies nothing and collapses to
 the same `missing-caller-jurisdiction` denial as no claim at all. There is no no-auth fallback on
 purpose, and matching is exact and case-sensitive — a verified `"eu"` against a contract pinning
 `"EU"` is refused.
@@ -659,6 +666,10 @@ those rows, or pass `--no-verify-federation` while you do. Two caveats. The per-
 `.fluid/federation/<workspace>.digest-cache.json` has no expiry check, so a machine already holding
 an entry keeps returning the `0.14.1` value until it is cleared. And only `git_registry` is affected
 — `catalog` and `http_registry` upstreams read a digest off the remote (#587).
+:::
+
+::: tip Superseded in 0.16.0
+The gate now warns with `apply_consumes_drift` and applies; it no longer exits 1. See [the federated upstream check](./cli/apply.md#federated-upstream-check).
 :::
 
 ### Fixed — a contract published to a default DataHub install was readable nowhere

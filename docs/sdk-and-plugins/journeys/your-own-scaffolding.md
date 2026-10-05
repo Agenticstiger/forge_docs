@@ -1,95 +1,107 @@
 # You have a strict project layout, no problem
 
-Your org has opinions: every data product lives in a repo with a specific directory structure, a specific test framework, specific lint config, a Dockerfile that follows your security baseline, and a README following a specific template. New teams shouldn't have to copy-paste from older products — they should declare a contract and get the whole skeleton.
+Your org has opinions: a data product lives in a repo with a specific directory structure, test framework, lint config, a Dockerfile that follows your security baseline, and a README following a template. New teams should not copy and paste from older products. They should declare a contract and get the whole skeleton.
 
-This guide extends the pattern from [you have your own CI](./your-own-ci.md) — same bundle shape, but the templates render the *full project skeleton*, not just CI. Read that one first if you haven't; the bundle mechanics (manifest, templates, static, git ref pinning) are the same.
+This guide extends the pattern from [you have your own CI](./your-own-ci.md). The bundle shape is the same, but the templates render the *full project skeleton*, not just CI. Read that page first if you have not; the bundle mechanics (manifest, templates, static, git ref pinning, the render context) are the same.
 
-By the end you'll have:
+By the end you will have:
 
-- A bundle that generates `pyproject.toml` / `src/<product>/` / `tests/` / `Dockerfile` / `README.md` / `.editorconfig` / `.pre-commit-config.yaml` — driven by `contract.metadata`.
-- A contract that produces a fully-configured project from `fluid generate-custom-scaffold`.
+- A bundle that generates `pyproject.toml`, `src/<product>/`, `tests/`, `Dockerfile`, `README.md`, `.editorconfig` and `.pre-commit-config.yaml`, driven by the contract's identity fields.
+- A contract that produces a configured project from `fluid custom-scaffold`.
 
-Realistic time end-to-end: **20–30 minutes**.
+Realistic time end to end: **20-30 minutes**.
 
 ## The mental model
 
 Same as the CI bundle, with more templates:
 
 ```text
-your platform-team's git repo                  product team's repo (after generate)
+your platform team's repo                      product team's repo (after generate)
 ┌──────────────────────────────────┐         ┌─────────────────────────────────┐
-│ project-bundle/                   │         │ <product-id>/                   │
+│ project-bundle/                   │         │ <product-dir>/                  │
 │   ├── fluid-scaffold.yaml         │         │   ├── contract.fluid.yaml       │
 │   ├── templates/                  │         │   ├── pyproject.toml            │
-│   │   ├── pyproject.toml.j2       │         │   ├── src/<id>/__init__.py     │
-│   │   ├── README.md.j2            │ ──→     │   ├── src/<id>/main.py         │
-│   │   ├── src/__init__.py.j2      │         │   ├── tests/test_smoke.py      │
-│   │   ├── src/main.py.j2          │         │   ├── tests/__init__.py        │
-│   │   ├── tests/test_smoke.py.j2  │         │   ├── Dockerfile               │
-│   │   ├── Dockerfile.j2           │         │   ├── README.md                │
-│   │   ├── .editorconfig.j2        │         │   ├── .editorconfig            │
-│   │   └── .pre-commit-config.j2   │         │   └── .pre-commit-config.yaml  │
-│   └── static/                     │         └─────────────────────────────────┘
-│       └── LICENSE                 │
+│   │   ├── pyproject.toml.j2       │         │   ├── src/<module>/__init__.py  │
+│   │   ├── README.md.j2            │ ──→     │   ├── src/<module>/main.py      │
+│   │   ├── init.py.j2              │         │   ├── tests/test_smoke.py       │
+│   │   ├── main.py.j2              │         │   ├── tests/__init__.py         │
+│   │   ├── test_smoke.py.j2        │         │   ├── Dockerfile                │
+│   │   ├── Dockerfile.j2           │         │   ├── README.md                 │
+│   │   ├── editorconfig.j2         │         │   ├── .editorconfig             │
+│   │   └── pre-commit-config…j2    │         │   ├── .pre-commit-config.yaml   │
+│   └── static/                     │         │   └── LICENSE                   │
+│       └── LICENSE                 │         └─────────────────────────────────┘
 └──────────────────────────────────┘
 ```
 
-## Step 0 — see the result first
+## Step 0: see the result first
 
-A product team runs:
+A product team runs the following. The bundle here is bound with `kind: path` so the example runs offline; a team using the platform repo from the [CI journey](./your-own-ci.md#step-7-consume-from-a-product-team-s-repo) writes a `kind: git` source with a pinned `ref` instead.
 
 ```bash
-mkdir -p ~/products/order-events && cd $_
+mkdir -p ~/products/order-events && cd ~/products/order-events
 
 cat > contract.fluid.yaml <<'EOF'
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
+kind: DataProduct
+id: bronze.commerce.order_events_v1
+name: Order Events
+description: Real-time order event stream.
+domain: commerce
 metadata:
-  id: order-events
-  name: Order Events
-  description: Realtime order event stream.
-  owner: { email: orders-team@example.com }
-  domain: commerce
   layer: Bronze
   productType: SDP
-environments:
-  dev:
-    cloud: { provider: gcp, project: "order-events-dev", region: us-central1 }
+  owner: { team: commerce, email: orders-team@my-org.example.com }
+exposes:
+  - exposeId: order_events
+    kind: table
+    binding:
+      platform: local
+      format: parquet
+      location: { path: out/order_events.parquet }
+    contract:
+      schema:
+        - { name: order_id, type: STRING, required: true }
 extensions:
   customScaffold:
     libraries:
       - id: skel
-        source: { kind: git, url: "https://github.com/my-org/project-bundle", ref: "v1.0.0" }
+        source: { kind: path, path: ../project-bundle }
     patterns:
       - use: skel:main
 EOF
 
-fluid generate-custom-scaffold
+fluid custom-scaffold
 ```
 
-Output:
+Output (trimmed; the engine prints absolute paths):
 
 ```text
-✓ 9 files written, 0 failed
-  pyproject.toml
-  README.md
-  Dockerfile
-  .editorconfig
-  .pre-commit-config.yaml
-  src/order_events/__init__.py
-  src/order_events/main.py
-  tests/test_smoke.py
-  tests/__init__.py
-  LICENSE                          (from static/)
+Resolved libraries:
+  skel  (path)  version=local
+
+✓ 10 files written, 0 failed (0.0047s)
+  .../.editorconfig
+  .../.pre-commit-config.yaml
+  .../Dockerfile
+  .../LICENSE
+  .../README.md
+  .../pyproject.toml
+  .../src/bronze_commerce_order_events_v1/__init__.py
+  .../src/bronze_commerce_order_events_v1/main.py
+  .../tests/__init__.py
+  .../tests/test_smoke.py
 ```
 
-`src/order_events/` — the `metadata.id` (`order-events`) was kebab-cased into a Python-legal module name (`order_events`). That's how a single Jinja path `src/__init__.py.j2` produces `src/order_events/__init__.py` — the destination path itself is rendered against the contract too.
+The module directory `src/bronze_commerce_order_events_v1/` comes from the contract's id (`bronze.commerce.order_events_v1`), with `-` and `.` turned into `_` by a Jinja filter chain. The destination path in the manifest is itself rendered against the contract, so one template path produces a different directory for each product.
 
-## Step 1 — set up the bundle
+After `pip install -e .`, `pytest` in the generated project runs the smoke test and passes (`1 passed`).
 
-Same as the CI bundle. Reuse [steps 1–2 from your-own-ci](./your-own-ci.md#step-1-—-set-up-the-bundle-repo) — bundle directory, `fluid-scaffold.yaml` manifest, etc. The only difference is the `templates:` list in the manifest now points at project-skeleton templates instead of CI templates.
+## Step 1: set up the bundle
+
+Same as the CI bundle. Reuse [steps 1-2 from your-own-ci](./your-own-ci.md#step-1-set-up-the-bundle-repo): bundle directory, `fluid-scaffold.yaml` manifest. The `templates:` list now points at project-skeleton templates instead of CI templates.
 
 ```yaml
-# fluid-scaffold.yaml
 apiVersion: fluid.dev/custom-scaffold.v1
 
 bundle:
@@ -103,9 +115,8 @@ patterns:
     description: Render the full project skeleton
     supportedProductTypes: [SDP, ADP, CDP]
     requiredContractFields:
-      - metadata.id
+      - id
       - metadata.owner.email
-      - environments
     templates:
       - from: templates/pyproject.toml.j2
         to: pyproject.toml
@@ -118,55 +129,54 @@ patterns:
       - from: templates/pre-commit-config.yaml.j2
         to: .pre-commit-config.yaml
 
-      # The destination path is itself Jinja-rendered — the module name
-      # comes from contract.metadata.id (kebab-cased to snake_case below).
+      # The destination path is itself Jinja-rendered. The module name is
+      # the product id with '-' and '.' turned into '_'.
       - from: templates/init.py.j2
-        to: "src/{{ contract.metadata.id | replace('-', '_') }}/__init__.py"
+        to: "src/{{ product_id | replace('-', '_') | replace('.', '_') }}/__init__.py"
       - from: templates/main.py.j2
-        to: "src/{{ contract.metadata.id | replace('-', '_') }}/main.py"
+        to: "src/{{ product_id | replace('-', '_') | replace('.', '_') }}/main.py"
       - from: templates/test_smoke.py.j2
         to: tests/test_smoke.py
       - from: templates/tests_init.py.j2
         to: tests/__init__.py
 ```
 
-The `to:` field is itself a Jinja template — `src/{{ contract.metadata.id | replace('-', '_') }}/__init__.py` means the destination path varies based on contract data. Anywhere the contract has a value, you can put it in the path.
+The `to:` field is a Jinja template: `src/{{ product_id | replace('-', '_') | replace('.', '_') }}/__init__.py` means the destination varies with contract data. Quote a `to:` value that starts with `{{`, because YAML reads an unquoted leading `{` as a flow mapping.
 
-::: tip Bundle enforcement is now real (engine 0.4.0)
-As of custom-scaffold engine `0.4.0`, a bundle's `variables_schema` (JSON Schema Draft 7) is enforced at **plan time**, and `supportedProductTypes` is checked against the contract's `metadata.productType` (previously both were silently ignored). The `when` / `environments` pattern fields remain RESERVED — declared but not yet evaluated.
+::: tip Bundle enforcement (engine 0.4.0)
+A pattern's `variables` JSON Schema (draft-07) is enforced at plan time, and `supportedProductTypes` is checked against the contract's `metadata.productType`. The pattern fields `when` and `environments` are reserved: the engine accepts them and does not evaluate them.
 :::
 
-## Step 2 — the project skeleton templates
+## Step 2: the project skeleton templates
 
-Drop these in `templates/`. Most are short.
+Drop these in `templates/`. The render-context names (`product_id`, `product_name`, `description`, `owner`, `domain`, `metadata`, `product_type`, `bundle`) are listed in [the CI journey](./your-own-ci.md#step-3-pick-your-ci-system).
 
-
-::: details pyproject.toml.j2 — opinionated Python package config
+::: details pyproject.toml.j2 - opinionated Python package config
 ```jinja
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "{{ contract.metadata.id }}"
+name = "{{ product_id }}"
 version = "0.1.0"
-description = "{{ contract.metadata.description }}"
+description = "{{ description }}"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "{{ contract.metadata.owner.email }}"},
+    {name = "{{ owner.email }}"},
 ]
 keywords = [
     "data-product",
-    "{{ contract.metadata.domain | default('commerce') }}",
-    "{{ contract.metadata.layer | default('Bronze') }}",
-    "{{ contract.metadata.productType | default('SDP') }}",
+    "{{ domain | default('unknown') }}",
+    "{{ metadata.layer | default('Bronze') }}",
+    "{{ product_type | default('SDP') }}",
 ]
 
 dependencies = [
     "pydantic>=2.0",
-    "data-product-forge=={{ fluid_cli_version | default('0.15.0') }}",
+    "data-product-forge==0.18.1",
 ]
 
 [project.optional-dependencies]
@@ -191,26 +201,19 @@ target-version = "py310"
 :::
 
 
+::: details README.md.j2 - opinionated README structure
+````jinja
+# {{ product_name }}
 
-::: details README.md.j2 — opinionated README structure
-```jinja
-# {{ contract.metadata.name }}
+> {{ description }}
 
-> {{ contract.metadata.description }}
-
-**Owner:** {{ contract.metadata.owner.email }}
-**Domain:** {{ contract.metadata.domain | default('—') }}
-**Classification:** {{ contract.metadata.layer }} ({{ contract.metadata.productType }})
+**Owner:** {{ owner.email }}
+**Domain:** {{ domain | default('-') }}
+**Classification:** {{ metadata.layer }} ({{ product_type }})
 
 ## What this product is
 
-Data product `{{ contract.metadata.id }}`, generated from [`my-org-project-skeleton@{{ bundle.version }}`](https://github.com/my-org/project-bundle/releases/tag/v{{ bundle.version }}).
-
-## Environments
-
-{% for env_name, env in contract.environments.items() %}
-- **{{ env_name }}** — `{{ env.cloud.provider }}`{% if env.cloud.region %} in `{{ env.cloud.region }}`{% endif %}
-{% endfor %}
+Data product `{{ product_id }}`, generated from `{{ bundle.name }}@{{ bundle.version }}`.
 
 ## Local development
 
@@ -218,30 +221,21 @@ Data product `{{ contract.metadata.id }}`, generated from [`my-org-project-skele
 pip install -e ".[dev]"
 pytest
 fluid validate contract.fluid.yaml
-fluid apply contract.fluid.yaml --env dev --dry-run
+fluid plan contract.fluid.yaml
 ```
-
-## Deploy
-
-CI is generated from `my-org-ci-bundle` (separate bundle). Push to `main` triggers the deploy pipeline.
 
 ## Regenerating
 
-This entire project layout is generated. To pull in template updates:
-
-```bash
-# bump ref in contract.fluid.yaml: skel.source.ref: v1.0.0 → v1.1.0
-fluid generate-custom-scaffold
-git diff      # review the platform team's changes
-```
-```
+This project layout is generated. To pull in template updates, bump `ref`
+in `contract.fluid.yaml` and re-run `fluid custom-scaffold`, then review
+`git diff`.
+````
 :::
 
 
-
-::: details Dockerfile.j2 — security-baseline image
+::: details Dockerfile.j2 - security-baseline image
 ```jinja
-# Auto-generated for {{ contract.metadata.id }} from project-bundle v{{ bundle.version }}
+# Auto-generated for {{ product_id }} from {{ bundle.name }}@{{ bundle.version }}
 # Edit the bundle, not this file.
 
 FROM python:3.12-slim
@@ -252,11 +246,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     useradd --no-create-home --uid 1000 app
 
-LABEL org.opencontainers.image.title="{{ contract.metadata.id }}"
-LABEL org.opencontainers.image.description="{{ contract.metadata.description }}"
-LABEL my-org.owner="{{ contract.metadata.owner.email }}"
-LABEL my-org.domain="{{ contract.metadata.domain | default('unknown') }}"
-LABEL my-org.classification="{{ contract.metadata.layer }}"
+LABEL org.opencontainers.image.title="{{ product_id }}"
+LABEL org.opencontainers.image.description="{{ description }}"
+LABEL my-org.owner="{{ owner.email }}"
+LABEL my-org.domain="{{ domain | default('unknown') }}"
+LABEL my-org.classification="{{ metadata.layer }}"
 
 WORKDIR /app
 COPY pyproject.toml ./
@@ -265,19 +259,18 @@ RUN pip install --no-cache-dir -e .
 COPY . .
 USER 1000:1000
 
-ENTRYPOINT ["python", "-m", "{{ contract.metadata.id | replace('-', '_') }}.main"]
+ENTRYPOINT ["python", "-m", "{{ product_id | replace('-', '_') | replace('.', '_') }}.main"]
 ```
-
-Every container ships with the labels your platform team expects, no copy-paste from team to team.
 :::
 
 
+Every container carries the labels your platform team expects, without copy-paste from team to team.
 
-::: details main.py.j2 — minimal-but-real entry point
+::: details main.py.j2 - minimal entry point
 ```jinja
-"""Entry point for {{ contract.metadata.name }}.
+"""Entry point for {{ product_name }}.
 
-Auto-generated stub — replace `main()` with your product's actual logic.
+Auto-generated stub. Replace `main()` with your product's actual logic.
 """
 
 from __future__ import annotations
@@ -285,13 +278,12 @@ from __future__ import annotations
 import logging
 
 
-logger = logging.getLogger("{{ contract.metadata.id | replace('-', '_') }}")
+logger = logging.getLogger("{{ product_id | replace('-', '_') | replace('.', '_') }}")
 
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    logger.info("starting {{ contract.metadata.id }}")
-    # TODO: implement your product's logic
+    logger.info("starting {{ product_id }}")
     logger.info("ok")
     return 0
 
@@ -302,14 +294,13 @@ if __name__ == "__main__":
 :::
 
 
-
-::: details test_smoke.py.j2 — a real test that runs in CI on day one
+::: details test_smoke.py.j2 - a test that runs in CI on day one
 ```jinja
-"""Smoke test for {{ contract.metadata.name }}."""
+"""Smoke test for {{ product_name }}."""
 
 from __future__ import annotations
 
-from {{ contract.metadata.id | replace('-', '_') }}.main import main
+from {{ product_id | replace('-', '_') | replace('.', '_') }}.main import main
 
 
 def test_main_returns_zero():
@@ -319,21 +310,18 @@ def test_main_returns_zero():
 :::
 
 
-
 ::: details init.py.j2 + tests_init.py.j2 + editorconfig.j2 + pre-commit-config.yaml.j2
 ```jinja
-{# templates/init.py.j2 — module __init__.py #}
-"""{{ contract.metadata.name }} — {{ contract.metadata.description }}."""
+{# templates/init.py.j2 #}
+"""{{ product_name }}: {{ description }}"""
 
 __version__ = "0.1.0"
 ```
 
-```jinja
-{# templates/tests_init.py.j2 — tests __init__.py, just a marker #}
-```
+`templates/tests_init.py.j2` is an empty file (the `tests/__init__.py` marker).
 
 ```jinja
-{# templates/editorconfig.j2 — your-org's editor config #}
+{# templates/editorconfig.j2 #}
 root = true
 
 [*]
@@ -351,7 +339,7 @@ indent_size = 2
 ```
 
 ```jinja
-{# templates/pre-commit-config.yaml.j2 — your-org's pre-commit hooks #}
+{# templates/pre-commit-config.yaml.j2 #}
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.0
@@ -364,32 +352,19 @@ repos:
     hooks:
       - id: black
         language_version: python3.12
-
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.9
-    hooks:
-      - id: bandit
-        args: ['-c', 'pyproject.toml']
 ```
 :::
 
+## Step 3: static files
 
-## Step 3 — static files
-
-Anything that doesn't need rendering goes in `static/`. The custom-scaffold engine copies it verbatim. Symlinks are refused.
+Anything that does not need rendering goes in `static/`. The engine copies it verbatim and refuses symlinks.
 
 ```bash
 mkdir -p static
-cat > static/LICENSE <<'EOF'
-                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
-
-# ... full Apache 2.0 text ...
-EOF
+cp /path/to/your/LICENSE static/LICENSE
 ```
 
-## Step 4 — tag, push, consume
+## Step 4: tag, push, consume
 
 Same as the CI bundle:
 
@@ -409,7 +384,7 @@ extensions:
       - id: skel
         source:
           kind: git
-          url:  "https://github.com/my-org/project-bundle"
+          url:  "https://github.com/<your-org>/project-bundle"
           ref:  "v1.0.0"
     patterns:
       - use: skel:main
@@ -417,79 +392,77 @@ extensions:
 
 ```bash
 # product-team workspace
-fluid generate-custom-scaffold
+fluid custom-scaffold
 git add . && git commit -m "Initial project skeleton from project-bundle v1.0.0"
 ```
 
 ## Reproducible re-generation (engine 0.4.0)
 
-The "bump the ref and re-run" loop above is fine for a clean working tree, but once a product team has hand-edited generated files, a blind re-render clobbers their changes. Custom-scaffold engine `0.4.0` adds copier-parity reproducibility so re-generation is safe and auditable:
+The "bump the ref and re-run" loop is fine for a clean working tree. Once a product team has hand-edited generated files, a blind re-render overwrites their changes. Custom-scaffold engine `0.4.0` adds re-generation that preserves them:
 
-- **Lockfile.** After a successful (non-dry-run) generation the engine writes a deterministic, credential-free `fluid-scaffold.lock` to the output root, recording the **resolved git commit** of each bundle source.
-- **`--pin`.** `fluid generate-custom-scaffold --pin` re-renders **byte-for-byte at the locked commit** (npm-ci / poetry-frozen semantics) — exactly what you want in CI for reproducible output.
-- **`--update [--target REF]`.** Re-renders at the locked base **plus** the new ref and 3-way-merges the result onto your working tree via `git merge-file`. On overlapping edits it writes conflict markers and exits `4`; on a clean merge the lock advances to the new ref.
+- **Lockfile.** After a successful (non-dry-run) generation the engine writes a deterministic, credential-free `fluid-scaffold.lock` to the output root. For a git source it records the **resolved commit**; for a `path` source it records `commit: local`.
+- **`--pin`.** `fluid custom-scaffold --pin` resolves git sources to the locked commit instead of following the contract's `ref`, for reproducible CI.
+- **`--update [--target REF]`.** Re-renders at the locked base plus the new ref and 3-way-merges the result onto your working tree via `git merge-file`. On overlapping edits it writes conflict markers and exits `4`; on a clean merge the lock advances to the new ref. It requires a `fluid-scaffold.lock`.
 
 ```bash
-# CI: reproduce exactly what the lock pinned, no surprises.
-fluid generate-custom-scaffold --pin
+# CI: reproduce what the lock pinned.
+fluid custom-scaffold --pin
 
 # Pull in the platform team's v1.1.0 bundle, merging over local edits.
-fluid generate-custom-scaffold --update --target v1.1.0
-# → clean merge: lock advances to v1.1.0
-# → overlapping edits: conflict markers written, exit code 4
+fluid custom-scaffold --update --target v1.1.0
 ```
 
-Deep mechanics (resolver kinds, merge internals) live in the [custom-scaffold engine repo](https://github.com/Agenticstiger/data-product-forge-custom-scaffold).
+`--pin` and `--update` act on git sources, so the verification for this page covers the flags' presence in `fluid custom-scaffold --help` and not a merge run. The merge internals live in the [custom-scaffold engine repo](https://github.com/Agenticstiger/data-product-forge-custom-scaffold).
 
 ## You'll know it worked when
 
-- `fluid generate-custom-scaffold` writes the full project skeleton — pyproject.toml, README.md, Dockerfile, .editorconfig, .pre-commit-config.yaml, plus `src/<product_id>/__init__.py` and `tests/test_smoke.py`.
-- The Python module name in `src/` matches the kebab-case `metadata.id` with dashes replaced by underscores (`order-events` → `order_events`).
-- `pytest` passes immediately on the generated skeleton (the smoke test imports `main()` and asserts it returns 0).
-- `pip install -e ".[dev]"` succeeds — your `pyproject.toml.j2` produced a valid TOML.
-- Adding a new template to the bundle and bumping `v1.0.0` → `v1.1.0` → re-running `fluid generate` against the new ref pulls in the new template.
+- `fluid custom-scaffold` writes the project skeleton: `pyproject.toml`, `README.md`, `Dockerfile`, `.editorconfig`, `.pre-commit-config.yaml`, `src/<module>/__init__.py`, `tests/test_smoke.py`.
+- The module name in `src/` is the contract id with `-` and `.` replaced by `_`.
+- `pytest` passes on the generated skeleton (the smoke test imports `main()` and asserts it returns 0).
+- `pip install -e ".[dev]"` succeeds, so `pyproject.toml.j2` produced valid TOML.
+- Adding a template to the bundle, bumping `v1.0.0` to `v1.1.0` and re-running against the new ref pulls in the new template.
 
 ## When **not** to use this pattern
 
-- **If product code structure varies a lot across teams.** Bundle scaffolds work when teams agree on a layout. If team A is FastAPI and team B is Apache Beam and team C is dbt — give each their own bundle. Or accept that each team owns their layout.
-- **If you're tempted to put logic in templates.** Jinja loops and conditionals are fine; calling out to web APIs at render time is not. The custom-scaffold engine assumes deterministic rendering. If you need non-deterministic logic, write a Python `CustomScaffold` plugin instead (use the [`entrypoint` resolver kind](../examples/hello-scaffold.md)).
-- **If you want product teams to edit the generated files freely.** This pattern works because re-generation is safe — files come from your templates, contract drives content. If product teams hand-edit the generated files, regeneration will fight them. For that case, generate once at project creation and never re-generate — use `fluid init --template <bundle>` (not custom-scaffold) for one-shot scaffolding.
+- **If product code structure varies a lot across teams.** Bundle scaffolds work when teams agree on a layout. If team A is FastAPI, team B is Apache Beam and team C is dbt, give each their own bundle, or let each team own its layout.
+- **If you are tempted to put logic in templates.** Jinja loops and conditionals are fine; calling web APIs at render time is not. The engine assumes deterministic rendering. For non-deterministic logic write a Python `CustomScaffold` plugin (the [`entrypoint` source kind](../examples/hello-scaffold.md)).
+- **If you want product teams to edit the generated files freely and never merge template updates.** Generate once at project creation and do not re-run, or use `--update` so their edits are merged instead of overwritten. `fluid init --template` takes the name of a built-in template (for example `customer-360`), not a bundle, so it is not a substitute.
 
 ## Common gotchas
 
 ::: details The Jinja `to:` path doesn't render
-The `to:` field is rendered through Jinja against `contract` (and `bundle`). Your Jinja in the path must be valid Jinja with proper quoting:
+The `to:` field is rendered through Jinja against the render context (`product_id`, `bundle`, and the other names in the CI journey's table). Quote the value when it starts with `{{`:
 
 ```yaml
-# correct — quoted, paths use forward slashes
+# correct
 - from: templates/init.py.j2
-  to: "src/{{ contract.metadata.id | replace('-', '_') }}/__init__.py"
+  to: "{{ product_id | replace('.', '_') }}/__init__.py"
 
-# wrong — YAML interprets the colon as a key separator
+# wrong: YAML parses a leading {{ as a flow mapping
 - from: templates/init.py.j2
-  to: src/{{ contract.metadata.id }}/__init__.py
+  to: {{ product_id | replace('.', '_') }}/__init__.py
 ```
 :::
 
 ::: details The generated module won't import
-Most common cause: `metadata.id` has characters Python doesn't accept in a module name. The kebab-to-snake conversion (`'-' | replace`) catches the common case but doesn't handle leading digits, dots, etc.
+The id is turned into a directory name by the filters in your manifest. With only `replace('-', '_')`, the id `bronze.commerce.order_events_v1` renders `src/bronze.commerce.order_events_v1/__init__.py` (output from `fluid custom-scaffold --dry-run`), and a directory name with dots is not an importable module. Chain `| replace('.', '_')` as the manifest above does. Leading digits are not handled by either filter.
 
-A defensive bundle adds a `requiredContractFields:` pattern guard:
+A manifest guard catches ids that will not work, before anything renders:
 
 ```yaml
 requiredContractFields:
-  - metadata.id
-  # Additionally validated in CI:
-  # ^[a-z][a-z0-9_-]+$  — bundle-level Validator plugin enforces this
+  - id
 ```
+
+That checks presence only. Enforce the id's shape with a [`Validator` plugin](./custom-validator.md) so it fails at `fluid validate`.
 :::
 
 ::: details Re-generating overwrites my changes
-This is working as designed — bundle output is deterministic. If product teams need editable seed code (not regenerated), use `fluid init --template <bundle>` for one-shot creation instead of the custom-scaffold pattern. The `--template` route copies files once; `custom-scaffold` is the always-up-to-date mode.
+A plain `fluid custom-scaffold` re-renders every file from the templates. Use `fluid custom-scaffold --update --target <ref>` to merge a new bundle version onto edited files, or generate once and stop re-running.
 :::
 
 ## Next
 
-- [Your own CI](./your-own-ci.md) — separate bundle for CI/CD; common to ship both side-by-side
-- [Custom validator](./custom-validator.md) — for governance rules, runs at `fluid validate`
-- [Apply hook](./apply-hook.md) — for runtime invariants right before deploy
+- [Your own CI](./your-own-ci.md): a separate bundle for CI/CD; teams often ship both side by side
+- [Custom validator](./custom-validator.md): for governance rules, runs at `fluid validate`
+- [Apply hook](./apply-hook.md): for runtime invariants right before deploy

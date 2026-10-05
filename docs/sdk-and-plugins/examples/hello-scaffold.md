@@ -1,6 +1,6 @@
 # Example: `hello-scaffold` — the minimal viable plugin
 
-The smallest plugin that proves the contract: 30 lines of Python, one entry-point, one file output. If you can read this page in 5 minutes you can author a `CustomScaffold` plugin.
+The smallest plugin that proves the contract: about 20 lines of Python, one entry-point, one file output. If you can read this page in five minutes you can author a `CustomScaffold` plugin.
 
 > **Source:** [`Agenticstiger/forge-cli-sdk` → `examples/hello-scaffold/`](https://github.com/Agenticstiger/forge-cli-sdk/tree/main/examples/hello-scaffold). The version inline below is mirrored from there — copy-paste freely.
 
@@ -9,9 +9,12 @@ The smallest plugin that proves the contract: 30 lines of Python, one entry-poin
 Given any fluid contract, `hello-scaffold` emits one `README.md` with the contract's name and description.
 
 ```bash
-fluid generate-custom-scaffold
-# ✓ 1 file written
-#   README.md
+fluid custom-scaffold
+```
+
+```text
+✓ 1 files written, 0 failed (0.0004s)
+  <cwd>/README.md
 ```
 
 That's it. No bundles, no Jinja, no static directory — just `plan() -> [write_file_action(...)]`.
@@ -20,12 +23,12 @@ That's it. No bundles, no Jinja, no static directory — just `plan() -> [write_
 
 ```
 hello-scaffold/
-├── pyproject.toml            ← 18 lines  — package + entry-point
+├── pyproject.toml            ← package + entry-point
 ├── src/hello_scaffold/
 │   ├── __init__.py           ←  empty
-│   └── scaffold.py           ← 30 lines  — the plugin
+│   └── scaffold.py           ← the plugin
 ├── tests/
-│   └── test_scaffold.py      ←  4 lines  — gets ~20 conformance tests free
+│   └── test_scaffold.py      ← four lines; the SDK adds the conformance tests
 └── demo.py                   ← runs plan() against LOCAL_CONTRACT, no CLI needed
 ```
 
@@ -57,7 +60,7 @@ where = ["src"]
 testpaths = ["tests"]
 ```
 
-The one line that makes it work: `[project.entry-points."fluid_build.custom_scaffolds"] hello = "hello_scaffold.scaffold:HelloScaffold"`. After `pip install -e .`, `fluid generate-custom-scaffold` discovers your plugin under the name `hello`.
+The one line that makes it work: `[project.entry-points."fluid_build.custom_scaffolds"] hello = "hello_scaffold.scaffold:HelloScaffold"`. After `pip install -e .`, `fluid custom-scaffold` finds your plugin under the name `hello`. A contract's `source: { kind: entrypoint, name: hello }` refers to this key; the class's own `name = "hello-scaffold"` attribute is not what the lookup uses.
 
 ## `src/hello_scaffold/scaffold.py`
 
@@ -102,7 +105,7 @@ class TestHelloScaffold(CustomScaffoldTestHarness):
     sample_contracts = [LOCAL_CONTRACT]
 ```
 
-Four lines for **~20 tests** (13 from the base PluginTestHarness + 7 from CustomScaffoldTestHarness). The harness runs against your `plugin_class` and checks: role declaration, plan-determinism, idempotency, path-traversal rejection, sha256 verification, atomic-write semantics, public-API stability, and more. Customize by overriding individual test methods.
+Four lines of your own, and the SDK's `CustomScaffoldTestHarness` runs its conformance tests against your `plugin_class`: role declaration, plan determinism, idempotency, path-traversal rejection, sha256 verification, atomic-write semantics, and more. Override individual test methods to customise. `sample_contracts` must hold at least one contract, or the harness fails `test_sample_contracts_present`.
 
 ## Run it
 
@@ -110,7 +113,11 @@ Four lines for **~20 tests** (13 from the base PluginTestHarness + 7 from Custom
 # in the hello-scaffold/ directory
 pip install -e ".[dev]"
 pytest
-# ============== 20 passed in 0.07s ===============
+```
+
+```text
+.........................                                                [100%]
+25 passed in 0.08s
 ```
 
 Then in any fluid project:
@@ -121,28 +128,40 @@ pip install data-product-forge data-product-forge-custom-scaffold
 
 ```yaml
 # contract.fluid.yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
+kind: DataProduct
+id: bronze.demo.my_first_product_v1
+name: My First Product
+description: Generated from the hello-scaffold plugin.
+domain: demo
 metadata:
-  id: my-first-product
-  name: My First Product
-  description: Generated from the hello-scaffold plugin.
-  owner: { email: data-team@example.com }
-  layer: Bronze
-  productType: SDP
-
+  layer: Bronze          # (medallion) Bronze / Silver / Gold
+  productType: SDP       # (Data Mesh) SDP / ADP / CDP, paired with layer
+  owner: { team: data-team, email: data-team@example.com }
+exposes:
+  - exposeId: items
+    kind: table
+    binding:
+      platform: local
+      format: parquet
+      location: { path: out/items.parquet }
+    contract:
+      schema:
+        - { name: item_id, type: STRING, required: true }
 extensions:
   customScaffold:
     libraries:
       - id: hi
-        source: { kind: entrypoint, name: hello-scaffold }
+        # 'name' matches the entry-point KEY in pyproject.toml ("hello").
+        source: { kind: entrypoint, name: hello }
     patterns:
       - use: hi:main
 ```
 
 ```bash
-fluid generate-custom-scaffold
-# ✓ 1 file written, 0 failed
-#   README.md
+fluid custom-scaffold
+# ✓ 1 files written, 0 failed
+#   <cwd>/README.md
 
 cat README.md
 # # My First Product
@@ -152,9 +171,9 @@ cat README.md
 
 ## You'll know it worked when
 
-- `pytest` reports 20+ passes against your plugin class.
-- the `importlib.metadata.entry_points(group='fluid_build.custom_scaffolds')` one-liner (run from anywhere) shows `hello-scaffold` in the result.
-- `fluid generate-custom-scaffold` writes a `README.md` whose body matches the contract's `metadata.name` and `metadata.description`.
+- `pytest` passes against your plugin class.
+- `fluid plugins` lists `hello` under `custom_scaffold` (with the `NOT DISPATCHED` label explained in the [quickstart](../quickstart.md)), or the `importlib.metadata.entry_points(group='fluid_build.custom_scaffolds')` one-liner shows `hello`.
+- `fluid custom-scaffold` writes a `README.md` whose body matches the contract's `name` and `description`.
 - Running the same command twice produces byte-identical output (determinism is one of the conformance tests).
 
 ## When **not** to use this pattern

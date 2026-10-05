@@ -1,66 +1,62 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.15.3`<br>
-**Services:** BigQuery, Cloud Storage, IAM, Cloud Run, Pub/Sub
+**Docs Baseline:** CLI `0.18.1`<br>
+**Services:** BigQuery, Cloud Storage, Pub/Sub, IAM, Data Catalog policy tags, Cloud KMS
 
 > **Why it matters**
 > Ship the same contract to BigQuery without a GCP-specific rewrite.
-> Set `binding.platform: gcp` and Forge compiles to BigQuery DDL + IAM and OpenTofu from the same file.
+> Set `binding.platform: gcp` and `fluid apply` compiles the contract to an OpenTofu module for the `hashicorp/google` provider, runs it, and lands the build's rows in the table it created.
 
-::: warning Compatibility note
-This page preserves some older examples for compatibility context. Current scaffolds emit `fluidVersion: 0.7.5`, and orchestration docs now prefer `fluid generate schedule --scheduler airflow`.
-:::
+A GCP binding goes through three stages, each driven by the contract:
 
----
-
-## Overview
-
-The Google Cloud Platform provider is the flagship Fluid Forge implementation, offering production-grade support for BigQuery, Cloud Storage, and comprehensive GCP services.
-
-### Why GCP?
-
-- **Serverless Analytics** - BigQuery eliminates infrastructure management
-- **Cost-Effective** - Pay-per-query pricing with generous free tier
-- **Enterprise Scale** - Petabyte-scale analytics out of the box
-- **ML Integration** - Native BigQuery ML and Vertex AI
-- **IAM Access Control** - Dataset/table-level IAM bindings compiled from the contract
+1. **Provision.** `fluid apply` emits an OpenTofu module (`fluid generate iac` writes the same module for review) and runs `tofu`. These come from that module: datasets, tables, buckets, grants, policy tags, keys and partition expiry.
+2. **Land.** In `--mode amend-and-build`, a build whose output is a BigQuery table stages its result as Parquet and loads it with one BigQuery load job.
+3. **Check.** `fluid verify` reads the live table and compares it with the contract: schema, location, row count, masking, and the governance the module emitted.
 
 ---
 
-## Quick Start
+## Quick start
 
 ### Prerequisites
 
 ```bash
-# Install gcloud SDK
-curl https://sdk.cloud.google.com | bash
+# The CLI with the BigQuery client. Add `local` when builds run SQL on DuckDB
+# and land the result in BigQuery (see "Loading data").
+pip install "data-product-forge[gcp,local]"
 
-# Authenticate
+# OpenTofu 1.6 or later on PATH: `fluid apply` delegates to it.
+tofu version
+
+# Application Default Credentials, read by both OpenTofu and fluid's own BigQuery client.
 gcloud auth application-default login
 
-# Set project
-gcloud config set project YOUR_PROJECT_ID
-
-# Enable APIs
 gcloud services enable bigquery.googleapis.com
-gcloud services enable storage.googleapis.com
+# Only when the contract uses them:
+gcloud services enable storage.googleapis.com      # Cloud Storage bindings
+gcloud services enable datacatalog.googleapis.com  # column restrictions (policy tags)
+gcloud services enable cloudkms.googleapis.com     # binding.encryption.kms (0.7.6)
 ```
 
-### Minimal Contract
+### A minimal contract
 
 ```yaml
-fluidVersion: "0.7.4"
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: analytics.customers_v1
 name: Customer Analytics
 domain: analytics
 
 metadata:
-  layer: Bronze
+  layer: Gold
   owner:
     team: data-engineering
-    email: data-engineering@company.com
+    email: data-engineering@company.example.com
+
+accessPolicy:
+  grants:
+    - principal: "group:data-analysts@company.example.com"
+      permissions: [read, select]
 
 exposes:
   - exposeId: customers
@@ -72,62 +68,224 @@ exposes:
         project: my-project-id
         dataset: analytics
         table: customers
+        region: europe-west3      # set it: an omitted region means BigQuery's US multi-region
     contract:
       schema:
         - name: id
           type: INTEGER
           required: true
-        - name: name
+        - name: email
           type: STRING
 ```
 
-**Deploy:**
+Review the module, then apply it:
 
 ```bash
-fluid apply contract.yaml --provider gcp
+fluid validate contract.fluid.yaml
+fluid generate iac contract.fluid.yaml --out infra
+fluid apply contract.fluid.yaml --yes
 ```
 
-**Generate Orchestration Code:**
+`fluid generate iac` prints what it wrote:
 
-```bash
-# Generate Airflow DAG
-fluid generate-airflow contract.yaml -o dags/my_pipeline.py
+```text
+Wrote OpenTofu module: infra/main.tf.json  (provider: gcp, 3 resources)
 
-# Export to Dagster
-fluid export contract.yaml --engine dagster -o pipelines/
-
-# Export to Prefect
-fluid export contract.yaml --engine prefect -o flows/
+Review and apply with OpenTofu:
+  tofu -chdir=infra init
+  tofu -chdir=infra plan
 ```
+
+The three resources are the dataset (`location: europe-west3`, `project: my-project-id`), the table with its schema (`INTEGER` becomes `INT64`), and one `google_bigquery_dataset_iam_member` granting `roles/bigquery.dataViewer` to the group. `--provider gcp` is optional: the provider is read from `binding.platform`.
+
+::: tip A starter contract
+`fluid init <name> --quickstart --provider gcp` writes a GCP starter from the bundled `fluid.starter-gcp` blueprint, offline. As of 0.18.1 it declares `fluidVersion: 0.7.4`, a placeholder `project: your-gcp-project` and no region; set both before you apply.
+:::
 
 ---
 
-## Supported Features
+## Authentication
 
-### ✅ BigQuery
+fluid's BigQuery and Data Catalog clients and OpenTofu's `hashicorp/google` provider authenticate with Application Default Credentials. ADC sources such as `gcloud auth application-default login`, a service-account key file, an attached service account or workload identity federation work, with no key handling in fluid:
 
-| Feature | Support | Notes |
-|---------|---------|-------|
-| Datasets | ✅ Full | Multi-region, labels, access control |
-| Tables | ✅ Full | Partitioning, clustering, expiration |
-| Views | ✅ Full | Standard and materialized views |
-| External Tables | ✅ Full | GCS, Google Sheets, Bigtable |
-| Routines | ✅ Full | UDFs, stored procedures |
-| Authorized Views | ✅ Full | Fine-grained access control |
-| Policy Tags | 🔜 Not yet | Column-level security via Data Catalog taxonomies is not emitted by the contract — manage with `gcloud` |
-| Data Masking | 🔜 Not yet | BigQuery dynamic data masking is not emitted by the contract |
-| Row-Level Security | 🔜 Not yet | No `CREATE ROW ACCESS POLICY` is emitted; row-level governance is roadmap |
+| Where you run | What ADC finds |
+|---|---|
+| A laptop | `gcloud auth application-default login` |
+| A GCE VM, GKE pod or Cloud Build step | the attached service account |
+| Another cloud or CI system | a Workload Identity Federation `external_account` file named by `GOOGLE_APPLICATION_CREDENTIALS` |
 
-### ✅ Iceberg on BigQuery via dbt (since 0.14.0)
+### Keyless from AWS (Workload Identity Federation)
 
-::: tip New in `0.14.0`
-The dbt Iceberg loop extends to BigQuery. An Iceberg expose on a GCP binding
-(`binding.format: iceberg`) makes `fluid generate transformation` emit dbt's
-`catalogs.yml` with `catalog_type: biglake_metastore`, and `fluid apply`
-provisions the one prerequisite dbt names and refuses to create: the GCS
-warehouse bucket. The BigLake metastore itself needs no setup — it is built
-into BigQuery.
+A pipeline that runs on AWS (an EC2 agent or an ECS task with an IAM role) can deploy to GCP without a service-account key. Create a workload identity pool with an AWS provider, let the AWS role impersonate a deploy service account, then write the credential configuration:
+
+```bash
+gcloud iam workload-identity-pools create-cred-config \
+  projects/<project-number>/locations/global/workloadIdentityPools/<pool>/providers/<provider> \
+  --service-account=<deploy-sa>@<project>.iam.gserviceaccount.com \
+  --aws --enable-imdsv2 \
+  --output-file=gcp-wif.json
+
+export GOOGLE_APPLICATION_CREDENTIALS="$PWD/gcp-wif.json"
+fluid apply contract.fluid.yaml --env gcp --yes
+```
+
+The file holds no secret: it tells the Google auth library to exchange the instance's AWS credentials for a short-lived GCP token. To scope the pool to one AWS role, map `attribute.aws_role` from `assertion.arn.extract('assumed-role/{role}/')` in the pool provider and grant `roles/iam.workloadIdentityUser` on the deploy service account to that attribute.
+
+---
+
+## Where the resources go
+
+### Project and region are binding fields
+
+`binding.location.project` and `binding.location.region` decide where each expose is provisioned, whatever project `gcloud` is set to. The project is written onto the dataset, the table, their IAM members, the key ring and the taxonomy, and the build's load job runs in it. Two exposes can target two projects from one contract.
+
+| Field | When it is omitted |
+|---|---|
+| `location.project` | `tofu` uses the provider's project (`GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, `CLOUDSDK_CORE_PROJECT`). The build's load job reads the same variables. |
+| `location.region` | The dataset is created in BigQuery's `US` multi-region. With a `sovereignty` block the contract is refused instead (below). |
+
+::: warning Before 0.16.2
+`binding.location.project` was ignored by the GCP module, so resources went to the ambient project. If you applied a contract that names a project with an earlier release, check where its datasets live before the next apply.
 :::
+
+### Sovereignty fails closed
+
+With a [`sovereignty`](../concepts/sovereignty.md) block, a GCP binding that names no region is refused, because the platform would choose where the data lives. `fluid validate` reports it:
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+...
+ 1. ❌  Binding declares no region, so where its data lives cannot be checked
+against the sovereignty policy (the platform would choose)
+   💡 Set binding.location.region to one of: europe-west3
+```
+
+`fluid generate iac` and `fluid apply` refuse the same binding (`ERR_GENERATE_IAC_FAILED`, "GCP placement refused by the sovereignty policy"). BigQuery's `EU` and `US` multi-regions count as the EU and US jurisdictions.
+
+### One project per environment
+
+Keep the base contract cloud-neutral and put the project in an overlay, or in an environment variable:
+
+```yaml
+binding:
+  platform: gcp
+  format: bigquery_table
+  location:
+    project: "{{ env.FLUID_GCP_PROJECT }}"
+    dataset: analytics
+    table: customers
+    region: europe-west3
+```
+
+`fluid apply`, `fluid plan`, `fluid verify` and, since 0.18.1, `fluid diff`'s live check resolve the placeholder before they touch BigQuery. On 0.18.0, `fluid diff` read the unresolved value and refused the binding as "not a valid id", so a generated pipeline's `--exit-on-drift` stage failed on every run. As of 0.18.1, `fluid generate iac` writes an unset variable into the module verbatim (`"project": "{{ env.FLUID_GCP_PROJECT }}"`) and exits 0, so set it before you generate. See [per-environment overlays](../recipes/per-environment-overlays.md).
+
+### State
+
+`fluid apply` keeps OpenTofu state locally unless you name a backend. `--state-backend gcs://<bucket>/<prefix>` (or `FLUID_STATE_BACKEND`) puts it in Cloud Storage. With no key named, the default key includes the provider, `fluid/<id>/gcp/terraform.tfstate`, so a contract applied to AWS and GCP through overlays keeps two states. An earlier per-contract default is migrated with `tofu init -migrate-state`; a state at that key that belongs to another provider is left in place and logged.
+
+---
+
+## What `fluid apply` creates
+
+| Contract | Emitted resource |
+|---|---|
+| An expose that resolves to a BigQuery table | `google_bigquery_dataset` + `google_bigquery_table` with the contract schema |
+| An expose that resolves to a BigQuery view | `google_bigquery_dataset` + `google_bigquery_table` with `view.query` from `location.query` |
+| An expose that resolves to Cloud Storage | `google_storage_bucket` |
+| An expose that resolves to Pub/Sub | `google_pubsub_topic` |
+| An Iceberg expose | the warehouse bucket (see [Iceberg](#iceberg-on-bigquery-via-dbt-since-0-14-0)) |
+| `binding.labels` | resource labels, next to `managed_by: fluid` and `fluid_contract: <id>` |
+| `accessPolicy.grants` | `google_bigquery_dataset_iam_member` / `google_storage_bucket_iam_member` ([Access grants](#access-grants-accesspolicy)) |
+| `policy.authz.columnRestrictions` | Data Catalog taxonomy, policy tags and reader grants ([Column restrictions](#column-restrictions-policy-tags)) |
+| `exposes[].lifecycle.expire` *(0.7.6)* | DAY partitions with `expiration_ms` ([Retention](#retention-0-7-6)) |
+| `binding.encryption.kms` *(0.7.6)* | Cloud KMS key ring and key, used by the dataset and table ([Encryption](#encryption-at-rest-cmek-0-7-6)) |
+
+### Column types
+
+Contract types are written as BigQuery types:
+
+| Contract type | BigQuery type |
+|---|---|
+| `string`, `text`, `varchar`, `char`, `uuid` | `STRING` |
+| `integer`, `int`, `bigint`, `smallint` | `INT64` |
+| `float`, `double`, `double precision` | `FLOAT64` |
+| `numeric`, `decimal(p,s)` | `NUMERIC` |
+| `boolean` | `BOOL` |
+| `timestamp`, `timestamptz`, `timestamp with time zone` | `TIMESTAMP` |
+| `datetime` | `DATETIME` |
+| `date`, `time`, `json`, `bytes` (`blob`) | `DATE`, `TIME`, `JSON`, `BYTES` |
+
+A bare `array` is written as `ARRAY`, which is not a BigQuery column type; declare a typed column or a JSON column instead. `fluid verify` treats BigQuery's legacy names (`INTEGER`, `FLOAT`, `BOOLEAN`, `RECORD`) as equal to `INT64`, `FLOAT64`, `BOOL` and `STRUCT`; see [`fluid verify`](../cli/verify.md#bigquery).
+
+### Not emitted
+
+These are not produced by the 0.18.1 GCP module. A contract key for them is either absent from the schema or accepted and ignored:
+
+- BigQuery row-level security (`CREATE ROW ACCESS POLICY`) and dynamic data masking (data policies).
+- VPC Service Controls.
+- Partitioning, clustering, table expiration, materialized or authorized views from `binding.properties` (`partitioning`, `clustering`, `materialized`, `authorized`). `binding.properties` passes validation and the module ignores these keys. Partitioning comes only from [retention](#retention-0-7-6).
+- Service accounts, routines, external tables and Cloud Run services.
+
+---
+
+## Configuration
+
+### Provider Settings
+
+The GCP provider needs no contract-level provider block. It is selected from each expose's `binding.platform`, so `--provider gcp` is optional for `plan`, `apply`, and `verify`. What you configure per output is the `binding`: the `format`, the `location` coordinates and, on 0.7.6, `encryption` and `principals`.
+
+BI Engine reservations, query cost limits (`max_bytes_billed`) and networking have no contract field. Manage them with `gcloud` or your platform's own configuration.
+
+### How a GCP expose resolves to a target (since 0.15.0)
+
+`binding.format` refines the target; it is no longer the whole answer. Since
+`0.15.0` one resolver decides what a GCP expose is provisioned as, and
+`fluid generate iac`, `fluid apply`, `fluid validate` and `fluid verify` all route
+through it, so the stages cannot disagree about what an expose *is*:
+
+| Step | What is read | Outcome |
+|------|--------------|---------|
+| 1 | An explicit GCP `binding.format` | `bigquery_table` / `bigquery_view` → BigQuery, `gcs_bucket` → Cloud Storage, `pubsub_topic` → Pub/Sub, an Iceberg format with a derivable bucket → the Iceberg warehouse bucket |
+| 2 | Otherwise, the shape of `binding.location` on a GCP-platform binding | a `dataset` key → BigQuery, `bucket` → Cloud Storage, `topic` → Pub/Sub |
+| 3 | Neither matched | the expose resolves to no GCP resource, and `fluid validate` reports it |
+
+Step 2 is what stops a `platform: gcp` expose whose `format` is absent, or is the
+schema-valid `gcs_file`, from emitting nothing. The platform token goes through the
+same alias table the provider detector uses, so `google`, `gcs` and `bigquery` are
+read as GCP for both questions: "which plugin runs?" and "which exposures are
+mine?".
+
+Formats that name no `hashicorp/google` resource by design stay silent rather than
+being reported as a no-op: `http_api`, `grpc_api`, `kafka_topic`, and stores on
+another platform (`snowflake_table`, `s3_file`, `athena_table`, `redshift_table`,
+`postgres_table` and friends). Iceberg exposes are left to the
+[Iceberg prerequisite checks](../cli/validate.md#iceberg-prerequisite-checks-since-0-14-0),
+which name the specific missing input instead of reporting the same cause twice.
+
+::: warning Before `0.15.0`
+The emitter dispatched on `binding.format` alone, so a schema-valid expose such as
+`platform: gcp`, `format: gcs_file`, `location.bucket: acme-raw` validated clean and
+emitted **nothing**. As of `0.15.0` that expose emits its bucket, and a GCP expose that
+still resolves to nothing is reported at validate time: an **error** when a format
+names a container while `binding.location` omits the key that container needs, a
+**warning** otherwise. A resource-free module is a hard `generate_iac_empty_module`
+failure unless you pass `--allow-empty`.
+:::
+
+`fluid verify` asks the same resolver. A BigQuery table or view goes to the BigQuery
+verifier and is addressed by the name the emitter used (an expose with no
+`location.table` is named for its `exposeId`). A GCS bucket, Pub/Sub topic or Iceberg
+warehouse reports `unsupported`, which means "not checked" rather than "check failed".
+
+---
+
+### Iceberg on BigQuery via dbt (since 0.14.0)
+
+An Iceberg expose on a GCP binding (`binding.format: iceberg`) makes
+`fluid generate transformation` emit dbt's `catalogs.yml` with
+`catalog_type: biglake_metastore`, and `fluid apply` provisions the one
+prerequisite dbt names and refuses to create: the GCS warehouse bucket. The
+BigLake metastore itself needs no setup; it is built into BigQuery.
 
 ```yaml
 exposes:
@@ -149,487 +307,233 @@ exposes:
           required: true
 ```
 
-Two guarantees hold across the loop:
-
 - **One bucket, both halves.** The IaC bucket name is derived from the same
-  warehouse URI the dbt emitter writes into `external_volume`, so the bucket
-  dbt loads into is always the bucket `fluid apply` creates and governs — the
-  two cannot diverge.
+  warehouse URI the dbt emitter writes into `external_volume`, so the bucket dbt
+  loads into is the bucket `fluid apply` creates.
 - **Shared warehouse roots are destroy-safe.** When the binding declares a
-  `location.path` — the product owns only a *prefix* of a shared warehouse
-  root — the bucket's whole-bucket `force_destroy` is dropped, so one
-  product's destroy cannot take another product's data with it.
+  `location.path` (the product owns only a prefix of a shared warehouse root), the
+  bucket's `force_destroy` is dropped, so one product's destroy cannot take another
+  product's data with it.
 
-::: warning Before `0.14.0`
-An Iceberg expose on a GCP binding fell through the emit dispatch and produced
-nothing — silently. As of `0.14.0`, `fluid validate` errors on missing Iceberg
-prerequisites instead (for example, no derivable bucket), naming the missing
-field — see
-[Iceberg prerequisite checks](../cli/validate.md#iceberg-prerequisite-checks-since-0-14-0).
-:::
-
-### ✅ Cloud Storage
-
-| Feature | Support | Notes |
-|---------|---------|-------|
-| Buckets | ✅ Full | Multi-region, versioning |
-| Objects | ✅ Full | Upload, download, lifecycle |
-| Lifecycle Policies | ✅ Full | Auto-delete, archival |
-| Signed URLs | ✅ Full | Temporary access |
-| Notifications | ✅ Full | Pub/Sub integration |
-
-### ✅ Airflow DAG Generation
-
-| Feature | Support | Notes |
-|---------|---------|-------|
-| Airflow DAGs | ✅ Full | Cloud Composer compatible |
-| BigQuery Operators | ✅ Full | Query, table, dataset, view operations |
-| GCS Operators | ✅ Full | Bucket and object management |
-| Pub/Sub Operators | ✅ Full | Topic and subscription operations |
-| Dataflow Operators | ✅ Full | Beam pipeline execution |
-| Contract Validation | ✅ Full | Structure checks + circular dependency detection |
-| Dagster Pipelines | ✅ Full | Type-safe ops with resources |
-| Prefect Flows | ✅ Full | Retry logic and deployment configs |
-
-### ✅ IAM & Security
-
-| Feature | Support | Notes |
-|---------|---------|-------|
-| Service Accounts | ✅ Full | Auto-creation, key management |
-| IAM Bindings | ✅ Full | Least-privilege access (dataset/table-level) |
-| Policy Tags | 🔜 Not yet | Data Catalog taxonomies are not a contract construct — manage with `gcloud` |
-| Audit Logs | ✅ Full | Admin, data access logs |
-| VPC Service Controls | 🔜 Not yet | Network isolation is roadmap |
-
-### ⏳ Cloud Run (Preview)
-
-| Feature | Support | Notes |
-|---------|---------|-------|
-| Services | ✅ Beta | Container deployment |
-| Jobs | ✅ Beta | Batch processing |
-| Auto-scaling | ✅ Beta | Request-based scaling |
-| Custom Domains | 🔜 Q2 2026 | HTTPS endpoints |
+Retention, keys and column restrictions are refused on an Iceberg binding: they apply only to a BigQuery table.
 
 ---
 
-## Configuration
+## Loading data
 
-### Provider Settings
+Rows reach BigQuery through a build run in `--mode amend-and-build` (a plain `fluid apply` provisions only). Two kinds of build load a BigQuery table, and both use the same load.
 
-The GCP provider needs no contract-level provider block. It is selected from
-each expose's `binding.platform`, so `--provider gcp` is optional for `plan`,
-`apply`, and `verify`. What you configure per output is the `binding` — the
-`format` and the BigQuery `location` coordinates:
+### SQL on DuckDB, landed in BigQuery
 
 ```yaml
+fluidVersion: "0.7.5"
+kind: DataProduct
+id: sales.orders_daily
+name: Orders Daily
+domain: sales
+metadata:
+  layer: Silver
+  owner:
+    team: sales-data
+    email: sales-data@company.example.com
+builds:
+  - id: orders_daily
+    pattern: embedded-logic
+    engine: duckdb
+    properties:
+      sql: |
+        SELECT CAST(ordered_at AS DATE) AS order_date,
+               COUNT(*)                 AS orders,
+               SUM(amount)              AS revenue
+        FROM orders
+        GROUP BY 1
+      parameters:
+        inputs:
+          - name: orders
+            path: data/orders.csv
+            format: csv
+    outputs:
+      - orders_daily
 exposes:
-  - exposeId: events
+  - exposeId: orders_daily
     kind: table
     binding:
       platform: gcp
       format: bigquery_table
       location:
         project: my-project-id
-        dataset: analytics
-        table: events
-        region: US        # BigQuery multi-region (US, EU)
+        dataset: sales
+        table: orders_daily
+        region: europe-west3
+    contract:
+      schema:
+        - name: order_date
+          type: DATE
+          required: true
+        - name: orders
+          type: INTEGER
+        - name: revenue
+          type: NUMERIC
+```
+
+```bash
+fluid apply contract.fluid.yaml --mode amend-and-build --yes
+```
+
+The SQL runs on the local DuckDB engine, inside the [DuckDB sandbox](../advanced/duckdb-sandbox.md). The result is written as Parquet under `.fluid/staging/<build>/` and one load job moves it into the table `tofu` created: `WRITE_TRUNCATE`, `CREATE_NEVER`, with the table's own schema. A `TIMESTAMP` column holding DuckDB's zone-less timestamp is loaded as UTC. A failed load, a missing table or a short load fails the build, and the run is recorded under `.fluid/runs/` so `fluid verify` holds the table to the rows it landed. Add `.fluid/` to `.gitignore`.
+
+The SQL can also read an upstream product's BigQuery table. Name it in `consumes[]` and refer to it by its `exposeId`; the upstream contract is found under the nearest `fluid.workspace.yaml` or in `FLUID_UPSTREAM_CONTRACTS`, and read with the same `--env` overlay as this run. The table is read through the BigQuery API into a staged Parquet file, which the view reads. [`fluid apply`](../cli/apply.md) documents the discovery rules.
+
+Refused before the SQL runs (`EmbeddedSqlLandingError`):
+
+- a landing on GCS, `gs://`, Azure, Snowflake or Databricks;
+- a second expose in `outputs` bound to a cloud store or warehouse (this path lands only the first);
+- a landing that is one of the build's own inputs;
+- an expose with `policy.privacy.masking` (`MaskingNotAppliedError`): this path does not apply masking, so a masked gold table must be built another way.
+
+With a `sovereignty` block, every BigQuery table the build reads or loads must name a region inside the policy (`EmbeddedSqlSovereigntyError`).
+
+### Acquisition into BigQuery
+
+A source-aligned acquisition build on the DuckDB engine lands one stream in a BigQuery table through the same load:
+
+```yaml
+builds:
+  - id: ingest_orders
+    pattern: acquisition
+    engine: duckdb
+    properties:
+      source:
+        kind: postgres
+        connection:
+          host: "{{ env.PGHOST }}"
+          port: "{{ env.PGPORT }}"
+          database: "{{ env.PGDATABASE }}"
+          user: "{{ env.PGUSER }}"
+          password: "{{ env.PGPASSWORD }}"
+        mode: full_refresh          # WRITE_TRUNCATE; incremental_append is WRITE_APPEND
+        streams:
+          - public.orders
+      sink:
+        format: parquet
+    outputs:
+      - orders_raw
+exposes:
+  - exposeId: orders_raw
+    kind: table
+    binding:
+      platform: gcp
+      format: bigquery_table
+      location:
+        project: my-project-id
+        dataset: crm_bronze
+        table: orders
+        region: europe-west3
     contract:
       schema:
         - name: id
           type: INTEGER
           required: true
-```
-
-Project, region, BI Engine sizing, default table expiration, and networking
-are environment-level GCP settings rather than contract fields. Apply them with
-`gcloud`, project-level IAM, or your environment configuration. Resource labels
-can be attached per expose with `binding.labels`.
-
-> Note: cost-control knobs such as `enable_bi_engine`, `max_bytes_billed`, and
-> VPC networking have no current contract-schema equivalent — manage them
-> outside the contract.
-
-### How a GCP expose resolves to a target (since 0.15.0)
-
-`binding.format` refines the target; it is no longer the whole answer. Since
-`0.15.0` one resolver decides what a GCP expose is provisioned as, and
-`fluid generate iac`, `fluid apply`, `fluid validate` and `fluid verify` all route
-through it — so the stages cannot disagree about what an expose *is*:
-
-| Step | What is read | Outcome |
-|------|--------------|---------|
-| 1 | An explicit GCP `binding.format` | `bigquery_table` / `bigquery_view` → BigQuery, `gcs_bucket` → Cloud Storage, `pubsub_topic` → Pub/Sub, an Iceberg format with a derivable bucket → the Iceberg warehouse bucket |
-| 2 | Otherwise, the shape of `binding.location` on a GCP-platform binding | a `dataset` key → BigQuery, `bucket` → Cloud Storage, `topic` → Pub/Sub |
-| 3 | Neither matched | the expose resolves to no GCP resource, and `fluid validate` reports it |
-
-Step 2 is what stops a `platform: gcp` expose whose `format` is absent, or is the
-schema-valid `gcs_file`, from emitting nothing. The platform token goes through the
-same alias table the provider detector uses, so `google`, `gcs` and `bigquery` are
-read as GCP for both questions — "which plugin runs?" and "which exposures are
-mine?".
-
-Formats that name no `hashicorp/google` resource by design stay silent rather than
-being reported as a no-op: `http_api`, `grpc_api`, `kafka_topic`, and stores on
-another platform (`snowflake_table`, `s3_file`, `athena_table`, `redshift_table`,
-`postgres_table` and friends). Iceberg exposes are left to the
-[Iceberg prerequisite checks](/forge_docs/cli/validate.html#iceberg-prerequisite-checks-since-0-14-0),
-which name the specific missing input instead of reporting the same cause twice.
-
-::: warning Before `0.15.0`
-The emitter dispatched on `binding.format` alone, against five spellings — two of
-which (`bigquery_view`, `gcs_bucket`) appear in no shipped `fluid-schema-*.json`,
-while the one schema-valid Cloud Storage spelling, `gcs_file`, matched none of
-them. So a fully schema-valid expose — `platform: gcp`, `format: gcs_file`,
-`location.bucket: acme-raw` — validated clean and then emitted **nothing**, a
-silent no-op on a correctly auto-detected provider. As of `0.15.0` that expose
-emits its bucket, and a GCP expose that still resolves to nothing is reported at
-validate time: an **error** when a format names a container while
-`binding.location` omits the key that container needs (in practice `gcs_file` with
-no `location.bucket`), a **warning** otherwise. A resource-free module is also a
-hard `generate_iac_empty_module` failure in `0.15.0`, so a contract that used to
-generate an empty module and exit 0 now stops the stage that needs the resource.
-:::
-
-`fluid verify` asks the same resolver *(since 0.15.0)*. Stage 9 used to dispatch on
-the single literal `format: bigquery_table`, so a BigQuery-provisioned expose whose
-format read `csv` fell through to the local-file branch and returned
-`status: error` with "no location.path declared" — diagnosing a missing file for a
-table that exists, which fails the run with or without `--strict`. A BigQuery table
-or view now goes to the BigQuery verifier and is addressed by the name the emitter
-actually used (an expose with no `location.table` is named for its `exposeId`); a
-GCS bucket, Pub/Sub topic or Iceberg warehouse reports `unsupported`, which means
-"not checked" rather than "check failed". Non-GCP bindings, local files, Snowflake
-and the legacy `format` + `properties` dialect take the old format chain unchanged.
-
-Brownfield note: `discover_imports` filtered on a literal `platform: gcp` and
-lacked the emitter's `exposeId` table-name fallback, so a table the emitter
-declared had no import block and a brownfield apply tried to create one that
-already exists. Both are fixed in `0.15.0`.
-
----
-
-## BigQuery Best Practices
-
-### Partitioning
-
-Partition tables by date for performance and cost savings. BigQuery-specific
-table options live under `binding.properties`, which accepts provider-specific
-keys:
-
-```yaml
-exposes:
-  - exposeId: events
-    kind: table
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-project-id
-        dataset: events
-        table: events
-      properties:
-        partitioning:
-          field: event_timestamp
-          type: DAY  # or HOUR, MONTH, YEAR
-          require_partition_filter: true  # Enforce partitioned queries
-          expiration_days: 90  # Auto-delete old partitions
-    contract:
-      schema:
-        - name: event_timestamp
-          type: TIMESTAMP
-          required: true
-```
-
-**Cost savings:** Up to 90% reduction for time-based queries
-
-### Clustering
-
-Cluster columns for better query performance:
-
-```yaml
-exposes:
-  - exposeId: events
-    kind: table
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-project-id
-        dataset: events
-        table: events
-      properties:
-        clustering:
-          fields: [user_id, event_type, country]  # Max 4 fields
-    contract:
-      schema:
-        - name: user_id
+        - name: status
           type: STRING
-          required: true
 ```
 
-**Performance:** Up to 10x faster queries on clustered columns
+Refused before any work runs: more than one stream, a sink format other than `parquet`, a source mode other than `full_refresh` or `incremental_append`, and an install without the `gcp` extra (`loading into BigQuery needs the gcp extra: pip install 'data-product-forge[gcp]'`). Masking in `policy.privacy.masking` is applied before the file is staged. See [source-aligned acquisition](../advanced/source-aligned-acquisition.md#masking-at-landing). A downstream product that reads this table through `consumes[]` is shown in [the same chain on S3 and BigQuery](../recipes/consumes-contract-to-contract.md#the-same-chain-on-s3-and-bigquery).
 
-### Materialized Views
+### Load location and emulators
 
-Pre-compute aggregations. Expose the result as a `view` and produce it with a
-`builds[]` entry holding the SQL:
+A load job runs where the table is. A binding with no region gives the job no location, so BigQuery runs it in the table's location instead of a guessed `US`. Pinning `location.region` remains the recommendation.
 
-```yaml
-builds:
-  - id: build_daily_metrics
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        SELECT
-          DATE(event_timestamp) as date,
-          user_id,
-          COUNT(*) as event_count,
-          SUM(revenue) as total_revenue
-        FROM `${project}.events.raw_events`
-        GROUP BY date, user_id
-    outputs:
-      - daily_metrics
-
-exposes:
-  - exposeId: daily_metrics
-    kind: view
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-project-id
-        dataset: events
-        table: daily_metrics
-      properties:
-        materialized: true
-        refresh_interval_minutes: 60  # Refresh hourly
-    contract:
-      schema:
-        - name: date
-          type: DATE
-          required: true
-        - name: user_id
-          type: STRING
-        - name: event_count
-          type: INTEGER
-        - name: total_revenue
-          type: NUMERIC
-```
-
-**Benefit:** Sub-second queries on complex aggregations
+With `BIGQUERY_EMULATOR_HOST` set, loads, reads and `fluid verify` go to that host with anonymous credentials, so no real token is sent to the emulator. A load job that reports no row count is checked by counting the table afterwards.
 
 ---
 
 ## Security & Governance
 
-### Column-Level Security
-
-Protect sensitive data per expose. Classification, reader/writer roles, and
-column restrictions live under the expose's `policy` block; column sensitivity
-is declared on each schema field:
-
-```yaml
-exposes:
-  - exposeId: customers
-    kind: table
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-project-id
-        dataset: analytics
-        table: customers
-    policy:
-      classification: Confidential
-      authn: iam
-      authz:
-        readers:
-          - group:data-analysts@company.com
-        columnRestrictions:
-          - principal: "group:interns@company.com"
-            columns: [email, phone, ssn]
-            access: deny
-    contract:
-      schema:
-        - name: email
-          type: STRING
-          sensitivity: pii        # Restricted access
-        - name: name
-          type: STRING            # No sensitivity flag = public
-```
-
-> Note: BigQuery policy-tag taxonomies are not a contract-schema construct.
-> Express column sensitivity with `schema[].sensitivity` and restrict access
-> with `policy.authz.columnRestrictions`; manage the underlying Data Catalog
-> taxonomy with `gcloud`.
-
-**IAM Integration:**
-```bash
-# Grant access to PII data
-gcloud data-catalog taxonomies add-iam-policy-binding \
-  data_classification \
-  --member="user:analyst@company.com" \
-  --role="roles/datacatalog.categoryFineGrainedReader"
-```
-
-### Data Masking
-
-::: warning Declarative only
-`policy.privacy.masking` is a valid schema field, but the GCP provider does **not** currently
-emit any BigQuery dynamic-masking or Data Catalog data-policy resource from it. Today the block
-records masking *intent* as contract metadata; it does not provision masking infrastructure.
-Apply BigQuery masking with `gcloud` / Data Catalog data policies until this is wired in.
-:::
-
-Declare masking intent on the expose with `policy.privacy.masking`:
-
-```yaml
-exposes:
-  - exposeId: customers
-    kind: table
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-project-id
-        dataset: analytics
-        table: customers
-    policy:
-      classification: Confidential
-      authn: iam
-      privacy:
-        masking:
-          - column: email
-            strategy: partial      # user@example.com → u***@e***.com
-          - column: credit_card
-            strategy: hash         # One-way hash
-            params:
-              algorithm: SHA256
-    contract:
-      schema:
-        - name: email
-          type: STRING
-          sensitivity: pii
-        - name: credit_card
-          type: STRING
-          sensitivity: pii
-```
-
-### Access Control
-
-Define granular permissions with the root-level `accessPolicy` block. Forge
-compiles `accessPolicy.grants` into IAM bindings:
+### Access grants (`accessPolicy`)
 
 ```yaml
 accessPolicy:
   grants:
-    - principal: "group:data-analysts@company.com"
+    - principal: "group:data-analysts@company.example.com"
       permissions: [read, select]
-    - principal: "user:analyst@company.com"
-      permissions: [read, select]
-    - principal: "serviceAccount:etl@project.iam.gserviceaccount.com"
-      permissions: [write, insert, update]
-      resources:
-        - customers
-    - principal: "user:data-admin@company.com"
-      permissions: [read, write, create]
+    - principal: "serviceAccount:etl@my-project-id.iam.gserviceaccount.com"
+      permissions: [write, insert]
 ```
 
-> Note: dataset/table-level OWNER roles and domain-wide grants map to GCP IAM
-> roles applied outside the contract. Use `resources` on a grant to scope a
-> principal to a specific expose.
+Each grant becomes one non-authoritative `google_bigquery_dataset_iam_member` per role and member, on every dataset the contract creates:
 
-#### Access grants (`accessPolicy`)
+```text
+google_bigquery_dataset_iam_member  ..._roles_bigquery_dataViewer_group_data_analysts_company_example_com_4451af44f1
+    member: group:data-analysts@company.example.com   role: roles/bigquery.dataViewer
+google_bigquery_dataset_iam_member  ..._roles_bigquery_dataEditor_serviceAccount_etl_my_project_id_iam_gserviceaccount_com_ef975625fb
+    member: serviceAccount:etl@my-project-id.iam.gserviceaccount.com   role: roles/bigquery.dataEditor
+```
 
-::: tip Changed in `0.13.0`
-`accessPolicy` is now the **IaC access-grant surface** as well as the
-`fluid policy-compile` surface. The GCP IaC plugin previously read
-`metadata.policies` to emit BigQuery `access[]` entries and GCS IAM members — a
-key **no shipped schema permits**, so a contract carrying it fails `fluid validate`
-(`metadata: Additional properties are not allowed ('policies' was unexpected)`).
-Because `fluid generate iac` does not run schema validation, that emit path worked
-while the contract was unusable everywhere else. See
-[Release Notes `0.13.0`](../RELEASE_NOTES_0.13.0.md#accesspolicy-is-now-the-iac-access-grant-surface).
-:::
+| Permission | BigQuery dataset role | Cloud Storage bucket role |
+|---|---|---|
+| `read`, `select`, `query` | `roles/bigquery.dataViewer` | `roles/storage.objectViewer` (`read`) |
+| `write`, `insert`, `update`, `delete` | `roles/bigquery.dataEditor` | `roles/storage.objectCreator` (`write`), `roles/storage.objectAdmin` (`delete`) |
+| `admin`, `owner` | `roles/bigquery.dataOwner` | `roles/storage.admin` |
 
-A principal is `<type>:<identity>`, and the **type is declared, not guessed**:
+A principal is `<type>:<identity>` (`user:`, `group:`, `serviceAccount:`, `domain:`), and the member resource name carries a hash of role and member, so `data.eng`, `data-eng` and `data_eng` keep one grant each.
 
-| Prefix | BigQuery dataset `access[]` field | GCS IAM member |
-| --- | --- | --- |
-| `user:` | `user_by_email` | `user:<email>` |
-| `group:` | `group_by_email` | `group:<email>` |
-| `serviceAccount:` | `user_by_email` — BigQuery's own convention for SA identities, and what makes a cross-project grant work | `serviceAccount:<email>` |
-| `domain:` | `user_by_email` | `domain:<domain>` |
+Because the grants are members, not the dataset's whole access list:
 
-##### Cross-project grants
+- BigQuery's default entries (the project's owners, writers and readers) stay on the dataset. Keep basic project roles away from projects that hold restricted data; [policy tags](#column-restrictions-policy-tags) still protect restricted columns.
+- A grant made outside the contract is not removed by the next apply.
+- `fluid verify` does not check dataset grants yet.
 
-This is how you grant a consumer in another GCP project read access to a dataset
-this product owns — expressible in a contract that passes `fluid validate`:
+To grant a consumer in another project, name its identity:
 
 ```yaml
 accessPolicy:
   grants:
     - principal: "serviceAccount:consumer@other-project.iam.gserviceaccount.com"
       permissions: [read, select, query]
-    - principal: "group:partner-analytics@other-company.com"
-      permissions: [read]
 ```
 
-`fluid generate iac --provider gcp` compiles these into the dataset's `access[]`
-block (and GCS IAM members where the exposure is object storage).
+#### Placeholder principals are refused
 
-##### `metadata.policies` is deprecated
+On GCP, a principal in a reserved top-level domain (`.example`, `.test`, `.invalid`, `.localhost`) or one that is not an IAM member at all (`group:data-platform` with no domain, a bare `analysts`, `role:analyst`) is refused by `fluid validate`, `fluid generate iac` and `fluid apply`:
+
+```text
+ 1. exposes accessPolicy: principal 'group:data-analysts@company.example'
+resolves to 'group:data-analysts@company.example', a placeholder: .example is a
+reserved top-level domain (RFC 2606), so no real identity has it, and BigQuery
+refuses an access entry for an identity that does not exist. ...
+```
+
+Map such a logical principal to a real identity in [`binding.principals`](#logical-principals-binding-principals-0-7-6), or to `[]` when it has no identity on GCP.
+
+#### First apply after upgrading from 0.16.x or earlier
+
+Before 0.17.0 the grants were the dataset's authoritative `access` list. The first `fluid apply` on a dataset whose state still holds that list sets `access`, for that one apply, to the list minus the entries no member resource covers, which revokes them; the apply prints the dataset and the revoked entries. Entries added to the dataset by hand since the last apply are removed too, as the old module removed them. Special groups, views and routines are kept. `fluid diff` shows the same change, so run it first to preview the revocation. A dataset whose every entry would be revoked is refused, naming the entries to revoke by hand. Later applies leave `access` alone.
+
+Revoking a grant deletes no data, so it applies without `--allow-data-loss`; the [OpenTofu data-loss gate](../cli/apply.md#opentofu-data-loss-gate) lists what that flag does cover. The role table is also in [`fluid generate iac`](../cli/generate-iac.md#access-grants-on-gcp-0-17-0). For the AWS side of the same fields, see [`accessPolicy` on AWS](./aws.md#accesspolicy-on-aws).
+
+#### `metadata.policies` is deprecated
 
 The legacy `metadata.policies` mapping still emits, so existing out-of-tree
-contracts keep working — but it has never been schema-valid and **fails
-`fluid validate`**. Migrate to `accessPolicy`.
-
-Both surfaces are read (rather than either/or), so a contract mid-migration does
-not silently drop half its grants; duplicate grants collapse.
-
-::: warning Groups were previously emitted as users
-The legacy reader classified a principal by whether it contained an `@` — user if
-yes, group if no. Group addresses contain `@` too, so **every group was emitted as
-a BigQuery `user_by_email` entry**. Unprefixed legacy values keep that exact
-inference so existing emitted ACLs do not silently change. Declare `group:`
-explicitly to get a group entry.
-:::
+contracts keep working, but it has never been schema-valid and fails
+`fluid validate`. Migrate to `accessPolicy`. Both surfaces are read, so a contract
+mid-migration does not drop half its grants; duplicate grants collapse. See
+[Release Notes `0.13.0`](../RELEASE_NOTES_0.13.0.md#accesspolicy-is-now-the-iac-access-grant-surface).
 
 ### Shared vs. isolated containers
 
-::: tip New in `0.13.0` (`0.7.6` preview, opt-in)
-By default this product **owns** the BigQuery dataset and GCS bucket it creates. A
-[`packaging` block](../cli/generate-iac.md#packaging-modes) can instead declare them `shared` — a
-pre-existing, platform-owned pool the product writes into but **cannot destroy**. A shared dataset
-and bucket become OpenTofu data sources; the dataset **drops its authoritative `access[]` block**
-(it would rewrite the pool's whole ACL and evict other tenants) in favour of per-table
-`google_bigquery_table_iam_member`, and a shared bucket's IAM members gain an object-prefix CEL
-condition. Contracts with no `packaging` block emit exactly as before.
-:::
+By default the product **owns** the BigQuery dataset and GCS bucket it creates. A
+[`packaging` block](../cli/generate-iac.md#packaging-modes) (`fluidVersion: "0.7.6"`)
+can declare them `shared` instead: a pre-existing, platform-owned pool the product
+writes into but cannot destroy. A shared dataset and bucket become OpenTofu data
+sources, the grants become per-table `google_bigquery_table_iam_member` resources,
+and a shared bucket's IAM members gain an object-prefix CEL condition.
 
----
-
-## Loading Data
-
-### From Cloud Storage
-
-Load from GCS with a `builds[]` entry that produces the table:
+### Column restrictions (policy tags)
 
 ```yaml
-builds:
-  - id: build_sales
-    pattern: acquisition
-    engine: sql
-    properties:
-      source_uri: gs://my-bucket/data/*.csv
-      source_format: CSV
-      skip_leading_rows: 1
-    outputs:
-      - sales
-
 exposes:
-  - exposeId: sales
+  - exposeId: customers
     kind: table
     binding:
       platform: gcp
@@ -637,305 +541,194 @@ exposes:
       location:
         project: my-project-id
         dataset: analytics
-        table: sales
+        table: customers
+        region: europe-west3
+    policy:
+      authz:
+        columnRestrictions:
+          - principal: "group:interns@company.example.com"
+            columns: [email]
+            access: deny
     contract:
       schema:
-        - name: order_id
-          type: STRING
-          required: true
-```
-
-### From Local Files
-
-```bash
-# Use bq CLI for one-time loads
-bq load \
-  --source_format=CSV \
-  --skip_leading_rows=1 \
-  my_dataset.my_table \
-  data/file.csv
-```
-
-### Streaming Inserts
-
-```python
-from google.cloud import bigquery
-
-client = bigquery.Client()
-table_id = "project.dataset.table"
-
-rows = [
-    {"name": "Alice", "age": 30},
-    {"name": "Bob", "age": 25}
-]
-
-errors = client.insert_rows_json(table_id, rows)
-if not errors:
-    print("Rows inserted successfully")
-```
-
----
-
-## Cost Optimization
-
-### Query Optimization
-
-```sql
--- ❌ BAD: Scans entire table
-SELECT * FROM `project.dataset.events`
-WHERE DATE(event_time) = '2026-01-20'
-
--- ✅ GOOD: Uses partition filter
-SELECT * FROM `project.dataset.events`
-WHERE event_time >= '2026-01-20'
-  AND event_time < '2026-01-21'
-```
-
-### Storage Classes
-
-Expose a GCS dataset as a `file` binding. Bucket-specific options such as
-storage class and lifecycle rules are provider-specific keys under
-`binding.properties`. `format: gcs_file` with a `location.bucket` resolves to a
-Cloud Storage bucket *(since 0.15.0)* — before that release this exact shape
-emitted no resource at all, see
-[How a GCP expose resolves to a target](#how-a-gcp-expose-resolves-to-a-target-since-0-15-0):
-
-```yaml
-exposes:
-  - exposeId: analytics_archive
-    kind: file
-    binding:
-      platform: gcp
-      format: gcs_file
-      location:
-        bucket: analytics-archive
-        path: archive/
-      properties:
-        storage_class: NEARLINE   # For infrequent access
-        lifecycle:
-          - action: SetStorageClass
-            storage_class: COLDLINE
-            age_days: 90          # Move to coldline after 90 days
-          - action: Delete
-            age_days: 365         # Delete after 1 year
-    contract:
-      schema:
-        - name: record_id
-          type: STRING
-          required: true
-```
-
-### Cost Monitoring
-
-```bash
-# Check current month costs
-bq query --use_legacy_sql=false \
-  'SELECT 
-    SUM(total_bytes_processed) / POW(10, 12) as tb_processed,
-    SUM(total_bytes_processed) / POW(10, 12) * 5 as estimated_cost_usd
-  FROM `region-us`.INFORMATION_SCHEMA.JOBS
-  WHERE DATE(creation_time) >= DATE_TRUNC(CURRENT_DATE(), MONTH)'
-```
-
----
-
-## Advanced Features
-
-### BigQuery ML
-
-Train models directly in BigQuery. The training SQL lives in a `builds[]`
-entry; expose the trained model with `kind: model`:
-
-```yaml
-builds:
-  - id: build_churn_model
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        CREATE OR REPLACE MODEL `${project}.${dataset}.churn_model`
-        OPTIONS(
-          model_type='LOGISTIC_REG',
-          input_label_cols=['churned']
-        ) AS
-        SELECT
-          * EXCEPT(customer_id)
-        FROM `${project}.${dataset}.customer_features`
-    outputs:
-      - churn_prediction_model
-
-exposes:
-  - exposeId: churn_prediction_model
-    kind: model
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-project-id
-        dataset: ml
-        table: churn_model
-    contract:
-      schema:
-        - name: predicted_churned
-          type: BOOLEAN
-```
-
-### Authorized Views
-
-Share data without granting direct access. Expose the view with `kind: view`
-and produce it with a `builds[]` query:
-
-```yaml
-builds:
-  - id: build_public_customer_summary
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        SELECT
-          customer_id,
-          total_purchases,
-          avg_order_value
-          -- Excludes PII like email, name
-        FROM `${project}.${dataset}.customers`
-    outputs:
-      - public_customer_summary
-
-exposes:
-  - exposeId: public_customer_summary
-    kind: view
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-project-id
-        dataset: analytics
-        table: public_customer_summary
-      properties:
-        authorized: true   # Can access source tables the caller can't see
-    contract:
-      schema:
-        - name: customer_id
-          type: STRING
-          required: true
-        - name: total_purchases
+        - name: id
           type: INTEGER
-        - name: avg_order_value
-          type: NUMERIC
+        - name: email
+          type: STRING
+          sensitivity: pii
 ```
 
----
+With the `accessPolicy` above, `fluid apply` emits, for any `fluidVersion`:
 
-## Monitoring
+| Resource | What it holds |
+|---|---|
+| `google_data_catalog_taxonomy` | one per product and dataset, `activated_policy_types: [FINE_GRAINED_ACCESS_CONTROL]`, in the binding's region |
+| `google_data_catalog_policy_tag` | one per set of restricted columns that share their readers, attached through the table schema's `policyTags` |
+| `google_data_catalog_policy_tag_iam_member` | `roles/datacatalog.categoryFineGrainedReader` for each allowed reader (here `group:data-analysts@company.example.com`) |
 
-### Built-in Metrics
+Semantics:
 
-Declare metrics and alert channels per expose with the `observability` block:
+- `deny`: the principal may not read the columns. `allow`: only the principals an `allow` names may read them. A deny beats an allow.
+- A restriction never grants access. The readers are the `accessPolicy` read grantees and the expose's `policy.authz.readers`; an allowed principal that is not a reader is logged, not added.
+- An expose with a restriction and no reader is refused (`column-restriction-no-readers`): the tag would lock the columns for everyone.
+- The restriction's `tags` and `labels` go into the policy tag's description.
+
+A denied principal gets an error on the restricted columns, and `SELECT * EXCEPT (email)` still works for it. Measured against real BigQuery on 4 Oct 2026, the refusal reads:
+
+```text
+User has neither fine-grained reader nor masked get permission to get data protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.
+```
+
+`fluid policy-apply` is a different path, and in 0.18.1 it changes nothing on GCP: it reports the compiled bindings and returns `applied: 0`. Both the dataset IAM and the policy tags that enforce column restrictions are provisioned by `fluid apply`. See [`fluid policy apply`](../cli/policy-apply.md#what-each-provider-does).
+
+### Data Masking
+
+Two kinds of masking exist, and only one is applied on GCP:
+
+- **Masking at landing (applied).** A DuckDB acquisition build applies `policy.privacy.masking` while it writes the staged Parquet file, so BigQuery receives treated values. Since 0.17.0, `fluid verify` fails (CRITICAL) a masked BigQuery column whose values lack the strategy's shape.
+- **BigQuery dynamic data masking (not emitted).** No BigQuery data policy is created, so a reader with table access sees the stored value. Use [column restrictions](#column-restrictions-policy-tags) to keep a column from a principal. The AWS side is [masking at landing](./aws.md#masking-at-landing); what the platform enforces overall is on [Governance](../advanced/governance.md#what-the-platform-enforces).
 
 ```yaml
+policy:
+  privacy:
+    masking:
+      - column: email
+        strategy: mask             # keeps keepFirst (default 0) and keepLast (default 4) characters
+        params:
+          keepFirst: 1
+          keepLast: 4
+      - column: credit_card
+        strategy: hash             # salted SHA-256; salt from $FLUID_PII_HASH_SECRET (16 bytes or more)
+```
+
+| Strategy | Output | Params | Secret |
+|---|---|---|---|
+| `hash` | 64 lowercase hex characters (SHA-256 of salt and value) | `saltEnv` | `FLUID_PII_HASH_SECRET` by default, 16 bytes or more |
+| `mask` | `*` except the first `keepFirst` and last `keepLast` characters | `keepFirst`, `keepLast` | none |
+| `tokenize` | 32 lowercase hex characters (HMAC-SHA256) | `keyEnv` | `FLUID_PII_TOKENIZATION_KEY` by default, 32 bytes or more |
+| `encrypt` | `aesgcm:v1:` and base64url (AES-GCM, reversible with the key) | `keyEnv` | `FLUID_PII_ENCRYPTION_SECRET_KEY` by default |
+
+A treated column lands as a string. `k_anonymity` is refused at landing, as are unknown params (`algorithm` among them), a literal salt or key in `params`, an unset secret, and a masked column declared with a non-string type. An embedded-SQL build refuses a masked expose. The params are typed in `fluidVersion: "0.7.6"` and accepted untyped on 0.7.5.
+
+### Retention (0.7.6)
+
+```yaml
+fluidVersion: "0.7.6"
+...
 exposes:
-  - exposeId: events
+  - exposeId: candidates
     kind: table
+    lifecycle:
+      retention: P90D
+      expire: true
     binding:
       platform: gcp
       format: bigquery_table
       location:
-        project: my-project-id
-        dataset: analytics
-        table: events
-    observability:
-      metrics:
-        - name: query_performance
-          source: bigquery
-          sli: latency
-      alert:
-        channels:
-          - slack://data-team
-    contract:
-      schema:
-        - name: event_id
-          type: STRING
-          required: true
+        project: northwind-demo
+        dataset: telco_gold
+        table: churn_candidates
+        region: europe-west3
+        partitionBy: [scored_at]      # optional: one DATE, TIMESTAMP or DATETIME column
 ```
 
-> Note: the contract `observability` block declares named metrics and alert
-> channels, not arbitrary SQL. Custom cost queries against
-> `INFORMATION_SCHEMA.JOBS_BY_PROJECT` and numeric breach thresholds have no
-> contract-schema equivalent — run them as scheduled BigQuery jobs outside the
-> contract.
+The table gets `time_partitioning: {type: DAY, field: scored_at, expiration_ms: 7776000000}`, so each daily partition is deleted 90 days after its date. Without `partitionBy` it is partitioned by ingestion time and a row lives at least `retention` after it landed. With `partitionBy`, retention counts from the column's date: a backfill of rows older than `retention` lands in expired partitions and is deleted at once (`fluid apply` logs `bigquery_retention_event_time`). Retention does not set a table-level expiration.
+
+BigQuery cannot partition an existing table. The first apply that adds `expire: true` to a live table plans the table's replacement, which `fluid apply` refuses without `--allow-data-loss`; the next build lands the data again. Changing `retention` later is an in-place update. `partitionBy` must be a list; a scalar fails validation.
+
+### Encryption at rest (CMEK, 0.7.6)
+
+```yaml
+binding:
+  platform: gcp
+  format: bigquery_table
+  location: { project: northwind-demo, dataset: telco_gold, table: churn_candidates, region: europe-west3 }
+  encryption:
+    kms: product
+```
+
+| `kms` value | Result |
+|---|---|
+| `product` | `google_kms_key_ring` `fluid-<id>-<dataset>` and `google_kms_crypto_key` `bigquery` (`rotation_period: 7776000s`, 90 days) in the dataset's location; `roles/cloudkms.cryptoKeyEncrypterDecrypter` for the BigQuery service agent; the key as the dataset default and the table's `encryption_configuration` |
+| `projects/<p>/locations/<l>/keyRings/<r>/cryptoKeys/<k>` | that existing key |
+| `none` | Google-managed keys |
+
+An AWS key (`alias/...`, an ARN) is refused on GCP. Tables of one dataset that declare different keys are refused (`encryption-kms-mixed-dataset`). Adding a key to a live table plans its replacement and needs `--allow-data-loss`. A key ring cannot be deleted on GCP: `tofu destroy` schedules the key's versions for destruction and the next apply adopts the same names.
+
+### Logical principals (`binding.principals`, 0.7.6)
+
+The base contract names principals as the business knows them; each environment's overlay maps them to real identities on that cloud:
+
+```yaml
+# overlays/gcp.yaml
+exposes:
+  - binding:
+      platform: gcp
+      principals:
+        group:data-platform@northwind.example: group:data-platform@northwind.example.com
+        group:analysts@northwind.example: group:analysts@northwind.example.com
+```
+
+A value is one identity, a list, or `[]` (no identity on this cloud, nothing granted). With `binding.principals` present, every principal the expose names must be mapped (`principal-unmapped`). The same mapping drives dataset grants and policy-tag readers.
+
+### Prerequisites for governed resources
+
+| Feature | API | Role for the identity running `fluid apply` |
+|---|---|---|
+| Dataset grants | BigQuery | `bigquery.datasets.update` on the datasets |
+| Column restrictions | `datacatalog.googleapis.com` | `roles/datacatalog.categoryAdmin` |
+| `encryption.kms: product` | `cloudkms.googleapis.com` | `roles/cloudkms.admin` |
+
+`fluid verify`'s policy-tag check needs `datacatalog.taxonomies.get` and `datacatalog.taxonomies.getIamPolicy`; its row-count query needs `roles/bigquery.jobUser`.
+
+---
+
+## What `fluid verify` checks on BigQuery
+
+```bash
+fluid verify contract.fluid.yaml --env gcp --strict
+```
+
+| Check | Fails as |
+|---|---|
+| The table exists | error |
+| Columns and types match the contract | CRITICAL (missing column or changed type) |
+| The dataset's location matches `location.region` | CRITICAL |
+| Row count equals the last recorded load (`full_refresh`) | CRITICAL |
+| The table is not empty | CRITICAL |
+| Masked columns hold treated values | CRITICAL |
+| Partition type, field and expiry; no table expiration *(retention)* | CRITICAL |
+| The table's and the owned dataset's `kmsKeyName` *(encryption)* | CRITICAL |
+| Each restricted column carries a tag whose fine-grained readers are exactly the derived set | CRITICAL |
+
+The table is addressed as the load addresses it, with `{{ env.* }}` resolved. A GCS bucket, Pub/Sub topic or Iceberg warehouse reports `unsupported`. See [`fluid verify`](../cli/verify.md).
+
+::: tip Proven against real BigQuery
+forge-cli's own tests prove the governed module against `tofu validate` and an in-process BigQuery stand-in. On 4 Oct 2026, products applied in a demo lab from shared base contracts through `--env gcp` overlays passed `fluid verify` against live BigQuery, including retention, Cloud KMS encryption and policy tags, and per-persona impersonation showed a denied column refused by its policy tag.
+:::
 
 ---
 
 ## Troubleshooting
 
-### "Access Denied" Errors
+### "Access Denied" during apply
 
-Grant yourself BigQuery Admin:
-```bash
-gcloud projects add-iam-policy-binding PROJECT_ID \
-  --member="user:YOUR_EMAIL" \
-  --role="roles/bigquery.admin"
-```
+The identity running `fluid apply` needs permission to create and update datasets, tables and dataset IAM in the target project. Grant it `roles/bigquery.dataOwner` and `roles/bigquery.jobUser` on that project, not `roles/bigquery.admin`, which carries project-wide BigQuery administration that an apply does not need. Add the roles in [Prerequisites for governed resources](#prerequisites-for-governed-resources) for the features the contract uses: `roles/datacatalog.categoryAdmin` for column restrictions and `roles/cloudkms.admin` for `encryption.kms: product`.
 
-### "Quota Exceeded"
+### A placeholder grant is refused
 
-Request quota increase:
-```bash
-gcloud services quota list \
-  --service=bigquery.googleapis.com \
-  --consumer="projects/PROJECT_ID"
-```
+See [Placeholder principals are refused](#placeholder-principals-are-refused): map the principal in `binding.principals`.
 
-### Slow Queries
+### The dataset landed in `US`
 
-Enable query plan visualization:
-```sql
--- Add to query
-OPTIONS(use_query_cache=false)
-
--- View execution plan
-SELECT * FROM `region-us`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
-WHERE job_id = 'YOUR_JOB_ID'
-```
-
----
-
-## Limitations
-
-- **Max dataset size:** Unlimited
-- **Max table size:** 10 TB (contact support for larger)
-- **Max query size:** 100 KB SQL text
-- **Max columns:** 10,000 per table
-- **Max concurrent queries:** 100 (can be increased)
-- **Query timeout:** 6 hours (distributed queries)
-
----
-
-## Roadmap
-
-### Q2 2026
-- 🔜 Row-Level Security (RLS) policies
-- 🔜 Dataflow integration
-- 🔜 Cloud Composer orchestration
-- 🔜 VPC Service Controls
-- 🔜 BigQuery policy tags / column-level taxonomies
-- 🔜 BigQuery dynamic data masking
-
-### Q3 2026
-- 🔜 BigQuery Omni (multi-cloud)
-- 🔜 Data transfer service automation
-- 🔜 Advanced BI Engine features
-- 🔜 Cross-project analytics
+The binding names no region. Set `location.region`; a dataset's location cannot be changed in place.
 
 ---
 
 ## Next Steps
 
-- **[Getting Started](/forge_docs/getting-started/)** - First GCP deployment
-- **[GCP Walkthrough](/forge_docs/walkthrough/gcp)** - Hands-on tutorial  
-- **[CLI Reference](/forge_docs/cli/)** - GCP-specific commands
-- **[Governance Guide](/forge_docs/advanced/governance)** - Security deep-dive
-
----
-
-*GCP Provider maintained by the Fluid Forge core team*
+- [GCP Walkthrough](../walkthrough/gcp.md): a hands-on deployment
+- [`fluid apply`](../cli/apply.md): modes, embedded-SQL reads and landings
+- [`fluid generate iac`](../cli/generate-iac.md): the emitted module and packaging modes
+- [Governance & policy](../concepts/governance-policy.md)
+- [DuckDB sandbox](../advanced/duckdb-sandbox.md): what build SQL may read

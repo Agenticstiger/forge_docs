@@ -42,7 +42,7 @@ Fluid Forge replaces the five-tool stack most data teams currently maintain. Wit
 - **No Airflow DAG to write or maintain.** `fluid generate schedule --scheduler airflow|dagster|prefect` emits the right artifact.
 - **No JVM heap tuning.** `engine: duckdb` runs embedded for dev; swap to `dlt` / `meltano` / `airbyte` / `kafka-connect` / `debezium` only when you need them.
 - **No Snowflake permission sprawl.** `accessPolicy.grants` compiles to native `GRANT` statements.
-- **No Terraform for data-product IAM.** `policy-apply` emits BigQuery IAM bindings, Snowflake roles, S3 bucket policies — same source.
+- **No hand-written IAM for data products.** On GCP, `fluid apply` writes the dataset IAM from `accessPolicy.grants`. `policy-apply` only reports the compiled bindings as of 0.18.1.
 - **No 27 questions before you ship.** `fluid forge` infers from your local files; you answer 4.
 - **No dbt project layout decisions.** Forge wraps dbt; you write the contract, dbt does what it does best.
 - **No AI access surprises.** `agentPolicy` declares which LLMs can read what, with audit logs, before any model gets a row.
@@ -80,7 +80,7 @@ fluid apply contract.fluid.yaml --yes
 
 This docs site currently tracks:
 
-- CLI release `0.15.3`
+- CLI release `0.18.1`
 - Contract schema `0.7.5` as the stable default, with `0.7.6` open as an opt-in preview
 
 Which `fluidVersion` a fresh scaffold actually writes depends on which scaffold path you took, and the quickstart is not the same as the factory. The rule, with the per-path numbers, lives in one place: [Understand the version numbers](/forge_docs/getting-started/#understand-the-version-numbers). Run `fluid version` for the authoritative list of accepted schema versions on the CLI you have installed.
@@ -122,32 +122,33 @@ These are the groups `fluid --help` prints on `0.15.0`. Run it yourself to confi
 
 `--help` promotes a short surface, not the whole one. Commands such as `bundle`, `diff`, `verify`, `publish`, `runs`, `stats`, `ship` and [`mission`](/forge_docs/cli/mission.html) are real and documented, and `--help` itself names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. See the [CLI Reference](/forge_docs/cli/) for everything.
 
-:::: tip Current release — `0.15.3`, schema **0.7.5** stable (GA)
-`pip install data-product-forge` gives you `0.15.3`. The `0.15.x` changes landed in `0.15.0`, which
-documents them together with `0.14.1` in one baseline (`0.15.1`, `0.15.2` and `0.15.3` are front-door
-patches with no notes page of their own — documentation links in the CLI's own output that were dead, or
-live and owned by somebody else):
-[`0.15.0` release notes](/forge_docs/RELEASE_NOTES_0.15.0.html).
+:::: tip Current release — `0.18.1`, schema **0.7.5** stable (GA)
+`pip install data-product-forge` gives you `0.18.1`. Its notes:
+[`0.18.0` and `0.18.1`](./RELEASE_NOTES_0.18.0.md). Coming from an older release? The
+[upgrade guide](./upgrading.md) has a checklist for each version you cross.
 
-**Coming from `0.14.1` or earlier? One thing can break you.** A contract that passed
-[`fluid validate`](/forge_docs/cli/validate.html) on `0.14.1` can fail now, with no edit of yours.
-`0.15.0` is the **sovereignty enforcement** release: residency controls that reported clean while
-checking nothing now actually block.
+**Since `0.15.0`:**
 
-- **`strict` blocks, `advisory` warns, `audit` informs.** `sovereignty.enforcementMode` drives
-  severity in both directions, and the engine's own defaults — previously the permissive inverse of
-  the schema's — now match the schema, where `strict` is the default.
-- **Three regions changed jurisdiction.** The region→jurisdiction table is derived from the vendors'
-  own data instead of typed by hand, which is how it had placed London in the EU and treated
-  Singapore and Seoul as pass-anything wildcards. Re-validate any contract bound there.
-- **A jurisdiction-pinned MCP output port refuses to start** on the default stdio transport, or on
-  HTTP with no auth mode configured: caller jurisdiction is enforced at query time, fail-closed, and
-  neither of those can prove where the caller is.
-
-The notes carry the thirteen-step upgrade checklist and three further risks outside sovereignty.
-`0.14.1`, in the same baseline, closed two HIGH authorisation bypasses in the MCP output port.
+- **`0.15.1`–`0.16.2`** ([notes](./RELEASE_NOTES_0.16.0.md)) — a stage name such as `../../ESCAPED` can
+  no longer make `fluid generate transformation` write outside `--output`, and contract values
+  are escaped in generated Airflow, Prefect and Dagster code. Generated SQL
+  now creates views, which drops grants on Snowflake and Databricks. AWS resources go to the
+  binding's region, and BigQuery bindings load their rows.
+- **`0.16.3`–`0.17.0`** ([notes](./RELEASE_NOTES_0.17.0.md)) — one contract deploys to AWS and
+  to Google Cloud through `--env` overlays and is governed the same on both, checked by
+  `fluid verify`. The generated 11-stage pipeline runs as generated. Upgrading has one-time
+  steps: retire old Airflow DAGs, move state to a per-provider key, and let the first
+  GCP apply revoke stale dataset grants.
+- **`0.18.0`** — a contract's `$ref` and its SQL are confined to the contract's directory tree and declared
+  locations, unless you widen them.
+- **`0.18.1`** — the drift gate (`fluid diff --exit-on-drift`) reads a target whose binding
+  names its project or path through an environment variable.
 
 ::: details Before that, each release keeping its own work
+- [`0.15.0`](./RELEASE_NOTES_0.15.0.md) — sovereignty enforcement: `sovereignty.enforcementMode`
+  blocks, warns or informs as declared, the region→jurisdiction table comes from the vendors'
+  data, and a jurisdiction-pinned MCP output port refuses to start on stdio, or on HTTP with no
+  auth mode. It documents `0.14.1` with it.
 - [`0.14.0`](/forge_docs/RELEASE_NOTES_0.14.0.html) — live-verification hardening: the dbt Iceberg
   loop reaching all three cloud warehouses.
 - [`0.13.0`](/forge_docs/RELEASE_NOTES_0.13.0.html) — verifiable autonomy and declarative packaging,
@@ -162,7 +163,7 @@ The notes carry the thirteen-step upgrade checklist and three further risks outs
   [`fluid exporters`](/forge_docs/cli/exporters.html).
 - [`0.9.0`](/forge_docs/RELEASE_NOTES_0.9.0.html) — the streaming Kafka → Iceberg sink.
 - [`0.8.6`](/forge_docs/RELEASE_NOTES_0.8.6.html) — the [`fluid mcp`](/forge_docs/cli/mcp.html)
-  output-port gateway: `agentPolicy` enforced at runtime, with JWT-bearer and mTLS identity.
+  output-port gateway: `agentPolicy` enforced at runtime, with JWT-bearer identity.
 :::
 
 The vocabulary and the product types behind all of it:

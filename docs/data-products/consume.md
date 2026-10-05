@@ -65,7 +65,7 @@ Once `fluid market` points you at a product, open its contract. The contract is 
 | **What columns exist, their types, and what's sensitive** | `exposes[].contract.schema` — each field has `name`, `type`, and an optional `sensitivity` (e.g. `pii`, `phi`, `cleartext`) |
 | **How good / fresh the data is** | `exposes[].contract.dq.rules` — freshness, completeness, uniqueness, valid_values, accuracy, schema, anomaly_detection, drift_detection — each with a `severity` (`info` / `warn` / `error` / `critical`) |
 | **The declared service-level targets** | `exposes[].qos` — availability, freshness, latency, completeness, error budget |
-| **Where the data came from (lineage)** | Auto-derived from `consumes[]` (explicit upstream-product references), plus `builds[].properties.sql` and dbt repository references |
+| **Where the data came from (lineage)** | `consumes[]` names the upstream products and exposes; `fluid generate artifacts` writes each as a reference in the ODCS, ODPS-Bitol and OPDS output. The optional top-level `lineage` block adds field-level mappings |
 | **Who may read it** | `accessPolicy.grants[]` (humans / services, compiled to native cloud IAM) and `exposes[].policy.agentPolicy` (AI agents) |
 
 To inspect quality, SLA, and lineage in depth, see [Quality, SLAs & Lineage](/forge_docs/concepts/quality-sla-lineage.html).
@@ -74,7 +74,7 @@ To inspect quality, SLA, and lineage in depth, see [Quality, SLAs & Lineage](/fo
 The `qos` targets you read in the contract are **declared** SLAs. Today they're published to catalogs (ODCS) and Data Mesh Manager so consumers can *see* the promise — but **active monitoring against those thresholds is on the roadmap**, not shipped. Treat `qos` as the producer's stated intent, not a live, alerting SLO yet.
 :::
 
-The `dq.rules`, on the other hand, *are* enforced: they're checked by `fluid validate`, `fluid test`, and `fluid verify`, and an `error` / `critical` rule blocks the producer's deploy. So a published product has already passed its own declared quality gates.
+The `dq.rules` are rules, not promises: `fluid test` runs the contract's quality rules (with the built-in checker, or through Soda with `--engine soda`), so a published product can be checked against its own declared rules. See the [`fluid test`](/forge_docs/cli/test.html) reference.
 
 ---
 
@@ -82,7 +82,7 @@ The `dq.rules`, on the other hand, *are* enforced: they're checked by `fluid val
 
 > **Why it matters (analyst):** You don't need to learn Forge to read a Forge product. Once you have access, the data lives in an ordinary table or view in the warehouse you already use. Forge got it there, governed; you query it with the SQL and BI tools you already know.
 
-The contract's `exposes[].binding` tells you exactly **where the data physically lives** — the platform, and the table or view name. Once the producer grants you access via the top-level `accessPolicy.grants` (which compiles to native cloud IAM — BigQuery / Snowflake / S3), you read it with standard warehouse tooling:
+The contract's `exposes[].binding` tells you exactly **where the data physically lives** — the platform, and the table or view name. Once the producer grants you access through the top-level `accessPolicy.grants`, you read it with standard warehouse tooling:
 
 ```sql
 -- BigQuery / Snowflake / Athena — whatever the binding names
@@ -91,60 +91,91 @@ FROM analytics.customer_segments_v1
 GROUP BY segment;
 ```
 
-This consumption happens **outside the Forge runtime**. Forge declared the schema, applied the access grants from `accessPolicy.grants`, and deployed the table; from there you point Looker, Tableau, a notebook, or a `SELECT` straight at the bound object. The contract's `schema` is your data dictionary; its `sensitivity` tags tell you which columns are PII/PHI before you ever put them on a dashboard.
+This consumption happens **outside the Forge runtime**. Forge declared the schema, applied the grants from `accessPolicy.grants`, and deployed the table; from there you point Looker, Tableau, a notebook, or a `SELECT` straight at the bound object. The contract's `schema` is your data dictionary; its `sensitivity` tags tell you which columns are PII/PHI before you ever put them on a dashboard.
 
 ---
 
 ## Pattern 2 — Consume as a downstream product (`consumes[]`)
 
-> **Why it matters (downstream data engineer):** You shouldn't have to copy-paste an upstream product's schema into your pipeline and pray it stays in sync. Naming the upstream by product ID lets the planner resolve its bindings for you — when the upstream changes, your contract is checked against it at plan time, not at 3am in production.
+> **Why it matters (downstream data engineer):** You shouldn't have to copy-paste an upstream product's file paths into your SQL, or change that SQL for each target. Naming the upstream by product ID and expose ID lets the build read it by name, from wherever the upstream's own binding puts it for the environment you run.
 
-A downstream product names its upstream by **product ID** in `consumes[]`. The planner resolves the binding, so your contract never re-types the upstream schema or transformation logic:
+A downstream product names its upstream in `consumes[]` by **product ID** and **expose ID**, and its SQL reads the upstream by the expose ID:
 
 ```yaml
 fluidVersion: "0.7.5"
 kind: DataProduct
-id: silver.orders_enriched
+id: silver.shop.order_summary_v1
+name: Order Summary by Region
 metadata:
   layer: Silver
-  productType: ADP
+  owner:
+    team: shop-analytics
+    email: shop-analytics@example.com
 
 consumes:
-  - product: bronze.crm_orders      # named by ID — planner resolves the binding
-    expose: orders
-    alias: orders
-  - product: bronze.crm_customers
-    expose: customers
-    alias: customers
+  - productId: bronze.shop.orders_v1     # the upstream's id
+    exposeId: orders                     # the upstream expose; also the view name in your SQL
+    purpose: Revenue by region
 
 builds:
-  - name: enrich
+  - id: summarize
+    pattern: embedded-logic
     engine: sql
-    sql: |
-      SELECT o.order_id, o.amount_cents, c.region, c.segment
-      FROM {{ orders }} o
-      LEFT JOIN {{ customers }} c USING (customer_id)
+    properties:
+      sql: |
+        SELECT region, COUNT(*) AS orders, SUM(amount) AS revenue
+        FROM orders
+        GROUP BY region
+
+exposes:
+  - exposeId: order_summary
+    kind: table
+    binding:
+      platform: local
+      format: parquet
+      location:
+        path: out/order_summary.parquet
+    contract:
+      schema:
+        - name: region
+          type: STRING
+        - name: orders
+          type: INTEGER
+        - name: revenue
+          type: NUMERIC
 ```
 
-Then drive it through the normal lifecycle:
+The upstream, `bronze.shop.orders_v1`, is a contract in the same workspace: a directory tree with a `fluid.workspace.yaml` at its root, and the upstream saved as `contract.fluid.yaml`. [Builds, Exposes, Bindings](../concepts/builds-exposes-bindings.md#worked-example-a-silver-product-reading-a-bronze-product) has the upstream contract, the directory layout and the run.
+
+Validate, then build with `--mode amend-and-build`:
 
 ```bash
-fluid validate silver.orders_enriched.fluid.yaml
-fluid plan     silver.orders_enriched.fluid.yaml
-fluid apply    silver.orders_enriched.fluid.yaml --yes
+fluid validate contract.fluid.yaml
+fluid apply    contract.fluid.yaml --yes --mode amend-and-build
 ```
 
-`fluid plan` resolves each `consumes[].product` against the workspace registry, confirms the named expose exists, and validates the projected schema against your SQL `{{ alias }}` placeholders. A broken pointer never gets past plan.
+```text
+🔷 Build 'summarize' (embedded-SQL / local DuckDB)
+   ⬅ consumes bronze.shop.orders_v1/orders as view "orders": .../shop/orders/out/orders.parquet
+   ...
+   ✅ Completed in 0.03s — 1 action(s) executed
+```
 
-**Composition rules** (enforced by the planner — see [Product Types → Composition rules](/forge_docs/data-products/product-type.html#composition-rules)):
+Plain `fluid apply` does not resolve `consumes[]`; the SQL fails with `Catalog Error: Table with name orders does not exist!`. Use `--mode amend-and-build`.
+
+**What the build does with each entry.** An entry the SQL reads becomes a DuckDB view named by its `exposeId`. The upstream is the contract that declares `id: <productId>`, loaded with the same `--env` overlay as your run, so `--env aws` reads its `aws` binding. An entry the SQL does not read is lineage only. If an entry the SQL reads names no contract the build can find, it fails before any SQL runs, with the `productId` and the places it looked. A `builds[].properties.parameters.inputs` entry with the same name as the `exposeId` takes precedence and is used as written. [The concept page](../concepts/builds-exposes-bindings.md#how-an-embedded-sql-build-resolves-each-entry) has the details.
+
+**What `fluid validate` and `fluid plan` do not do.** Neither checks that the upstream exists. A contract that consumes `bronze.shop.nope_v9` validates, and plans, without complaint; the missing upstream is found when the build runs. Other engines do not read `consumes[]` the same way: the dbt engine writes the entries as dbt sources, and every other generator warns `consumes_not_wired`.
+
+**Composition rules** (checked by `fluid validate` when it can find the upstream contract; see [Product Types → Composition rules](/forge_docs/data-products/product-type.html#composition-rules)):
 
 | Product type | Can it `consumes[]`? |
 | --- | --- |
-| **SDP** (Bronze / source-aligned) | No — SDPs are leaves; declaring `consumes[]` fails |
-| **ADP** (Silver / aggregate) | Yes — may consume SDP(s) |
-| **CDP** (Gold / consumer-aligned) | Yes — may consume SDP and/or ADP |
+| **SDP** (Bronze / source-aligned) | No. SDPs are leaves; `fluid validate` fails a `consumes[]` on one when the upstream is found |
+| **ADP** (Silver / aggregate) | Yes: SDPs and ADPs |
+| **CDP** (Gold / consumer-aligned) | Yes: SDPs, ADPs and CDPs |
 
-For the full walkthrough, see the recipe: [Write a contract that consumes another contract](/forge_docs/recipes/consumes-contract-to-contract.html).
+For the recipe version of this pattern, see [Write a contract that consumes another contract](/forge_docs/recipes/consumes-contract-to-contract.html).
 
 ---
 
@@ -202,7 +233,7 @@ The schema, sensitivity tags, `qos`, lineage, and `dq.rules` that earn **human**
 
 - A **person** reads `sensitivity: pii` and keeps it off a dashboard; the agent gateway reads the same tag and redacts the value to `[REDACTED-PII]`.
 - A **person** reads the top-level `accessPolicy.grants` to know they're allowed in; the agent is gated by `agentPolicy.allowedModels` on the same contract.
-- A **downstream product** doesn't re-read any of it by hand: its planner resolves the very `exposes[].binding` and schema the human and agent rely on, straight from `consumes[]` — so when the upstream changes, every consumer sees the change through the same source of truth.
+- A **downstream product** names the upstream in `consumes[]`, and an embedded-SQL build on DuckDB reads the upstream's own `exposes[].binding` for the environment it runs in, instead of a path copied into the SQL.
 
 One versioned artifact, three kinds of consumer, the same declared rules.
 

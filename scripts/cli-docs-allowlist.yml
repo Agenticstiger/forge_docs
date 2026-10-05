@@ -57,13 +57,20 @@ flag_oracle_ok:
                      # `fluid export-odps`; see the docs_only_ok entry above for
                      # why the page is kept. Every invocation on it is
                      # historical by construction.
-  - docs/sdk-and-plugins/**::fluid generate-custom-scaffold
+  - docs/sdk-and-plugins/**::fluid custom-scaffold
                      # Registered by the companion package
                      # `data-product-forge-custom-scaffold` (pinned in
                      # cli-version.json as supportedCustomScaffoldInstallSpec)
                      # through the command-plugin entry point, so it is absent
                      # from the core CLI's parser. The pages tell the reader to
                      # pip install it first. Scoped to this one invocation.
+                     # The entry point is NAMED `generate-custom-scaffold`, and
+                     # `fluid --help` lists that name, but its register()
+                     # adds the subcommand `custom-scaffold`: on companion
+                     # 0.4.1 with CLI 0.18.1, `fluid custom-scaffold --help`
+                     # prints the command's options and
+                     # `fluid generate-custom-scaffold --help` prints the
+                     # top-level usage. The pages document the name that runs.
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and
