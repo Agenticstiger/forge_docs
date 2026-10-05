@@ -1,79 +1,80 @@
 # Network Safety
 
-Fluid Forge consolidates every outbound HTTP fetch behind one safe-HTTP layer. The defaults are conservative — most remote operations are off unless you opt in — and the guard runs at the connection layer so that DNS rebinding and IPv4-mapped IPv6 tricks can't sneak past it.
+The CLI's remote fetches are conservative: fetching remote contract content is off unless you opt in, and the HTTP client the main fetch surfaces share (`fluid_build.util.safe_http`) checks the address at the connection layer, so DNS rebinding and IPv4-mapped IPv6 tricks cannot sneak past it.
 
-This page describes the **user-visible behaviour**: which flags opt in, which env vars allowlist hosts, where the defaults landed, and which legacy behaviours flipped (the BREAKING ones, listed below).
+This page describes the user-visible behaviour: which flags opt in, which environment variables allow hosts, where the defaults landed, and which older behaviours changed.
 
-## Defaults that flipped in v0.8.3 — what you may need to change
+## Defaults that changed in v0.8.3
+
 
 | Surface | Old default | New default | Override |
 |---|---|---|---|
-| `fluid forge --seed-from <url>` | (didn't exist) | Local-only; remote `http(s)` references rejected | `--seed-allow-remote` |
-| `fluid odps import <url>` | Followed `http(s)` `contractId` references | Local-only; remote references rejected | `--allow-remote` |
-| `BitolOdpsProvider().import_contract(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (kwarg) |
-| `ContractResolver(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (kwarg) |
-| `forge_copilot_seed.load_seed(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (kwarg) |
-| Ollama endpoint | Configurable | Localhost-only (`127.0.0.1` / `::1`) | — (intentional) |
-| HTTP redirects on any safe-HTTP client | Followed | Not followed | `follow_redirects=True` (per-call kwarg) |
+| `fluid forge --seed-from <url>` | (did not exist) | Local only; remote `http(s)` references are rejected | `--seed-allow-remote` |
+| `fluid odps import <url>` | Followed `http(s)` `contractId` references | Local only; remote references are rejected | `--allow-remote` |
+| `BitolOdpsProvider().import_contract(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (keyword) |
+| `ContractResolver(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (keyword) |
+| Ollama endpoint | Configurable | Localhost only | None, by design |
+| HTTP redirects on a safe-HTTP client | Followed | Not followed | `follow_redirects=True` (per client) |
 
-The CLI flags `--no-remote` / `--seed-no-remote` remain as hidden no-op aliases for back-compat in scripts.
+The CLI flags `--no-remote` and `--seed-no-remote` remain as hidden aliases that do nothing, so older scripts keep working.
 
-## What the safe-HTTP layer enforces
+## What the safe-HTTP client enforces
 
-Every outbound `http(s)` call from `fluid` goes through one factory that applies, in order:
+The client applies these, in order:
 
-1. **Scheme allowlist** — only `http` and `https`. `file://`, `gopher://`, etc. are rejected.
-2. **Post-DNS-resolution private-IP filter** — RFC1918, link-local `169.254.0.0/16`, loopback, reserved, CGNAT, 6to4, NAT64, ORCHIDv2, IPv6-SR, RFC-TEST-NET. IPv4-mapped IPv6 addresses are unwrapped before the check (closes a Python 3.10 / 3.11 stdlib bypass that didn't recurse into IPv4-mapped IPv6 until 3.12+).
-3. **Reject on mixed-public-and-private DNS** — if a hostname resolves to both public and private addresses, the entire fetch is refused (the canonical DNS-rebinding mitigation).
-4. **Connection-layer DNS pin** — the validated IP is pinned for the lifetime of the connection (httpx's `sni_hostname` extension). A second DNS lookup mid-connection can't redirect to a private IP.
-5. **`follow_redirects=False`** — redirects are off by default; the caller has to opt in per request.
-6. **Streaming body cap** at `10 MiB` — bounded memory exposure for unknown upstream payload sizes.
+1. **Scheme allowlist.** Only `http` and `https`. `file://`, `gopher://` and the rest are refused.
+2. **Post-DNS private-address filter.** Private (RFC 1918), loopback, link-local (`169.254.0.0/16`), multicast, reserved and unspecified addresses, plus carrier-grade NAT, 6to4, NAT64, ORCHIDv2, IPv6 segment routing and the RFC test ranges. IPv4-mapped IPv6 addresses are unwrapped before the check, which closes a bypass that Python before 3.12 had.
+3. **Reject mixed DNS answers.** If a hostname resolves to any non-public address, the fetch is refused, so a public A record cannot hide a private AAAA record.
+4. **Connection-layer DNS pin.** The validated IP is the one the connection uses (through httpx's `sni_hostname` extension), so a second lookup cannot send the request to a private address. The hostname is kept for TLS and the `Host` header.
+5. **No redirects by default.** `follow_redirects=False`; a client has to opt in.
+6. **Size cap.** `fetch_bytes` reads the body as a stream and stops at 10 MiB.
 
-The same factory powers seven fetch surfaces in one pass: the contract resolver, the Kafka Connect REST client and its schema-registry client, the Airbyte REST client, the three publish-side catalog registrars (DataHub, OpenMetadata, Data Mesh Manager), the Databricks auth-provider's API check, and the schema-manager remote fetcher.
+These surfaces use that client: the ODPS contract resolver, the Kafka Connect and schema-registry clients, the Airbyte runner, the DataHub, OpenMetadata and Data Mesh Manager registrars, the OpenLineage emitter, the federation fetcher, the schema manager's remote fetch, the forge web tools, and an authentication provider's API check. Other outbound calls do not: LLM provider requests go to the provider's endpoint, `fluid apply --ensure-opentofu` downloads OpenTofu, and the Command Center client and the webhook alerter apply their own host check, described next.
 
 ## Allowlists for outbound integrations
 
-A handful of integrations need to call user-controlled hosts that the post-DNS filter would otherwise reject (e.g. an internal webhook receiver, a self-hosted catalog). Use the matching allowlist env var:
+A few integrations need to call hosts that the private-address filter would refuse, such as an internal webhook receiver or a self-hosted registry. Use the matching allowlist variable:
 
 | Variable | Surface |
 |---|---|
-| `FLUID_WEBHOOK_HOST_ALLOWLIST` | Webhook alerter (`fluid_build/build_runners/_alerter.py`). Comma-separated host suffixes — `corp.example.com,vpn.internal`. |
-| `FLUID_FEDERATION_HOST_ALLOWLIST` | Federation digests fetcher. |
-| `FLUID_COMMAND_CENTER_HOST_ALLOWLIST` | FLUID Command Center publish. |
+| `FLUID_WEBHOOK_HOST_ALLOWLIST` | The build webhook alerter |
+| `FLUID_FEDERATION_HOST_ALLOWLIST` | The federation digest fetcher |
+| `FLUID_COMMAND_CENTER_HOST_ALLOWLIST` | The Command Center client: detection, the observability reporter and `fluid apply` run reports. Loopback hosts are always allowed |
+| `FLUID_OPENLINEAGE_ALLOW_PRIVATE` | The OpenLineage emitter. It allows private addresses by default because lineage receivers are usually internal; `false` restores the public-only check. Link-local and metadata addresses stay blocked either way |
 
-Allowlists are **suffix matches** — `vpn.internal` permits `app.vpn.internal` but not `vpn.internal-evil.example.com`.
+The first three take comma-separated host suffixes, matched exactly or as a dotted suffix: `vpn.internal` permits `app.vpn.internal` but not `vpn.internal-evil.example.com`. A host on the list skips the address check.
 
-## Master toggles
+## Cloud metadata and the credential resolver
 
-| Variable | Effect |
-|---|---|
-| `FLUID_SAFE_MODE` | Master kill-switch. When set, every outbound HTTP fetch is refused — even those that would otherwise have gone through. Useful for air-gapped reviewers. |
-| `FLUID_ALLOW_METADATA_SERVICE` | Allow outbound calls to the cloud metadata service (`169.254.169.254`). **Off by default.** Only enable on hosts that need IAM/role auto-discovery and have no untrusted workload sharing the network. |
+`FLUID_ALLOW_METADATA_SERVICE=1` lets the metadata-source [credential resolver](./credential-resolver.md) fall back to cloud workload identity. It is off by default, and it is not an SSRF switch: it does not relax the checks above.
 
-## Ollama is localhost-only
+As of 0.18.1, nothing in the CLI reads `FLUID_SAFE_MODE` or acts on the global `--safe-mode` flag to refuse network calls.
 
-The Ollama provider is restricted to `127.0.0.1` and `::1`. You cannot point `fluid forge --llm-provider ollama` at a remote Ollama instance — even via an SSH tunnel that terminates locally, the post-DNS filter accepts the local socket. If you need a remote LLM, use one of the SaaS providers (OpenAI / Anthropic / Gemini / Bedrock / Vertex) behind their first-party HTTP — those are not restricted by the SSRF guard, only filtered against the IPv4/IPv6 private-range list.
+## Ollama is localhost only
+
+The Ollama provider uses `http://localhost:11434` unless `OLLAMA_HOST` names another localhost URL. An `OLLAMA_HOST` that points elsewhere is ignored with a warning, and the default is used. You cannot point `fluid forge --llm-provider ollama` at a remote Ollama instance this way. For a remote model, use a hosted provider (OpenAI, Anthropic, Gemini, Bedrock or Vertex).
+
+## Contract SQL and `$ref`
+
+Two 0.18.0 changes close network and file reads that a contract could previously trigger:
+
+- SQL in a contract runs in a DuckDB sandbox: it cannot read `http(s)://`, `gs://` or Azure URLs, and reaches only declared `s3://` locations. See [DuckDB sandbox](./duckdb-sandbox.md).
+- A `$ref` may only name a file inside the contract's directory tree. URL refs, `file://` refs and absolute paths are refused. See [Composing a contract with `$ref`](../concepts/contract-refs.md).
 
 ## How a denied fetch surfaces
 
-Denied fetches raise a typed `NetworkSafetyError` with one of these reasons:
+A refusal by the safe-HTTP client is an `UnsafeURLError`, a `ValueError` subclass. Its message says why, and each address refusal also logs a `ssrf_guard_blocked` warning with the host and address:
 
-- `scheme_not_allowed` — non-`http(s)` URL.
-- `private_address_blocked` — the DNS resolved to a private / loopback / link-local / reserved address.
-- `mixed_dns_resolution` — the hostname resolves to a mix of public and private addresses; the fetch is refused without retry.
-- `redirect_blocked` — the upstream responded with a 3xx and the caller did not opt in to redirects.
-- `body_cap_exceeded` — the streaming download crossed the `10 MiB` cap.
+- `refusing non-http(s) scheme: 'file'`
+- `refusing fetch from non-public address <address> (hostname '<host>')`: the DNS answer is private, loopback, link-local or reserved, including the mixed-answer case.
+- `cannot resolve hostname '<host>'`
+- `response from '<url>' exceeds <n> bytes`: the body cap.
 
-Each error carries `what / where / why / fix / doc` fields per the [typed CLI errors](./typed-cli-errors.md) shape.
+A redirect is not an error: the client returns the 3xx response and does not follow it. The webhook alerter raises `WebhookSsrfError` and the federation fetcher raises `FederationSsrfError` for the same address refusals, and each message names its allowlist variable.
 
-## Architecture contracts (enforced in CI)
+## Import contracts
 
-`v0.8.3` adds two declarative `[tool.importlinter]` contracts in `pyproject.toml`:
-
-1. **`observability ↛ build_runners`** — the observability layer cannot import the build-runner layer. Prevents the cycle that previously broke `cli/__init__.py` import.
-2. **`_net` is tier-0** — the canonical post-DNS-resolution SSRF check module has no `fluid_build.*` upstreams. Makes the SSRF gate safely reusable from any layer.
-
-These contracts are enforced by the upstream [`import-linter`](https://pypi.org/project/import-linter/) tool during development and in the `import-hygiene` CI job — they are **not** a runtime CLI feature. There is no `fluid lint-imports` subcommand. Contributors run them with:
+`pyproject.toml` declares [import-linter](https://pypi.org/project/import-linter/) contracts that keep this layer reusable: the observability package must not import the build runners, and `fluid_build._net`, which holds the shared address check, must not import other `fluid_build` packages. They are checked in development with `lint-imports`, not at run time.
 
 ```bash
 pip install import-linter
@@ -82,7 +83,7 @@ lint-imports
 
 ## See also
 
-- [Environment variables](./environment-variables.md) — full env-var index including the SSRF allowlists
-- [`fluid forge`](../cli/forge.md#remote-seeds-—-opt-in-to-http-s-fetch) — where `--seed-allow-remote` applies
-- [`fluid odps import`](../cli/odps-bitol.md#unified-fluid-odps-since-v0-8-3) — where `--allow-remote` applies
-- [Catalog overview](../cli/catalogs/overview.md) — publish-side registrars all use the safe-HTTP layer
+- [Environment variables](./environment-variables.md): the variables above in one place
+- [`fluid forge`](../cli/forge.md#remote-seeds-—-opt-in-to-http-s-fetch): where `--seed-allow-remote` applies
+- [`fluid odps import`](../cli/odps-bitol.md#unified-fluid-odps-since-v0-8-3): where `--allow-remote` applies
+- [Catalog overview](../cli/catalogs/overview.md): the publish-side registrars
