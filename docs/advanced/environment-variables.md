@@ -290,7 +290,7 @@ Read by `fluid mcp output-port`; see [MCP](./mcp.md).
 
 ## Variables with no effect in 0.18.1
 
-Earlier versions of this page listed the variables below. In 0.18.1 nothing reads them, or what reads them is not part of the running CLI, so setting them changes nothing. Each was checked against the 0.18.1 source.
+Earlier versions of this page listed the variables below. In 0.18.1 nothing reads them, or what reads them is not part of the running CLI, so setting them changes nothing. No consumer was found for these in the 0.18.1 source.
 
 | Variable | What to use instead |
 |---|---|

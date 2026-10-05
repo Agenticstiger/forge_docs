@@ -31,13 +31,13 @@ fluid generate ci --system circleci        # CircleCI
 fluid generate ci --system tekton          # Tekton (writes tekton/*.yaml)
 ```
 
-The templates are not the same pipeline. The Jenkins template is the one that runs the eleven stages described next. Generated with the default `standard` complexity, the GitHub Actions workflow runs `fluid doctor`, `fluid validate`, `fluid generate speed-transformation` and `fluid generate schedule`, a plan with `--check-sovereignty`, tests, and per-environment `fluid apply`, `fluid policy-apply`, `fluid verify` and `fluid contract-tests`. The GitLab file runs validation, `fluid test`, the two generate commands, the same plan, `fluid apply` and `fluid publish`. Neither has a bundle, diff or schedule-sync stage. Open the generated file for the commands a given system runs.
+The templates are not the same pipeline. The Jenkins template is the one that runs the stages described next (a stage 0 bootstrap, then stages 1-11). Generated with the default `standard` complexity, the GitHub Actions workflow runs `fluid doctor`, `fluid validate`, `fluid generate speed-transformation` and `fluid generate schedule`, a plan with `--check-sovereignty`, tests, and per-environment `fluid apply`, `fluid policy-apply`, `fluid verify` and `fluid contract-tests`. The GitLab file runs validation, `fluid test`, the two generate commands, the same plan, `fluid apply` and `fluid publish`. Neither has a bundle, diff or schedule-sync stage. Open the generated file for the commands a given system runs.
 
 ::: warning Check the GitHub and GitLab deploy steps before you use them
 As of 0.18.1, the per-environment deploy step in those two templates is written `FLUID_ENV=<env> if [ -n "$BUILD_ID" ]; then fluid apply ...; else ...; fi`. `bash` and `sh` both reject that with a syntax error (`near unexpected token 'then'`), and `fluid apply` does not read `FLUID_ENV`, so the environment is not selected by it. Pass `--env <env>` to the stage commands, as the Jenkins template does.
 :::
 
-## The Jenkins pipeline: eleven stages
+## The Jenkins pipeline: stages 1-11
 
 Stage 1 writes `runtime/bundle.tgz` for one environment. Stages 2, 3, 5, 6, 7 and 9 read that bundle and pass the same `--env`, so every stage works on the bytes stage 1 produced. If a stage runs without the bundle, it stops and says so.
 
@@ -67,7 +67,7 @@ On 0.18.0, stage 5 refused a BigQuery binding whose project was written `{{ env.
 
 ### Parameters
 
-Every parameter has a default, and every stage reads it with the same default as its shell fallback. A job's first build, and its first after a restart that re-seeds jobs from job-dsl or JCasC, run with no parameters exported and still behave correctly.
+The parameters in the table below have defaults, and the stages that read them use the same default as their shell fallback. A job's first build, and its first after a restart that re-seeds jobs from job-dsl or JCasC, run with no parameters exported and still behave correctly.
 
 | Parameter | Default | Purpose |
 |---|---|---|
