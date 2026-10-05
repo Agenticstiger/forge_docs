@@ -1,14 +1,10 @@
 # Product Types — SDP, ADP, CDP
 
-Schema **0.7.3** introduces a Data Mesh-aligned classification, `metadata.productType`, that runs alongside the existing medallion `metadata.layer`. Both vocabularies are first-class. You can use either one, or both together. When both are set, the validator enforces the canonical pairing.
+Schema **0.7.3** introduced a Data Mesh-aligned classification, `metadata.productType`, that runs alongside the medallion `metadata.layer`. Both vocabularies are accepted. You can use either one, or both together. When both are set, `fluid validate` checks that they agree.
 
 > **Why it matters**
-> Classify every product by where it sits in the value chain (source → aggregate → consumer-aligned) so teams know what to build on and what to reuse — data-mesh outcomes without the re-org.
-> `metadata.productType` (SDP / ADP / CDP) sits alongside the medallion layer, with `consumes[]` composition rules the validator enforces.
-
-::: tip Where this fits
-The `productType` field arrived with schema `0.7.3` (shipped); `0.7.5` is the current default. Existing 0.7.2 contracts validate unchanged — the new fields are purely additive.
-:::
+> Classify each product by where it sits in the value chain (source, aggregate, consumer-aligned) so teams know what to build on and what to reuse.
+> `metadata.productType` (SDP / ADP / CDP) sits alongside the medallion layer, with `consumes[]` composition rules that `fluid validate` checks.
 
 ## The vocabulary
 
@@ -17,7 +13,7 @@ The `productType` field arrived with schema `0.7.3` (shipped); `0.7.5` is the cu
 | `Bronze` | **`SDP`** | Source-Aligned Data Product | Raw or near-raw ingestion from an external system. One source, one product. |
 | `Silver` | **`ADP`** | Aggregated Data Product | Cross-source joined / domain-modelled. Built on top of one or more SDPs. |
 | `Gold` | **`CDP`** | Consumption-Aligned Data Product | Analytics- or product-shaped. The thing dashboards / ML / APIs read. |
-| `Platinum` | *(no analogue)* | — | Highly curated / regulated; rare. Stay on `metadata.layer` only. |
+| `Platinum`, `Logical` | *(no analogue)* | none | Valid `metadata.layer` values with no `productType`. Set `metadata.layer` only. |
 
 ## Why two vocabularies
 
@@ -25,13 +21,11 @@ The medallion vocabulary (`Bronze / Silver / Gold`) is widely understood by Lake
 
 - Teams migrating from a Lakehouse-first architecture know `Bronze` already and don't want to relearn.
 - Teams operating in a Data Mesh need `SDP / ADP / CDP` for catalog facets, ownership boundaries, and composition rules.
-- Tooling that consumes Forge contracts (Data Mesh Manager, marketplaces, governance dashboards) speaks one or the other — Forge propagates both.
-
-You don't need to pick one. Set whichever fits your team's vocabulary and let the validator infer the missing twin.
+- Tooling that consumes Forge contracts (Data Mesh Manager, marketplaces, governance dashboards) speaks one or the other. Set both in the file when your tooling needs both; see [What lands where](#what-lands-where).
 
 ## Setting it on a contract
 
-Either field is sufficient — set whichever is natural for your team.
+Either field is sufficient for validation. Set whichever is natural for your team.
 
 **Layer-only (medallion-first):**
 
@@ -43,7 +37,7 @@ metadata:
     email: platform@example.com
 ```
 
-The validator infers `productType: CDP` automatically; downstream catalog tooling sees both.
+`fluid validate` treats this product as a `CDP` when it applies the composition rules. The file itself still holds only `layer`.
 
 **productType-only (mesh-first):**
 
@@ -54,8 +48,6 @@ metadata:
     team: ingestion
     email: ingest@example.com
 ```
-
-The validator infers `layer: Bronze`.
 
 **Both set explicitly:**
 
@@ -68,70 +60,113 @@ metadata:
     email: analytics@example.com
 ```
 
-If both are set, they MUST agree — `Silver + ADP`, `Gold + CDP`, `Bronze + SDP`. Mismatches produce a clear validation error pointing at the conflict.
+If both are set, they must agree: `Bronze + SDP`, `Silver + ADP`, `Gold + CDP`. A mismatch fails `fluid validate` and quotes the pair:
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+
+Validation Errors:
+==================
+ 1. metadata consistency: metadata.layer='Gold' and metadata.productType='ADP'
+are inconsistent. Canonical mapping: Bronze↔SDP, Silver↔ADP, Gold↔CDP.
+```
 
 ## Composition rules
 
-The product type controls what a contract can `consumes:`. The composition rule is enforced both at validation time (via [`fluid validate`](/forge_docs/cli/validate.html)) and during AI-assisted forging (via `fluid forge --from-product`):
+The product type controls what a contract can list in `consumes[]`:
 
 | This contract type | Can consume from |
 |---|---|
 | **SDP** (`Bronze`) | Nothing. Source-aligned products ingest from external systems, not from other Forge products. |
-| **ADP** (`Silver`) | One or more `SDP`s. Domain-modelling joins or projects raw inputs. |
-| **CDP** (`Gold`) | One or more `SDP` and/or `ADP`s. The consumer-facing layer can read from anywhere. |
+| **ADP** (`Silver`) | `SDP`s and other `ADP`s. |
+| **CDP** (`Gold`) | `SDP`s, `ADP`s and other `CDP`s. |
 
-Setting `consumes:` on an SDP contract is a hard validation error — that's the wrong shape. Use `acquisition:` instead (see [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html)).
+`fluid validate` checks the rule. A contract that declares `consumes[]` on an SDP fails:
 
-## How the missing twin gets filled
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
 
-The validator's normalization step runs in three places (CLI validation, schema-level validation, runtime contract checks) and applies the same canonical mapping:
+Validation Errors:
+==================
+ 1. composition rule: SDP (Source-aligned data product (raw acquisition from an
+upstream system)) does not accept upstream products.
+(upstream='bronze.shop.orders_v1')
+```
+
+An ADP that consumes a CDP fails the same way: `ADP accepts upstreams of type ['ADP', 'SDP'] but 'gold.shop.revenue_v1' is CDP.` An SDP ingests with an acquisition build (`pattern: acquisition`) instead of `consumes[]`; see [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html).
+
+Three limits, each measured on 0.18.1:
+
+- **The check needs to find the upstream.** `fluid validate` looks for the upstream by scanning `*.fluid.yaml` files in the contract's own directory and up to three directories above it, stopping at the first directory that holds `.git`, `.fluid`, `fluid.yaml`, `pyproject.toml`, `.hg` or `.svn`. It reads the upstream's `id` and `metadata.productType` (or `metadata.layer`). An SDP that consumes a product it cannot find validates clean; the same contract fails once the upstream's file is in the scan. The scan walks every directory under those roots, so a contract in a directory with no marker file, under a large tree, validates slowly: one placed under `/tmp` on the machine used for this page took longer than two minutes. Keep contracts in a project directory that has a `.git` or `pyproject.toml`.
+- **`fluid plan` does not apply the rule.** The same SDP contract that fails `fluid validate` plans and saves its plan.
+- **The scan matches `*.fluid.yaml`.** A build that resolves `consumes[]` looks for files named `contract.fluid.yaml` instead; see [`consumes[]`](../concepts/builds-exposes-bindings.md#consumes-depending-on-another-product).
+
+`fluid forge --from-product` runs the same composition rule when it assembles a downstream contract from existing products (source: `fluid_build/forge_datamodel/from_data_products/pipeline.py`; the command needs an LLM provider and was not run for this page).
+
+## What the validator does with the pair
+
+`fluid validate` normalizes a copy of `metadata`: it checks that `layer` is one of `Bronze`, `Silver`, `Gold`, `Platinum`, `Logical`, that `productType` is one of `SDP`, `ADP`, `CDP`, and that a pair agrees. It does not write the missing field back into your file.
 
 ```text
 Bronze   ↔ SDP
 Silver   ↔ ADP
 Gold     ↔ CDP
-Platinum ↔ (no productType — Platinum is medallion-only)
+Platinum ↔ (no productType)
 ```
-
-If only one is set, the other is filled from this map. If both are set and disagree, validation fails with the offending pair quoted.
 
 ## Migrating existing contracts
 
-If you have a stack of 0.7.2 contracts using only `metadata.layer`, the new [`fluid contract migrate-product-type`](/forge_docs/cli/contract.html#fluid-contract-migrate-product-type) command walks `**/*.fluid.yaml` under a root and writes the missing twin into each:
+To write the missing twin into the files, run [`fluid contract migrate-product-type`](/forge_docs/cli/contract.html#fluid-contract-migrate-product-type). It walks `**/*.fluid.yaml` under a root and fills in the field that is missing:
 
 ```bash
 fluid contract migrate-product-type --root . --check     # dry-run; non-zero exit if anything is incomplete
-fluid contract migrate-product-type --root . --write     # rewrite in place
+fluid contract migrate-product-type --root . --write --yes   # rewrite in place
 ```
 
-The migrator preserves comments, key order, and quoting style so the diff is minimal.
+`--write` asks for confirmation, and refuses to run without `--yes` when stdin or stdout is not a terminal (CI). A dry run on a layer-only contract prints:
 
-## Cloud-label propagation
+```text
+✏️  .../a.fluid.yaml: would write layer=Gold productType=CDP (was layer=Gold productType=<unset>)
+Scanned 1 contract(s) under ...: 1 would be rewritten, 0 already complete, 0 still missing both twins.
+❌ 1 contract(s) need migration; re-run with --write to apply or fix metadata by hand.
+```
 
-Provider tag emitters (AWS / GCP / Snowflake) project both vocabularies into cloud labels using **distinct keys with the same canonical value** so dashboards filtering by either vocabulary see consistent groupings:
+As of 0.18.1, `--write` rewrites the whole file through a YAML round trip, so the diff is larger than the one field:
 
-| Cloud | Key 1 | Key 2 |
-|---|---|---|
-| GCP labels | `fluid_layer` | `fluid_product_type` |
-| AWS tags | `fluid_layer` | `fluid_product_type` |
-| Snowflake tags | `FLUID_LAYER` | `FLUID_PRODUCT_TYPE` |
+- comments are dropped (a `# medallion layer` comment on the `layer:` line was gone after the rewrite);
+- `fluidVersion: "0.7.5"` becomes `fluidVersion: 0.7.5`;
+- inline mappings such as `owner: { team: shop, email: shop@example.com }` are expanded, and list items lose their indentation;
+- `productType` is added at the end of `metadata`.
 
-A `Gold + CDP` data product appears as `fluid_layer=Gold` AND `fluid_product_type=CDP` in BigQuery's resource manager, so a query that groups by either dimension produces the same answer.
+Commit the contracts before you run `--write` and review the diff.
+
+## What lands where
+
+Provider emitters read `metadata.layer` and `metadata.productType` as the file writes them. A layer-only contract produces `fluid_layer` and no `fluid_product_type`. Measured with `fluid generate iac` on 0.18.1, for a `Gold` + `CDP` contract:
+
+| Cloud | Where the values appear |
+|---|---|
+| AWS | Parameters on the Glue table: `fluid_layer` = `Gold` and `fluid_product_type` = `CDP`. |
+| Snowflake | Lines in the table comment: `fluid_layer: Gold` and `fluid_product_type: CDP`. |
+| GCP (BigQuery) | Not emitted. The dataset and table labels carry `fluid_contract` and `managed_by`. |
+
+Set both fields in the file, or run the migrator, if a dashboard needs to filter on either vocabulary.
 
 ## Other 0.7.3 metadata additions
 
-While you're updating contracts, two adjacent fields ship in the same schema bump:
+Two adjacent fields shipped in the same schema bump:
 
 | Field | Type | What it's for |
 |---|---|---|
-| `metadata.classification` | enum: `public`, `internal`, `confidential`, `restricted` | Propagates to catalog access-policy enforcement and DLP scanners |
-| `metadata.experimental` | string array | Feature gate — flags a product as opt-in or under active iteration |
+| `metadata.classification` | enum: `public`, `internal`, `confidential`, `restricted` | A data classification label. The schema describes it as propagated to catalog and access-policy enforcement. |
+| `metadata.experimental` | string array | Feature gates the contract opts into. |
 
-Neither is required. Both are picked up by the catalog registrars (DataHub, OpenMetadata, Unity, Glue, Snowflake Horizon) when present.
+Neither is required.
 
 ## See also
 
-- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the acquisition build pattern that powers SDP contracts
-- [`fluid contract migrate-product-type`](/forge_docs/cli/contract.html#fluid-contract-migrate-product-type) — the migrator command
-- [`fluid forge --from-product`](/forge_docs/cli/forge.html) — composition-aware AI scaffolding that respects the type rules
-- [Forge Data Model](/forge_docs/forge-data-model.html) — how the data-modelling pipeline emits productType into the generated contract
+- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) - the acquisition build pattern that powers SDP contracts
+- [`consumes[]`](../concepts/builds-exposes-bindings.md#consumes-depending-on-another-product) - how a build reads an upstream product
+- [`fluid contract migrate-product-type`](/forge_docs/cli/contract.html#fluid-contract-migrate-product-type) - the migrator command
+- [`fluid forge --from-product`](/forge_docs/cli/forge.html) - composition-aware AI scaffolding that applies the type rules
+- [Forge Data Model](/forge_docs/forge-data-model.html) - how the data-modelling pipeline emits productType into the generated contract
