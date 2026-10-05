@@ -4,12 +4,12 @@
 
 > **Why it matters**
 > Give an AI agent safe, read-only access to a published data product — governed by the same contract that governs people.
-> `fluid mcp output-port serve` binds one expose and enforces `agentPolicy`, row filters, and PII/PHI redaction on every call.
+> `fluid mcp output-port serve` binds one expose and enforces `agentPolicy` and sensitivity-based PII/PHI redaction on every call.
 
 <!-- CLICAST: mcp-output-port (orchestrator wires SVG + nav) -->
 
 ::: warning Compatibility note
-The contract on this page uses `fluidVersion: "0.7.4"`. The CLI validates each contract against its own declared version, so this example stays valid as the schema evolves. The shipped example lives at `examples/mcp-output-port/` in the forge-cli repo.
+The contract on this page uses `fluidVersion: "0.7.4"`, as the shipped example does. The CLI validates each contract against its own declared version, so it stays valid as the schema evolves. The example lives at `examples/mcp-output-port/` in the [forge-cli repo](https://github.com/Agenticstiger/forge-cli/tree/main/examples/mcp-output-port).
 :::
 
 ---
@@ -29,6 +29,7 @@ No cloud account, no credentials, no cost. Everything runs on DuckDB reading a l
 - The four agent tools: `describe`, `sample`, `query`, and the gated `query_sql`.
 - How `sensitivity: pii` redacts **values** while keeping the column **visible**.
 - How `agentPolicy.allowedModels` gates which LLM may read the product — enforced at runtime, from the contract.
+- Which contract keys the gateway reads that `fluid validate` rejects (`policy.rowFilters`).
 - Where to go for production HTTP + mTLS.
 
 ---
@@ -41,7 +42,7 @@ No cloud account, no credentials, no cost. Everything runs on DuckDB reading a l
 pip install 'data-product-forge[local]'
 ```
 
-The `[local]` extra pulls in DuckDB, which is the reference engine for the output port.
+The `[local]` extra pulls in DuckDB (1.5.0 or later), which is the reference engine for the output port. Without it, `fluid mcp output-port doctor` fails its `engine_health` check with `duckdb is not installed`.
 
 ### Verify the command is wired
 
@@ -55,7 +56,18 @@ You should see the three subcommands: `serve`, `list`, and `doctor`.
 
 ## Step 2: The example data product
 
-The repo ships a minimal contract and a CSV at `examples/mcp-output-port/`. The CSV has eight customers:
+The forge-cli repo ships a minimal contract and a CSV at `examples/mcp-output-port/`. Clone it and work from that directory; every command below runs there:
+
+```bash
+git clone https://github.com/Agenticstiger/forge-cli.git
+cd forge-cli/examples/mcp-output-port
+```
+
+::: warning Run from the contract's directory
+The contract's `location.path: ./customers.csv` is documented as resolved against the contract's directory. As of 0.18.1 the driver resolves it against the **working directory** of the process that starts the server. From any other directory the CSV is not found, and every tool call fails with `UnsupportedBindingError`. `fluid mcp output-port doctor` does not catch this: it only runs `SELECT 1`, and reports `OK`. Start the server from the contract's directory, or put the absolute path of the CSV in `location.path`.
+:::
+
+The CSV has eight customers:
 
 ```
 customer_id,email,segment,signup_date,lifetime_value_usd
@@ -112,20 +124,27 @@ exposes:
 Before wiring anything to a client, confirm the server can see and load the product.
 
 ```bash
-fluid mcp output-port list examples/mcp-output-port/contract.fluid.yaml
+fluid mcp output-port list contract.fluid.yaml
 ```
 
-You should see a single expose `customer_segments` with engine `local/csv`, a `semantics` flag, and an `expose.mcp` overrides flag.
+```text
+Exposes in contract.fluid.yaml (1 total):
+
+  • customer_segments  (table)
+      title:  Customer Segments
+      engine: local/csv → ./customers.csv
+      tools:  describe, sample, query  [semantics, expose.mcp]
+```
 
 ```bash
-fluid mcp output-port doctor examples/mcp-output-port/contract.fluid.yaml
+fluid mcp output-port doctor contract.fluid.yaml
 ```
 
-The doctor loads the DuckDB driver and runs a `SELECT 1` health check. A green check on every line means the server will start cleanly:
+The doctor loads the DuckDB driver and runs a `SELECT 1` health check. It does not open the CSV. Green checks mean the driver loads and DuckDB runs:
 
-```
+```text
 ✅ fluid mcp output-port doctor: expose='customer_segments' (OK)
-  contract: .../examples/mcp-output-port/contract.fluid.yaml
+  contract: .../contract.fluid.yaml
   binding:  local/csv → customer_segments
   tools:    describe, sample, query
   ✓ driver_load: duckdb
@@ -137,7 +156,7 @@ The doctor loads the DuckDB driver and runs a `SELECT 1` health check. A green c
 ## Step 4: Serve over MCP stdio
 
 ```bash
-fluid mcp output-port serve examples/mcp-output-port/contract.fluid.yaml
+fluid mcp output-port serve contract.fluid.yaml
 ```
 
 `--expose-id` is omitted because there is exactly one expose; the server logs `auto-selected expose 'customer_segments'` to stderr and then blocks, waiting for an MCP client to drive it over stdin/stdout.
@@ -154,22 +173,26 @@ the same way, because the auth middleware never runs. See
 [auth modes](../advanced/mcp.md#authentication-modes).
 :::
 
-In another terminal, drive it with the official **MCP Inspector CLI** — no editor needed. First, list the tools:
+Stop that server (`Ctrl-C`) and drive it with the official **MCP Inspector CLI** — no editor needed. The Inspector starts the server itself: give it the server command, then the method to call. First, list the tools:
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli --transport stdio \
-  --method tools/list \
-  -- fluid mcp output-port serve examples/mcp-output-port/contract.fluid.yaml
+npx -y @modelcontextprotocol/inspector --cli \
+  fluid mcp output-port serve contract.fluid.yaml \
+  --method tools/list
 ```
+
+::: tip Inspector argument order
+The Inspector's argument syntax has changed between releases. This form worked with Inspector `2.9.0` on 5 October 2026: the server command first, then `--method`, `--tool-name` and `--tool-arg`. An older `--transport stdio ... -- <command>` form is rejected by that release with `Method is required`. If yours rejects this one, run `npx @modelcontextprotocol/inspector --help`.
+:::
 
 You should see **three** tools: `describe`, `sample`, and `query`. (`query` appears because the expose has a `semantics` block; `query_sql` is hidden because we didn't pass `--allow-sql`.)
 
 ### describe — learn the shape without touching the data
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli --transport stdio \
-  --method tools/call --tool-name describe \
-  -- fluid mcp output-port serve examples/mcp-output-port/contract.fluid.yaml
+npx -y @modelcontextprotocol/inspector --cli \
+  fluid mcp output-port serve contract.fluid.yaml \
+  --method tools/call --tool-name describe
 ```
 
 `describe` returns the schema, the semantic model (measures / dimensions / metrics), the binding (platform / format / table reference / dialect), and the `agentPolicy` block. No engine round-trip — this is how an agent orients itself before spending a query.
@@ -179,14 +202,27 @@ npx -y @modelcontextprotocol/inspector --cli --transport stdio \
 The agent doesn't write SQL; it picks a metric (or measure) from `expose.semantics`:
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli --transport stdio \
-  --method tools/call --tool-name query --tool-arg metric=ltv_total \
-  -- fluid mcp output-port serve examples/mcp-output-port/contract.fluid.yaml
+npx -y @modelcontextprotocol/inspector --cli \
+  fluid mcp output-port serve contract.fluid.yaml \
+  --method tools/call --tool-name query --tool-arg metric=ltv_total
 ```
 
-The server compiles that to a parameterised `SELECT SUM(lifetime_value_usd) AS total_ltv_usd FROM customer_segments LIMIT …`, runs it on DuckDB, and returns the total lifetime value across all customers. Every identifier is validated; the agent never had a raw-SQL surface.
+The server compiles that to a `SELECT` over the bound table, runs it on DuckDB, and returns the total lifetime value across all customers. Every identifier is validated; the agent never had a raw-SQL surface. The result carries the SQL it ran:
 
-To break that total down by segment, a real MCP client (Claude, Cursor) sends the `dimensions` argument as a JSON array — `{"metric": "ltv_total", "dimensions": ["segment"]}` — and the server adds `segment` to both the `SELECT` and a `GROUP BY`. (The Inspector CLI's `--tool-arg key=value` form only sends scalars, so use a real client, or the `query` examples in the [CLI reference](../cli/mcp.md#the-four-agent-tools), to pass arrays and `filters`.)
+```json
+{
+  "columns": ["ltv_total"],
+  "rows": [{"ltv_total": 68551.5}],
+  "rowCount": 1,
+  "truncated": false,
+  "compiled": {
+    "sql": "SELECT SUM(lifetime_value_usd) AS ltv_total\nFROM customer_segments\nLIMIT 100",
+    "parameters": null
+  }
+}
+```
+
+To break that total down by segment, a real MCP client (Claude, Cursor) sends the `dimensions` argument as a JSON array — `{"metric": "ltv_total", "dimensions": ["segment"]}` — and the server adds `segment` to both the `SELECT` and a `GROUP BY`. For the example data it returns `enterprise` 59100.75, `smb` 6800.0 and `consumer` 2650.75, ordered by the metric. (The Inspector CLI's `--tool-arg key=value` form only sends scalars, so use a real client, or the `query` examples in the [CLI reference](../cli/mcp.md#the-four-agent-tools), to pass arrays and `filters`.)
 
 ---
 
@@ -195,22 +231,33 @@ To break that total down by segment, a real MCP client (Claude, Cursor) sends th
 `email` is marked `sensitivity: pii` in the contract, so the gateway redacts its **values** on every result while keeping the column visible. Call `sample`:
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli --transport stdio \
-  --method tools/call --tool-name sample --tool-arg limit=2 \
-  -- fluid mcp output-port serve examples/mcp-output-port/contract.fluid.yaml
+npx -y @modelcontextprotocol/inspector --cli \
+  fluid mcp output-port serve contract.fluid.yaml \
+  --method tools/call --tool-name sample --tool-arg limit=2
 ```
 
 ```jsonc
 {
+  "exposeId": "customer_segments",
   "columns": ["customer_id", "email", "segment", "signup_date", "lifetime_value_usd"],
   "rows": [
-    {"customer_id": "C-0001", "email": "[REDACTED-PII]", "segment": "enterprise", ...},
-    {"customer_id": "C-0002", "email": "[REDACTED-PII]", "segment": "smb", ...}
-  ]
+    {"customer_id": "C-0001", "email": "[REDACTED-PII]", "segment": "enterprise", "signup_date": "2024-01-15", "lifetime_value_usd": 12500.0},
+    {"customer_id": "C-0002", "email": "[REDACTED-PII]", "segment": "smb", "signup_date": "2024-02-10", "lifetime_value_usd": 4500.0}
+  ],
+  "rowCount": 2,
+  "truncated": true,
+  "requestedLimit": 2,
+  "effectiveLimit": 2
 }
 ```
 
-The agent learns the `email` field **exists** — so it can still write `COUNT(DISTINCT email)` aggregates — but never sees a real address. The same masking applies to `query` and `query_sql` results, and it can't be aliased away: even with `--allow-sql`, `SELECT email AS x` is **rejected at compile time**. No flag, no proxy, no code — governance comes straight from the contract. This is the whole value proposition in one call.
+The agent learns the `email` field **exists** but never sees a real address. The same masking applies to `query` results. The free-form `query_sql` tool (served only with `--allow-sql`) does not return masked values at all: it refuses any statement that names the column, aliased or not.
+
+```text
+QueryValidationError: sql references column 'email' which is restricted by expose.policy.authz.columnRestrictions / expose.policy.privacy.masking. The free-form --allow-sql path enforces the same column-level deny rules as the sample / query tools — aliasing the column does not bypass them.
+```
+
+This applies to `SELECT email AS x ...` and to `SELECT COUNT(DISTINCT email) ...` alike. No flag, no proxy, no code — governance comes straight from the contract.
 
 ---
 
@@ -226,17 +273,18 @@ Now gate **which model** may read the product. Add an `agentPolicy` block to the
           - gpt-4o-mini
 ```
 
-Only those two models may now call any tool. The caller declares its model id in the MCP `initialize` handshake — on `clientInfo`, or under its declared `experimental.fluid` capability, which is the only one of the two that survives MCP SDK 2.x (see below). To simulate a **disallowed** model from the CLI without editing the contract again, use the operational override — `--allow-models` *replaces* the contract list for this run, so serve with a list that excludes whatever your client reports:
+The edited contract still passes `fluid validate`. Only those two models may now call any tool. The caller declares its model id in the MCP `initialize` handshake — on `clientInfo`, or under its declared `experimental.fluid` capability, which is the only one of the two that survives MCP SDK 2.x (see below). To simulate a **disallowed** model without editing the contract again, use the operational override — `--allow-models` *replaces* the contract list for this run:
 
 ```bash
 # Pin the allowlist to a single approved model for this run.
-fluid mcp output-port serve examples/mcp-output-port/contract.fluid.yaml \
+fluid mcp output-port serve contract.fluid.yaml \
   --allow-models claude-haiku-4-5-20251001
 ```
 
-A client that initializes as any other model (or declares none) is refused on **every** `tools/call` with a typed envelope:
+A client that declares a model outside the list is refused on **every** `tools/call` with a typed envelope. A client that declares **no** model, which includes the Inspector CLI used above, is refused with `missing-model-identity` instead:
 
 ```jsonc
+// the client declared "gpt-4o"
 {
   "error": "AgentPolicyDenied",
   "tool": "sample",
@@ -245,7 +293,17 @@ A client that initializes as any other model (or declares none) is refused on **
 }
 ```
 
-The deny — like every allow — is written to `~/.fluid/store/audit/` with the tool, the model id, the reason, and `policySource: "cli"` (or `"contract"` when the gate came from the YAML). A missing model id fails closed (`missing-model-identity`): the gateway never serves data under undefined identity.
+```jsonc
+// the client declared no model
+{
+  "error": "AgentPolicyDenied",
+  "tool": "sample",
+  "reason": "missing-model-identity",
+  "message": "denied by agentPolicy (missing-model-identity); see audit trail for the full decision."
+}
+```
+
+The deny — like every allow — is written to `~/.fluid/store/audit/` with the tool, the model id, the reason, and `policySource: "cli"` (or `"contract"` when the gate came from the YAML). Missing model identity fails closed: the gateway never serves data under undefined identity. To see `not-in-allowedModels` you need a client that declares a model, such as the SDK-based one under Step 6's note below.
 
 ::: tip New in `0.15.0`
 Every `data_access` record — allow and deny alike — now also carries `policyDigest`, a
@@ -270,8 +328,9 @@ they never reach the gateway. A client relying on that shape is no longer attest
 gets no error about it — the call fails closed as `missing-model-identity` rather than
 the `not-in-allowedModels` shown above.
 
-Clients built through fluid's own helper are unaffected, and the Inspector CLI used
-here never attested a model in the first place, so Step 6 reads the same. If you
+Clients built through fluid's own helper are unaffected. The Inspector CLI used
+here never attested a model in the first place, so against an allowlist it is
+always refused as `missing-model-identity`. If you
 hand-rolled a client that puts identity on `clientInfo`, move it to the client's
 declared capabilities under `experimental.fluid`, which both SDK generations parse:
 
@@ -292,7 +351,7 @@ verified JWT or mTLS claims replace self-attestation outright.
 
 ## Step 7: Wire it to Claude Code
 
-For everyday use, register the server in your MCP client. Drop this into `~/.config/claude-code/mcp_servers.json`:
+For everyday use, register the server in your MCP client. For Claude Code, add it to the project's `.mcp.json`:
 
 ```json
 {
@@ -308,6 +367,8 @@ For everyday use, register the server in your MCP client. Drop this into `~/.con
   }
 }
 ```
+
+The client starts `fluid` in its own working directory, not in the contract's. Change `location.path` in the contract to the absolute path of `customers.csv` first (see the warning in Step 2), or every tool call fails with `UnsupportedBindingError`.
 
 Then ask Claude: *"Sample the customer_segments table and show ltv_total grouped by segment."* It will call `describe`, then `query` — and every `email` it ever sees is `[REDACTED-PII]`.
 
@@ -340,8 +401,19 @@ fluid mcp output-port serve ./contract.fluid.yaml \
   --transport http --host 127.0.0.1 --port 8765
 ```
 
+### `policy.rowFilters` is read by the gateway and rejected by `fluid validate`
+
+The gateway and the cloud IAM compiler read per-tenant `policy.rowFilters[]` from an expose. No bundled schema (0.7.1 to 0.7.6) declares that key, and `exposes[].policy` allows no other properties, so a contract that declares it fails validation, and with it `plan` and `apply`:
+
+```text
+exposes[0].policy: Additional properties are not allowed ('rowFilters' was unexpected)
+```
+
+Do not rely on `rowFilters` in a contract that goes through `fluid validate`. The restrictions that do validate and that this walkthrough used are `sensitivity` on a column and `policy.agentPolicy`. The advanced MCP page's examples that include `rowFilters` carry the same limit.
+
 ### Go deeper
 
 - [Advanced: MCP output-port governance](../advanced/mcp.md) — the full enforcement order, auth modes (shared-token / JWT / mTLS), the five drivers, cloud-IAM compilers, rate-limit / circuit-breaker / audit internals.
-- [`fluid mcp` CLI reference](../cli/mcp.md) — every flag, copy-paste examples.
-- [Governance](../advanced/governance.md) — authoring contract-level policy (`rowFilters`, `columnRestrictions`, `agentPolicy`).
+- [`fluid mcp` CLI reference](../cli/mcp.md) — the flags, with copy-paste examples.
+- [Governance](../advanced/governance.md) — `policy-check`, `policy-compile` and the access, classification and quality blocks.
+- [Agent policy](../concepts/agent-policy.md) — `agentPolicy` and where it is enforced.
