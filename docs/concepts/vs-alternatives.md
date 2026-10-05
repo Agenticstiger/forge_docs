@@ -50,10 +50,10 @@ This page is the comparison page we'd want to read if we were evaluating Forge c
 - **dbt Cloud / dbt Mesh** — if you're committed to the dbt ecosystem and willing to pay for the cloud product, you get IDE, CI, lineage, and discovery without leaving dbt-land.
 
 ### Where Forge wins
-- **Multi-cloud portability** — change `binding.platform: snowflake` to `binding.platform: bigquery`, redeploy. dbt's adapter layer handles SQL dialect differences but not the surrounding infrastructure (datasets, IAM, regions).
-- **Governance as part of the contract** — `accessPolicy.grants` compiles to native IAM (BigQuery `IAM_BINDINGS`, Snowflake `GRANT`, AWS resource policies). dbt has no equivalent — you wire IAM separately.
+- **Multi-cloud portability** — one base contract, with a per-cloud overlay that changes only the binding (platform, format, location, and on fluid-schema 0.7.6 the principals). `fluid apply --env gcp` emits BigQuery datasets and IAM; `--env aws` emits S3, Glue and Lake Formation. dbt's adapter layer handles SQL dialect differences but not the surrounding infrastructure (datasets, IAM, regions).
+- **Governance as part of the contract** — `fluid apply` provisions native controls from the contract: BigQuery dataset IAM members and Data Catalog policy tags on GCP, Lake Formation grants with excluded columns on AWS. Coverage differs by cloud, and as of 0.18.1 Snowflake reads none of these fields; see the [per-cloud table](./governance-policy.md#what-gets-emitted-per-cloud). dbt's `grants` config sets privileges on the models it builds.
 - **Agent governance** — `agentPolicy` declares which LLMs can read which fields, with audit logging. dbt has no concept of this.
-- **Sovereignty / regulatory framework** — `sovereignty.regulatoryFramework: ['SOX', 'GDPR']` is enforced before deploy. dbt does not validate compliance.
+- **Sovereignty** — `sovereignty.jurisdiction` and `allowedRegions` are enforced before deploy: `fluid validate` refuses an out-of-policy region, and on AWS and GCP so does `fluid apply`. dbt does not check where data lives.
 - **Local-first development** — `pipx install "data-product-forge[local]"` and `fluid apply` work entirely on DuckDB with no cloud account. dbt-core works locally too, but the typical dbt onboarding assumes a warehouse.
 - **The contract is the source of truth** — dbt models describe transformations; Forge contracts describe the entire data product (schema, transformation, exposure, governance). Different scope.
 
@@ -63,12 +63,15 @@ Forge does **not** replace dbt. The recommended pattern is `engine: dbt` inside 
 ```yaml
 builds:
   - id: customer_metrics
-    engine: dbt              # ← dbt does the SQL
+    pattern: hybrid-reference   # required whenever properties is set
+    engine: dbt                 # ← dbt does the SQL
     repository: ./dbt
     properties:
-      project: customer_360
-      target: prod
+      model: customer_metrics   # required: the dbt model to build
+      target: prod              # forwarded as dbt --target
 ```
+
+A build with `properties` and no `pattern` never validates: the properties are checked against every pattern at once.
 
 ---
 
@@ -84,8 +87,8 @@ builds:
 
 ### Where Forge wins
 - **Contract-first vs pipeline-first** — Forge starts with "what is this data product" (schema, SLAs, governance). Dagster starts with "how is it computed" (assets, ops). Different first principle.
-- **Native cloud IAM emission** — same as the dbt comparison: `accessPolicy.grants` → `bindings.json` → `policy-apply`. Dagster has IO managers and resources, but no equivalent IAM compilation.
-- **Multi-cloud abstraction at the contract layer** — Dagster's resources are typed to a specific platform per pipeline. Forge's `binding.platform` is a swap.
+- **Native cloud IAM emission** — same as the dbt comparison: `fluid apply` provisions the grants and column restrictions the contract declares, where the provider supports them. Dagster has IO managers and resources, but no equivalent IAM compilation.
+- **Multi-cloud abstraction at the contract layer** — Dagster's resources are typed to a specific platform per pipeline. In Forge the product is declared once and each cloud is an overlay on the binding.
 - **Agent governance as a first-class contract field** — Dagster doesn't model this.
 - **Smaller surface for read-only data product producers** — if your team's job is to *publish* a data product (not to *operate* a complex pipeline), Forge's mental model is lighter than Dagster's.
 
@@ -107,11 +110,11 @@ builds:
 ### Where Forge wins
 - **Data-product-specific abstractions** — `exposes`, `dq.rules`, `agentPolicy`, `sovereignty`, `lineage` — try expressing these in Terraform. You can't, except as ad-hoc resource configurations that drift.
 - **Schema-as-contract** — Forge validates the schema against the actual deployed table. Terraform doesn't know what a "schema" is.
-- **One contract, three clouds** — Terraform requires three different sets of resource definitions to deploy "the same" BigQuery table on Snowflake and Athena. Forge does it with one binding swap.
+- **One contract, three clouds** — Terraform requires three different sets of resource definitions to deploy "the same" table on BigQuery, Snowflake and Athena. Forge keeps one base contract and a binding overlay per cloud.
 - **Compiles to OpenTofu/Terraform** — `fluid generate iac` emits a deterministic `main.tf.json` module when you want to inherit your Terraform pipeline downstream.
 
 ### How they fit together
-Forge sits **on top of** Terraform conceptually. Many teams use Forge for the data-product layer and inherit their Terraform pipeline for the surrounding infra (VPCs, KMS keys, etc). Forge's `policy-apply` can either apply IAM directly or emit Terraform for human review.
+Forge sits **on top of** OpenTofu/Terraform: on AWS, GCP and Snowflake, `fluid apply` runs the module `fluid generate iac` writes. Teams use Forge for the data-product layer and keep their Terraform pipeline for the surrounding infrastructure (VPCs, networking, organisation policy). To review before anything runs, commit the output of `fluid generate iac` and apply it with `tofu`.
 
 ---
 
@@ -122,7 +125,7 @@ Forge sits **on top of** Terraform conceptually. Many teams use Forge for the da
 ### Where Snowflake-stack wins
 - **Vendor-specific feature depth** — Snowpark UDFs, stored procs, search optimization, query acceleration, time-travel, zero-copy clones. Forge can drive Snowflake but doesn't surface every Snowflake-specific tuning knob.
 - **Single bill, single support contract** — one vendor relationship, one billing system, one support team.
-- **Snowflake Cortex / native LLM** — if your strategy is "Snowflake will be the AI plane too", Cortex is integrated. Forge supports Snowflake Cortex via providers but isn't tied to it.
+- **Snowflake Cortex / native LLM** — if your strategy is "Snowflake will be the AI plane too", Cortex is integrated. Forge has no Cortex integration; its agent surface is the MCP output port.
 - **dbt Cloud** — IDE, CI, lineage, jobs all hosted. Forge has none of the hosted UX yet.
 
 ### Where Forge wins
@@ -132,7 +135,7 @@ Forge sits **on top of** Terraform conceptually. Many teams use Forge for the da
 - **Open-source, Apache-2.0** — no vendor lock at the orchestration layer.
 
 ### How they fit together
-Use `binding.platform: snowflake` for your Snowflake-resident data products and inherit Snowflake's vendor-specific features via `binding.properties.snowflake.*`. The contract stays portable; the Snowflake-specific knobs are a property pass-through.
+Use `binding.platform: snowflake` for your Snowflake-resident data products. Snowflake table settings the emitter reads, such as `binding.properties.cluster_by`, live in the binding, so the rest of the contract stays portable. As of 0.18.1, governance does not carry over: on Snowflake, access grants, column restrictions and masking from the contract are not emitted.
 
 ---
 

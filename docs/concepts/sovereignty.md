@@ -26,7 +26,7 @@ sovereignty:
 
 Three different kinds of statement live in that block, and it is worth keeping them apart:
 
-- **`jurisdiction`** is a *legal* claim — `EU`, `US`, `UK`, `CA`, `AU`, `JP`, `CN`, `IN`, `BR`, or the two catch-alls below. Forge resolves each expose's `binding.location.region` to a jurisdiction and compares. The region table is derived rather than hand-maintained (botocore's own endpoint data for AWS, a vendored open dataset for GCP and Azure), because a table edited by hand goes stale silently and a stale sovereignty table is a governance bug, not a missing feature.
+- **`jurisdiction`** is a *legal* claim — `EU`, `US`, `UK`, `CA`, `AU`, `JP`, `CN`, `IN`, `BR`, or the two catch-alls below. Forge resolves each expose's `binding.location.region` to a jurisdiction and compares (on GCP, `binding.location.location` is read the same way). The region table is derived from botocore's endpoint data for AWS and a vendored open dataset for GCP and Azure, plus a short hand-kept GCP supplement for the regions and dual-regions that dataset lacks. A region the table cannot place resolves to `Unknown`, which the strict mode refuses on a cloud binding (see [below](#a-cloud-binding-must-name-a-region-it-can-place)).
 - **`allowedRegions` / `deniedRegions`** are *operational* lists, named region strings, evaluated without any jurisdiction lookup.
 - **`dataResidency` and `crossBorderTransfer`** describe *movement* — whether the product's exposes may straddle more than one jurisdiction at all.
 
@@ -52,6 +52,49 @@ fluid validate contract.fluid.yaml
 ```
 
 Which is why the defaults matter more than they look. Declaring the block is the decision; the defaults then assume the strict reading of it rather than the permissive one.
+
+## A cloud binding must name a region it can place
+
+Since 0.17.0 the checker fails closed on AWS, GCP and Azure bindings. A binding with no region used to pass and land wherever the platform chose; a BigQuery dataset with no location lands in the `US` multi-region. Now, with a `sovereignty` block:
+
+```bash
+# jurisdiction: EU, allowedRegions: [europe-west1], gcp binding with no region
+fluid validate contract.fluid.yaml
+# ❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+#  1. ❌  Binding declares no region, so where its data lives cannot be checked
+# against the sovereignty policy (the platform would choose)
+#    💡 Set binding.location.region to one of: europe-west1
+# exit 1
+```
+
+The mode decides the outcome, as for any other finding: `strict` refuses, `advisory` warns and exits 0, `audit` logs.
+
+A region the table cannot resolve to a jurisdiction is refused the same way under `strict` on a cloud binding, unless you vouch for it by naming it in `allowedRegions`:
+
+```bash
+# jurisdiction: EU, allowedRegions: [europe-west1], region: xx-unknown1
+fluid validate contract.fluid.yaml
+#  2. ❌  Region 'xx-unknown1' (jurisdiction: Unknown) does not match required
+# jurisdiction: EU
+#    💡 Use a region in the EU jurisdiction; if 'xx-unknown1' is one, name it in
+# sovereignty.allowedRegions
+# exit 1
+```
+
+Under `advisory` and `audit`, and on other platforms, an unresolvable region stays a warning.
+
+How GCP locations resolve on 0.18.1:
+
+| Location | Jurisdiction |
+|---|---|
+| `US`, `EU` (BigQuery and Cloud Storage multi-regions) | `US`, `EU` |
+| `EUR4` | `EU` |
+| `NAM4` | `US` |
+| `ASIA1` | `JP` |
+| `EUR5`, `EUR7`, `EUR8` (dual-regions that straddle jurisdictions) | `Unknown` |
+| `ASIA` (multi-region) | `Unknown` |
+
+A Pub/Sub topic's region becomes its `message_storage_policy.allowed_persistence_regions` and is checked like any other placement.
 
 ## `enforcementMode` decides severity, and `strict` is the default
 
@@ -95,7 +138,7 @@ This is the part most worth getting straight, because the two gates share a bloc
 |---|---|---|
 | **Question** | May the data *sit* here? | May this *caller* read it? |
 | **Compares** | each expose's `binding.location.region` → jurisdiction, against `sovereignty.jurisdiction` | the caller's **verified** jurisdiction claim, against `sovereignty.jurisdiction` |
-| **Runs on** | `fluid validate` (always); `fluid plan --check-sovereignty` (opt-in) | every `tools/call` at `fluid mcp output-port serve` |
+| **Runs on** | `fluid validate` (always); `fluid plan --check-sovereignty` (run by stage 6 of a generated pipeline); `fluid generate iac` and `fluid apply` on AWS and GCP | every `tools/call` at `fluid mcp output-port serve` |
 | **Since** | `0.7.1`, blocking by default since `0.15.0` | `0.15.0` |
 | **Relaxed by** | `enforcementMode: advisory` / `audit` | `crossBorderTransfer: true` |
 
@@ -158,11 +201,30 @@ For `Global` this is straightforward: the contract asserts no constraint. `Multi
 
 If you need a genuinely multi-jurisdiction product with real limits, name them in `allowedRegions` rather than reaching for `Multi-Region`.
 
-## `apply` has no sovereignty gate — it has a digest
+## `apply` re-checks placements on AWS and GCP, and binds the plan by digest
 
-`fluid apply` performs **no sovereignty check of its own**. Hand it a plan built from a contract that `fluid validate` rejects with exit 1 and it will execute the actions without printing a single sovereignty finding.
+`fluid generate iac` and `fluid apply` refuse an out-of-policy placement on AWS and GCP before any module is written or any resource is created:
 
-That is deliberate, and it is the reason the plan is bound cryptographically. `apply` is not the place to re-litigate policy; it is the place to guarantee that what runs is what was reviewed. Before any DDL executes it recomputes the plan's `planDigest` (and re-verifies `bundleDigest` when the plan carries one) and fails closed on a mismatch:
+- **GCP** (since 0.17.0) checks every location its OpenTofu plugin emits and every action its planner produces, including regions a resource inherits by default: the planner's `US` dataset default, a provider region a Cloud Scheduler job or staging bucket picks up. A KMS key ring or Data Catalog taxonomy is placed at its dataset's location and checked there.
+- **AWS** checks the region its planner is configured with against the policy.
+- **Local and Snowflake** have no such gate; `fluid validate` is the check.
+
+The same contract with no region on its gcp binding, run through `generate iac`:
+
+```bash
+fluid generate iac contract.fluid.yaml --out infra/
+# ❌ generate_iac_failed  [ERR_GENERATE_IAC_FAILED]
+#   error: GCP placement refused by the sovereignty policy: customers: Binding
+# declares no region, so where its data lives cannot be checked against the
+# sovereignty policy (the platform would choose); dataset_crm: Region 'US' not in
+# allowed regions list; dataset_crm: Region 'US' (jurisdiction: US) does not match
+# required jurisdiction: EU; ...
+# exit 1
+```
+
+No module is written. Under `advisory` the same run writes the module and logs each finding as a warning. An embedded-SQL build that reads from or loads into BigQuery checks those placements too, and fails with `EmbeddedSqlSovereigntyError`.
+
+Separately, `fluid apply` guarantees that what runs is what was reviewed. Before any DDL executes it recomputes the plan's `planDigest` (and re-verifies `bundleDigest` when the plan carries one) and fails closed on a mismatch:
 
 ```bash
 fluid apply plan.json --yes        # after editing plan.json by hand
@@ -172,9 +234,38 @@ fluid apply plan.json --yes        # after editing plan.json by hand
 # exit 1
 ```
 
-The two digests it prints are yours, not ours — a `planDigest` is a function of your plan, so the property to rely on is *stable across re-runs, different after an edit*, never a particular hex string.
+The two digests it prints are yours, not ours. A `planDigest` is a function of your plan, so the property to rely on is *stable across re-runs, different after an edit*, never a particular hex string.
 
-So the division of labour is: `validate` decides whether the contract's residency claim is consistent, and `apply` guarantees that the artifact reaching your cloud is byte-for-byte the one that decision was made about. Put `fluid validate` in CI — or `fluid plan --check-sovereignty`, which shares the same checker and the same exit-1 behaviour under `strict` — and a jurisdiction violation is caught in review. An `apply` that runs against an unvalidated contract is a broken pipeline, not a gap in the policy engine.
+So the division of labour is: `validate` (and `plan --check-sovereignty` in CI) decides whether the contract's residency claim is consistent; on AWS and GCP the provider refuses to create a resource outside the policy, including where it fills in a default; and the digest guarantees the artifact reaching your cloud is the one that decision was made about.
+
+## When `policy-compile` or `policy-apply` fails
+
+The CLI links two policy errors to this page, although neither is a sovereignty finding. Both wrap whatever stopped the command. As of 0.18.1, `policy-compile` also prints a Python traceback above its error:
+
+```bash
+fluid policy-compile missing.fluid.yaml
+# Outer exception: Contract/overlay not found: missing.fluid.yaml
+# Traceback (most recent call last):
+# ...
+# ❌ policy_compile_failed  [ERR_POLICY_COMPILE_FAILED]
+#   error: Contract/overlay not found: missing.fluid.yaml
+# ...
+# exit 1
+
+fluid policy-apply bindings.json
+# ❌ policy_apply_failed  [ERR_POLICY_APPLY_FAILED]
+#   error: Expecting property name enclosed in double quotes: line 1 column 2
+# (char 1)
+# ...
+# exit 1
+```
+
+| Error | Usual cause | Fix |
+|---|---|---|
+| `policy_compile_failed` | The contract or overlay path does not exist, or the contract does not load | Run `fluid validate <contract>` and fix what it reports. `policy-compile` reads `accessPolicy.grants`, not `agentPolicy`, whatever the suggestion line says |
+| `policy_apply_failed` | The bindings file is missing or is not valid JSON, or the provider could not be built | Regenerate it with `fluid policy-compile <contract> --out <path>` |
+
+`fluid policy-apply` provisions nothing on any provider as of 0.18.1; see [Governance & Policy](./governance-policy.md#fluid-policy-apply-enforces-nothing).
 
 ## Where to go next
 
