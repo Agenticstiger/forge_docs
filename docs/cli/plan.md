@@ -6,7 +6,7 @@ Stage 6 of the 11-stage pipeline. Generate an execution plan without applying ch
 > See exactly what will change — and prove it's what gets applied — before you touch production.
 > `fluid plan` emits the action list plus a `planDigest` that `fluid apply` re-verifies, and records the `--mode` and `--env` it was made for, so the plan you reviewed is the plan that runs.
 
-## Examples
+## Plan, then apply
 
 ```bash
 # Plan, then apply the plan with the same mode
