@@ -1,783 +1,168 @@
 # Jenkins CI/CD for FLUID Data Products
 
-This walkthrough demonstrates how to implement end-to-end CI/CD for declarative data products using Jenkins and the FLUID framework.
+Run a data product through validation, planning, apply, verification and publication on Jenkins, with a pipeline the CLI writes for you instead of one you maintain by hand. Each stage is a `fluid` command, so a failed gate stops the build at the stage that found the problem.
 
-::: warning Compatibility note
-The contracts and pipeline output shown on this page reference FLUID schema `0.7.1`. The CLI validates each contract against its own declared version, so these examples remain valid. For new contracts the current stable schema is `0.7.5` — `fluid forge` scaffolds a contract on it; `fluid init my-project --quickstart` copies a bundled template pinned at `0.7.2`, which the CLI still validates. Use [`fluid generate ci --system jenkins`](/forge_docs/cli/generate.html#fluid-generate-ci) to regenerate a matching Jenkinsfile.
-:::
+This page covers the Jenkins side: generating the Jenkinsfile, setting up the controller and agent, credentials, running the job and what to do when a build fails. What each of the eleven stages checks, with the output each prints, is in [The 11-stage pipeline](./11-stage-pipeline.md). Details below come from the Jenkinsfile that CLI `0.18.1` generates.
 
-## 📋 Overview
+## Generate the Jenkinsfile
 
-The Jenkins pipeline automates the complete lifecycle of a data product:
-1. **Contract Validation** - Validate FLUID contract schema
-2. **Static Analysis** - Check governance policies and best practices
-3. **Deployment Planning** - Generate execution plan without applying changes
-4. **Testing** - Run dbt tests and data quality checks
-5. **Deployment** - Apply contract and create/update resources
-6. **Verification** - Validate deployment and data quality
-
-## 🎯 Benefits of Declarative CI/CD
-
-### Traditional Approach (Imperative)
-```groovy
-stage('Deploy') {
-    sh 'bq mk dataset'
-    sh 'bq load ...'
-    sh 'dbt run'
-    sh 'python update_metadata.py'
-}
-```
-**Problems:**
-- ❌ Manual resource creation
-- ❌ No validation before deployment
-- ❌ Hard to rollback
-- ❌ No infrastructure drift detection
-
-### FLUID Approach (Declarative)
-```groovy
-stage('Deploy') {
-    sh 'fluid validate contract.fluid.yaml'
-    sh 'fluid plan contract.fluid.yaml'
-    sh 'fluid apply contract.fluid.yaml'
-    sh 'fluid verify contract.fluid.yaml'
-}
-```
-**Benefits:**
-- ✅ Single source of truth (contract)
-- ✅ Automatic validation
-- ✅ Plan before apply (like Terraform)
-- ✅ Drift detection via verify
-
-## 🏗️ Pipeline Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Source Control (Git)                      │
-│              contract.fluid.yaml + dbt models                │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Jenkins Pipeline                           │
-├─────────────────────────────────────────────────────────────┤
-│  1. Setup          │ Install dependencies, verify env        │
-│  2. Validate       │ fluid validate contract.fluid.yaml      │
-│  3. Static Analysis│ Check policies, governance metadata     │
-│  4. Plan           │ fluid plan (preview changes)            │
-│  5. Test           │ dbt test + data quality checks          │
-│  6. Deploy         │ dbt run + bq updates (labels)           │
-│  7. Verify         │ fluid verify (check compliance)         │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Google Cloud Platform (BigQuery)                │
-│  • Tables: bitcoin_prices                                    │
-│  • Views: daily_price_summary, price_trends                  │
-│  • Labels: cost-center, environment, sla-tier                │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 📂 Project Structure
-
-```
-bitcoin-tracker/
-├── Jenkinsfile                 # Pipeline definition
-├── contract.fluid.yaml         # Data product contract
-├── load_bitcoin_price_batch.py # Data ingestion script
-├── dbt/
-│   ├── dbt_project.yml
-│   ├── profiles.yml
-│   └── models/
-│       ├── daily_price_summary.sql
-│       ├── price_trends.sql
-│       └── schema.yml
-└── runtime/                    # Generated artifacts
-    ├── plan.json
-    ├── validation-report.json
-    └── test-results.json
-```
-
-## 🚀 Getting Started
-
-### 1. Jenkins Setup
-
-::: warning Substitute your own project id
-`my-project-id` on this page is a placeholder. Project ids are unique across the whole of Google
-Cloud, so replace it with your own in the commands, the credential, and the `environment` block
-below.
-:::
-
-**Prerequisites:**
-- Jenkins 2.x or later
-- Plugins:
-  - Pipeline
-  - Git
-  - Google Cloud SDK
-  - Credentials Binding
-
-**Configure Jenkins:**
-
-```groovy
-// In Jenkins System Configuration
-
-// 1. Add GCP credentials
-Credentials → Add Credentials
-  Kind: Google Service Account from private key
-  Project Name: my-project-id
-  ID: gcp-data-product-deployer
-
-// 2. Configure tools
-Global Tool Configuration
-  Python: Python 3.10+
-  Git: Latest
-```
-
-### 2. Create Jenkins Pipeline
-
-**Option A: Pipeline from SCM**
-```groovy
-// In Jenkins Job Configuration
-Pipeline → Definition → Pipeline script from SCM
-  SCM: Git
-  Repository URL: https://github.com/your-org/fluid-mono.git
-  Script Path: forge_docs/examples/bitcoin-tracker/Jenkinsfile
-```
-
-**Option B: Inline Pipeline**
-```groovy
-// Copy Jenkinsfile content directly into Jenkins job
-```
-
-### 3. Configure GCP Authentication
-
-**Service Account Method (Recommended for Production):**
+From the directory that holds `contract.fluid.yaml`:
 
 ```bash
-# 1. Create service account
-gcloud iam service-accounts create fluid-cicd \
-  --display-name="FLUID CI/CD Service Account" \
-  --project=my-project-id
-
-# 2. Grant permissions
-gcloud projects add-iam-policy-binding my-project-id \
-  --member="serviceAccount:fluid-cicd@my-project-id.iam.gserviceaccount.com" \
-  --role="roles/bigquery.admin"
-
-# 3. Create key
-gcloud iam service-accounts keys create ~/fluid-cicd-key.json \
-  --iam-account=fluid-cicd@my-project-id.iam.gserviceaccount.com
-
-# 4. Add to Jenkins credentials
-# Upload fluid-cicd-key.json as "Secret file" credential
+fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
 ```
 
-**OAuth Method (Development):**
-```bash
-# In Jenkins agent, authenticate with:
-gcloud auth application-default login
+```text
+[install-mode: pypi] Jenkinsfile written -> Jenkinsfile
+  |- Jenkins installs FLUID_PACKAGE_SPEC into $WORKSPACE/.fluid-venv (stage 0)
+  |  Override at build time via these Jenkins parameters:
+  |    FLUID_PACKAGE_SPEC        = 'data-product-forge==X.Y.Z'  (another version)
+  |    FLUID_PIP_INDEX_URL       = 'https://test.pypi.org/simple/'  (TestPyPI)
+  |    FLUID_PIP_EXTRA_INDEX_URL = 'https://pypi.org/simple/'   (fallback)
+  |    FLUID_ALLOW_PRERELEASE    = true  (pip --pre, alpha/rc releases)
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.18.1
+  |- Jenkins plugins required: workflow-aggregator, git
 ```
 
-### 4. Set Environment Variables
+Commit the `Jenkinsfile` beside the contract. The file is generated once and then belongs to you: after you upgrade the CLI, regenerate it and review the diff to pick up changes. The `CONTRACT` parameter defaults to the path you generated from, and `FLUID_PACKAGE_SPEC` to the CLI version that generated the file with the extras the contract and its overlays need. A contract that has an `overlays/gcp.yaml` binding to BigQuery generates `data-product-forge[gcp,local]==0.18.1`; `--fluid-package-spec` overrides it.
 
-In Jenkins job configuration:
+## Set up Jenkins
+
+| Where | What it needs |
+| --- | --- |
+| Controller | the plugins `workflow-aggregator` (Pipeline) and `git`; `copyartifact` only if you generate with `--diff-last-applied` |
+| Agent | `python3` with the `venv` module, and `rsync` when the stage-11 destination is a `file://` or `ssh://` path |
+| Workspace cleanup | nothing: the Jenkinsfile removes the workspace with the core `deleteDir()` step, so the `ws-cleanup` plugin is not needed |
+
+Stage 0 creates a virtual environment at `$WORKSPACE/.fluid-venv` and installs `FLUID_PACKAGE_SPEC` into it, because agents that follow PEP 668 refuse a bare `pip install`. Every later stage runs the `fluid` from that environment. A private package index goes in the `FLUID_PIP_INDEX_URL` and `FLUID_PIP_EXTRA_INDEX_URL` parameters; `FLUID_ALLOW_PRERELEASE` adds `pip --pre`.
+
+## Create the job
+
+1. In Jenkins choose **New Item**, then **Pipeline** (or **Multibranch Pipeline**).
+2. Under **Pipeline**, set **Definition** to **Pipeline script from SCM**, choose **Git**, enter the repository URL and set **Script Path** to `Jenkinsfile`.
+3. Save, then run **Build Now** once.
+
+Run that first build with the defaults. Jenkins learns a Pipeline's parameters from a run, so the first build runs with none set; the generated Jenkinsfile gives every parameter a default and every stage reads the same default as its fallback, so the first build is the dry run the defaults describe. Until a job has run once, Jenkins refuses `buildWithParameters` for it (observed on 4 to 5 October 2026 against a controller running a generated pipeline); after that, **Build with Parameters** lists them.
+
+## Give the pipeline credentials
+
+`fluid` reads provider credentials from the environment of the build. The generated Jenkinsfile starts with a comment listing the variables each target reads:
+
+| Target | Variables |
+| --- | --- |
+| Snowflake | `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE` |
+| GCP | `GOOGLE_APPLICATION_CREDENTIALS`, or Workload Identity through OIDC |
+| AWS | `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or an OIDC role |
+| Azure | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` |
+| Data Mesh Manager | `DMM_API_URL`, `DMM_API_KEY`, only for `fluid publish` |
+| Command Center | `FLUID_CC_ENDPOINT`, `FLUID_API_KEY` (sent as `X-API-Key`) and `FLUID_CC_ORG_ID`, for `--target fluid-command-center`; `FLUID_CC_ORG_ID` is optional when the key belongs to exactly one organization |
+
+Surface them to the build in one of two ways:
+
+- **Agent environment.** Set the variables on the agent: a Docker Compose `environment:`, a Kubernetes agent template, or Jenkins Global Node Properties. `sh` steps inherit them and the Jenkinsfile needs no change.
+- **Jenkins credentials.** Create credentials under **Manage Jenkins**, **Credentials**, then bind them in the Jenkinsfile's `environment {}` block:
+
 ```groovy
 environment {
-    GCP_PROJECT_ID = 'my-project-id'
-    GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-data-product-deployer')
+    GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-sa-key')
+    FLUID_API_KEY = credentials('command-center-api-key')
 }
 ```
 
-## 📋 Pipeline Stages Explained
+For `GOOGLE_APPLICATION_CREDENTIALS` the credential is a Secret file, which Jenkins exposes as the path of a temporary file. Do not write a key into the Jenkinsfile or into a job parameter.
 
-### Stage 1: Setup Environment
+Since 0.17.0, a pipeline configured to publish to the Command Center also reports each `fluid apply` run there, with the same credentials; see [Stage 7](./11-stage-pipeline.md#stage-7-apply).
 
-**Purpose:** Install dependencies and verify prerequisites
+## Run it
 
-```groovy
-stage('Setup Environment') {
-    steps {
-        sh '''
-            # Install Python packages
-            pip install dbt-core dbt-bigquery google-cloud-bigquery
-            
-            # Verify contract file exists
-            test -f contract.fluid.yaml
-            
-            # Test GCP access
-            bq ls --project_id=${GCP_PROJECT_ID}
-        '''
-    }
-}
-```
+The stage toggles are `RUN_STAGE_1_BUNDLE` to `RUN_STAGE_11_SCHEDULE_SYNC`, and `APPLY_MODE` decides what stages 6 to 11 do. Common runs:
 
-**Key Checks:**
-- ✅ Python dependencies installed
-- ✅ Contract file exists
-- ✅ GCP credentials valid
-- ✅ BigQuery access confirmed
+| You want | Set |
+| --- | --- |
+| Review what would change, change nothing | the defaults: `APPLY_MODE=dry-run` |
+| Deploy to `dev` and run the builds | `APPLY_MODE=amend-and-build`; `APPLY_BUILD_ID` names the build to run, blank runs every build |
+| Deploy additive changes only | `APPLY_MODE=amend` |
+| Promote to another environment | `FLUID_ENV=prod`; stage 1 bundles the contract with `overlays/prod.yaml` and every later stage checks it is working on that bundle |
+| Replace a table | `APPLY_MODE=replace` or `replace-and-build`; it also needs `ALLOW_DATA_LOSS` unless the environment is `dev` and the target is provably empty |
+| Smoke test without publishing | clear `RUN_STAGE_10_PUBLISH` and `RUN_STAGE_11_SCHEDULE_SYNC` |
+| Fail on warnings | `VALIDATE_STRICT` (stage 2) and `VERIFY_STRICT` (stage 9), both on by default |
 
-### Stage 2: Validate Contract
+Parameter values reach the shell as environment variables, and the Jenkinsfile builds each command with `set --` so each value stays one argument. A value such as `APPLY_BUILD_ID="x --allow-data-loss"` cannot add a flag.
 
-**Purpose:** Ensure contract is syntactically correct and schema-compliant
+### One job per environment
 
-```groovy
-stage('Validate Contract') {
-    steps {
-        sh '''
-            python3 -m fluid_build.cli validate contract.fluid.yaml
-        '''
-    }
-}
-```
-
-**What's Validated:**
-- YAML syntax correctness
-- FLUID 0.7.1 schema compliance
-- Required fields present
-- Data types valid
-- References consistent
-
-**Sample Output:**
-```
-Starting validate_contract
-Metric: validation_duration=0.042seconds
-Metric: validation_errors=0count
-Metric: validation_warnings=0count
-✅ Valid FLUID contract (schema v0.7.1)
-```
-
-### Stage 3: Static Analysis
-
-**Purpose:** Check best practices and governance policies
-
-```groovy
-stage('Static Analysis') {
-    steps {
-        sh '''
-            # Check governance metadata
-            python3 check_governance.py
-            
-            # Verify dbt models exist
-            test -f dbt/models/daily_price_summary.sql
-        '''
-    }
-}
-```
-
-**Checks Performed:**
-1. **Governance Metadata:**
-   - Product-level labels present
-   - Owner information defined
-   - Cost allocation tags set
-
-2. **Data Policies:**
-   - Classification defined (Public/Internal/Confidential)
-   - Access control policies (readers/writers)
-   - Sensitivity markers for PII fields
-
-3. **Dependencies:**
-   - dbt models exist for declared builds
-   - Python scripts exist for ingestion
-   - Source tables referenced exist
-
-**Example Policy Check:**
-```python
-# Contract validation rules
-required_labels = ['cost-center', 'data-classification', 'billing-tag']
-required_policies = ['classification', 'authz']
-
-for expose in contract['exposes']:
-    if not all(label in expose['labels'] for label in required_labels):
-        raise ValidationError(f"Missing required labels in {expose['exposeId']}")
-```
-
-### Stage 4: Plan Deployment
-
-**Purpose:** Preview changes before applying (like `terraform plan`)
-
-```groovy
-stage('Plan Deployment') {
-    steps {
-        sh '''
-            python3 -m fluid_build.cli plan contract.fluid.yaml
-        '''
-    }
-}
-```
-
-**Output:**
-```
-============================================================
-FLUID Execution Plan
-============================================================
-Total Actions: 6
-
-1. provision_bitcoin_prices_table (provisionDataset)
-2. schedule_build_1 (scheduleTask)
-3. provision_daily_price_summary (provisionDataset)
-...
-```
-
-**Benefits:**
-- See what will change before deployment
-- Catch configuration errors early
-- Review resource costs
-- Validate access permissions
-
-### Stage 5: Run Tests
-
-**Purpose:** Validate data quality and transformations
-
-```groovy
-stage('Run Tests') {
-    when {
-        expression { !params.SKIP_TESTS }
-    }
-    steps {
-        sh '''
-            # Run dbt tests
-            cd dbt && dbt test
-            
-            # Custom data quality checks
-            python3 data_quality_checks.py
-        '''
-    }
-}
-```
-
-**dbt Tests:**
-```yaml
-# dbt/models/schema.yml
-models:
-  - name: daily_price_summary
-    columns:
-      - name: date
-        tests:
-          - not_null
-          - unique
-      - name: open_price_usd
-        tests:
-          - not_null
-          - positive_value
-```
-
-**Custom Quality Checks:**
-```python
-# data_quality_checks.py
-checks = [
-    {
-        'name': 'No NULL prices',
-        'query': 'SELECT COUNT(*) FROM bitcoin_prices WHERE price_usd IS NULL',
-        'expected': 0
-    },
-    {
-        'name': 'Data freshness',
-        'query': '''
-            SELECT TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(price_timestamp), HOUR)
-            FROM bitcoin_prices
-        ''',
-        'threshold': 24  # Data should be < 24 hours old
-    }
-]
-```
-
-### Stage 6: Deploy
-
-**Purpose:** Apply contract and create/update resources
-
-```groovy
-stage('Deploy') {
-    when {
-        expression { !params.DRY_RUN }
-    }
-    steps {
-        // Production requires manual approval
-        input message: 'Deploy to Production?'
-        
-        sh '''
-            # Run dbt models
-            cd dbt && dbt run
-            
-            # Apply labels
-            bq update --set_label environment:${ENVIRONMENT} \\
-                      --set_label cost-center:engineering \\
-                      ${GCP_PROJECT_ID}:crypto_data.bitcoin_prices
-            
-            # Load fresh data
-            python3 load_bitcoin_price_batch.py
-        '''
-    }
-}
-```
-
-**Key Actions:**
-1. **Manual Approval** (for production)
-2. **dbt Execution** - Create/update views
-3. **Label Application** - FinOps tracking
-4. **Data Loading** - Ingest fresh data
-
-**Deployment Safety:**
-```groovy
-// Require approval for production
-if (params.ENVIRONMENT == 'production') {
-    input message: 'Deploy to Production?', 
-          ok: 'Deploy',
-          submitter: 'admin,release-manager'
-}
-```
-
-### Stage 7: Verify Deployment
-
-**Purpose:** Validate resources match contract specification
-
-```groovy
-stage('Verify Deployment') {
-    steps {
-        sh '''
-            # Run FLUID verify
-            python3 -m fluid_build.cli verify contract.fluid.yaml
-            
-            # Check labels applied
-            bq show --format=json bitcoin_prices | jq '.labels'
-            
-            # Query sample data
-            bq query "SELECT * FROM daily_price_summary LIMIT 1"
-        '''
-    }
-}
-```
-
-**Verification Steps:**
-1. **Schema Compliance** - Fields match contract
-2. **Data Types** - Correct types (FLOAT64, TIMESTAMP, etc.)
-3. **Labels** - Cost tracking labels applied
-4. **Data Quality** - Sample queries return valid data
-5. **Freshness** - Latest data within SLA
-
-**Sample Verification Output:**
-```
-================================================================================
-🔍 FLUID Verify - Multi-Dimensional Contract Validation
-================================================================================
-
-📋 Verifying: bitcoin_prices_table
-   🔍 Dimension 1: Schema Structure
-      ✅ PASS - All 8 column names match specification
-
-   🔍 Dimension 2: Data Types
-      ✅ PASS - All types match
-
-   🔍 Dimension 3: Constraints
-      ✅ PASS - All field constraints match
-
-   🔍 Dimension 4: Location
-      ✅ PASS - Region: us-central1
-
-   🔍 Dimension 5: Labels
-      ✅ PASS - All required labels present
-```
-
-## 🎛️ Pipeline Parameters
-
-Configure deployment behavior with parameters:
-
-```groovy
-parameters {
-    choice(
-        name: 'ENVIRONMENT',
-        choices: ['staging', 'production'],
-        description: 'Deployment environment'
-    )
-    booleanParam(
-        name: 'DRY_RUN',
-        defaultValue: false,
-        description: 'Plan only, do not apply'
-    )
-    booleanParam(
-        name: 'SKIP_TESTS',
-        defaultValue: false,
-        description: 'Skip test execution'
-    )
-}
-```
-
-**Usage:**
-- **Development:** `ENVIRONMENT=staging`, `DRY_RUN=false`, `SKIP_TESTS=false`
-- **Production:** `ENVIRONMENT=production`, `DRY_RUN=false`, `SKIP_TESTS=false`
-- **Preview:** Any environment, `DRY_RUN=true`
-
-## 📊 Monitoring & Logging
-
-### Console Output
-
-The pipeline provides detailed, color-coded output:
-
-```
-═══════════════════════════════════════════════════════════
-Stage 2: FLUID Contract Validation
-═══════════════════════════════════════════════════════════
-🔍 Validating FLUID contract...
-
-✅ Contract validation PASSED
-   Contract is compliant with FLUID 0.7.1 schema
-
-📊 Contract Metadata:
-  ID: crypto.bitcoin_prices_gcp
-  Version: 0.7.1
-  Exposes: 3 datasets
-  Builds: 3 transformations
-```
-
-### Artifacts
-
-The pipeline archives important artifacts:
-- `validation-report.json` - Contract validation results
-- `plan.json` - Deployment plan
-- `dbt-test-output.log` - Test results
-- `verify-output.log` - Post-deployment verification
-
-**Access artifacts:**
-```
-Jenkins Job → Build #123 → Artifacts → runtime/plan.json
-```
-
-### Metrics
-
-Key metrics tracked:
-- **Build Duration** - Total pipeline execution time
-- **Validation Duration** - Contract validation time
-- **Test Pass Rate** - Percentage of tests passing
-- **Deployment Success Rate** - % of successful deployments
-
-## 🔒 Security Best Practices
-
-### 1. Credentials Management
-
-**Don't:**
-```groovy
-// ❌ Never hardcode credentials
-environment {
-    GCP_KEY = 'AKIA...'  // BAD!
-}
-```
-
-**Do:**
-```groovy
-// ✅ Use Jenkins credentials
-environment {
-    GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-service-account')
-}
-```
-
-### 2. Least Privilege
+`FLUID_ENV` is the overlay the stages pass to `--env`. Generate one pipeline per environment, or one pipeline you run with different `FLUID_ENV` values:
 
 ```bash
-# Grant only required permissions
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-  --member="serviceAccount:${SA_EMAIL}" \
-  --role="roles/bigquery.dataEditor"  # Not bigquery.admin
+fluid generate ci contract.fluid.yaml --system jenkins --fluid-env-default prod --out Jenkinsfile.prod
 ```
 
-### 3. Approval Gates
+The overlay is a file beside the contract, `overlays/<env>.yaml`, that patches the binding. See [Per-environment overlays](../recipes/per-environment-overlays.md) and [Switch clouds](../recipes/switch-clouds.md). If two jobs for different clouds both publish the same product, the Command Center keeps whichever published last; see [Stage 10](./11-stage-pipeline.md#stage-10-publish).
+
+### Require approval before apply
+
+The generated Jenkinsfile does not pause for approval. To add a gate, put a Jenkins `input` step before stage 7 and keep the edit in your repository, since regenerating the file removes it:
 
 ```groovy
-// Require approval for sensitive operations
-if (params.ENVIRONMENT == 'production') {
-    input message: 'Proceed with production deployment?',
-          submitter: 'release-managers'
-}
-```
-
-### 4. Audit Logging
-
-```groovy
-post {
-    always {
-        // Log all deployments
-        sh '''
-            echo "$(date): Deployment to ${ENVIRONMENT} by ${BUILD_USER}" \
-                >> /var/log/fluid-deployments.log
-        '''
-    }
-}
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### 1. Contract Validation Fails
-
-**Error:**
-```
-❌ Contract validation FAILED
-   Error: Missing required field 'fluidVersion'
-```
-
-**Solution:**
-```yaml
-# Add at top of contract.fluid.yaml
-fluidVersion: "0.7.2"
-kind: DataProduct
-```
-
-#### 2. GCP Authentication Fails
-
-**Error:**
-```
-ERROR: (gcloud.auth.application-default.login) 
-Unable to find Application Default Credentials
-```
-
-**Solution:**
-```bash
-# In Jenkins, set credential binding
-withCredentials([file(credentialsId: 'gcp-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
-    sh 'gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}'
-}
-```
-
-#### 3. dbt Tests Fail
-
-**Error:**
-```
-Failure in test not_null_bitcoin_prices_price_usd
-  Got 5 results, expected 0
-```
-
-**Solution:**
-```sql
--- Fix NULL values in source data
-DELETE FROM bitcoin_prices WHERE price_usd IS NULL;
-```
-
-#### 4. Labels Not Applied
-
-**Error:**
-```
-⚠️  Labels: null
-```
-
-**Solution:**
-```bash
-# FLUID apply currently has issues, use manual bq update:
-bq update --set_label cost-center:engineering table_name
-```
-
-## 📈 Advanced Patterns
-
-### Multi-Environment Deployment
-
-```groovy
-pipeline {
-    stages {
-        stage('Deploy to Staging') {
-            environment {
-                GCP_PROJECT_ID = 'project-staging'
-            }
-            steps {
-                sh 'fluid apply contract.fluid.yaml'
-            }
-        }
-        
-        stage('Smoke Test Staging') {
-            steps {
-                sh 'python3 smoke_tests.py --env=staging'
-            }
-        }
-        
-        stage('Deploy to Production') {
-            when {
-                branch 'main'
-            }
-            environment {
-                GCP_PROJECT_ID = 'project-production'
-            }
-            steps {
-                input 'Deploy to production?'
-                sh 'fluid apply contract.fluid.yaml'
-            }
-        }
-    }
-}
-```
-
-### Parallel Testing
-
-```groovy
-stage('Tests') {
-    parallel {
-        stage('Unit Tests') {
-            steps {
-                sh 'pytest tests/unit'
-            }
-        }
-        stage('dbt Tests') {
-            steps {
-                sh 'dbt test'
-            }
-        }
-        stage('Data Quality') {
-            steps {
-                sh 'python3 dq_checks.py'
-            }
-        }
-    }
-}
-```
-
-### Rollback Support
-
-```groovy
-stage('Deploy') {
+stage('Approve apply') {
+    when { expression { params.APPLY_MODE != 'dry-run' && params.FLUID_ENV == 'prod' } }
     steps {
-        script {
-            try {
-                sh 'fluid apply contract.fluid.yaml'
-            } catch (Exception e) {
-                echo "Deployment failed, rolling back..."
-                sh 'git checkout HEAD~1 contract.fluid.yaml'
-                sh 'fluid apply contract.fluid.yaml'
-                throw e
-            }
-        }
+        input message: "Apply ${params.APPLY_MODE} to ${params.FLUID_ENV}?", submitter: 'release-managers'
     }
 }
 ```
 
-## 📚 Related Documentation
+Stage 7 only applies a plan whose digests match the bundle, so what the approver reviewed in `runtime/plan.html` is what runs.
 
-- [GCP Deployment Guide](./gcp.md)
-- [Declarative Airflow Integration](./airflow-declarative.md)
-- [Getting Started](/forge_docs/getting-started/)
+## What the build keeps
 
-## 🎯 Next Steps
+Each stage archives its output with `archiveArtifacts`, so a failed build leaves the evidence:
 
-1. **Set Up Jenkins Job** - Create pipeline using provided Jenkinsfile
-2. **Configure GCP Access** - Set up service account credentials
-3. **Test in Staging** - Run pipeline with `ENVIRONMENT=staging`
-4. **Monitor First Deploy** - Review logs and artifacts
-5. **Automate Triggers** - Set up Git webhook for automatic builds
-6. **Add Notifications** - Configure Slack/email alerts for failures
+| Stage | Archived |
+| --- | --- |
+| 1 | `runtime/bundle.tgz`, fingerprinted |
+| 2 | `runtime/validate-report.json` |
+| 3 | `dist/artifacts/**/*` |
+| 4 | `runtime/validate-artifacts-report.json` |
+| 5 | `runtime/diff-report.json` |
+| 6 | `runtime/plan.json`, `runtime/plan.html` |
+| 7 | `runtime/apply-report.html`, and the run records under `.fluid/runs/` that a `*-and-build` mode writes |
+| 8 | `runtime/policy-apply-report.json` |
+| 9 | `runtime/verify-report.json` |
+| 10 | `runtime/publish-report.json` |
+| 11 | `runtime/schedule-sync-report.json` |
 
-## 💡 Best Practices Summary
+The workspace is deleted at the end of every build, so nothing carries over except the archived files. Stages read the bundle from the same build's workspace.
 
-✅ **DO:**
-- Use declarative FLUID contracts as single source of truth
-- Validate before deploying (`fluid validate` → `fluid plan` → `fluid apply`)
-- Run tests in CI/CD pipeline
-- Require manual approval for production
-- Archive deployment artifacts
-- Monitor data quality post-deployment
+## Troubleshooting
 
-❌ **DON'T:**
-- Hardcode credentials in pipeline
-- Skip validation or tests for "quick fixes"
-- Deploy directly to production without staging
-- Ignore failed tests in production pipeline
-- Deploy without reviewing the plan
+These messages are the ones the generated Jenkinsfile prints.
 
----
+**`stage 0: the CLI first on PATH is ..., not the one in $FLUID_VENV: the PATH entry of environment {} did not apply`**
+Something replaced `PATH` after the `environment {}` block, so the stages would run a different `fluid` from the one stage 0 installed. Remove the override, or put `$WORKSPACE/.fluid-venv/bin` first in it.
 
-**Questions or issues?** Open an issue on [GitHub](https://github.com/Agenticstiger/forge-cli/issues).
+**`stage N reads runtime/bundle.tgz, which stage 1 writes: run stage 1 in the same build`**
+`RUN_STAGE_1_BUNDLE` was cleared. Stages 2, 3, 5, 6, 7 and 9 read the bundle, and the workspace does not persist between builds, so stage 1 has to run in the same build.
+
+**`FLUID_ENV must be a plain environment name`**
+`FLUID_ENV` may contain letters, digits, `.`, `_` and `-`, and may not start with `.` or `-`. Stage 0 exits 2 otherwise.
+
+**`APPLY_BUILD_ID is not passed on: APPLY_MODE amend runs no build`**
+This is a notice, not an error. Only `amend-and-build` and `replace-and-build` run builds, and only they take `--build-id`.
+
+**Stage 5 fails on a pipeline that was green before an upgrade.**
+Since 0.16.3 the drift gate compares live targets. See [Stage 5](./11-stage-pipeline.md#stage-5-diff-drift-gate) for the statuses and what counts as drift.
+
+**Stages 8 to 11 print `stage 7 ran as a dry run ... skipped`.**
+`APPLY_MODE` is `dry-run`, the default. Nothing was applied, so there is nothing to verify, publish or schedule.
+
+## Hand-written pipelines
+
+A hand-written Jenkinsfile that calls `fluid` directly is the other way to do this: [Universal pipeline](./universal-pipeline.md) shows one that carries no provider-specific logic. The generated pipeline adds the bundle chain, the digest checks between stages and the first-build defaults.
+
+## Related
+
+- [The 11-stage pipeline](./11-stage-pipeline.md)
+- [Operating in CI](../advanced/operating-in-ci.md)
+- [`fluid generate ci`](../cli/generate.md)
+- [Declarative Airflow](./airflow-declarative.md)
