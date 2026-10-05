@@ -42,7 +42,9 @@ A few integrations need to call hosts that the private-address filter would refu
 | `FLUID_COMMAND_CENTER_HOST_ALLOWLIST` | The Command Center client: detection, the observability reporter and `fluid apply` run reports. Loopback hosts are always allowed |
 | `FLUID_OPENLINEAGE_ALLOW_PRIVATE` | The OpenLineage emitter. It allows private addresses by default because lineage receivers are usually internal; `false` restores the public-only check. Link-local and metadata addresses stay blocked either way |
 
-The first three take comma-separated host suffixes, matched exactly or as a dotted suffix: `vpn.internal` permits `app.vpn.internal` but not `vpn.internal-evil.example.com`. A host on the list skips the address check.
+The DataHub, OpenMetadata and Data Mesh Manager registrars that `fluid publish` uses call the guarded client with private addresses allowed, so they do not consult `FLUID_WEBHOOK_HOST_ALLOWLIST` or any other allowlist above.
+
+The webhook, federation and Command Center variables take comma-separated host suffixes, matched exactly or as a dotted suffix: `vpn.internal` permits `app.vpn.internal` but not `vpn.internal-evil.example.com`. A host on the list skips the address check.
 
 ## Cloud metadata and the credential resolver
 

@@ -42,6 +42,8 @@ done
 
 Then validate the full contracts in `FORGE_GPT_FEW_SHOTS.md` the same way. The few-shot snippets that start at `binding:` or `sovereignty:` are fragments for review practice and are not meant to validate on their own.
 
+The `knowledge/` files named `01_`, `05_`, `06_` and `07_` carry the schema version in their file names. They were `*_0.7.3.*` before this site moved to schema 0.7.5 and are now `*_0.7.5.*`. If you uploaded the packet earlier, upload these four again under their new names.
+
 ## Source Material
 
 This packet is documented in `forge_docs`, but it was grounded in source-of-truth assets from the sibling `forge-cli` repository:

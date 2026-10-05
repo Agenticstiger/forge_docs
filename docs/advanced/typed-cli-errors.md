@@ -63,7 +63,7 @@ A catalogued error looks like this:
   hint: --delete-scope product (the default) mirrors each top-level directory of --dags-dir ...
 ```
 
-Its `📖` link goes to a page chosen by the same route table. Both kinds are explained, by event name or class name, in [Production troubleshooting](./production-troubleshooting.md).
+Its `📖` link goes to a page chosen by the same route table. Both kinds are explained, by event name or class name, in [Production troubleshooting](./production-troubleshooting.md); the parts of a catalogued error and its curated suggestions are in [Error codes](./error-codes.md).
 
 ## The typed errors
 
@@ -112,7 +112,7 @@ The route table also sends three catalogued events here: `opentofu_init_failed`,
 | `BudgetExceededError` | A runner's cost check, when a run's usage exceeds `properties.cost.budget.monthly` and `onExceed` is `fail` |
 | `SovereigntyViolationError` | The GCP and AWS providers, when a placement is refused by the contract's `sovereignty` block (an allowed region or jurisdiction not met) |
 | `ResidencyViolationError` | The AWS provider, when a binding's region is in `deniedRegions`, or an `allowedRegions` list is declared and the region is not on it |
-| `SupplyChainViolationError` | The Airbyte runner, when a connector image fails Cosign verification or its signer is not in `sovereignty.allowedSigners` |
+| `SupplyChainViolationError` | The Airbyte runner, when a connector image fails Cosign verification. The `fix` text names `sovereignty.allowedSigners`, but as of 0.18.1 no bundled contract schema defines that key and nothing reads it |
 | `InfraDriftError` | Defined for infrastructure version drift. As of 0.18.1 nothing raises it |
 
 `SupplyChainViolationError`, `CapabilityMismatchError` and `BudgetExceededError` link to the pages on [bundle signing](../cli/verify-signature.md), [capability warnings](./capability-warnings.md) and [cost tracking](./cost-tracking.md), because those are the pages the CLI's route table names. Those pages cover different features: signing there is for `fluid bundle --sign` archives, not connector images. The sections above are the ones that describe these errors. For connector images and signers, see [source-aligned acquisition](./source-aligned-acquisition.md) and [sovereignty](../concepts/sovereignty.md).
@@ -197,6 +197,7 @@ A few catalogued events land on a page that does not explain them. The CLI choos
 ## See also
 
 - [Production troubleshooting](./production-troubleshooting.md): errors by event name, with diagnosis and fix
+- [Error codes](./error-codes.md): the anatomy of a catalogued failure and the events that have curated suggestions
 - [Typed Errors](./typed-errors.md): the forge agent layer's errors (`RateLimitError`, `ContextOverflowError`, ...), a different catalog
 - [Source-aligned acquisition](./source-aligned-acquisition.md): the framework most of these errors guard
 - [`fluid retention sweep`](../cli/retention.md): what `StaleReplayError` is protecting

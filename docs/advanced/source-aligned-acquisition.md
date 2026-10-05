@@ -193,7 +193,7 @@ exposes:
         region: eu-west-1
 ```
 
-With this binding the build writes `s3://acme-lake/bronze/orders/orders.parquet`. The Glue table that `fluid generate iac` emits for the same binding points at `s3://acme-lake/bronze/orders`, so the catalog and the data share one prefix. The destination's DuckDB extensions and credentials come from the destination, not from the source.
+With this binding the build writes `s3://acme-lake/bronze/orders/orders.parquet`. The Glue table that `fluid generate iac` emits for the same binding points at `s3://acme-lake/bronze/orders`, so the catalog and the data share one prefix. The destination's DuckDB extensions and credentials come from the destination, not from the source. The AWS-side view of the same landing is in [Where a build lands data](../providers/aws.md#where-a-build-lands-data).
 
 A binding that names no bucket stays on local disk. The build does not invent the `{account}-fluid-data` bucket that the IaC path falls back to, because moving data off the machine on the strength of a default would be a decision the CLI should not make for you.
 
@@ -273,7 +273,7 @@ variable FLUID_PII_HASH_SECRET, which is unset or empty. Refusing to land the co
 
 If the expose declares its columns, write each masked column as `varchar`. The refusal message above offers `string`, but the schema-drift check compares the type names DuckDB reports for the source, so a column declared `string` fails the run with `source schema drift detected` (measured on 0.18.1, with and without `schemaPolicy` set). See [Schema evolution](#schema-evolution).
 
-Masking is the DuckDB runner's. A build on another engine, or a Python `hybrid-reference` build, does not apply it.
+Masking is the DuckDB runner's. A build on another engine, or a Python `hybrid-reference` build, does not apply it. A build with inline SQL (`properties.sql`) whose expose declares masking is refused with `MaskingNotAppliedError` rather than landed in cleartext; see [Production troubleshooting](./production-troubleshooting.md#builds-and-masking). The strategies and the `policy.privacy.masking` schema are described in [Governance policy](../concepts/governance-policy.md#masking-policy-privacy-masking).
 
 `fluid verify` checks the landed result whatever wrote it. It reads every non-null value of each masked column and fails the column if a value lacks its strategy's shape. It does this for local files, for S3 with Glue through Athena, and for BigQuery:
 
@@ -315,7 +315,7 @@ exposes:
         - { name: customer_email, type: varchar }
 ```
 
-At the start of a run, the engine compares the columns it reads with the expose's declared `contract.schema`. The first expose is the one compared. With an empty `schema: []` there is nothing to compare and the check does not run. When `schemaPolicy` is not set, the check runs as `evolve_safe`, which is not the schema's own default of `strict`.
+At the start of a run, the engine compares the columns it reads with the expose's declared `contract.schema`. The first expose in `exposes` is the one compared. `builds[].outputs` decides which expose the DuckDB build writes, but as of 0.18.1 it does not change which expose the drift check reads: a second build whose expose is not `exposes[0]` is compared against `exposes[0]`, so when its source columns differ from the schema declared on `exposes[0]` and `exposes[0]` sets `schemaPolicy: discover_and_freeze`, that build fails with `source schema drift detected`. With an empty `schema: []` there is nothing to compare and the check does not run. When `schemaPolicy` is not set, the check runs as `evolve_safe`, which is not the schema's own default of `strict`.
 
 | Change in the source | `strict` | `discover_and_freeze` | `evolve_safe` | `evolve_all` |
 |---|---|---|---|---|
@@ -501,7 +501,7 @@ fluid init demo --discover "postgres://user@host:5432/dbname"
 ✓ Emitted 1 contract(s). Next: `fluid validate <file>`.
 ```
 
-Discovery reads the database's `information_schema` for Postgres and MySQL, and walks the directory for a file source. As of 0.18.1, a Postgres URI whose server cannot be reached fails with `Unknown secret storage found: 'local_file'` under the heading `connectivity probe failed`, which hides the real connection error. A `file://` URI that points inside the contract's directory works. Secrets in the connection are replaced with `${ENV_VAR}` placeholders. The emitted contract uses `fluidVersion: 0.7.3`, and it validates as is.
+Discovery reads the database's `information_schema` for Postgres and MySQL, and walks the directory for a file source. As of 0.18.1, a Postgres URI whose server cannot be reached fails with `Unknown secret storage found: 'local_file'` under the heading `connectivity probe failed`, which hides the real connection error. A `file://` URI that points inside the contract's directory works. For `postgres://` and `mysql://` URIs, nothing in the connection is redacted: the password in the URI is written verbatim into `builds[].properties.source.connection.password`, so replace it with `{{ env.<NAME> }}` before you commit the file (see [`fluid init --discover`](../cli/init.md#discover-—-introspect-a-source-into-a-bronze-contract)). The emitted contract uses `fluidVersion: 0.7.3`, and it validates as is.
 
 A discovered contract that points at a file source outside its own directory is subject to the sandbox rules above. A `file://` URI that is outside the contract's directory fails with DuckDB's own `Permission Error ... file system operations are disabled by configuration`, without the `FLUID_DUCKDB_ALLOWED_DIRS` hint that a plain path gets. Move the contract next to the data, or write the source as a plain path and allow its directory.
 

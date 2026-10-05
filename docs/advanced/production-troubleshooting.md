@@ -3,7 +3,7 @@
 Symptom, diagnosis and fix for fluid pipelines in production. The error names, messages and commands on this page were checked against CLI 0.18.1. Many errors the CLI prints end with a link to this page, so the sections below are organized by the event name or class name you see in the output.
 
 ::: tip First responder
-Start an incident with `fluid doctor`. It reports infrastructure and feature checks, forge copilot readiness and the active state-store backend, and `--env` lists the FLUID runtime kill switches with their current values.
+Start an incident with `fluid doctor`. It reports infrastructure and feature checks, forge copilot readiness and the active state-store backend, and `--env` lists the FLUID runtime kill switches with their current values (see [`fluid doctor --env`](../cli/doctor.md#env-the-runtime-switches)).
 :::
 
 ## Reading an error
@@ -17,7 +17,7 @@ A failure prints in one of two shapes, and both are catalogued here and on [Type
   hint: the bundle was built for env 'dev' but this stage was asked for env 'prod'. ...
 ```
 
-The event name (`bundle_env_mismatch`) is stable, and so is the `ERR_` code derived from it; match on either in CI. The other shape is a panel titled with the error, with `why`, `fix` and `doc` rows, raised by build runners and providers. Look the name up in the section that matches the stage that failed.
+The event name (`bundle_env_mismatch`) is stable, and so is the `ERR_` code derived from it; match on either in CI. [Error codes](./error-codes.md) explains each part of the output and lists the events that carry curated suggestions. The other shape is a panel titled with the error, with `why`, `fix` and `doc` rows, raised by build runners and providers. Look the name up in the section that matches the stage that failed.
 
 ## First responder: `fluid doctor`
 
@@ -85,7 +85,7 @@ The `Details` JSON lists each violation with a `violation_kind` (`drift`, `unrea
 
 | Situation | Diagnosis | Fix |
 |---|---|---|
-| `--mode replace` or `replace-and-build` outside `dev`, or the target has rows | Replace modes need an explicit `--allow-data-loss` | Confirm the target should be rebuilt, then re-run with the flag. A pre-replace snapshot is taken, so [`fluid rollback`](../cli/rollback.md) can restore it |
+| `--mode replace` or `replace-and-build` outside `dev`, or the target has rows | Replace modes need an explicit `--allow-data-loss` | Confirm the target should be rebuilt, then re-run with the flag. Do not count on [`fluid rollback`](../cli/rollback.md) as the way back: bindings that apply through OpenTofu (`aws`, `gcp`, `snowflake`, `confluent`) take no snapshot, and the gate prints `NO SNAPSHOT WILL BE TAKEN`. Back the target up first |
 | OpenTofu apply blocked with an `opentofu_data_loss_gate` event | The IaC plan wants to destroy resources that hold data | The same override. The bypass logs a WARNING and an `opentofu_destructive_gate_override` event; search for that tag when auditing who overrode the gate |
 
 ## State and region errors
@@ -149,7 +149,7 @@ fluid runs logs <product_id> --run-id <id> --grep ERROR --limit 200
 fluid runs diff <product_id> --build <b> --run-a <baseline> --run-b <comparison>
 ```
 
-`runs diff` reports the schema and row-count delta between two runs, the quickest way to tell whether a failure changed the data shape or only the run status. All three verbs accept `--json`.
+`--run-id` applies to the `dlq` component only, and `dlq` returns nothing without it. `--grep` is a case-sensitive literal substring, not a regular expression. `runs diff` compares counts and states of two runs; it does not compare columns or schemas, so it cannot show that a column was added. All three verbs accept `--json`; see [`fluid runs`](../cli/runs.md).
 
 ### Cursor rewind and replay-pending markers
 
@@ -190,6 +190,11 @@ The organization comes from `organization_id`, else `FLUID_CC_ORG_ID`; with neit
 | `generated_path_outside_output_dir` | A contract field that becomes a file name (for example `builds[].properties.stages[].name`) contains a path separator or `..` | Rename the field |
 | `generated_path_collision` | Two generated files would resolve to the same path, so one would overwrite the other | Make the two names distinct |
 | `generate_artifacts_skip_schedule_no_engine`, `..._engine_none`, `..._unreadable` | `fluid generate artifacts` skipped schedule artifacts because the contract has no `orchestration.engine` and no build with `execution.trigger.schedule`, the engine is `none`, or the file could not be read | Add the engine or a scheduled build if you want DAGs |
+| `generate_artifacts_failed` | `fluid generate artifacts` stopped on one generator. The `emit_key` line names it (`schedule`, for example, when `--env` is not a plain env name) | Read the `error` line and fix the input it names; see [`fluid generate artifacts`](../cli/generate-artifacts.md) |
+| `generate_schedule_invalid_schedule` (exit 2) | `fluid generate schedule` could not render the scheduled DAG from the contract's schedule or env | Read the `error` line; see [`fluid generate`](../cli/generate.md) |
+| `dbt_tests_refusing_overwrite` | `fluid generate dbt-tests --out` names an existing file that lacks fluid's managed-by header, so it is not overwritten | Delete the file, or pass a different `--out` |
+| `refusing_to_overwrite_existing_file_pass_force_to_override` (exit 2) | `fluid scaffold-ide` would overwrite a file that exists | Pass `--force`; see [`fluid scaffold-ide`](../cli/scaffold-ide.md) |
+| `principal-placeholder` (the kind of an `unsupported_binding` error) | On a `gcp` binding, a principal is a placeholder (a reserved top-level domain) or is not an IAM member and `binding.principals` does not map it | Map it in `binding.principals` to a real group or service account, or write the IAM member in `accessPolicy`; see [`fluid generate iac`](../cli/generate-iac.md) |
 | `schedule_sync_dags_dir_not_product_scoped` (exit 2) | `fluid schedule-sync` defaults to `--delete-scope product`, which mirrors each top-level directory of `--dags-dir` and never deletes another product's DAGs. The directory has loose files | Put the files in `<dags-dir>/<product-id>/`. `fluid generate artifacts` does; for `fluid generate schedule` use `-o <dags-dir>/<product-id>/`. Or pass `--delete-scope none` to copy without deleting |
 | `lakeformation-grant-columns` | A Lake Formation grant gives a principal read access, but the contract's column restrictions let it read no column | Remove the grant, or allow the principal at least one column in `policy.authz.columnRestrictions` |
 | `generate_iac_aws_account_required` | `fluid generate iac` for AWS needs the account id and does not look it up | Set `AWS_ACCOUNT_ID`. `fluid apply` resolves the account itself |
@@ -226,7 +231,7 @@ fluid ai setup       # re-run setup to store the rotated key
 
 Update the key at the source `fluid ai status` reports, the provider environment variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`) or the stored configuration, then confirm with `fluid ai test`. See [LLM providers and backends](./llm-providers.md) for the resolution order.
 
-As of 0.18.1, `fluid ai test` with no provider configured and no `--provider` fails with `❌ Unexpected error: name 'detect_ollama_available' is not defined` and exit code 2. Name the provider, or run `fluid ai setup` first. `fluid ai test --provider <name> --json` prints a report with `ok`, `exit_code` and, on failure, an `error` object with `code`, `message` and `suggestions`.
+[`fluid ai test`](../cli/ai.md#ai-test) is the connectivity check. As of 0.18.1, `fluid ai test` with no provider configured and no `--provider` fails with `❌ Unexpected error: name 'detect_ollama_available' is not defined` and exit code 2. Name the provider, or run `fluid ai setup` first. `fluid ai test --provider <name> --json` prints a report with `ok`, `exit_code` and, on failure, an `error` object with `code`, `message` and `suggestions`.
 
 ## Where logs live
 

@@ -31,6 +31,8 @@ Those are the values `fluid forge --llm-provider` and `fluid forge data-model ..
 fluid forge: error: argument --llm-provider: invalid choice: 'bedrock' (choose from 'openai', 'anthropic', 'claude', 'gemini', 'ollama', 'mcp-sampling', 'claude-code', 'codex', 'cursor', 'kiro')
 ```
 
+Two flags apply only to some providers. `--forge-agent-mode envelope|agentic` chooses how a local agent CLI (`claude-code`, `codex`, `cursor`, `kiro`) hands the contract back: as JSON on stdout, or by writing `contract.fluid.yaml` into the workspace. `--llm-routing-model` and `--llm-routing-endpoint` name a cheaper model for interview clarification and self-evaluation. Their reference is [AI config](../cli/forge.md#ai-config) on the `fluid forge` page; setup, status and tests are under [`fluid ai`](../cli/ai.md).
+
 Inspect the active catalog with:
 
 ```bash
@@ -114,7 +116,7 @@ Use `fluid ai setup` for interactive setup and key storage. Provider and model c
 
 ## Run-start capability warnings
 
-When you pick a provider/model whose declared capabilities don't satisfy what the run needs (e.g. `gpt-3.5` in agent-loop mode, an Ollama model with no tool-use support, or a model not yet in the capability catalog), the CLI prints a one-paragraph warning at the start of `fluid forge data-model from-intent` and continues with degraded behaviour. See [Capability Warnings](capability-warnings.md) for the full matrix and the exact banner shape.
+`fluid forge data-model` checks the (provider, model) pair against the capability catalog before the run, only when you pass `--llm-provider`, `--llm-model` or `--llm-endpoint`. The check uses the `staged_pipeline` profile, and a pair that lacks structured output, or is not in the catalog, prints a warning and the run continues with degraded behaviour. See [Capability Warnings](capability-warnings.md) for the matrix and the exact output.
 
 ## Operator-facing errors
 

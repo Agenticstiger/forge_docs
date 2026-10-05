@@ -5,7 +5,7 @@ When a `fluid forge data-model` run is given an explicit `--llm-provider`, `--ll
 This page tells you what the warnings mean, what to do about them, and which (provider, model) combinations are catalogued.
 
 ::: tip Warning or error?
-A capability warning is not a failure. If a run does fail, the error is in [Forge Agent Errors](./typed-errors.md) (LLM provider and output errors) or [Typed CLI Errors](./typed-cli-errors.md). Two typed errors link to this page because the CLI's route table sends them here: `CapabilityMismatchError`, raised when a build asks a runner for a capability it does not declare (such as `exactly_once`), is covered under [Capability negotiation](./typed-cli-errors.md#capability-negotiation) and has nothing to do with the LLM catalog below.
+A capability warning is not a failure. If a run does fail, the error is in [Forge Agent Errors](./typed-errors.md) (LLM provider and output errors) or [Typed CLI Errors](./typed-cli-errors.md). Two typed errors link to this page because the CLI's route table sends them here: `CapabilityMismatchError`, raised when a build asks a runner for a capability it does not declare (such as `exactly_once`), is explained under [Asking for a capability](./source-aligned-acquisition.md#asking-for-a-capability) and listed under [Capability negotiation](./typed-cli-errors.md#capability-negotiation). It has nothing to do with the LLM catalog below.
 :::
 
 ## What the warning looks like

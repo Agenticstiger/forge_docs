@@ -155,5 +155,5 @@ The one shape that still cannot plan is a bare account locator with no organisat
 
 - [`fluid secrets`](../cli/secrets.md): `secretRef` values that builds read
 - [Catalogs index](../cli/catalogs/README.md): per-catalog auth options
-- [V1.5 architecture](v1.5-architecture.md): the model around source catalogs
+- [Catalog integration architecture](v1.5-architecture.md): the model around source catalogs
 - [`fluid ai setup`](../cli/ai.md): the interactive wizard
