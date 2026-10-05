@@ -13,7 +13,7 @@ fluid datamesh-manager teams [--format FMT]
 fluid datamesh-manager list-contracts [--format FMT]
 fluid datamesh-manager get-contract CONTRACT_ID
 fluid datamesh-manager delete-contract CONTRACT_ID [--yes]
-fluid datamesh-manager wipe [--yes]
+fluid datamesh-manager wipe [--yes] [--max-passes N]
 ```
 
 A short alias `fluid dmm` is registered for the same command group.
@@ -34,6 +34,7 @@ A short alias `fluid dmm` is registered for the same command group.
 | `--data-product-spec` | Override `dataProductSpecification` value sent to Entropy Data (e.g. `odps` or `0.0.1`). |
 | `--odps-lineage-mode` | `contract` (default) publishes product-to-product dependencies as Entropy Access agreements; `source-system` enables legacy SourceSystem compatibility for retained ODPS input ports. |
 | `--auto-approve-access` | Automatically approve Access agreements generated from `consumes[]`. Use for local sandboxes only; production workflows should review Access separately. |
+| `--no-auto-approve-access` | Keep Access agreements pending even when `DMM_AUTO_APPROVE_ACCESS=true` is set. Use it to override a sandbox-wide default for one publish. |
 | `--validate-generated-contracts` | Validate generated ODCS contracts locally before PUT. |
 | `--validation-mode` | `warn` (default; logs and continues) or `strict` (fails on invalid contracts). |
 | `--fail-on-contract-error` | Exit non-zero if any ODCS contract publish fails. |
@@ -71,11 +72,14 @@ Manage companion data contracts published alongside data products.
 
 ### `wipe`
 
-Delete **all** data products and data contracts in the configured DMM namespace. Intended for local sandbox cleanup and CI teardown. Prompts for confirmation unless `--yes` is passed.
+Delete **every data product** in the configured DMM tenant. Data contracts are not deleted: remove those with `delete-contract`. Intended for local sandbox cleanup and CI teardown. Prompts for confirmation unless `--yes` is passed.
+
+DMM refuses to delete a product that other products consume, so `wipe` works in passes: each pass deletes the products DMM accepts, and the products that were refused as in use go to the next pass. Consumers drain before their producers. It stops when nothing is left, when a pass makes no progress, or after `--max-passes`. When a pass makes no progress it names the consumers that block each remaining product. The command exits `0` when the tenant ends empty, and `1` when any product remains.
 
 | Option | Description |
 | --- | --- |
 | `--yes`, `-y` | Skip confirmation prompt. |
+| `--max-passes N` | Maximum delete passes before giving up on products still in use. Default `8`. |
 | `--api-key` | Entropy Data API key. |
 | `--api-url` | API base URL. |
 
@@ -100,8 +104,9 @@ fluid dmm get-contract my-org.customer360-contract
 fluid dmm delete gold.customer360_v1 --yes
 fluid dmm delete-contract my-org.customer360-contract --yes
 
-# Wipe entire sandbox (local dev only!)
+# Delete every data product in a sandbox (local dev only!)
 fluid dmm wipe --yes
+fluid dmm delete-contract my-org.customer360-contract --yes   # contracts are separate
 ```
 
 ## Configuration
@@ -136,7 +141,7 @@ That default avoids duplicated lineage nodes: upstream data products stay data p
 
 Use `--odps-lineage-mode source-system` only for legacy DMM deployments that explicitly require SourceSystem custom properties on retained ODPS input ports. Explicit source-system consumes authored in the FLUID contract are still preserved as source-system input ports in the default `contract` mode.
 
-Access agreements are create-only by default. Use `--auto-approve-access`, `DMM_AUTO_APPROVE_ACCESS=true`, or catalog config `auto_approve_access: true` only when your environment intentionally auto-approves those agreements.
+Access agreements are create-only by default. Use `--auto-approve-access`, `DMM_AUTO_APPROVE_ACCESS=true`, or catalog config `auto_approve_access: true` only when your environment intentionally auto-approves those agreements. `--no-auto-approve-access` forces pending agreements for one publish even when the environment variable is set.
 
 Team creation is defensive: if the server rejects the initial team payload because member emails do not exist as DMM users yet, the provider retries team creation without `members` while preserving the contact email.
 

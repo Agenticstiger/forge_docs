@@ -161,13 +161,13 @@ properties:
 
 | Variable | Purpose |
 |---|---|
-| `FLUID_CATALOG_DATAHUB_URL` | DataHub GMS endpoint (e.g. `https://datahub.corp.example.com/api/gms`). Falls back to `DATAHUB_GMS_URL`. |
-| `FLUID_CATALOG_DATAHUB_TOKEN` | DataHub PAT used for the publish path. Falls back to `DATAHUB_GMS_TOKEN`. |
-| `FLUID_CATALOG_DATAHUB_SPEC_BASE_URL` | Optional base URL for spec source documents (used when the registrar links contracts back to their source-of-truth URL). |
-| `FLUID_LAYER_PROPERTY_ID` | DataHub structured-property URN that the registrar uses to surface `metadata.layer` (Bronze / Silver / Gold). Override only if you've registered the property under a non-default URN. |
-| `FLUID_PRODUCT_TYPE_PROPERTY_ID` | DataHub structured-property URN for `metadata.productType` (SDP / ADP / CDP). |
+| `FLUID_CATALOG_DATAHUB_URL` | DataHub GMS endpoint (e.g. `https://datahub.corp.example.com/api/gms`). Falls back to `DATAHUB_GMS_URL`, `DATAHUB_GMS_HOST`, then `DATAHUB_SERVER`. |
+| `FLUID_CATALOG_DATAHUB_TOKEN` | DataHub PAT used for the publish path. Falls back to `DATAHUB_GMS_TOKEN`, then `DATAHUB_TOKEN`. |
+| `FLUID_CATALOG_DATAHUB_SPEC_BASE_URL` | Optional base URL for the contract and ODPS spec files. When set, the registrar links to `<base>/<product-id>/contract.fluid.yaml` and `spec.odps.yaml` instead of inlining them. See [What gets emitted](#what-gets-emitted). |
 
-The publish-side path uses the canonical SSRF-guarded HTTP client — no `http://` or private-IP DataHub instance will be reachable unless `FLUID_WEBHOOK_HOST_ALLOWLIST` covers it. See [network safety](/forge_docs/advanced/network-safety.html).
+With no endpoint set, the registrar is not configured: it does not fall back to a default host.
+
+The publish requests go through the CLI's guarded HTTP client, which does not follow redirects. For DataHub it allows private addresses, so a DataHub instance on an internal network is reachable. See [network safety](/forge_docs/advanced/network-safety.html).
 
 ### What gets emitted
 
@@ -177,21 +177,34 @@ The publish-side path uses the canonical SSRF-guarded HTTP client — no `http:/
 | Output ports (datasets) | `Dataset` per port with full schema, ownership, tags, descriptions |
 | Per-port contract | `DataContract` linked to the `Dataset` |
 | `metadata.domain` | `Domain` (created if absent) |
-| `metadata.layer` / `metadata.productType` | Structured properties (URNs from `FLUID_LAYER_PROPERTY_ID` / `FLUID_PRODUCT_TYPE_PROPERTY_ID`) |
+| `metadata.layer` / `metadata.productType` | Structured properties `fluid.layer` and `fluid.productType`, when the server supports structured properties. Otherwise only the `customProperties` below carry them. |
 | Quality assertions | `Assertion` MCPs linked to the parent dataset |
 
-The registrar writes are idempotent — re-publishing the same contract is a no-op against DataHub.
+The registrar also writes `customProperties`, which carry the FLUID classification, and the spec documents themselves:
 
-### Verify a publish locally
+| Key | On | Value |
+|---|---|---|
+| `fluid_layer`, `fluid_product_type`, `fluid_domain`, `fluid_version` | Each `Dataset` and the `DataProduct` | The contract's layer, product type, domain and version, each present only when the contract declares it. |
+| `odcs_contract` | Each `Dataset` | The per-port ODCS YAML. Present only when no spec base URL is configured. |
+| `fluid_contract`, `odps_spec` | The `DataProduct` | The FLUID contract YAML and the ODPS spec. Present only when no spec base URL is configured. |
+
+The rule is to inline a document only when it would otherwise be unreadable. With `FLUID_CATALOG_DATAHUB_SPEC_BASE_URL` set, the documents are linked and left out of `customProperties`. With it unset, which is the default, they are inlined, so entity payloads are larger. `DataContract.rawContract` is not part of the open-source DataHub GraphQL schema, which is why the contract is not left to that entity alone.
+
+::: tip Renamed in 0.15.0
+The `customProperties` keys were `fluid.layer`, `fluid.productType` and `fluid.version` before 0.15.0, and `fluid_domain` is new. A saved search, dashboard or ingestion rule keyed on the dotted names needs updating. The structured properties keep their dotted `qualifiedName`: that is a different namespace.
+:::
+
+The registrar writes are idempotent: re-publishing the same contract is a no-op against DataHub.
+
+### Publish to DataHub
 
 ```bash
 export FLUID_CATALOG_DATAHUB_URL=https://datahub.local:8080/api/gms
 export FLUID_CATALOG_DATAHUB_TOKEN=$(cat ~/.datahub-pat)
-fluid apply contract.fluid.yaml --yes
-# → ... [publish] datahub: registered DataProduct urn:li:dataProduct:my-product
+fluid publish contract.fluid.yaml --target datahub
 ```
 
-If the registrar can't reach DataHub, the publish step warns rather than fails the apply — pair with `--strict-publish` (a future flag, currently planned) to make publish failures fatal.
+A contract with `properties.catalog.register: [datahub]` also registers at apply time. If the registrar can't reach DataHub there, the publish step logs a warning and the apply continues.
 
 ## See also
 
