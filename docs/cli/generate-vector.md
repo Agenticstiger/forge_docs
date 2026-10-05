@@ -19,23 +19,40 @@ block is default-available and no longer needs an explicit `fluidVersion: "0.7.5
 | `embeddings.sql` | `CREATE EXTENSION IF NOT EXISTS vector`, a one-row-per-chunk embeddings table (`<expose>_embeddings`), and the ANN index. |
 | `vector_manifest.json` | RAG provenance — the embedding model, dimensions, distance metric, source key, and the text columns being embedded. |
 
-The embeddings table follows the standard RAG shape:
+The embeddings table is one row per chunk. For the `kb_articles` expose of the `pgvector-rag-output-port` example, `embeddings.sql` is:
 
 ```sql
-CREATE TABLE kb_article_embeddings (
-    id            bigserial PRIMARY KEY,
-    source_id     bigint,              -- FK back to the source row (sourceKeyColumn)
-    chunk_index   int,
-    chunk_text    text,
-    embedding     vector(1536),        -- dimensions from vectorConfig
+-- FLUID vector output port (pgvector) — generated, do not edit by hand.
+-- product: knowledge.support.articles
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- expose: kb_articles  (embeddable column(s): title, body)
+-- model: text-embedding-3-small  dimensions: 1536  metric: cosine
+CREATE TABLE IF NOT EXISTS "kb_article_embeddings" (
+    id bigserial PRIMARY KEY,
+    source_key text,
+    source_column text NOT NULL,
+    content text NOT NULL,
+    embedding vector(1536),
     embedding_model text,
-    created_at    timestamptz DEFAULT now()
+    chunk_index integer NOT NULL DEFAULT 0,
+    created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX kb_article_embeddings_embedding_idx
-    ON kb_article_embeddings USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS "kb_article_embeddings_embedding_idx"
+    ON "kb_article_embeddings" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 ```
 
-Only columns the [`ai_ready` agent](./agents.md) labels `ai-embeddable: "true"` become embedding targets — every other column is skipped, so PII and structural columns never enter the vector store by accident.
+The command prints where it wrote and how to apply it:
+
+```text
+Wrote pgvector target: runtime/vector/embeddings.sql +
+runtime/vector/vector_manifest.json  (1 expose(s), 2 embeddable column(s))
+
+Review and apply the embeddings table with psql:
+  psql <dsn> -f runtime/vector/embeddings.sql
+```
+
+Only columns labelled `ai-embeddable: "true"` (the label the [`ai_ready` agent](./agents.md) stamps) become embedding targets. A column without the label is not embedded: `locale` and `article_id` in the example are not.
 
 ## Syntax
 
@@ -105,7 +122,7 @@ Inspect `embeddings.sql` and `vector_manifest.json`, then run the SQL against yo
 
 ## How it fits
 
-- **Upstream:** the [`ai_ready` agent](./agents.md) stamps `ai-embeddable: "true"` on safe free-text columns during authoring. This port consumes exactly those labels.
+- **Upstream:** the [`ai_ready` agent](./agents.md) stamps `ai-embeddable: "true"` on safe free-text columns during authoring. This port reads those labels.
 - **Identifiers:** every emitted table / index / column name is routed through FLUID's central SQL-identifier validation before interpolation — no raw string concatenation into DDL.
 - **Prior art:** the DDL grammar follows the [pgvector](https://github.com/pgvector/pgvector) README; the `(model, dimensions, embed-fields)` config surface mirrors established embedding-sink connectors.
 
