@@ -6,10 +6,10 @@
 
 <CliCast
   src="/forge_docs/demos/gcp-quickstart.svg"
-  title="The same contract on BigQuery — swap one line, redeploy"
-  caption="Click play above: the Customer 360 quickstart contract, re-pointed from local DuckDB to BigQuery by swapping one binding line. The walkthrough below hand-builds a different example step by step, with auth + contract editing."
+  title="The same contract on BigQuery — change the binding, redeploy"
+  caption="Click play above: the Customer 360 quickstart contract, re-pointed from local DuckDB to BigQuery by changing the expose binding. Three keys change together: `binding.platform`, `binding.format` and `binding.location`; see [Switch clouds](../cli/tasks/switch-clouds.md). The walkthrough below hand-builds a different example step by step, with auth + contract editing."
   width="920"
-  insight="Same contract. One line changed (platform: local → platform: gcp). | BigQuery dataset, table, and view — all created from the YAML you already had. | Schema, dq.rules and the build stages — unchanged from the local run."
+  insight="Same contract. The binding changed (platform: local → platform: gcp, with the format and location to match). | BigQuery dataset, table, and view — all created from the YAML you already had. | Schema, dq.rules and the build stages — unchanged from the local run."
 />
 
 ::: warning Which schema version this page uses
