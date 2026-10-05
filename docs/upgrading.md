@@ -103,7 +103,7 @@ Release notes: [`0.16.0`](./RELEASE_NOTES_0.16.0.md) (covers `0.15.1` to `0.16.2
 | dbt multi-stage models are named after `stages[].outputs`, and `fluid_*` sentinel tests now fire | Update references to the old `stage_*` model names | Regenerate the dbt project and diff `models/` |
 | The federation digest gate warns and applies | If CI must block on a drifted pin, fail on the log line | Search the apply log for `apply_consumes_drift` |
 | The AWS region comes from the binding | Set `location.region` to where the resources are, or move them | The dry run refuses with `opentofu_region_moved`, naming both regions |
-| Athena could not read Glue Parquet tables FLUID created | Re-apply them | `SELECT COUNT(*)` in Athena no longer fails with `HIVE_UNSUPPORTED_FORMAT` |
+| Athena could not read Glue Parquet tables FLUID created before `0.16.2` | New tables declare the Hive input format and SerDe. Whether a re-apply updates an old table was not checked here: run `fluid apply --dry-run` and look for an in-place change to the table's storage descriptor | `SELECT COUNT(*)` in Athena does not fail with `HIVE_UNSUPPORTED_FORMAT` |
 | `fluid import airbyte` needs a server | Pass `--server-url` or set `FLUID_IMPORT_AIRBYTE_URL` | The import refuses by name when neither is set |
 
 The container image has no `0.16.0` tag; `0.16.1` is the first image after `0.15.3`.
@@ -227,6 +227,15 @@ console), or keep one of them in the contract for this apply, then re-run.
 `--env <name>` with no overlay is refused when the workspace's `fluid.workspace.yaml` lists
 that env for the product under `expected-environments`. Before `0.17.0` the base contract
 was used as if it were that env.
+
+```yaml
+# fluid.workspace.yaml
+expected-environments:
+  orders: [gcp]
+```
+
+The refusal is skipped for `dev` and for an env the base contract already binds to. The
+CLI wraps the message at the terminal width; this was run at 80 columns:
 
 ```console
 $ fluid validate orders/contract.fluid.yaml --env gcp

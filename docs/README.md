@@ -129,18 +129,18 @@ These are the groups `fluid --help` prints on `0.15.0`. Run it yourself to confi
 
 **Since `0.15.0`:**
 
-- **`0.15.1`–`0.16.2`** ([notes](./RELEASE_NOTES_0.16.0.md)) — generated code can no longer be
-  made to write outside its output directory or run contract values as Python. Generated SQL
+- **`0.15.1`–`0.16.2`** ([notes](./RELEASE_NOTES_0.16.0.md)) — a stage name such as `../../ESCAPED` can
+  no longer make `fluid generate transformation` write outside `--out`, and contract values
+  are escaped in generated Airflow, Prefect and Dagster code. Generated SQL
   now creates views, which drops grants on Snowflake and Databricks. AWS resources go to the
   binding's region, and BigQuery bindings load their rows.
 - **`0.16.3`–`0.17.0`** ([notes](./RELEASE_NOTES_0.17.0.md)) — one contract deploys to AWS and
   to Google Cloud through `--env` overlays and is governed the same on both, checked by
-  `fluid verify`. The generated 11-stage pipeline runs as generated. Upgrading has three
-  one-time steps: retire old Airflow DAGs, move state to a per-provider key, and let the first
+  `fluid verify`. The generated 11-stage pipeline runs as generated. Upgrading has one-time
+  steps: retire old Airflow DAGs, move state to a per-provider key, and let the first
   GCP apply revoke stale dataset grants.
-- **`0.18.0`** — a contract can no longer make the engine read the machine it runs on: `$ref`
-  stays inside the contract's directory tree unless you widen it, and contract SQL runs in
-  DuckDB's sandbox.
+- **`0.18.0`** — a contract's `$ref` and its SQL are confined to the contract's directory tree and declared
+  locations, unless you widen them.
 - **`0.18.1`** — the drift gate (`fluid diff --exit-on-drift`) reads a target whose binding
   names its project or path through an environment variable.
 

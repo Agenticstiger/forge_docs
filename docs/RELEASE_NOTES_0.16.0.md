@@ -16,8 +16,8 @@ the [upgrade guide](./upgrading.md), which walks every version in order.
 
 ## Headline
 
-Code that FLUID generates now runs as generated, and a contract can no longer use it to run
-code of its own.
+Code that FLUID generates now runs as generated, and contract values are escaped in the
+scheduler code it emits.
 
 - **Two security fixes in `0.16.0`.** A `stages[].name` such as `../../../../ESCAPED` made
   `fluid generate transformation` write outside its output directory. And contract values
@@ -29,9 +29,10 @@ code of its own.
 - **One contract applied to AWS and to Google Cloud lands where it says (`0.16.2`).** The AWS
   region comes from the binding, not the shell. A BigQuery binding loads its rows into the
   table. `binding.location.project` is honoured. Athena can read the Glue tables FLUID creates.
-- **The CLI's own links go to real pages (`0.15.1`–`0.15.3`).** Every typed error, scaffolded
-  contract and `--help` screen pointed at documentation domains that did not exist, or at one
-  owned by an unrelated company.
+- **The CLI's own links go to real pages (`0.15.1`–`0.15.3`).** Typed errors, scaffolded
+  contracts and the validator pointed at documentation domains that did not exist, or at one
+  owned by an unrelated company; `fluid --help` pointed at the schema repository instead of
+  the docs site.
 
 `pip install --upgrade data-product-forge` gives you the current release, not this one. Pin
 `0.16.2` only if you are stepping through versions one at a time.
@@ -70,9 +71,11 @@ Work through this before you upgrade a CI lane from `0.15.x`.
    applied from a shell in another region, `fluid apply` refuses with
    `opentofu_region_moved` and names both regions. Either set `location.region` to the region
    the resources are in, or empty and remove them there, then apply again.
-5. **Re-apply AWS Parquet tables that Athena must read.** Tables created before `0.16.2` have
+5. **Check AWS Parquet tables that Athena must read.** Tables created before `0.16.2` have
    no Hive input format or SerDe, and Athena fails with
-   `HIVE_UNSUPPORTED_FORMAT: Unable to create input format`.
+   `HIVE_UNSUPPORTED_FORMAT: Unable to create input format`. As of `0.16.2`, new tables
+   declare them. Whether a re-apply updates an existing table was not checked here, so run
+   `fluid apply --dry-run` and look for an in-place change to the table's storage descriptor.
 6. **Point `fluid import airbyte` at your server.** Pass `--server-url`, or set
    `FLUID_IMPORT_AIRBYTE_URL`. With neither, the import refuses before it opens a connection.
 7. **Check where a bucket-bound DuckDB build lands.** A binding with `location.bucket` now
@@ -174,8 +177,8 @@ contract pulled from another team's registry.
   `apply_consumes_drift: <n> federated consumes[] entries could not be confirmed in sync (…).
   Applying anyway.` with a JSON payload carrying `counts_by_kind`, `drift_count` and
   `unreachable_count`. Each finding has a `violation_kind`: `drift`, `unreachable`,
-  `unpinned`, `unknown-workspace` or `not-wired`. `--no-verify-federation` now only silences
-  the check. `FLUID_FEDERATION_TIMEOUT_SECONDS` (default 30) bounds each git operation, which
+  `unpinned`, `unknown-workspace` or `not-wired`. `--no-verify-federation` skips the check
+  and logs a warning that it was skipped. `FLUID_FEDERATION_TIMEOUT_SECONDS` (default 30) bounds each git operation, which
   could previously hang an apply.
 - **Shipped templates and examples declare `fluidVersion: "0.7.5"`**, the stable schema.
 
@@ -196,7 +199,7 @@ contract pulled from another team's registry.
   `aws` binding from S3 rather than as a local file (verified against a real AWS account).
 - Generated SQL scripts register the inputs the contract declares, so a project that applied
   cleanly also runs standalone.
-- Nine `fluid` invocations in generated CI pipelines named commands or flags that do not
+- Generated CI pipelines no longer call `fluid` commands and flags that do not
   exist. They are replaced, and a test parses each emitted invocation against the CLI.
 - Two `actionId`s that differ only in punctuation no longer collapse onto one Airflow task.
 - `fluid apply` says when `consumes[]` entries are unbound, instead of implying they are wired.
@@ -209,7 +212,7 @@ contract pulled from another team's registry.
 Three patches, all about where the CLI sends you. If your terminal output differs from an
 older page of these docs in its links, this is why.
 
-- **Typed errors link to real pages.** Each typed error and catalogued event prints an
+- **Typed errors link to real pages.** A typed error prints an
   `[ERR_<EVENT>]` code, suggestions, and a `📖` link. The link pointed at a domain with no DNS
   record; it now resolves through a map of pages this site serves, and a topic with no page
   goes to [Production troubleshooting](./advanced/production-troubleshooting.md):

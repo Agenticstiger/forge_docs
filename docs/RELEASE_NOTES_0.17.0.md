@@ -18,10 +18,11 @@ its own. To move a project from an older release, use the [upgrade guide](./upgr
 One contract now deploys to AWS and to Google Cloud through its `--env` overlays, and is
 governed the same on both.
 
-- **Each policy is one contract field, enforced natively on each cloud, and checked by
-  [`fluid verify`](./cli/verify.md).** Retention, encryption at rest with a per-product key,
-  column restrictions, masking and grants reach AWS (`0.16.5`–`0.16.7`) and Google Cloud
-  (`0.17.0`), instead of being declared and dropped.
+- **Each policy is one contract field, enforced natively on each cloud.** Retention,
+  encryption at rest with a per-product key, column restrictions, masking and grants reach AWS
+  (`0.16.5`–`0.16.7`) and Google Cloud (`0.17.0`), instead of being declared and dropped.
+  [`fluid verify`](./cli/verify.md) checks retention, encryption and column restrictions, and
+  checks masking on Glue, Athena and BigQuery tables. Grants are applied and not yet verified.
 - **The two clouds keep two states.** A product applied with `--env aws` and `--env gcp` used
   to share one OpenTofu state, so each cloud's plan read the other's resources as orphans to
   destroy.
@@ -35,8 +36,7 @@ governed the same on both.
 
 The forge-cli changelog for `0.17.0` measured the GCP work against moto and a BigQuery
 emulator, and left the real-cloud run open. On 4 October 2026, one deployment applied eleven
-products to real BigQuery from the same base contracts through `--env gcp` overlays, using
-`0.18.0`. In that run:
+products to real BigQuery from the same base contracts through `--env gcp` overlays,. In that run:
 
 - each build passed `fluid verify` against the live tables, including retention (daily
   partitions that expire), encryption (a Cloud KMS key ring and key per dataset) and column
@@ -47,9 +47,9 @@ products to real BigQuery from the same base contracts through `--env gcp` overl
   reads: `User has neither fine-grained reader nor masked get permission to get data
   protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.`
 
-The same run found the drift-gate failure fixed in [`0.18.1`](./RELEASE_NOTES_0.18.0.md#what-changed-in-0-18-1).
-The Lake Formation half (column-limited grants on AWS) has been checked against moto and
-AWS's permissions reference, not against a real account.
+The same run found the drift-gate failure on `0.18.0` that [`0.18.1`](./RELEASE_NOTES_0.18.0.md#what-changed-in-0-18-1) fixes.
+As of 5 October 2026, the Lake Formation half (column-limited grants on AWS) has been checked
+against moto and AWS's permissions reference, not against a real AWS account.
 
 ::: tip Who should upgrade
 Anyone who deploys one contract to more than one cloud. Anyone on **Google Cloud** whose
@@ -112,16 +112,17 @@ The [upgrade guide](./upgrading.md#from-0-16-to-0-17) has a check for each.
 16. **A GCP binding with no region is refused**, instead of landing in `US`.
 
 ::: warning Behaviour changes that can newly fail
-Steps 2, 3, 4, 8, 9, 10, 11, 15 and 16 above can turn a passing run into a failing one with
-no contract change. Steps 12, 13 and 14 change what exists in your scheduler, your state
-bucket and your datasets on the first run after the upgrade.
+Steps 2, 3, 4, 8, 9, 10, 11, 15 and 16 above can newly fail with no contract change. Steps 13
+and 14 can also refuse the first apply (see the [upgrade guide](./upgrading.md)), and steps
+12 to 14 change what exists in your scheduler, your state bucket and your datasets on the
+first run after the upgrade.
 :::
 
 ## What changed in `0.17.0`
 
 ### Governance parity on Google Cloud
 
-Each policy is one contract field, enforced natively on both clouds and checked by
+Each field in this table is enforced natively on both clouds and checked by
 `fluid verify`:
 
 | Contract field | AWS | Google Cloud |
@@ -151,11 +152,11 @@ masked columns, as it already did on Glue and Athena.
 ### One contract on two clouds
 
 - **Per-provider state.** See step 13. When the gcp apply finds the aws state at the old key,
-  it leaves it alone. On the 4 October 2026 run, that first gcp apply printed:
+  it leaves it alone. On the 4 October 2026 run, that first gcp apply printed a line of this
+  form, where `<old-state-location>` is `s3://<bucket>/<key>` or `gcs://<bucket>/<prefix>`:
 
   ```text
-  state move:  <scheme>://<bucket>/fluid/<id>/terraform.tfstate holds the aws provider's state
-  (hashicorp/aws), not this provider's; left in place
+  state move:  <old-state-location> holds the aws provider's state (hashicorp/aws), not this provider's; left in place
   ```
 
   and wrote the gcp state to `fluid/<id>/gcp/terraform.tfstate`.
