@@ -2,37 +2,37 @@
 
 **Status:** ✅ Production Ready  
 **Docs Baseline:** CLI `0.18.1`<br>
-**Database:** DuckDB, SQLite
+**Engine:** DuckDB (1.5.0 or later)
 
 > **Why it matters**
-> Build and test a real data product on your laptop — no cloud account, no credentials — then ship the same contract to a cloud.
-> `binding.platform: local` runs embedded on DuckDB; only that one line changes when you later target BigQuery, Snowflake, or Athena.
+> Build and test a real data product on your laptop, with no cloud account and no credentials, then ship the same contract to a cloud.
+> `binding.platform: local` runs the build's SQL on an embedded DuckDB and writes each output to a file. Moving to BigQuery, Snowflake or AWS later means editing that expose's `binding`, not the rest of the contract.
 
 ---
 
-## Overview
+## Quick start
 
-The Local provider enables rapid development and testing without cloud costs. Perfect for:
-
-- 📚 Learning Fluid Forge
-- 🧪 Testing contracts before cloud deployment
-- 💻 Local data analysis with DuckDB
-- 🔬 CI/CD testing pipelines
-
----
-
-## Quick Start
-
-### Installation
+### Install
 
 ```bash
-pip install data-product-forge duckdb
+pip install "data-product-forge[local]"
 ```
 
-### Minimal Contract
+The `local` extra brings DuckDB (`duckdb>=1.5.0`) and pandas. Without it, a build fails with `duckdb not installed. Install it with: pip install duckdb`.
+
+### A minimal contract
+
+Put the contract and its data in one directory:
+
+```text
+my-product/
+├── contract.fluid.yaml
+└── data/
+    └── customers.csv      # customer_id,name,amount
+```
 
 ```yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: example.local_analytics_v1
 name: Local Analytics
@@ -42,7 +42,7 @@ metadata:
   layer: Bronze
   owner:
     team: data-analytics
-    email: team@example.com
+    email: team@company.com
 
 builds:
   - id: build_customers
@@ -50,7 +50,14 @@ builds:
     engine: sql
     properties:
       sql: |
-        SELECT * FROM read_csv_auto('./data/customers.csv')
+        SELECT customer_id, name, amount
+        FROM customers_raw
+        WHERE amount >= 100
+      parameters:
+        inputs:
+          - name: customers_raw
+            path: data/customers.csv
+            format: csv
     outputs:
       - customers
 
@@ -61,227 +68,7 @@ exposes:
       platform: local
       format: parquet
       location:
-        path: ./runtime/out/customers.parquet
-    contract:
-      schema:
-        - name: customer_id
-          type: STRING
-          required: true
-```
-
-**Execute:**
-
-```bash
-fluid apply contract.fluid.yaml --provider local
-```
-
----
-
-## Supported Features
-
-### ✅ DuckDB Features
-
-| Feature | Support | Notes |
-|---------|---------|-------|
-| Tables | ✅ Full | CREATE TABLE, materialized |
-| Views | ✅ Full | Standard SQL views |
-| CSV/Parquet Loading | ✅ Full | Auto-schema detection |
-| SQL Transformations | ✅ Full | Full SQL:2016 support |
-| Indexes | ✅ Full | B-tree, ART indexes |
-| CTEs & Window Functions | ✅ Full | Advanced SQL |
-| JSON/Arrays | ✅ Full | Nested data structures |
-
-### ⏳ Limitations
-
-- ❌ No IAM/authentication (local only)
-- ❌ No partitioning (not needed for small data)
-- ❌ No distributed queries
-- ⚠️ Limited to single machine memory
-
----
-
-## Configuration
-
-The local provider needs no contract-level configuration block. It is selected at
-the command line with `--provider local`, and DuckDB itself is managed for you (an
-in-memory database during a run, or a session-scoped file so tables created by one
-build are visible to the next).
-
-What you *do* configure per output is the `binding` on each expose — the format and
-the path the local provider writes to:
-
-```yaml
-exposes:
-  - exposeId: customers
-    kind: table
-    binding:
-      platform: local
-      format: parquet            # or csv
-      location:
-        path: ./runtime/out/customers.parquet
-    contract:
-      schema:
-        - name: customer_id
-          type: STRING
-          required: true
-```
-
----
-
-## Use Cases
-
-### 1. Development & Testing
-
-Develop contracts locally, then deploy to cloud:
-
-```bash
-# Test locally
-fluid apply contract.yaml --provider local
-```
-
-When you are ready for the cloud, change `binding.platform` (and the `format` +
-`location` that go with it) and re-run `fluid apply` — see
-[Cloud Migration](#cloud-migration) below.
-
-::: warning `--provider` does not retarget a contract *(since 0.15.0)*
-`fluid apply contract.yaml --provider gcp` on a `platform: local` contract used to
-route to the wrong target and report success — `tofu plan: +0 ~0 -0`, exit 0, nothing
-provisioned. As of `0.15.0` a `--provider` that contradicts every cloud the contract
-declares is rejected before anything is written, on both `fluid apply` and
-`fluid generate iac`. The flag disambiguates a contract that spans clouds or declares
-none; retargeting is done by editing `binding`.
-:::
-
-### 2. Data Analysis
-
-Analyze local CSV/Parquet files. Source files are read directly inside the build
-SQL with DuckDB's `read_csv_auto` / `read_parquet` functions:
-
-```yaml
-builds:
-  - id: build_monthly_revenue
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        SELECT
-          DATE_TRUNC('month', sale_date) as month,
-          SUM(amount) as revenue
-        FROM read_csv_auto('./data/sales_*.csv')
-        GROUP BY month
-    outputs:
-      - monthly_revenue
-
-exposes:
-  - exposeId: monthly_revenue
-    kind: view
-    binding:
-      platform: local
-      format: parquet
-      location:
-        path: ./runtime/out/monthly_revenue.parquet
-    contract:
-      schema:
-        - name: month
-          type: TIMESTAMP
-        - name: revenue
-          type: NUMERIC
-```
-
-### 3. CI/CD Testing
-
-Test contracts in GitHub Actions:
-
-```yaml
-# .github/workflows/test.yml
-- name: Test Fluid Contract
-  run: |
-    fluid apply contract.yaml --provider local
-    fluid verify contract.yaml
-```
-
----
-
-## Performance Tips
-
-### 1. Use Parquet Instead of CSV
-
-Read Parquet rather than CSV in your build SQL — it is typically ~10x faster and
-carries its own schema:
-
-```yaml
-builds:
-  - id: build_events
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        SELECT * FROM read_parquet('./data/events.parquet')
-    outputs:
-      - events
-```
-
-Pick `format: parquet` on the expose `binding` too, so outputs are written in the
-faster format.
-
-### 2. Push Work Into SQL
-
-DuckDB is a columnar engine — filter and aggregate inside the build SQL rather than
-post-processing. Project only the columns you need and let `WHERE` / `GROUP BY` run
-in the engine.
-
-### 3. Optimize Memory
-
-DuckDB memory and thread settings are managed by the local provider, not declared
-in the contract. For large datasets, prefer Parquet inputs and narrow projections so
-less data is held in memory at once.
-
----
-
-## Example Workflows
-
-### Load and Transform CSVs
-
-```yaml
-fluidVersion: "0.7.3"
-kind: DataProduct
-id: example.csv_pipeline_v1
-name: CSV Pipeline
-domain: example
-
-metadata:
-  layer: Silver
-  owner:
-    team: data-analytics
-    email: team@example.com
-
-builds:
-  - id: build_customer_orders
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        SELECT
-          c.customer_id,
-          c.name,
-          c.email,
-          COUNT(o.order_id) as total_orders,
-          SUM(o.amount) as total_spent
-        FROM read_csv_auto('./raw/customers.csv') c
-        LEFT JOIN read_csv_auto('./raw/orders.csv') o
-          ON c.customer_id = o.customer_id
-        GROUP BY c.customer_id, c.name, c.email
-    outputs:
-      - customer_orders
-
-exposes:
-  - exposeId: customer_orders
-    kind: table
-    binding:
-      platform: local
-      format: parquet
-      location:
-        path: ./runtime/out/customer_orders.parquet
+        path: runtime/out/customers.parquet
     contract:
       schema:
         - name: customer_id
@@ -289,139 +76,200 @@ exposes:
           required: true
         - name: name
           type: STRING
-        - name: email
-          type: STRING
-          sensitivity: pii
-        - name: total_orders
-          type: INTEGER
-        - name: total_spent
-          type: NUMERIC
-```
-
-### Parquet Data Lake
-
-```yaml
-fluidVersion: "0.7.3"
-kind: DataProduct
-id: example.data_lake_v1
-name: Data Lake Events
-domain: example
-
-metadata:
-  layer: Silver
-  owner:
-    team: data-analytics
-    email: team@example.com
-
-builds:
-  - id: build_daily_events
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        SELECT
-          DATE(event_time) as date,
-          event_type,
-          COUNT(*) as event_count
-        FROM read_parquet('./lake/events/**/*.parquet')   -- wildcard glob
-        WHERE event_time >= CURRENT_DATE - INTERVAL '7 days'
-        GROUP BY date, event_type
-    outputs:
-      - daily_events
-
-exposes:
-  - exposeId: daily_events
-    kind: view
-    binding:
-      platform: local
-      format: parquet
-      location:
-        path: ./runtime/out/daily_events.parquet
-    contract:
-      schema:
-        - name: date
-          type: DATE
-        - name: event_type
-          type: STRING
-        - name: event_count
+        - name: amount
           type: INTEGER
 ```
+
+Run it from the contract's directory:
+
+```bash
+cd my-product
+fluid apply contract.fluid.yaml --yes
+fluid verify contract.fluid.yaml
+```
+
+```text
+...
+✅ Data product deployed successfully
+ Actions Applied  3
+...
+📋 Verifying: customers
+   Format: parquet
+...
+   📊 Rows: 2
+
+   🔍 Dimension 1: Schema Structure
+      ✅ PASS - All 3 declared columns present
+```
+
+On the local provider a plain `fluid apply` runs the build's SQL; no `--mode amend-and-build` is needed. The result lands at `runtime/out/customers.parquet`. `--provider local` is optional: the provider comes from `binding.platform`.
 
 ---
 
-## Querying Results
+## Inputs: `parameters.inputs`
 
-### Python
+`builds[].properties.parameters.inputs` declares which file backs which name the SQL reads:
+
+| Key | Meaning |
+|---|---|
+| `name` | The view name the SQL uses (`customers_raw` above) |
+| `path` | The file; a glob such as `data/sales_*.csv` works |
+| `format` | `csv`, `parquet` or `json` |
+| `schema` | Optional column types for the view |
+
+`fluid apply` registers each entry as a DuckDB view before the SQL runs. `fluid generate transformation` writes the same statements to `00_inputs.sql` next to the build's SQL, so the generated script runs on its own:
+
+```sql
+-- customers_raw <- data/customers.csv
+CREATE OR REPLACE VIEW customers_raw AS SELECT * FROM read_csv_auto('data/customers.csv', AUTO_DETECT:=true, DELIM:=',');
+```
+
+Reading a file directly in the SQL (`SELECT * FROM read_csv_auto('data/customers.csv')`) also works, inside the limits below. A declared input is also bound by the script `fluid generate transformation` writes.
+
+### Reading another product
+
+A `consumes[]` entry the SQL names by its `exposeId` is bound to the upstream product's output. A `local` upstream is read at its `location.path`, relative to the upstream contract's directory; the upstream contract is found under the nearest `fluid.workspace.yaml` or in `FLUID_UPSTREAM_CONTRACTS`. A `parameters.inputs` entry with the same `name` wins over that lookup. [`fluid apply`](../cli/apply.md) lists the discovery rules. When a `consumes[]` entry is neither resolved nor declared, apply logs `local_consumes_not_bound`.
+
+---
+
+## Where paths resolve
+
+| Path | Resolved against |
+|---|---|
+| An expose's `binding.location.path` (the output) | the contract's directory (since 0.16.3) |
+| A `parameters.inputs[].path` and a path inside the SQL | the working directory |
+| `runtime/out/local_apply_log.jsonl`, `runtime/apply_report.html` | the working directory |
+
+So run `fluid apply` from the contract's directory. From anywhere else the output still lands next to the contract, but the inputs are looked up in the working directory and the build fails, with `Input file not found: data/customers.csv` for a declared input, or a sandbox refusal for a path in the SQL.
+
+::: warning A failed local build can leave a placeholder file
+As of 0.18.1, when the build's SQL fails, the provider still writes a 24-byte placeholder (`id,value` / `1,materialized`, not Parquet) at the output path, although the apply exits 1. A later `fluid verify` then reports `No magic bytes found`. Delete the file, or re-run the build, before trusting the output.
+:::
+
+A `{{ env.NAME }}` placeholder in an output path resolves the same way in `fluid apply`, `fluid verify` and `fluid diff`, so chained products can share a data directory:
+
+```yaml
+binding:
+  platform: local
+  format: parquet
+  location:
+    path: "{{ env.DATA_DIR }}/customers.parquet"
+```
+
+A relative contract path that climbs out of the working directory (`fluid apply ../other/contract.fluid.yaml`) is refused with `ERR_PATH_TRAVERSAL_DETECTED`.
+
+---
+
+## What build SQL can read (since 0.18.0)
+
+Contract SQL runs in a DuckDB sandbox. It can read and write the contract's directory, the FLUID workspace around it, `./runtime`, the run's scratch directory, the declared inputs and outputs inside those directories, and the directories an operator lists in `FLUID_DUCKDB_ALLOWED_DIRS`. Refused, with the build failing:
+
+| SQL | What you see |
+|---|---|
+| A path outside the allowed directories, an absolute path elsewhere, `../` escapes | `Permission Error: Cannot access file ... DuckDB refused it: contract SQL may only read and write the locations the contract declares and its own directory (...)` |
+| A URL: `read_csv('https://...')` | `File https://... requires the extension httpfs to be loaded` |
+| `SET` or `PRAGMA` that changes a setting | `Cannot change configuration option "threads" - the configuration has been locked` |
+| Functions DuckDB used to autoload: `read_xlsx`, `sqlite_scan`, `delta_scan`, `iceberg_scan` | not in the catalog |
+
+Move remote data into the contract's directory with an acquisition build first, or declare it. See [DuckDB sandbox](../advanced/duckdb-sandbox.md) and the [0.18.0 release notes](../RELEASE_NOTES_0.18.0.md).
+
+---
+
+## What a run leaves behind
+
+```text
+my-product/
+├── contract.fluid.yaml
+├── data/customers.csv
+├── .fluid/run-id.txt
+└── runtime/
+    ├── apply_report.html          # the execution report
+    └── out/
+        ├── customers.parquet      # the expose's output
+        ├── local_apply_log.jsonl  # one line per action
+        └── preview_<n>.csv        # a preview of the build's result
+```
+
+`runtime/out/local_apply_log.jsonl` records each action's status, the files it wrote and its row count:
+
+```json
+{"i": 0, "status": "ok", "op": "load_data", "table": "customers_raw", "path": "data/customers.csv", "rows": 3, "format": "csv"}
+{"i": 1, "status": "ok", "op": "sql", "written": ["runtime/out/preview_1.csv"], "rows": 2, "inputs": [{"table": "customers_raw", "path": "data/customers.csv", "format": "csv", "options": {}}]}
+{"i": 2, "status": "ok", "op": "materialize", "dst": ".../runtime/out/customers.parquet", "source_table": "result_build_customers", "format": "parquet"}
+```
+
+A resolved `consumes[]` upstream is logged there with its `productId`, `exposeId` and `uri`. Error text in the log, the build output and retry log lines has the value of every credential-named `{{ env.X }}` the build uses redacted.
+
+Each apply runs in a temporary DuckDB session, so no database file outlives the run. The durable result is the file at each expose's `location.path`. Add `runtime/` and `.fluid/` to `.gitignore`.
+
+### Querying the output
 
 ```python
 import duckdb
 
-conn = duckdb.connect('analytics.duckdb')
-
-# Query data
-df = conn.execute("""
-    SELECT * FROM main.customers
-    WHERE total_spent > 1000
-""").fetchdf()
-
-print(df.head())
-conn.close()
+duckdb.sql("SELECT * FROM 'runtime/out/customers.parquet' WHERE amount > 100").show()
 ```
 
-### DuckDB CLI
-
 ```bash
-duckdb analytics.duckdb
+duckdb -c "SELECT * FROM 'runtime/out/customers.parquet' LIMIT 10"
+```
 
--- Interactive SQL
-SELECT * FROM main.customers LIMIT 10;
+---
 
--- Export to CSV
-COPY (SELECT * FROM main.customer_summary) 
-TO 'export.csv' WITH (HEADER, DELIMITER ',');
+## What `fluid verify` checks on a local file
 
--- Export to Parquet
-COPY main.customer_summary TO 'export.parquet';
+For a local output, `fluid verify` checks column names, the row count, and the shape of masked columns. Data types, constraints and location are not checked. A missing or unreadable file is an error and fails the run.
+
+::: warning Masking on a local embedded-SQL build
+As of 0.18.1, an embedded-SQL build that lands a local file does not apply `policy.privacy.masking` and does not refuse it either: the column lands in cleartext and `fluid apply` exits 0. `fluid verify` reports the column as CRITICAL (`masked column(s) did not land treated`), and only `fluid verify --strict` exits 1. Masking is applied by the DuckDB acquisition runner; see [source-aligned acquisition](../advanced/source-aligned-acquisition.md).
+:::
+
+---
+
+## Use in CI
+
+```yaml
+# .github/workflows/test.yml
+- name: Build and check the product
+  working-directory: my-product
+  run: |
+    pip install "data-product-forge[local]"
+    fluid validate contract.fluid.yaml
+    fluid apply contract.fluid.yaml --yes
+    fluid verify contract.fluid.yaml --strict
 ```
 
 ---
 
 ## Cloud Migration
 
-When ready to move to production:
-
-**1. Update the expose binding:**
+To move an expose to a cloud, change its `binding`: the `platform`, and the `format` and `location` that go with it. The rest of the contract stays.
 
 ```yaml
 exposes:
-  - exposeId: customer_orders
+  - exposeId: customers
     kind: table
     binding:
-      platform: gcp                 # Changed from 'local'
-      format: bigquery_table        # Changed from 'parquet'
-      location:
+      platform: gcp                 # was: local
+      format: bigquery_table        # was: parquet
+      location:                     # was: path
         project: my-project-id
         dataset: analytics
-        table: customer_orders
-    # contract.schema, builds, governance — all unchanged
+        table: customers
+        region: europe-west3
 ```
 
-**2. Deploy:**
+Changing only `platform` is not enough. `fluid validate` then warns: `platform=gcp resolves to no GCP resource ... fluid generate iac and fluid apply would emit nothing for this port`. Rows reach BigQuery when the build runs with `--mode amend-and-build`; see [Loading data](./gcp.md#loading-data). The [switch-clouds recipe](../recipes/switch-clouds.md) shows the full diff, and [per-environment overlays](../recipes/per-environment-overlays.md) keep `local` and cloud bindings side by side.
 
-```bash
-fluid apply contract.fluid.yaml --provider gcp
-```
-
-**That's it!** Your local development becomes cloud production.
+::: warning `--provider` does not retarget a contract *(since 0.15.0)*
+`fluid apply contract.yaml --provider gcp` on a `platform: local` contract is rejected before anything is written, on both `fluid apply` and `fluid generate iac`. The flag disambiguates a contract that spans clouds or declares none; retargeting is done by editing `binding`.
+:::
 
 ---
 
 ## Next Steps
 
-- **[Local Walkthrough](/forge_docs/walkthrough/local)** - Complete tutorial
-- **[GCP Walkthrough](/forge_docs/walkthrough/gcp)** - Migrate to cloud
-- **[CLI Reference](/forge_docs/cli/)** - Local provider commands
-
----
-
-*Perfect for development. Deploy to GCP when ready.*
+- [Local Walkthrough](../walkthrough/local.md): a complete tutorial
+- [GCP Provider](./gcp.md): the same contract on BigQuery
+- [`fluid apply`](../cli/apply.md): modes and what a build reads
+- [DuckDB sandbox](../advanced/duckdb-sandbox.md)
