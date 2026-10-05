@@ -216,7 +216,7 @@ fluid policy-check contract.fluid.yaml --strict --format json --output report.js
 
 ## Sovereignty enforcement modes (since 0.15.0)
 
-A contract's `sovereignty` block declares where its data may live. `enforcementMode` decides what a violation does. One function maps the mode onto a severity, applied to every mode-sensitive check:
+A contract's `sovereignty` block declares where its data may live. `enforcementMode` decides what a violation does. One function maps the mode onto a severity, applied to the mode-sensitive checks on this page:
 
 | `enforcementMode` | Severity | Effect |
 |---|---|---|
