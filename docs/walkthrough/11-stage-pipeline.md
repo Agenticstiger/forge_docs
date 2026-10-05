@@ -438,11 +438,11 @@ rc=1
 
 `NO_VERIFY_DIGEST` in the Jenkinsfile is the disaster-recovery escape: it passes `--no-verify-plan-binding --no-verify-federation`, and the CLI logs a warning for the audit trail.
 
-`--ensure-opentofu` provisions a pinned, checksum-verified OpenTofu build if `tofu` is missing, which a cloud apply needs and a local apply does not.
+`--ensure-opentofu` provisions a pinned OpenTofu build if `tofu` is missing, checked against the release's `SHA256SUMS` (integrity, not a signature), which a cloud apply needs and a local apply does not.
 
 Back the target up yourself before a destructive mode. The OpenTofu engine the cloud providers use creates no pre-replace snapshot, so [`fluid rollback`](../cli/rollback.md) has no restore point after a cloud `replace`. On the local engine the data-loss gate says the table "will be snapshotted", but as of 0.18.1 a `replace-and-build` apply of a local CSV output (with `--allow-data-loss`) wrote no `.fluid/rollback-state.json`, so there was nothing to roll back to.
 
-**Command Center reporting.** Since 0.17.0 `fluid apply` reports each run to the Command Center, best effort: it registers the run when it starts and closes it with its status, and an outage costs a warning and a bounded timeout, never the exit code. It uses the credentials and organization `fluid publish --target fluid-command-center` uses (`FLUID_CC_ENDPOINT`, `FLUID_API_KEY` or `FLUID_BEARER_TOKEN`, and `FLUID_CC_ORG_ID` or the organization in `fluid.config.yaml`). Without an organization nothing is sent. It sends the product id, contract version, contract hash, environment, provider, mode, change counts, timings and the builds it ran, never a secret, a header or OpenTofu output. `FLUID_COMMAND_CENTER_ENABLED=false` turns it off.
+**Command Center reporting** ([what it sends](../concepts/command-center.md#what-fluid-apply-reports)). Since 0.17.0 `fluid apply` reports each run to the Command Center, best effort: it registers the run when it starts and closes it with its status, and an outage costs a warning and a bounded timeout, never the exit code. It uses the credentials and organization `fluid publish --target fluid-command-center` uses (`FLUID_CC_ENDPOINT`, `FLUID_API_KEY` or `FLUID_BEARER_TOKEN`, and `FLUID_CC_ORG_ID` or the organization in `fluid.config.yaml`). Without an organization nothing is sent. It sends the product id, contract version, contract hash, environment, provider, mode, change counts, timings and the builds it ran, never a secret, a header or OpenTofu output. `FLUID_COMMAND_CENTER_ENABLED=false` turns it off.
 
 ### Stage 8: policy apply
 
@@ -507,7 +507,7 @@ This stage needs a catalog endpoint and credentials on the agent, so it was not 
 
 For Data Mesh Manager and Entropy Data, ODPS product-to-product dependencies are published as Access agreements in pending status. Use `DMM_AUTO_APPROVE_ACCESS=true` or `fluid dmm publish --auto-approve-access` only in environments where those agreements should be approved automatically.
 
-The `fluid-command-center` target keeps one catalogue product per contract id, keyed by `metadata.fluid_contract_id`, and whichever `--env` published last wins: it records `fluid_env` and overwrites the product's platform and location. If a pipeline per environment or cloud publishes the same product, turn stage 10 off in all but one of them, for example by generating the others with `--no-publish-stage-default`.
+The `fluid-command-center` target keeps one catalogue product per contract id, keyed by `metadata.fluid_contract_id`, and whichever `--env` published last wins: it records `fluid_env` and overwrites the product's platform and location. See [Publishing an environment, and last-writer-wins](../concepts/command-center.md#publishing-an-environment-and-last-writer-wins). If a pipeline per environment or cloud publishes the same product, turn stage 10 off in all but one of them, for example by generating the others with `--no-publish-stage-default`.
 
 ### Stage 11: schedule sync
 

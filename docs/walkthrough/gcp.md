@@ -570,7 +570,7 @@ fluid verify contract.fluid.yaml --out verify.json
 | `columnRestrictions` | Policy tags against the contract's column restrictions (only when declared) |
 | `row_count` | The table's row count (taken with a query), compared with the rows a Fluid build recorded when it loaded the table, when such a run record exists |
 
-Severity levels and flags such as `--strict` are in the [`fluid verify` reference](../cli/verify.md). Measured against real BigQuery on 4 October 2026: products deployed with `fluid apply` passed `fluid verify`, including the retention and encryption dimensions.
+Severity levels and flags such as `--strict` are in the [`fluid verify` reference](../cli/verify.md). Measured against real Google Cloud on 4 October 2026, on 0.18.0: products deployed with `fluid apply --env gcp` passed `fluid verify`, including the retention, encryption and column-restriction dimensions. See [Governance parity](../concepts/governance-parity.md#what-has-been-proven).
 
 ---
 

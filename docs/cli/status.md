@@ -71,7 +71,7 @@ The detection is a directory test, not a read of the contract. A product counts 
 - A layout whose fragments live under another directory name reports `flat`, even if the root contract is full of `$ref` pointers. The directory name `fragments/` is a convention the CLI depends on.
 - The overlay count comes from `overlays/*.yaml` only; `.yml` and `.json` overlays are not counted there.
 
-[`fluid split`](./split.md) writes the `fragments/` layout and [`fluid bundle`](./bundle.md) resolves it back into one document. `fluid validate`, `fluid plan` and `fluid apply` resolve the `$ref` pointers themselves; see [Composing a contract with `$ref`](../concepts/contract-refs.md).
+The layout is described in [Contract fragments](../concepts/fragments.md); the workspace line comes from [`fluid.workspace.yaml`](../concepts/workspaces.md). [`fluid split`](./split.md) writes the `fragments/` layout and [`fluid bundle`](./bundle.md) resolves it back into one document. `fluid validate`, `fluid plan` and `fluid apply` resolve the `$ref` pointers themselves; see [Composing a contract with `$ref`](../concepts/contract-refs.md).
 
 Here is the same product after `fluid split contract.fluid.yaml`:
 

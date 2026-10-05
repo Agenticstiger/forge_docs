@@ -31,7 +31,7 @@ ODPS and ODCS are spec exporters, not providers ([`fluid exporters`](../cli/expo
 | `exposes[].lifecycle.expire` *(0.7.6)* | expiring DAY partitions | S3 lifecycle rule | not read |
 | `binding.encryption.kms` *(0.7.6)* | Cloud KMS key ring and key | KMS key as the bucket default | not read |
 
-The [GCP](./gcp.md#security-governance), [AWS](./aws.md) and [Snowflake](./snowflake.md#snowflake-native-security) pages give the detail.
+Masking is applied when the data lands; no cloud receives a dynamic masking policy. [Governance parity](../concepts/governance-parity.md) compares AWS and GCP in full. The [GCP](./gcp.md#security-governance), [AWS](./aws.md) and [Snowflake](./snowflake.md#snowflake-native-security) pages give the detail.
 
 ## Not built yet
 
@@ -60,7 +60,7 @@ fluid apply contract.fluid.yaml --env aws --yes
 fluid apply contract.fluid.yaml --env gcp --yes
 ```
 
-Each provider keeps its own OpenTofu state (`fluid/<id>/<provider>/terraform.tfstate` under a remote backend), so the two applies do not plan to destroy each other's resources. The [switch-clouds recipe](../recipes/switch-clouds.md) shows the binding diff.
+Each provider keeps its own OpenTofu state (`fluid/<id>/<provider>/terraform.tfstate` under a remote backend), so the two applies do not plan to destroy each other's resources. The [switch-clouds recipe](../recipes/switch-clouds.md) shows the binding diff, and [One contract, two clouds](../recipes/one-contract-two-clouds.md) walks the whole deployment.
 
 ## Community providers
 

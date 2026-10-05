@@ -360,6 +360,8 @@ The command is AI-assisted and the output is a draft: run `fluid validate` on it
 
 ## See also
 
+- [Consuming products from another mesh](../concepts/federation.md): pin an upstream in a different workspace, and what `fluid apply` checks
+- [Workspaces](../concepts/workspaces.md): how a build finds the upstream it consumes
 - [Composing a contract with `$ref`](../concepts/contract-refs.md): splitting one contract across files, the other kind of reference
 - [DuckDB sandbox for contract SQL](../advanced/duckdb-sandbox.md): what the build's SQL may read, and `FLUID_DUCKDB_ALLOWED_DIRS`
 - [Per-environment overlays](./per-environment-overlays.md): the `--env` mechanism the upstream binding follows

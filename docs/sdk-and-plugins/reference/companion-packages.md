@@ -52,7 +52,7 @@ dependencies = [
 ]
 ```
 
-Pin exactly (`==`) for CI and production. For development, a bound such as `>=0.18.1,<0.19` is workable, and a minor is not a compatibility promise: the CLI is pre-1.0, and a patch release can change behaviour on purpose: the forge-cli [CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md) entry for 0.16.3 has an "Upgrading can change results, deliberately" list. Only the `fluid_build.api` surface follows SemVer (see [API stability](../../advanced/api-stability.md)). Read each release's notes before widening a bound; the [0.18.0 release notes](../../RELEASE_NOTES_0.18.0.md) cover the `$ref` and DuckDB-sandbox confinement.
+Pin exactly (`==`) for CI and production. For development, a bound such as `>=0.18.1,<0.19` is workable, and a minor is not a compatibility promise: the CLI is pre-1.0, and a patch release can change behaviour on purpose: the forge-cli [CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md) entry for 0.16.3 has an "Upgrading can change results, deliberately" list. Only the `fluid_build.api` surface follows SemVer (see [API stability](../../advanced/api-stability.md)). The [upgrade guide](../../upgrading.md) lists what to check between releases. Read each release's notes before widening a bound; the [0.18.0 release notes](../../RELEASE_NOTES_0.18.0.md) cover the `$ref` and DuckDB-sandbox confinement.
 
 ### If you're writing a plugin
 

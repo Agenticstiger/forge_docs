@@ -210,6 +210,7 @@ If both fields are set and disagree (`layer: Bronze` with `productType: CDP`), t
 ## See also
 
 - [Product Types — SDP, ADP, CDP](/forge_docs/data-products/product-type.html) — the vocabulary the migrator normalizes
-- [`fluid split`](./split.md) and [`fluid bundle`](./bundle.md) — convert between a flat contract and a fragment layout
+- [`fluid split`](./split.md) and [`fluid bundle`](./bundle.md) — convert between a flat contract and a fragment layout; [Contract fragments](../concepts/fragments.md#digests) explains why the digest of a fragment root does not move
+- [Federated upstreams](../concepts/federation.md#the-pin) — where `upstreamDigest` is pinned and checked
 - [`fluid apply`](./apply.md) — checks `upstreamDigest` pins before it applies
 - [`fluid validate`](./validate.md) — reports inconsistent contracts the migrator cannot fix

@@ -66,7 +66,9 @@ Upgrading the CLI does not change the schema your contracts declare. `0.18.1` re
 prints). Some fields added in these releases exist only in `0.7.6`:
 `lifecycle.expire`, `binding.encryption`, `binding.principals`,
 `binding.governance.lakeFormation.bucketPolicy`, and `consumes[].upstreamWorkspace` /
-`upstreamDigest`. Declare `fluidVersion: "0.7.6"` only when you use one of them.
+`upstreamDigest`. Declare `fluidVersion: "0.7.6"` only when you use one of them; the
+[preview fields](./reference/preview-fields.md) page lists them, and
+[Federated upstreams](./concepts/federation.md) covers the last two.
 
 ## A safe order for any upgrade
 
@@ -164,6 +166,10 @@ yours to do.
 
 ### Remote state moves to a per-provider key
 
+How state keys, backends and the commands that read state fit together is in
+[OpenTofu state](./concepts/state.md); deploying one contract to two clouds is in
+[One contract, two clouds](./recipes/one-contract-two-clouds.md).
+
 The default per-contract state key gains the provider:
 `fluid/<id>/<provider>/terraform.tfstate` (for GCS, the prefix `fluid/<id>/<provider>`). This
 applies to contracts that use a per-contract key: one with a `packaging` block, or any
@@ -199,6 +205,9 @@ state, nothing reads the old key, and you can remove it.
 
 ### GCP dataset grants become member resources
 
+The policy table for AWS and GCP, and what `fluid verify` checks on each, is in
+[Governance parity](./concepts/governance-parity.md).
+
 Dataset grants are `google_bigquery_dataset_iam_member` resources, which add to a dataset's
 access instead of replacing it. On the first apply to a dataset whose state holds the old
 authoritative access list, the apply revokes, once, the entries no grant of the contract
@@ -226,7 +235,8 @@ console), or keep one of them in the contract for this apply, then re-run.
 
 `--env <name>` with no overlay is refused when the workspace's `fluid.workspace.yaml` lists
 that env for the product under `expected-environments`. Before `0.17.0` the base contract
-was used as if it were that env.
+was used as if it were that env. See [Environments and overlays](./concepts/environments-and-overlays.md#when-no-overlay-matches)
+and [Workspaces](./concepts/workspaces.md#expected-environments).
 
 ```yaml
 # fluid.workspace.yaml
@@ -257,7 +267,7 @@ the base contract. A contract's own `environments` block warns but does not refu
 - **Regenerate committed pipelines.** Stage 6 now runs `fluid plan --check-sovereignty`, and
   the DAG ids changed.
 - **Command Center run reports.** If the publish configuration is set, each `fluid apply`
-  reports its run to the Command Center. Set `FLUID_COMMAND_CENTER_ENABLED=false` to turn it
+  reports its run to the Command Center ([what it sends](./concepts/command-center.md#what-fluid-apply-reports)). Set `FLUID_COMMAND_CENTER_ENABLED=false` to turn it
   off.
 
 ## From 0.17 to 0.18.1

@@ -3,7 +3,7 @@
 Team workspace and collaboration features — manage members, contract versions, change requests, and an activity log backed by a local SQLite database.
 
 ::: tip Looking for `fluid.workspace.yaml`?
-That file is a different thing from the `fluid workspace` command. `fluid workspace` manages the SQLite store in `./.fluid-workspace/`, described on this page. `fluid.workspace.yaml` is an optional config file that `fluid init` writes at the root of a workspace; the CLI reads it for shared defaults and environment expectations. It has [its own section below](#the-workspace-config-file-fluid-workspace-yaml).
+That file is a different thing from the `fluid workspace` command. `fluid workspace` manages the SQLite store in `./.fluid-workspace/`, described on this page. `fluid.workspace.yaml` is an optional config file that `fluid init` writes at the root of a workspace; the CLI reads it for shared defaults and environment expectations. It has [its own section below](#the-workspace-config-file-fluid-workspace-yaml), and the concept page is [Workspaces](../concepts/workspaces.md).
 :::
 
 ## Syntax
@@ -83,7 +83,7 @@ Three more behaviours depend on the root, not on a key:
 
 ### `expected-environments`: a missing overlay becomes an error
 
-Without it, `--env gcp` on a product that has no `overlays/gcp.yaml` falls back to the base contract, so a command for "gcp" runs against the local binding. List the environments a product is deployed to, and that fallback becomes a hard error:
+Without it, `--env gcp` on a product that has no `overlays/gcp.yaml` falls back to the base contract, so a command for "gcp" runs against the local binding. List the environments a product is deployed to, and that fallback becomes a hard error ([Workspaces](../concepts/workspaces.md#expected-environments) and [Environments and overlays](../concepts/environments-and-overlays.md#when-no-overlay-matches) have the rest):
 
 ```yaml
 # fluid.workspace.yaml

@@ -8,7 +8,13 @@
   insight="Snowflake-ready in 4 commands. Live auth, real DDL, zero side effects. | Use --mode dry-run for pre-flight on every PR; drop it for production. | CREATE DATABASE / SCHEMA / TABLE / VIEW DDL is rendered for review before a single statement fires."
 />
 
-This is the canonical first-time Snowflake path for Fluid Forge.
+This is the first-time Snowflake path for Fluid Forge. It assumes you have run the [local quickstart](./README.md) and have a Snowflake account. Install the Snowflake extra first:
+
+```bash
+pip install "data-product-forge[snowflake]"
+```
+
+To scaffold a Snowflake contract of your own instead of cloning an example, run `fluid init my-product --quickstart --provider snowflake`. It writes a Bronze starter (`fluidVersion: 0.7.4`) whose binding names placeholder values (`account: your_account`, `database: ANALYTICS_DB`, `schema: PUBLIC`); replace them before you plan. See [`fluid init`](../cli/init.md).
 
 Use it in two stages:
 
@@ -102,13 +108,15 @@ fluid test contract.fluid.yaml
 
 ## Governance Notes
 
-Use the commands this way:
+What each command does with a Snowflake contract on 0.18.1:
 
-- `fluid policy-check` validates governance declarations in the contract.
-- `fluid policy-compile` turns `accessPolicy` rules into Snowflake RBAC bindings.
-- `fluid policy-apply` hands those compiled bindings to the Snowflake provider, which has no standalone policy applier in 0.18.1: it prints that no bindings were enforced and exits 0.
-- Snowflake governance during `apply` covers object-level controls such as descriptions, tags, and masking policies.
-- `fluid verify` checks deployed schema and drift. It is not a full RBAC or entitlement audit.
+- `fluid policy-check` validates the governance declarations in the contract.
+- `fluid policy-compile` lists the grants that `accessPolicy.grants` asks for, as Snowflake RBAC bindings.
+- `fluid policy-apply` applies nothing on Snowflake: it exits 0 and says the provider has no standalone policy applier.
+- `fluid apply` creates the database, schema and table and writes the table COMMENT. It does not grant the roles in `accessPolicy.grants`, and it does not create masking or row-access policies from `policy.authz.columnRestrictions`, `policy.privacy.masking` or `policy.privacy.rowLevelPolicy`; those fields validate and produce nothing on Snowflake.
+- `fluid verify` checks the deployed schema and drift. It does not audit grants.
+
+Grant the roles with your own tooling, using the compiled bindings as the list. The field-by-field table is in [Snowflake-native security](../providers/snowflake.md#snowflake-native-security), and the team review flow that runs into this is in the [Snowflake walkthrough](../walkthrough/snowflake.md#step-4-platform-engineer-reviews-the-snowflake-details).
 
 ## Where To Go Next
 

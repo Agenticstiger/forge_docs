@@ -188,7 +188,7 @@ is 'parquet' and binding.location names none of dataset (BigQuery), bucket
 emit nothing for this port.
 ```
 
-The platform, the format and the location all change. Keep them out of the base contract by putting each cloud's binding in an overlay file beside it. The base stays on `local`:
+The platform, the format and the location all change. Keep them out of the base contract by putting each cloud's binding in an overlay file beside it ([Environments and overlays](./environments-and-overlays.md) says how `--env` finds and merges it; [One contract, two clouds](../recipes/one-contract-two-clouds.md) deploys the result to both). The base stays on `local`:
 
 ```yaml
 # contract.fluid.yaml (excerpt)
@@ -209,7 +209,7 @@ exposes:
       platform: aws
       format: parquet
       location:
-        bucket: acme-shop-lake
+        bucket: <your-lake-bucket>
         path: bronze/orders/
         database: shop
         table: orders
@@ -225,7 +225,7 @@ fluid generate iac contract.fluid.yaml --env aws --out iac
 Wrote OpenTofu module: iac/main.tf.json  (provider: aws, 3 resources)
 ```
 
-The three resources are a Glue database, a Glue table whose location is `s3://acme-shop-lake/bronze/orders/`, and the S3 bucket. The schema, quality rules and governance blocks stay as they are in the base file. The overlay patches `exposes[0]` by position and changes only the binding; see [Per-environment overlays](../recipes/per-environment-overlays.md) for the merge rules. The [switch-clouds recipe](../recipes/switch-clouds.md) covers `--provider`.
+The three resources are a Glue database, a Glue table whose location is `s3://<your-lake-bucket>/bronze/orders/`, and the S3 bucket. The schema, quality rules and governance blocks stay as they are in the base file. The overlay patches `exposes[0]` by position and changes only the binding; see [Per-environment overlays](../recipes/per-environment-overlays.md) for the merge rules. The [switch-clouds recipe](../recipes/switch-clouds.md) covers `--provider`.
 
 ## Multi-expose products: one product, many surfaces
 
@@ -288,7 +288,7 @@ consumes:
 
 ### Worked example: a Silver product reading a Bronze product
 
-Two contracts in one workspace. `fluid.workspace.yaml` marks the workspace root (create it by hand, or let `fluid init` write one beside a project it scaffolds):
+Two contracts in one workspace ([Workspaces](./workspaces.md) covers the file and how a build finds its upstream). `fluid.workspace.yaml` marks the workspace root (create it by hand, or let `fluid init` write one beside a project it scaffolds):
 
 ```text
 shop/
@@ -506,12 +506,15 @@ Schema `0.7.6` is a preview. It validates only when the file names it, and the s
       exposeIds: [revenue]
   ```
 
-- **`consumes[].upstreamWorkspace` and `upstreamDigest`** pin an upstream that lives in another mesh. `upstreamWorkspace` is the federated workspace's id; `upstreamDigest` is the `sha256:<64 hex>` digest of the upstream contract, which `fluid contract digest <file>` prints. `fluid apply` compares it with the upstream's live digest.
-- **`binding.principals`, `binding.encryption`, `binding.packaging`** map the contract's logical principals to identities on a platform, set encryption at rest for S3 and BigQuery, and override packaging per expose.
+- **`consumes[].upstreamWorkspace` and `upstreamDigest`** pin an upstream that lives in another mesh ([Federated upstreams](./federation.md)). `upstreamWorkspace` is the federated workspace's id; `upstreamDigest` is the `sha256:<64 hex>` digest of the upstream contract, which `fluid contract digest <file>` prints. `fluid apply` compares it with the upstream's live digest.
+- **`binding.principals`, `binding.encryption`, `binding.packaging`** (the first two, with `exposes[].lifecycle.expire`, are covered in [Governance parity](./governance-parity.md)) map the contract's logical principals to identities on a platform, set encryption at rest for S3 and BigQuery, and override packaging per expose.
 - **`exposes[].lifecycle.expire`** deletes stored data once it is older than `retention`; it is `false` unless you set it.
 
 ## Where to look next
 
+- [Contract reference](../reference/README.md) - the field tables for each schema version, and [preview fields](../reference/preview-fields.md)
+- [Semantic layer](./semantic-layer.md) - `exposes[].semantics`: entities, measures, dimensions and metrics
+- [Contract fragments](./fragments.md) - split a contract into a root plus fragment files
 - [Providers vs platforms](./providers-vs-platforms.md) - how `binding.platform` resolves to actual cloud SDKs
 - [Quality, SLAs & Lineage](./quality-sla-lineage.md) - the `dq.rules`, `qos`, and `lineage` blocks
 - [Governance & Policy](./governance-policy.md) - the `accessPolicy` and `agentPolicy` blocks

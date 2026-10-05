@@ -73,7 +73,7 @@ Without `--strict` the same run reports the drift and exits `0`. Remove the extr
 | `--athena-output-location S3_URI` | Where Athena writes the row-count query result. Env `FLUID_ATHENA_OUTPUT_LOCATION`. See [S3 and Glue](#s3-and-glue-athena). |
 | `--athena-workgroup NAME` | Athena workgroup for the row-count query. Env `FLUID_ATHENA_WORKGROUP`, default `primary`. |
 | `--athena-timeout SECONDS` | Stop the Athena row-count query and fail after this long. Env `FLUID_ATHENA_TIMEOUT_SECONDS`, default `300`. |
-| `--env` | Apply an environment overlay. See [Per-environment overlays](../recipes/per-environment-overlays.md). An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. A stage-1 bundle built for another env is refused with `bundle_env_mismatch`. |
+| `--env` | Apply an environment overlay. See [Per-environment overlays](../recipes/per-environment-overlays.md). An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. A stage-1 bundle built for another env is refused with `bundle_env_mismatch`. See [Environments and overlays](../concepts/environments-and-overlays.md#when-no-overlay-matches). |
 
 For the Athena options the flag wins over the environment variable.
 
@@ -90,6 +90,17 @@ For the Athena options the flag wins over the environment variable.
 | Another `gcp` binding (a GCS bucket, a Pub/Sub topic, an Iceberg warehouse) | `unsupported` |
 | Another `aws` or `azure` binding that names a bucket | `unsupported` |
 | Any other format | `unsupported` |
+
+### What verify checks per platform
+
+| Platform | Checked |
+| --- | --- |
+| Local file | Columns (`schema_structure`); masked columns hold treated values. The row count is reported, not compared. |
+| BigQuery | Structure, types, constraints and location; `row_count`; masking; retention, encryption and `columnRestrictions` (policy tags) when the expose declares them. |
+| S3 and Glue (Athena) | Table, columns, prefix and an Athena read; row count; masking; retention, encryption and Lake Formation column restrictions when the expose declares them. |
+| Snowflake | Structure, types and constraints. |
+
+Dataset and table access grants (`accessPolicy.grants`) are not checked on any platform as of 0.18.1. [Governance parity](../concepts/governance-parity.md) sets what each cloud emits beside what verify reads back.
 
 An `unsupported` expose prints `Skipped`, is counted separately in the summary and never fails the run. It means `fluid verify` did not check it, not that the check passed:
 
@@ -162,6 +173,8 @@ A local CSV or Parquet output has two checked dimensions: `schema_structure` and
 
 ### BigQuery
 
+The retention, encryption and column-restriction checks are explained, with the resources they read back, in [Governance parity](../concepts/governance-parity.md).
+
 A BigQuery table is checked for the warehouse dimensions: structure, types, constraints and the dataset's region. `{{ env.X }}` in the binding resolves as `fluid apply` resolves it. A binding with no `project` uses the project from `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT` or `CLOUDSDK_CORE_PROJECT`, then the one Application Default Credentials carry. With none of them, the expose is an error that names the table.
 
 Column types are compared after BigQuery's legacy names are folded into the standard ones (`INTEGER` and `INT64`, `FLOAT` and `FLOAT64`, `BOOLEAN` and `BOOL`, `RECORD` and `STRUCT`), so a correct `BOOL` column is not drift.
@@ -185,7 +198,7 @@ When the expose declares them, three governance dimensions read the live dataset
 
 A mismatch is CRITICAL. `retention` and `encryption` come from `lifecycle.expire` and `binding.encryption.kms`, which are in contract schema 0.7.6, a preview schema selected with `fluidVersion: "0.7.6"`. `columnRestrictions` is in 0.7.5. The `columnRestrictions` check calls the Data Catalog API with Application Default Credentials and reads the taxonomy (Data Catalog `GET`) and each policy tag's IAM policy (`getIamPolicy`), so the credentials need the matching Data Catalog read permissions. No emulator serves Data Catalog, so under `BIGQUERY_EMULATOR_HOST` the readers of the tagged columns are not checked and the dimension reports `unsupported`.
 
-On 4 October 2026 the FLUID team ran `fluid verify` against real BigQuery for 11 products deployed from the same base contracts through a `gcp` overlay. Each passed its retention (DAY partitions with `expiration_ms`), encryption (a Cloud KMS key per dataset) and column-restriction (Data Catalog policy tags) checks. That is one run on one estate. In the same run, a principal outside the allowed readers who selected a restricted column was refused by BigQuery in this form:
+On 4 October 2026, on 0.18.0, the FLUID team ran `fluid verify` against real Google Cloud for 11 products deployed from the same base contracts through a `gcp` overlay. Each passed its retention (DAY partitions with `expiration_ms`), encryption (a Cloud KMS key per dataset) and column-restriction (Data Catalog policy tags) checks. That is one run on one estate. In the same run, a principal outside the allowed readers who selected a restricted column was refused by BigQuery in this form:
 
 ```text
 User has neither fine-grained reader nor masked get permission to get data protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.
@@ -193,7 +206,7 @@ User has neither fine-grained reader nor masked get permission to get data prote
 
 ### S3 and Glue (Athena)
 
-A `platform: aws` binding with a `bucket`, `path`, `database` and `table` is provisioned by `fluid apply` as an S3 prefix plus a Glue table. Verify reads it in the binding's region. The checks:
+A `platform: aws` binding with a `bucket`, `path`, `database` and `table` is provisioned by `fluid apply` as an S3 prefix plus a Glue table. Verify reads it in the binding's region. The retention, encryption and Lake Formation rows below are described with their emitted resources in [Governance parity](../concepts/governance-parity.md). The checks:
 
 | Check | How | Fails as |
 | --- | --- | --- |
@@ -293,7 +306,7 @@ Critical drift fails the run under `--strict` unless `--warn-only` is set; soft 
 
 ## Apply state drift (`--state-drift`)
 
-`--state-drift` runs the pass [`fluid diff`](./diff.md) runs over the state `fluid apply` keeps: it refreshes the OpenTofu state and reports resources changed outside the apply. Run it from the directory `fluid apply` ran in, or pass `--workspace-dir`; for remote state, name the backend with `--state-backend` or `FLUID_STATE_BACKEND`. With no state in reach, the section prints a note and the run's drift comes from the live checks alone:
+`--state-drift` runs the pass [`fluid diff`](./diff.md) runs over the state `fluid apply` keeps ([which key, which backend](../concepts/state.md#which-commands-read-the-state)): it refreshes the OpenTofu state and reports resources changed outside the apply. Run it from the directory `fluid apply` ran in, or pass `--workspace-dir`; for remote state, name the backend with `--state-backend` or `FLUID_STATE_BACKEND`. With no state in reach, the section prints a note and the run's drift comes from the live checks alone:
 
 ```text
 ================================================================================

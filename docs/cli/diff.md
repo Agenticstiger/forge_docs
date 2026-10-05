@@ -186,7 +186,7 @@ Version-diff mode (`--baseline`) needs no provider at all — it is a pure struc
 | Option | Default | Description |
 | --- | --- | --- |
 | `--state` | none | A previous report to compare the plan's resources with. A path that does not exist falls back to the live comparison (`diff_state_not_found`). See [the warning above](#a-saved-report-state). |
-| `--env` | none | Apply an environment overlay (drift mode only; with `--baseline` it is refused). A bundle built for another env is refused with `bundle_env_mismatch`. |
+| `--env` | none | Apply an environment overlay (drift mode only; with `--baseline` it is refused). A bundle built for another env is refused with `bundle_env_mismatch`. See [Environments and overlays](../concepts/environments-and-overlays.md). |
 | `--out` | `runtime/diff.json` | Output file for the diff report. |
 | `--exit-on-drift` | off | Exit 1 on drift against `--state` when given, else against the live targets; exit 2 when a live target could not be inspected. |
 | `--region REGION` | the binding's | Override the region or location for the provider plan; the live check reads each target where `apply` puts it. |
@@ -296,7 +296,7 @@ This is contract-aware comparison, not generic schema differencing. The diff und
 - **Quality severity escalation** — a rule promoted to a stricter severity.
 
 ::: warning As of 0.18.1, the column rules read `exposes[].schema`
-`fluid diff --baseline` finds an expose's columns at `exposes[].schema`. A contract that `fluid validate` accepts declares them at `exposes[].contract.schema`, and rejects `schema` directly under the expose. On such a contract, removing a column or narrowing `DECIMAL(10,2)` to `DECIMAL(6,2)` reports `No changes detected.` and `--fail-on-breaking` exits 0 (measured). Expose, `consumes[]`, sovereignty and metadata changes are reported as shown above. Do not use `--fail-on-breaking` as the only guard against a column change.
+`fluid diff --baseline` finds an expose's columns at `exposes[].schema`. A contract that `fluid validate` accepts declares them at `exposes[].contract.schema`, and rejects `schema` directly under the expose. On such a contract, removing a column or narrowing `DECIMAL(10,2)` to `DECIMAL(6,2)` reports `No changes detected.` and `--fail-on-breaking` exits 0 (measured). Expose, `consumes[]`, sovereignty and metadata changes are reported as shown above. Do not use `--fail-on-breaking` as the only guard against a column change. [`fluid contract-tests`](./contract-tests.md) is the column gate, and [Evolve a live product](../recipes/evolve-a-live-product.md#_2-check-the-change-against-the-baseline) shows it in a pipeline.
 :::
 
 `--fail-on-breaking` makes the command exit `1` on any breaking change, so it can serve as a contract-compatibility gate. `--format json` or `markdown` print a structured report to stdout for PR comments or release notes, and the JSON envelope is also written to `--out`. `--baseline` cannot be combined with `--env` or `--state` (`diff_modes_mutually_exclusive`, exit 2): an overlay and a prior report belong to drift mode.

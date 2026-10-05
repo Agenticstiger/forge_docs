@@ -211,7 +211,7 @@ exposes:
             access: deny
 ```
 
-- **BigQuery.** `fluid apply` creates a Data Catalog taxonomy per product and dataset, a policy tag per set of restricted columns that share their readers, and grants the fine-grained reader role on each tag to exactly the principals allowed. A denied principal gets an access error on the restricted columns. On 4 October 2026, against real BigQuery, the refusal read: `User has neither fine-grained reader nor masked get permission to get data protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.`
+- **BigQuery.** `fluid apply` creates a Data Catalog taxonomy per product and dataset, a policy tag per set of restricted columns that share their readers, and grants the fine-grained reader role on each tag to exactly the principals allowed. A denied principal gets an access error on the restricted columns. On 4 October 2026, against real Google Cloud, on 0.18.0, the refusal read: `User has neither fine-grained reader nor masked get permission to get data protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.`
 - **AWS.** On a binding with Lake Formation grants, each `SELECT` grant excludes the restricted columns its principal may not read.
 - A restriction on an expose that has no reader is refused on both clouds (`column-restriction-no-readers` on GCP, `column-restriction-unenforceable` on AWS), because the policy tag or Lake Formation exclusion would otherwise lock the columns for everyone.
 - **Snowflake.** As of 0.18.1, forge reads none of `sensitivity`, `policy.privacy.masking`, `policy.authz.columnRestrictions` or `policy.privacy.rowLevelPolicy` when it deploys to Snowflake, and creates no masking or row access policy object from them. Treat the data with step 2 before it reaches Snowflake.
@@ -279,6 +279,8 @@ The fields of `agentPolicy` are in [Agent Policy](../concepts/agent-policy.md), 
 ## See also
 
 - [Concepts: Governance and Policy](../concepts/governance-policy.md): `accessPolicy`, `sovereignty` and the rest of the policy surface
+- [Governance parity](../concepts/governance-parity.md): the column-restriction emit on BigQuery and Lake Formation, and what `fluid verify` checks on each
+- [Masking at landing](../advanced/source-aligned-acquisition.md#masking-at-landing): where the DuckDB build treats the values
 - [Concepts: Agent Policy](../concepts/agent-policy.md): the `agentPolicy` fields
 - [`fluid policy-check`](../cli/policy-check.md), [`fluid policy compile`](../cli/policy-compile.md), [`fluid policy apply`](../cli/policy-apply.md)
 - [`fluid verify`](../cli/verify.md): the masking dimension and `--strict`

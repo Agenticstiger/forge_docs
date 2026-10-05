@@ -108,6 +108,8 @@ No registry configured; showing bundled blueprints. Set FLUID_API_URL or FLUID_P
 
 ## Command Center integration
 
+For what the Command Center is and what `fluid publish` sends it, see [The Command Center](../concepts/command-center.md).
+
 `fluid market` auto-detects a FLUID Command Center instance to enrich its discovery results with cross-organization catalog data. Detection is automatic and silent: the local-only path needs no configuration.
 
 For integrators pointing `fluid market` at a specific Command Center deployment, these environment variables control detection:

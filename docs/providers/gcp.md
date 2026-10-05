@@ -181,6 +181,8 @@ binding:
 
 ### State
 
+See [OpenTofu state](../concepts/state.md) for the key and the one-time move from the pre-0.17.0 key.
+
 `fluid apply` keeps OpenTofu state locally unless you name a backend. `--state-backend gcs://<bucket>/<prefix>` (or `FLUID_STATE_BACKEND`) puts it in Cloud Storage. With no key named, the default key includes the provider, `fluid/<id>/gcp/terraform.tfstate`, so a contract applied to AWS and GCP through overlays keeps two states. An earlier per-contract default is migrated with `tofu init -migrate-state`; a state at that key that belongs to another provider is left in place and logged.
 
 ---
@@ -450,6 +452,8 @@ With `BIGQUERY_EMULATOR_HOST` set, loads, reads and `fluid verify` go to that ho
 
 ## Security & Governance
 
+[Governance parity](../concepts/governance-parity.md) sets these fields beside their AWS equivalents and records what has been measured against a real account.
+
 ### Access grants (`accessPolicy`)
 
 ```yaml
@@ -573,7 +577,7 @@ Semantics:
 - An expose with a restriction and no reader is refused (`column-restriction-no-readers`): the tag would lock the columns for everyone.
 - The restriction's `tags` and `labels` go into the policy tag's description.
 
-A denied principal gets an error on the restricted columns, and `SELECT * EXCEPT (email)` still works for it. Measured against real BigQuery on 4 Oct 2026, the refusal reads:
+A denied principal gets an error on the restricted columns, and `SELECT * EXCEPT (email)` still works for it. Measured against real Google Cloud on 4 October 2026, on 0.18.0, the refusal reads:
 
 ```text
 User has neither fine-grained reader nor masked get permission to get data protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.
@@ -665,11 +669,11 @@ exposes:
   - binding:
       platform: gcp
       principals:
-        group:data-platform@northwind.example: group:data-platform@northwind.example.com
-        group:analysts@northwind.example: group:analysts@northwind.example.com
+        group:data-platform@northwind.example: group:data-platform@<your-domain>
+        group:analysts@northwind.example: group:analysts@<your-domain>
 ```
 
-A value is one identity, a list, or `[]` (no identity on this cloud, nothing granted). With `binding.principals` present, every principal the expose names must be mapped (`principal-unmapped`). The same mapping drives dataset grants and policy-tag readers.
+Replace `<your-domain>` with the domain of your own groups before `--env gcp` validates. A value is one identity, a list, or `[]` (no identity on this cloud, nothing granted). With `binding.principals` present, every principal the expose names must be mapped (`principal-unmapped`). The same mapping drives dataset grants and policy-tag readers.
 
 ### Prerequisites for governed resources
 
@@ -704,7 +708,7 @@ fluid verify contract.fluid.yaml --env gcp --strict
 The table is addressed as the load addresses it, with `{{ env.* }}` resolved. A GCS bucket, Pub/Sub topic or Iceberg warehouse reports `unsupported`. See [`fluid verify`](../cli/verify.md).
 
 ::: tip Proven against real BigQuery
-forge-cli's own tests prove the governed module against `tofu validate` and an in-process BigQuery stand-in. On 4 Oct 2026, products applied in a demo lab from shared base contracts through `--env gcp` overlays passed `fluid verify` against live BigQuery, including retention, Cloud KMS encryption and policy tags, and per-persona impersonation showed a denied column refused by its policy tag.
+forge-cli's own tests prove the governed module against `tofu validate` and an in-process BigQuery stand-in. Measured against real Google Cloud on 4 October 2026, on 0.18.0: two lineage chains of eleven products were applied from shared base contracts with `fluid apply --env gcp`, each apply created its dataset, key ring and key, its table with daily partitions that expire after the retention, its dataset IAM members and a policy tag on each restricted column, and every `fluid verify` passed against the live platform. Querying as each persona, a denied column was refused by its policy tag. See [Governance parity](../concepts/governance-parity.md#what-has-been-proven).
 :::
 
 ---
@@ -731,4 +735,6 @@ The binding names no region. Set `location.region`; a dataset's location cannot 
 - [`fluid apply`](../cli/apply.md): modes, embedded-SQL reads and landings
 - [`fluid generate iac`](../cli/generate-iac.md): the emitted module and packaging modes
 - [Governance & policy](../concepts/governance-policy.md)
+- [Governance parity](../concepts/governance-parity.md)
+- [One contract, two clouds](../recipes/one-contract-two-clouds.md)
 - [DuckDB sandbox](../advanced/duckdb-sandbox.md): what build SQL may read

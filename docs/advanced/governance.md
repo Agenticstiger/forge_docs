@@ -316,7 +316,7 @@ Besides sovereignty, `fluid apply` emits, and `fluid verify` checks on the live 
 | `exposes[].policy.authz.columnRestrictions` | Lake Formation grants that exclude the restricted columns | Data Catalog policy tags with fine-grained readers | `0.7.5` |
 | `binding.principals` | Maps logical principals to IAM identities | Maps logical principals to IAM identities | `0.7.6` (preview) |
 
-The `0.7.6` fields validate only with `fluidVersion: "0.7.6"`. `columnRestrictions` is in `0.7.5` and is enforced there.
+The `0.7.6` fields validate only with `fluidVersion: "0.7.6"`. `columnRestrictions` is in `0.7.5` and is enforced there. [Governance parity](../concepts/governance-parity.md) has the emitted resources per cloud, what `fluid verify` checks on each, and what has been measured against a real account.
 
 On GCP, a principal on a `gcp` binding that is a placeholder is refused at `fluid validate`: a reserved top-level domain (`.example`, `.test`, `.invalid`, `.localhost`) or something that is not an IAM member at all. BigQuery and Cloud Storage refuse them at apply, so none was ever a working grant.
 

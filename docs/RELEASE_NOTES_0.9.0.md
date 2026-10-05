@@ -16,6 +16,7 @@ Anyone building streaming / CDC products into Iceberg — and anyone who wants t
 ### Added — streaming Kafka → Iceberg
 
 - **Opt-in `fluid-schema-0.7.5`** with the `icebergConfig.streamingSink` block (`commitIntervalMs`, `dynamicEnabled`, `routeField`, `upsertMode`, `autoCreate`, `evolveSchema`, `controlTopic`), plus `iceberg_sink_enabled`, `iceberg_catalog_overrides`, `sink_topics`, and the `iceberg_table` → `iceberg` `binding.platform` alias. **`fluid-schema-0.7.5` is now the GA default** (promoted from preview); the streaming-sink fields (`iceberg_sink_enabled`, etc.) are opt-in per contract. (#266)
+  The schema path of that block is `builds[].properties.kafka-connect.streamingSink`, not `icebergConfig`; see the [contract reference](./reference/contract-0.7.5.md).
 - **Kafka-Connect Iceberg sink derivation** — Forge derives the sink connector config from the contract (auto-create, schema evolution, control topic, record routing), and detects task-level connector failures with canonical `<table>__late_events` late-arrival naming. (#264, #268)
 - **Debezium-Server Iceberg sink** — derive the embedded Debezium-Server → Iceberg configuration for CDC sources. (#284)
 - **Confluent Tableflow plugin** — a managed Kafka → Iceberg IaC plugin. (#285)

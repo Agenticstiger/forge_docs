@@ -1,141 +1,157 @@
 ---
-title: Switch clouds with one line
-description: Take a working data product on one cloud and redeploy it on another. ~5 minutes end-to-end.
+title: Switch clouds by editing only binding
+description: Take a data product that runs locally and redeploy it on GCP BigQuery by editing its binding block, then validate, preview, apply and verify.
 ---
 
-# Task: Switch clouds with one line
+# Task: Switch clouds by editing only `binding`
 
-You have a working data product on one cloud (say, local DuckDB) and you want to redeploy it on another (say, GCP BigQuery). The whole point of Forge's contract-first model is that this is a **one-line YAML change + a re-apply**.
+You have a data product running locally on DuckDB, and you want it on GCP
+BigQuery. The contract's `binding` block says where the product lives; you edit
+that block and nothing else, then re-apply.
 
-Time: ~5 minutes assuming the target cloud is already credentialed.
+Time: about 5 minutes once the target cloud is credentialed.
+
+To keep the local version and add the cloud one, or to run on AWS and GCP at
+the same time, use overlays instead: see
+[One contract, two clouds](../../recipes/one-contract-two-clouds.md).
 
 ## What you start with
 
-A working contract on the original cloud — for this task, a Bitcoin price tracker already running locally on DuckDB. (The [GCP walkthrough](/forge_docs/walkthrough/gcp) builds this contract from scratch; here we start from the finished `contract.fluid.yaml`.)
+A contract with one embedded-SQL build that reads `data/events.csv` and lands a
+Parquet file (the base contract of
+[One contract, two clouds](../../recipes/one-contract-two-clouds.md), without
+its governance block):
 
-```bash
-fluid apply contract.fluid.yaml --yes
-# ✓ Pipeline complete · runtime/out/bitcoin_prices.parquet
+```console
+$ fluid apply contract.fluid.yaml --mode amend-and-build --yes
+...
+🔷 Build 'load_events' (embedded-SQL / local DuckDB)
+   ✅ Completed in 1.31s — 1 action(s) executed
+...
 ```
-
-That produced a Parquet artifact via the `local` provider on DuckDB. Now we want the same product on BigQuery.
 
 ## Step 1 — install the target provider
 
 ```bash
 pip install "data-product-forge[gcp]"
-fluid providers
-# Lists: local ✓, gcp ✓
+gcloud auth application-default login
 ```
 
-GCP credentials are picked up via Application Default Credentials (`gcloud auth application-default login`). No Forge-specific auth setup.
+The `gcp` extra is needed by the build as well as the apply: an embedded-SQL
+build whose expose is a BigQuery table loads its result through the BigQuery
+API. Without it the build stops with "the expose is a BigQuery table, and this
+install cannot load one".
 
-## Step 2 — change one line in the contract
-
-Open `contract.fluid.yaml` and find the `binding` block:
+## Step 2 — edit the binding
 
 ```yaml
 exposes:
-  - exposeId: bitcoin_prices
+  - exposeId: customer_events
     binding:
-      platform: local              # ← change this
+      platform: local
       format: parquet
       location:
-        path: ./runtime/out/bitcoin_prices.parquet
+        path: output/customer_events.parquet
 ```
 
-Change to:
+becomes
 
 ```yaml
 exposes:
-  - exposeId: bitcoin_prices
+  - exposeId: customer_events
     binding:
-      platform: gcp                # ← here
+      platform: gcp
       format: bigquery_table
       location:
-        project: your-gcp-project
-        dataset: crypto
-        table: bitcoin_prices
+        project: acme-analytics-prod
+        dataset: customer_analytics
+        table: customer_events
         region: europe-west3
 ```
 
-Three keys move (`platform`, `format`, `location`). Everything else — schema, dq.rules, accessPolicy, agentPolicy, sovereignty — stays **byte-identical**. Confirm with `git diff`:
+Three keys move: `platform`, `format` and `location`. Changing `platform`
+alone is not enough; validate warns that the binding "resolves to no GCP
+resource", and generate and apply refuse an empty module.
 
-```bash
-git diff contract.fluid.yaml
-# - platform: local
-# - format: parquet
-# - location: { path: ./runtime/out/bitcoin_prices.parquet }
-# + platform: gcp
-# + format: bigquery_table
-# + location: { project: your-gcp-project, dataset: crypto, table: bitcoin_prices, region: europe-west3 }
+## Step 3 — validate
+
+```console
+$ fluid validate contract.fluid.yaml
+✅ Valid FLUID contract (schema v0.7.5)
+Validation completed in 0.001s
 ```
 
-## Step 3 — re-validate against the new platform
+If the contract has `accessPolicy.grants`, their principals must now be real
+IAM members (`group:analysts@<your-domain>`, with the domain of your own
+groups); a placeholder in a reserved domain such as `.example` is refused here.
 
-```bash
-fluid validate contract.fluid.yaml
-# ✓ Schema 0.7.2 — passed
-# ✓ binding.platform=gcp — supported (provider gcp installed)
-# ✓ binding.location complete (project, dataset, table)
-# ✓ Contract validation passed
+## Step 4 — preview
+
+`fluid generate iac` writes the OpenTofu module apply will run, offline:
+
+```console
+$ fluid generate iac contract.fluid.yaml --out iac
+...
+Wrote OpenTofu module: iac/main.tf.json  (provider: gcp, 2 resources)
 ```
 
-## Step 4 — preview what will change
+The two resources are a `google_bigquery_dataset` and a
+`google_bigquery_table`. `fluid apply --dry-run` goes one step further and runs
+`tofu plan`:
 
-```bash
-fluid plan contract.fluid.yaml --env prod
-# Plan summary:
-#   + ensure  dataset    crypto (region=europe-west3)
-#   + create  table      crypto.bitcoin_prices
-#   + grant   role/dataViewer  (from accessPolicy.grants)
-#   + run     build      bitcoin_price_ingestion (sql)
+```console
+$ fluid apply contract.fluid.yaml --mode amend-and-build --dry-run
+...
+OpenTofu engine — provider: gcp
+  module:      .fluid/iac/gcp/analytics_customer_events_v1/main.tf.json
+  state:       local
+  credentials: none detected in environment
+  tofu plan: +2 ~0 -0
+dry-run: plan only — not applying.
+...
 ```
 
-The planner is deterministic — same contract + same deployed state = same plan. The plan is **bound** (cryptographically) to the next apply step (stage 6 → 7 of the canonical pipeline).
+For a pipeline, `fluid plan` writes the `plan.json` a later
+`fluid apply plan.json` is bound to.
 
 ## Step 5 — apply
 
 ```bash
-fluid apply contract.fluid.yaml --env prod --yes
-# ⏳ Acquiring lease on gold.crypto.bitcoin_tracker_v1...
-# ⏳ Ensuring BigQuery dataset crypto...
-# ✓ dataset crypto exists
-# ⏳ Creating table crypto.bitcoin_prices...
-# ✓ table crypto.bitcoin_prices created
-# ⏳ Running bitcoin_price_ingestion (BigQuery SQL)...
-# ✓ transformation complete (24 rows in)
-# ⏳ Applying IAM bindings...
-# ✓ BigQuery roles/dataViewer granted to group:analysts@company.example.com
-# ✓ Pipeline complete in 4.83 s
+fluid apply contract.fluid.yaml --mode amend-and-build --yes
 ```
 
-The same data product is now on BigQuery. Same schema, same governance, same dq.rules.
+Apply creates the dataset and table with OpenTofu, then runs the build, which
+loads the query result into the table. The state is local
+(`.fluid/iac/gcp/<id>/terraform.tfstate`) unless `--state-backend` or
+`FLUID_STATE_BACKEND` names a bucket; in CI, use a bucket. See
+[OpenTofu state](../../concepts/state.md).
 
-## Step 6 — verify against the deployed state
+## Step 6 — verify
 
 ```bash
-fluid verify contract.fluid.yaml --env prod --strict
-# ✓ Schema matches deployed state
-# ✓ accessPolicy.grants match BigQuery IAM bindings
-# ✓ dq.rules satisfied (24 rows pass completeness)
-# ✓ Verify passed
+fluid verify contract.fluid.yaml --strict
 ```
 
-## What happens if I want to switch again?
+`fluid verify` reads the live table: the schema, and the row count against the
+build's run records. When the contract declares retention, a key or column
+restrictions, it checks those on the live table too (see
+[Governance parity](../../concepts/governance-parity.md)). It does not check
+dataset grants.
 
-Same pattern — change `binding.platform` to `aws` (or `snowflake`), re-`apply`. The provider for the target cloud handles its own dialect/SDK quirks; the contract stays identical.
+## Switching again
 
-## What you DIDN'T have to do
+The same edit takes the product to AWS (`platform: aws`, `format: parquet`,
+`location: {bucket, path, database, table, region}`) or Snowflake
+(`platform: snowflake`, `format: snowflake_table`,
+`location: {database, schema, table}`). The
+[switch-clouds recipe](../../recipes/switch-clouds.md) has each diff and a check
+that nothing outside `binding` changed.
 
-- Rewrite SQL for a new dialect (Forge handles dialect translation when `engine: sql`; rare cases that genuinely need a hand-tuned dialect can use `engine: dbt` with target-specific macros)
-- Re-author IAM in a new cloud's syntax (on GCP, `accessPolicy.grants` become native IAM when `fluid apply` runs; `policy-apply` changes nothing in 0.18.1)
-- Re-write your Airflow DAG (`fluid generate schedule --scheduler airflow` regenerates with the new platform)
-- Re-test quality rules (the same `dq.rules` block runs against the new cloud's storage)
+The previous cloud's resources and state stay where they were: apply does not
+remove them when the binding moves away.
 
 ## See also
 
-- [GCP walkthrough](/forge_docs/walkthrough/gcp) — full GCP-specific deployment guide
-- [Snowflake walkthrough](/forge_docs/walkthrough/snowflake) — Snowflake team collaboration flow
-- [Providers vs platforms](/forge_docs/concepts/providers-vs-platforms) — how the abstraction works
-- [Same contract demo](/forge_docs/see-it-run.html#_0-03-per-data-product) — frame-perfect cast of this exact swap on screen
+- [GCP walkthrough](../../walkthrough/gcp.md)
+- [Providers vs platforms](../../concepts/providers-vs-platforms.md)
+- [Governance parity](../../concepts/governance-parity.md)

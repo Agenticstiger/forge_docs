@@ -14,7 +14,7 @@ Deploy data products to Amazon Web Services (S3, Glue, Athena, Lake Formation) w
   title="AWS quickstart — S3 + Glue + Athena"
   caption="Same Customer 360 contract as the local quickstart, with its binding edited for aws. S3 bucket provisioned, Glue catalog created, Athena able to query it, from one fluid apply."
   width="920"
-  insight="One YAML. S3 + Glue + Athena. Zero console clicks. | The S3 bucket, Glue database, and Glue table are provisioned by fluid apply from the contract. | The same contract retargets to GCP or Snowflake by editing only its binding."
+  insight="One contract, S3 + Glue + Athena, no console clicks in the recording. | The S3 bucket, Glue database, and Glue table are provisioned by fluid apply from the contract. | The same contract retargets to GCP or Snowflake by editing only its binding."
 />
 
 ::: warning Which schema version
@@ -222,6 +222,8 @@ GCP uses `platform: gcp` with `format: bigquery_table`, and Snowflake `platform:
 
 ## Region
 
+How `--env` picks the overlay that carries the region is in [Environments and overlays](../concepts/environments-and-overlays.md).
+
 Name a real region code in the binding:
 
 ```yaml
@@ -270,6 +272,8 @@ To keep the resources, set `location.region` to the region the error names (`us-
 That output comes from the real apply path with the state read replaced by one that records `us-east-1`; it was not produced against an AWS account.
 
 ## State
+
+[OpenTofu state](../concepts/state.md) covers the keys, backends and the commands that read state; [One contract, two clouds](../recipes/one-contract-two-clouds.md) deploys one contract to both clouds.
 
 `fluid apply` keeps OpenTofu state per provider, so one contract deployed to AWS and to GCP through two `--env` overlays has two states and neither plan reads the other cloud's resources as orphans.
 
@@ -435,6 +439,8 @@ For DuckDB builds:
 - With an override set, a DuckDB `CREATE SECRET` that fails (for example because the `aws` extension cannot load) fails the run with `ObjectStoreEndpointError`. Without that, the build would read and write real AWS while the infrastructure was in the emulator. Make the DuckDB `httpfs` and `aws` extensions loadable, or unset the variable.
 
 ## Governance on AWS
+
+[Governance parity](../concepts/governance-parity.md) sets these fields beside their GCP equivalents.
 
 | Contract field | What `fluid apply` writes on AWS | What `fluid verify` checks | Schema |
 |----------------|----------------------------------|----------------------------|--------|
@@ -877,7 +883,7 @@ under "The region → jurisdiction table is derived".
 
 ## Verify on AWS
 
-`fluid verify` checks a binding with `platform: aws`, a `format` Athena can read through a Hive SerDe (`parquet`, as of 0.18.1), and `location.database`, `location.table` and `location.bucket`. It runs in the binding's region and checks the live account against the contract. Another binding is reported as having no verifier, which never fails the run.
+The checks, the Athena flags, the result-location order and the IAM list are in [`fluid verify`](../cli/verify.md#s3-and-glue-athena). `fluid verify` checks a binding with `platform: aws`, a `format` Athena can read through a Hive SerDe (`parquet`, as of 0.18.1), and `location.database`, `location.table` and `location.bucket`. It runs in the binding's region and checks the live account against the contract. Another binding is reported as having no verifier, which never fails the run.
 
 ```bash
 fluid verify contract.fluid.yaml --env dev --strict --out runtime/verify-report.json
@@ -930,6 +936,8 @@ The flag wins over the variable. A workgroup that enforces its own output locati
 
 ## Upgrading an existing AWS contract
 
+The release notes for [`0.16.0`](../RELEASE_NOTES_0.16.0.md) and [`0.17.0`](../RELEASE_NOTES_0.17.0.md) and the [upgrade guide](../upgrading.md) have the full lists.
+
 - **`0.16.2`:** a Parquet Glue table gets Athena's storage classes on re-apply. The module pins the binding's region, and `fluid apply` refuses a move between regions; see [Region](#region).
 - **`0.16.3`:** the default `bucketPolicy` no longer gives same-account grantees a direct S3 read; see [Bucket policy](#bucket-policy). `governance.lakeFormation.admins` was always authoritative, and the bundled schemas now say so.
 - **`0.16.5`:** DuckDB builds treat masked columns at landing, and `fluid verify` fails a cleartext one. `AWS_ENDPOINT_URL[_S3]` reaches DuckDB.
@@ -940,7 +948,7 @@ The flag wins over the variable. A workgroup that enforces its own output locati
 
 The forge-cli release notes record how each part was checked. The `parquet` SerDe fix was measured against a real AWS account, as was landing a build's rows in S3 through the Glue table (`0.16.0`). The region pin and the region-move guard were exercised against an emulator. The `0.16.5` retention, encryption, masking and endpoint changes ran against moto and DuckDB writing to a moto S3 server; moto enforces neither key policies nor Lake Formation.
 
-The column-restriction grants and `fluid verify`'s Lake Formation check were tested against moto's stored grants, and forge-cli's own governance-parity notes list a real Lake Formation account as not yet proven. The `0.16.7` release notes call a live apply of the column-limited grant the proof still to come. Confirm the Lake Formation behaviour on your own account with `fluid verify` before you rely on it.
+The column-restriction grants and `fluid verify`'s Lake Formation check were tested against moto's stored grants. A grant of the shape `0.17.0` emits (excluded columns beside `wildcard`) was applied and enforced on a real account from `0.16.6`, written by hand in the overlay. What is not proven is the Lake Formation half against a real account as `0.17.0` derives it from `columnRestrictions`. Confirm that behaviour on your own account with `fluid verify` before you rely on it. The GCP half was measured against real Google Cloud on 4 October 2026; see [Governance parity](../concepts/governance-parity.md#what-has-been-proven).
 
 ## CI/CD pipeline
 
@@ -964,6 +972,8 @@ See the [11-stage pipeline](../walkthrough/11-stage-pipeline.md) for what each s
 - [Universal Pipeline](../walkthrough/universal-pipeline.md) — The Jenkinsfile the providers share
 - [Snowflake Provider](./snowflake.md) — Snowflake Data Cloud integration
 - [GCP Provider](./gcp.md) — Google Cloud Platform integration
+- [Governance parity](../concepts/governance-parity.md) — one contract, AWS and GCP
+- [One contract, two clouds](../recipes/one-contract-two-clouds.md) — deploy the same product to both
 - [`fluid verify`](../cli/verify.md) and [`fluid apply`](../cli/apply.md) — Command reference
 - [DuckDB sandbox for contract SQL](../advanced/duckdb-sandbox.md) — What a build's SQL can read
 - [CLI Reference](../cli/README.md) — Full command documentation
