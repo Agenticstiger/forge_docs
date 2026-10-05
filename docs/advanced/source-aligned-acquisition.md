@@ -93,7 +93,7 @@ The run writes the Parquet file and one run record, next to a `.fluid/run-id.txt
 out/orders.parquet
 ```
 
-`fluid runs status bronze.orders` and the other [`fluid runs`](../cli/runs.md) commands read those records. They have the same shape for every engine.
+`fluid runs status bronze.orders` and the other [`fluid runs`](../cli/runs.md) commands read those records.
 
 ## Ingestion engines
 
@@ -201,7 +201,7 @@ A binding that names no bucket stays on local disk. The build does not invent th
 
 ### What the DuckDB sandbox allows
 
-Every DuckDB connection the engine opens runs in DuckDB's own sandbox ([DuckDB sandbox](./duckdb-sandbox.md)). For an acquisition build that means:
+For the DuckDB engine, each connection runs in DuckDB's own sandbox ([DuckDB sandbox](./duckdb-sandbox.md)). For an acquisition build that means:
 
 - A local source and each landing path must sit in the contract's directory, its FLUID workspace, or a directory in `FLUID_DUCKDB_ALLOWED_DIRS`. Anything else is refused before the build runs:
 
@@ -410,7 +410,7 @@ A failed probe counts as a mismatch. `fluid verify --strict` downgrades it to a 
 
 ## Lineage emission
 
-Every acquisition run emits an OpenLineage `RunEvent` pair, a start and a complete, fail or abort, naming the source it read and the expose it wrote.
+A DuckDB acquisition run emits an OpenLineage `RunEvent` pair, a start and a complete or fail, naming the source it read and the expose it wrote.
 
 The emitter is chosen by environment, not by a key in the contract. With no endpoint configured the events are dropped:
 

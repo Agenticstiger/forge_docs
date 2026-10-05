@@ -307,7 +307,7 @@ Region 'us-central1' not in allowed regions list; dataset_customers: Region
 
 ## What the platform enforces
 
-Besides sovereignty, `fluid apply` emits, and `fluid verify` checks on the live platform, four governance fields on AWS and GCP:
+Besides sovereignty, `fluid apply` emits, and `fluid verify` checks on the live platform, these governance fields on AWS and GCP:
 
 | Field | AWS | GCP | Schema |
 |---|---|---|---|

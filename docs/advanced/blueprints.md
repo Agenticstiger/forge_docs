@@ -1,6 +1,6 @@
 # Blueprints
 
-A blueprint is a parameterized contract template. You give it a few values (a product name, a project id) and it renders a complete FLUID contract. Four blueprints ship inside the CLI, so this works offline with no AI key and no account.
+A blueprint is a parameterized contract template. You give it a few values (a product name, a project id) and it renders a complete FLUID contract. The CLI bundles these blueprints, so this works offline with no AI key and no account.
 
 ## Quick start
 

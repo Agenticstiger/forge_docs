@@ -50,11 +50,16 @@ vocabulary:
 
 ```console
 $ fluid memory show team
-Loaded team memory from .../.fluid/team-memory.yaml (4 conventions, 1 decisions, 3 vocabulary terms)
 {
   "conventions": {
-    "naming": { "product_prefix": "acme", "column_style": "snake_case" },
-    "defaults": { "provider": "gcp", "owner_team": "data-platform" }
+    "naming": {
+      "product_prefix": "acme",
+      "column_style": "snake_case"
+    },
+    "defaults": {
+      "provider": "gcp",
+      "owner_team": "data-platform"
+    }
   },
   "decisions": [
     {
@@ -63,7 +68,19 @@ Loaded team memory from .../.fluid/team-memory.yaml (4 conventions, 1 decisions,
       "rationale": "Team has GCP expertise"
     }
   ],
-  "vocabulary": { "entities": ["customer_id", "order_id"], "measures": ["total_revenue"] }
+  "vocabulary": {
+    "entities": [
+      "customer_id",
+      "order_id"
+    ],
+    "measures": [
+      "total_revenue"
+    ],
+    "dimensions": [
+      "order_date",
+      "region"
+    ]
+  }
 }
 ```
 

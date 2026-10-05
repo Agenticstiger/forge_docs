@@ -49,10 +49,7 @@ Every advertised tool includes an MCP `inputSchema`, so clients can provide type
 
 #### Fragment-first contracts
 
-A contract split into fragments keeps `$ref` stubs in its root file (see [Composing a contract with `$ref`](../concepts/contract-refs.md)). `fluid validate`, `fluid plan` and `fluid mcp output-port serve` resolve those references. As of 0.18.1, the authoring tools that take a `contract_path` read the file as written and do not:
-
-- `validate_contract` takes `contract_path` (or `logical_path`) and no inline contract.
-- `score_contract_quality` and `enrich_contract_suggestions` accept either `contract_path` or an inline `contract` object.
+A contract split into fragments keeps `$ref` stubs in its root file (see [Composing a contract with `$ref`](../concepts/contract-refs.md)). `fluid validate`, `fluid plan` and `fluid mcp output-port serve` resolve those references. As of 0.18.1, the authoring tools that take a `contract_path` read the file as written and do not resolve `$ref` stubs. `validate_contract` takes `contract_path` (or `logical_path`) and no inline contract; `score_contract_quality` and `enrich_contract_suggestions` accept either `contract_path` or an inline `contract` object.
 
 On a root that holds `$ref` stubs, `validate_contract` reports errors that `fluid validate` does not:
 
