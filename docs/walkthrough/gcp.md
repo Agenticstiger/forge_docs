@@ -7,10 +7,12 @@
 <CliCast
   src="/forge_docs/demos/gcp-quickstart.svg"
   title="The same contract on BigQuery — change the binding, redeploy"
-  caption="Click play above: the Customer 360 quickstart contract, re-pointed from local DuckDB to BigQuery by changing the expose binding. Three keys change together: `binding.platform`, `binding.format` and `binding.location`; see [Switch clouds](../cli/tasks/switch-clouds.md). The walkthrough below hand-builds a different example step by step, with auth + contract editing."
+  caption="Click play above: the Customer 360 quickstart contract, re-pointed from local DuckDB to BigQuery by changing the expose binding. Three keys change together: binding.platform, binding.format and binding.location. The walkthrough below hand-builds a different example step by step, with auth + contract editing."
   width="920"
   insight="Same contract. The binding changed (platform: local → platform: gcp, with the format and location to match). | BigQuery dataset, table, and view — all created from the YAML you already had. | Schema, dq.rules and the build stages — unchanged from the local run."
 />
+
+See [Switch clouds](../cli/tasks/switch-clouds.md) for the three-key change.
 
 ::: warning Which schema version this page uses
 The contract below declares `fluidVersion: "0.7.6"`, the **preview** schema. It is the first schema that has `exposes[].lifecycle.expire`, which is what turns a retention period into a BigQuery partition expiry (Step 3). `0.7.5` is the latest stable schema and rejects that key (`exposes[0].lifecycle: Additional properties are not allowed ('expire' was unexpected)`). `fluid init --quickstart` scaffolds `0.7.5`, so if you start from a scaffold, change the version line by hand. For the stable and preview schemas, see [Getting started](../getting-started/README.md).
