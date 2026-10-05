@@ -179,7 +179,7 @@ listed here and in runtime/out/local_apply_log.jsonl)
    📁 <workspace>/silver/orders_enriched/out/orders_enriched.parquet
 ```
 
-The Parquet file holds:
+The Parquet file holds these rows, in no guaranteed order (the SQL has no `ORDER BY`):
 
 ```text
 (1001, 4999, 'EMEA', 'enterprise')
@@ -231,7 +231,7 @@ An entry the SQL reads that cannot be resolved fails the build before any SQL ru
 
 Each of the first three also tells you the way out: check the `productId`, keep the upstream under the directory holding `fluid.workspace.yaml`, add its repository to `FLUID_UPSTREAM_CONTRACTS`, or bind the name by hand with `parameters.inputs`.
 
-`fluid validate` and `fluid plan` do not resolve `consumes[]`. The contract above with `bronze.crm_custmers` in it passes both, and fails only at `fluid apply --mode amend-and-build`. What `fluid validate` does enforce is the composition rule: a contract with `metadata.productType: SDP` (or `layer: Bronze`) that declares `consumes[]` is rejected, with `composition rule: SDP ... does not accept upstream products`. See [Product Types](../data-products/product-type.md#composition-rules).
+`fluid validate` and `fluid plan` do not resolve `consumes[]`. The contract above with `bronze.crm_custmers` in it passes both, and fails only at `fluid apply --mode amend-and-build`. What `fluid validate` also applies is the composition rule: a contract with `metadata.productType: SDP` (or `layer: Bronze`) that declares `consumes[]` is rejected when the consumed `productId` is one validate can find in the workspace, with `composition rule: SDP ... does not accept upstream products`. A `productId` it cannot find is not reported (it appears only with `-v`). See [Product Types](../data-products/product-type.md#composition-rules).
 
 ### Fields on a consumes entry
 

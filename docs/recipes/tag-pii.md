@@ -20,7 +20,7 @@ Your data product has `email`, `ssn`, `phone_number` or other PII. You need:
 
 ## Solution
 
-Four small additions to one contract, each read by a different part of forge. The first three run end to end on the local provider; steps 4 and 5 are explained from the contract and `fluid policy compile` output.
+Five additions to one contract, each read by a different part of forge. The first four steps run end to end on the local provider; steps 5 and 6 are explained from the contract, `fluid policy compile` output and the 0.18.1 source.
 
 | You add | What reads it on 0.18.1 |
 |---------|--------------------------|
@@ -179,7 +179,7 @@ The severity is CRITICAL, and `fluid verify --strict` exits 1. Without `--strict
 fluid policy-check contract.fluid.yaml
 ```
 
-`fluid policy-check` requires a masking rule for every column tagged `pii` or `phi`. Remove the `ssn` rule from the contract above and the check fails with exit 1:
+`fluid policy-check` fails a column tagged `pii` that has no masking rule. Remove the `ssn` rule from the contract above and the check fails with exit 1:
 
 ```text
 🚨 🔒 Data Sensitivity & Privacy (CRITICAL)

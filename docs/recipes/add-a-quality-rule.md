@@ -173,7 +173,7 @@ Measured on 0.18.1: with only the two `warn` rules failing, `fluid test` exits 0
 
 ## Rule types
 
-`type` takes one of eight values in the 0.7.5 schema. The native engine executes six:
+The 0.7.5 schema lists these `type` values. These are executed natively:
 
 | `type` | What it checks | Notes |
 |--------|----------------|-------|
@@ -188,7 +188,7 @@ Measured on 0.18.1: with only the two `warn` rules failing, `fluid test` exits 0
 
 A rule the engine cannot evaluate is reported as a failure, not skipped. Measured on 0.18.1:
 
-- **No `selector`.** Every type needs one, `freshness` included. The rule fails with "missing 'selector' (column name)".
+- **No `selector`.** A rule without a selector fails (measured for `freshness`) with "missing 'selector' (column name)".
 - **`valid_values` with no list**, or a `freshness` window that does not parse, fails with a message naming the problem.
 
 `fluid validate` rejects keys the schema does not define. A `dqRule` takes `id`, `type`, `selector`, `threshold`, `operator`, `window`, `severity`, `description`, `tags` and `labels`; a `validValues:` key fails with "Additional properties are not allowed". The failure message of a `valid_values` rule with no list suggests a `validValues` list as an alternative; as of 0.18.1 only the `description` form passes `fluid validate`. Nor is there a `where:` clause. For a rule that applies to a subset of rows, filter in the build's SQL; see [Quality, SLAs and lineage](../concepts/quality-sla-lineage.md).
