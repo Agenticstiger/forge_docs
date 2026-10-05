@@ -210,7 +210,7 @@ Relative local paths in a contract (`binding.location.path` on the `local` provi
 
 | Option | Description |
 | --- | --- |
-| `--allow-data-loss` | Required to run `replace` / `replace-and-build`, and to apply an OpenTofu plan that destroys data-bearing resources. Never default. |
+| `--allow-data-loss` | Required to run `replace` / `replace-and-build`, and to apply an OpenTofu plan that destroys data-bearing resources. |
 | `--no-verify-plan-binding` | **Emergency escape hatch.** Skip the `bundleDigest` / `planDigest` verification that stage 7 normally enforces on a saved plan. Logged at `WARNING` so audit trails catch it. Use only during documented DR procedures. |
 | `--no-verify-federation` | Skip the federated-`consumes[]` upstream-digest check. Logged at `WARNING`. Unlike plan binding, this check only warns, so the flag removes a warning, not a refusal. See [Federated upstream check](#federated-upstream-check). |
 | `--adopt-shared-container` | *(since 0.13.0)* Confirm taking **ownership** of a container this contract previously referenced as a shared pool (`packaging` `shared` → `isolated`). Emits a structured `packaging_adoption_override` audit event; the data-loss gate still applies. See [Packaging modes](#packaging-modes). |
@@ -313,7 +313,7 @@ State that an earlier release wrote at `fluid/<id>/terraform.tfstate` has to fol
 
 ## Reporting to the Command Center (since 0.17.0)
 
-Each `fluid apply` registers itself with a Command Center when one is configured, and closes the run when it ends. It is best effort: a Command Center that is down, slow or misconfigured costs at most a warning line and the request timeout, never the apply's exit code. This is what the apply prints when the Command Center answers, and when it does not (measured against a local stand-in server on 5 Oct 2026):
+Each `fluid apply` registers itself with a Command Center when one is configured, and closes the run when it ends. It is best effort: a Command Center that is down, slow or misconfigured costs at most a warning line and the request timeout, and did not change the exit code when measured. This is what the apply prints when the Command Center answers, and when it does not (measured against a local stand-in server on 5 Oct 2026):
 
 ```text
   command center: run cf9d4172-9ce2-43f6-b5b7-8c1b33c3d02f reported
