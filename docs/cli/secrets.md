@@ -135,7 +135,7 @@ The runner resolves the URI when the build runs. The schemes are:
 | `aws://name` | AWS Secrets Manager |
 | `gcp://name` | GCP Secret Manager |
 | `azure://name` | Azure Key Vault |
-| `file://path` | A local file |
+| `file://name` | The local secrets directory `~/.fluid/secrets/`: `name` is a single file name in that directory, not a path. Absolute paths, `/`, `\` and `..` are refused |
 
 Any other scheme fails with the list of supported ones. `{{ env.VAR }}` is a different mechanism: it substitutes an environment variable into a string field of the contract. When `fluid apply` or `fluid publish` resolves a contract, a placeholder whose name looks like a credential (`..._PASSWORD`, `..._TOKEN`, `..._SECRET`, `..._API_KEY`) is left unresolved, so use `secretRef` for credentials. No `${SECRET:...}` placeholder exists.
 

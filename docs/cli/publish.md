@@ -114,7 +114,7 @@ catalogs:
 
 ### Which organization a product lands in
 
-Every request to the Command Center carries an `X-Organization-Id` header, because a product belongs to exactly one organization. The organization is the first of:
+A product belongs to exactly one organization, so the write requests (asset lookup, create or update, contract sync) carry an `X-Organization-Id` header naming it. The organization is the first of:
 
 1. `FLUID_CC_ORG_ID`, or `organization_id` in the config.
 2. The organization whose slug is `organization` in the config, matched against `GET /api/v1/organizations`. An unknown or ambiguous slug writes nothing: it never falls back to another organization.

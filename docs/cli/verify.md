@@ -157,7 +157,7 @@ A local CSV or Parquet output has two checked dimensions: `schema_structure` and
 
 - Any structure mismatch is CRITICAL, extra columns included. The file is the product, so a column the contract does not declare is a broken output. That includes the one-column placeholder that an `amend` apply lands: `--strict` fails on it.
 - `{{ env.NAME }}` in a local path resolves as the build writer resolves it. A variable that is not set resolves to the empty string, on both sides.
-- Verify opens the one file it checks and nothing else. See the [DuckDB sandbox](../advanced/duckdb-sandbox.md).
+- Verify reads the output file under the DuckDB sandbox's read rules. See the [DuckDB sandbox](../advanced/duckdb-sandbox.md).
 
 ### BigQuery
 
