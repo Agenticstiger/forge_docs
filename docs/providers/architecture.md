@@ -35,7 +35,7 @@ Every Fluid Forge command follows the same flow: **contract → provider → pla
   apply() → result   apply() → result  apply() → result
 ```
 
-Since 0.10.0 the cloud providers do not execute actions one by one. For `aws`, `gcp`, `snowflake` and `confluent`, `fluid apply` compiles the contract to an OpenTofu module (`main.tf.json`, the same module [`fluid generate iac`](../cli/generate-iac.md) writes) and runs `tofu init`, `plan` and `apply`; builds then run in `--mode amend-and-build`. Only `local` runs the action list below in-process, on DuckDB. The `plan()` / `apply()` interface on this page is what a [custom provider](./custom-providers.md) implements.
+Since 0.10.0 the cloud providers do not execute actions one by one. For `aws`, `gcp`, `snowflake` and `confluent`, `fluid apply` compiles the contract to an OpenTofu module (`main.tf.json`, the same module [`fluid generate iac`](../cli/generate-iac.md) writes) and runs `tofu init`, `plan` and `apply`; builds then run in `--mode amend-and-build`. Of the built-in providers, `local` is the one that runs the action list below in-process, on DuckDB. The `plan()` / `apply()` interface on this page is what a [custom provider](./custom-providers.md) implements.
 
 | Provider | How `fluid apply` provisions |
 |---|---|

@@ -632,7 +632,7 @@ exposes:
         partitionBy: [scored_at]      # optional: one DATE, TIMESTAMP or DATETIME column
 ```
 
-The table gets `time_partitioning: {type: DAY, field: scored_at, expiration_ms: 7776000000}`, so each daily partition is deleted 90 days after its date. Without `partitionBy` it is partitioned by ingestion time and a row lives at least `retention` after it landed. With `partitionBy`, retention counts from the column's date: a backfill of rows older than `retention` lands in expired partitions and is deleted at once (`fluid apply` logs `bigquery_retention_event_time`). No table expiration is ever set.
+The table gets `time_partitioning: {type: DAY, field: scored_at, expiration_ms: 7776000000}`, so each daily partition is deleted 90 days after its date. Without `partitionBy` it is partitioned by ingestion time and a row lives at least `retention` after it landed. With `partitionBy`, retention counts from the column's date: a backfill of rows older than `retention` lands in expired partitions and is deleted at once (`fluid apply` logs `bigquery_retention_event_time`). Retention does not set a table-level expiration.
 
 BigQuery cannot partition an existing table. The first apply that adds `expire: true` to a live table plans the table's replacement, which `fluid apply` refuses without `--allow-data-loss`; the next build lands the data again. Changing `retention` later is an in-place update. `partitionBy` must be a list; a scalar fails validation.
 
