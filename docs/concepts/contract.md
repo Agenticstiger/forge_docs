@@ -22,7 +22,7 @@ A **Fluid Forge contract** is a YAML document that describes a data product: its
 > Schema, infrastructure, policy and AI gating are declared in one place, so they do not drift apart.
 > `fluid validate` checks the contract against the schema before anything ships.
 
-## The 6 required top-level fields
+## The required top-level fields
 
 A contract must declare:
 
