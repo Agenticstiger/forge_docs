@@ -2,11 +2,11 @@
 
 ::: warning Deprecated
 `fluid export-opds` is the historical letter-swap name for the LF/ODPI ODPS v4.1 export. It still runs
-in 0.15.0 and prints a deprecation warning. Prefer
+in 0.18.1 and prints a deprecation warning. Prefer
 [`fluid generate standard --format odps-v4.1`](./generate.md) in new scripts.
 
 Note the earlier spelling `fluid export-odps` (ODPS, letters not swapped) is **not** a registered
-command in 0.15.0 and exits 2. And the center-stage `fluid generate standard --format odps` emits
+command in 0.18.1 and exits 2. And the center-stage `fluid generate standard --format odps` emits
 **Bitol** ODPS v1.0.0, a different standard that shares the acronym.
 :::
 

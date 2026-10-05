@@ -5,7 +5,7 @@ description: Add dq.rules to your data product contract — completeness, freshn
 
 # Task: Add quality rules to your data product
 
-Forge's `dq.rules` block declares what *correct* means for your data product. Rules are evaluated at three points: at `validate` (schema-level), at `test` (pre-deploy quality gate), and at `verify` (post-deploy drift detection). Severity decides whether a violation blocks the deploy or just warns.
+Forge's `dq.rules` block declares what *correct* means for your data product. `fluid validate` checks that the rules are well-formed, and [`fluid test`](../test.md) evaluates them against the data. Severity decides whether a failed rule fails the run or only warns.
 
 Time: ~10 minutes for the basic shape, longer if you're fitting rules to existing production data.
 
@@ -31,24 +31,24 @@ exposes:
             severity: error
 ```
 
-Each rule has `id` (unique, used in error messages), `type` (one of 8 allowed types), `selector` (which column/table), `threshold` + `operator` (the gate), and `severity` (`info` / `warn` / `error` / `critical`).
+Each rule has `id` (unique, used in error messages), `type` (see the table below), `selector` (which column/table), `threshold` + `operator` (the gate), and `severity` (`info` / `warn` / `error` / `critical`).
 
 ## Step 1 — pick a rule type
 
-The 8 supported types in v0.7.2:
+The contract schema accepts these types. The native engine of `fluid test` runs six of them:
 
 | Type | What it checks | Typical use |
 |---|---|---|
-| `completeness` | Non-null ratio of a column | Required IDs, mandatory metrics |
-| `uniqueness` | No duplicates within a column or column-set | Primary keys, business keys |
-| `freshness` | Time since last successful update | SLA-bound products |
-| `valid_values` | All values in column appear in an allowed set | ISO codes, status enums |
-| `accuracy` | Column compared against a reference | Daily totals matching upstream system |
-| `schema` | No silent schema changes (added/removed/retyped columns) | Stability gate |
-| `anomaly_detection` | Statistical outliers in a column | Revenue spikes, click anomalies |
-| `drift_detection` | Distribution shift vs a baseline window | Model input drift, customer behaviour |
+| `completeness` | Non-null ratio of the `selector` column | Required IDs, mandatory metrics |
+| `uniqueness` | Share of distinct values in a column | Primary keys, business keys |
+| `freshness` | Age of the newest timestamp in the `selector` column, against `window` | SLA-bound products |
+| `valid_values` | Every value is in an allowed list written in the rule's `description` | ISO codes, status enums |
+| `accuracy` | Column values compared with `threshold` using `operator` | Amounts that must not be negative |
+| `schema` | Accepted by the schema, **not implemented**: reported as failing | Not enforced by any engine |
+| `anomaly_detection` | Row count: `selector: '*'` means `COUNT(*)`, compared with `threshold` | Empty or truncated loads |
+| `drift_detection` | Accepted by the schema, **not implemented**: reported as failing | Not enforced by any engine |
 
-Most production contracts use 3-5 rules: usually **schema + completeness on key fields + freshness on the SLA window** as the minimum.
+A reasonable starting set is completeness on key fields, uniqueness on the primary key, and freshness on the SLA window. For column-set changes, use [`fluid contract-tests`](../contract-tests.md), which compares each expose's schema with a saved baseline.
 
 ## Step 2 — add a completeness rule
 
@@ -76,39 +76,49 @@ dq:
   rules:
     - id: hourly_freshness
       type: freshness
+      selector: updated_at          # timestamp column to age
       window: PT1H                  # ISO-8601 duration: max 1h stale
       severity: warn
 ```
 
-Freshness is evaluated against the deployed table's last write timestamp. The schema doesn't carry a `grace:` field — for a two-tier severity (warn at 1h, critical at 1h15m), declare two rules:
+Freshness needs a `selector` naming a timestamp column: without one the rule fails with `missing 'selector' (column name)`. It compares the newest value in that column with `window`, so a table whose timestamp column is not updated on write looks stale. The schema doesn't carry a `grace:` field — for a two-tier severity (warn at 1h, critical at 1h15m), declare two rules:
 
 ```yaml
 dq:
   rules:
     - id: freshness_warn_1h
       type: freshness
+      selector: updated_at
       window: PT1H
       severity: warn
 
     - id: freshness_critical_75min
       type: freshness
+      selector: updated_at
       window: PT75M
       severity: critical
 ```
 
-Wire scheduled `fluid verify` runs (every 15 minutes via your CI / orchestrator) so both rules evaluate against the actual deployed-table state.
+Run `fluid test` on a schedule from your CI or orchestrator so both rules evaluate against the data as it is.
 
-## Step 4 — add a schema-stability rule
+## Step 4 — do not rely on `schema` or `drift_detection`
 
 ```yaml
 dq:
   rules:
     - id: schema_stability
       type: schema
+      selector: '*'
       severity: critical
 ```
 
-This rule fails the deploy if a column was added, removed, or retyped without an explicit `exposes[].version` bump.
+The contract schema accepts this rule and `fluid validate` passes. `fluid test` then fails it at its own severity, because no engine implements the type. Measured against 0.18.1:
+
+```text
+Rule 'schema_stability' has type 'schema', which the native quality engine does not implement — this gate is NOT being enforced. No fluid engine implements it (`--engine soda` reports it as unmapped too); ...
+```
+
+`drift_detection` behaves the same way. To catch a changed column set, save a baseline with `fluid contract-tests --write-baseline` and compare against it in CI (see [`fluid contract-tests`](../contract-tests.md)).
 
 ## Step 5 — add valid_values for enums
 
@@ -121,46 +131,48 @@ dq:
       threshold: 1.0
       operator: ">="
       severity: error
-      description: "country must be in ISO 3166 alpha-2 (US, CA, GB, ...)"
+      description: "country valid values: US, CA, GB"
 ```
 
-For richer enum enforcement, gate it in the SQL build's `WHERE` clause (rejecting non-conforming rows to a quarantine table). The contract's `dq.rule` then verifies that `valid_values` holds against the cleaned product.
+The allowed list is read from the rule's `description` (for example `country valid values: US, CA, GB.`); the schema has no field for it, and a rule with no list checks nothing and says so. For stricter enforcement, gate it in the SQL build's `WHERE` clause (rejecting non-conforming rows to a quarantine table).
 
 ## Step 6 — validate that the rules are well-formed
 
 ```bash
 fluid validate contract.fluid.yaml --strict
-# ✓ Schema 0.7.2 — passed
-# ✓ dq.rules — 4 rules, all reference real schema fields
-# ✓ Severity enum values valid
-# ✓ Contract validation passed (strict)
 ```
 
-`validate --strict` catches malformed rules (typos in selector, unsupported operator, conflicting thresholds) before they reach a real deploy.
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+```
+
+`validate` checks the rule shape against the schema, for example an unknown `type` or `severity`. It does not read your data.
 
 ## Step 7 — test against actual data
 
-`fluid test` runs the rules against the current state of the deployed product:
+`fluid test` reads the data the expose is bound to and evaluates the rules. With a `completeness` rule on `customer_id` (severity `error`) and one on `country` (severity `warn`) over a three-row Parquet file in which one country is null:
 
 ```bash
 fluid test contract.fluid.yaml
-# ✓ price_not_null: 10,000 / 10,000 (100.0%) — pass
-# ✓ schema_stability: no changes detected — pass
-# ⚠ hourly_freshness: 1h 4m since last update — warn
-# ✓ country_valid_iso: 9,847 / 9,847 (100.0%) — pass (153 rows null)
 ```
 
-`test` is the pre-deploy gate. Severity controls behaviour: `error`/`critical` exit non-zero (blocks CI); `warn`/`info` exit zero (logged but doesn't block).
+```text
+│ 7    │ ⚠️     │ Quality tests          │ country_complete — completeness for │
+│      │        │                        │ 'country' is 66.67%                 │
+...
+✅ 5 passed  |  3 warned  |  0 error(s)  |  2 warning(s)  |  0.45s
+Data-quality rules: 1/2 passed
+```
 
-## Step 8 — wire `verify` for runtime drift detection
+The exit code is `0` because the failing rule has severity `warn`. `--strict` turns any warning into exit `1`. A failing `error` or `critical` rule fails the run with exit `1`. Pass `--no-cache` after you change the data's schema; see [the schema cache](../test.md#the-schema-cache).
+
+## Step 8 — run `test` after deploy, and `verify` for deployed state
 
 ```bash
 fluid verify contract.fluid.yaml --strict
 ```
 
-`verify` runs against the **deployed state** (not a sample). It's the post-deploy gate: confirm that the live table actually has the schema, freshness, and quality the contract promised.
-
-For continuous monitoring, declare your SLA targets on the expose's `qos` block:
+`verify` compares the deployed resource with the contract. Against the local provider it checks that the declared columns exist; it did not evaluate `dq.rules` in a measured run, so keep `fluid test` as the command that runs them. Declare SLA targets on the expose's `qos` block if you want them recorded with the contract:
 
 ```yaml
 exposes:
@@ -173,41 +185,41 @@ exposes:
       errorBudget: 0.01
 ```
 
-Then schedule `fluid verify` via your CI / orchestrator (the contract declares the *target*; scheduling lives in the runtime layer):
+Schedule the commands from your CI or orchestrator; the contract declares the targets and scheduling lives in the runtime layer:
 
 ```yaml
-# .github/workflows/verify-fast.yml
+# .github/workflows/test-fast.yml
 on:
   schedule:
     - cron: "*/15 * * * *"            # every 15 min
 jobs:
-  verify:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - run: fluid verify contract.fluid.yaml --strict --env prod
+      - run: fluid test contract.fluid.yaml --env prod --no-cache
 ```
 
-Wire alerting to whatever your CI / orchestrator emits on a non-zero exit (PagerDuty webhook, Slack notification, etc.) — `fluid verify` exits non-zero on breach.
+Wire alerting to whatever your CI or orchestrator emits on a non-zero exit (PagerDuty webhook, Slack notification, and so on).
 
-## Severity → CI behaviour
+## Severity and exit codes in `fluid test`
 
-| Severity | `validate` | `test` | `verify --strict` |
-|---|---|---|---|
-| `info` | recorded | exit 0 | exit 0 |
-| `warn` | recorded | exit 0 | exit 0 (warning only) |
-| `error` | exit 0 (it's about runtime) | exit non-zero (blocks CI) | exit non-zero |
-| `critical` | exit 0 | exit non-zero + emit incident | exit non-zero + emit incident |
+| Severity | Result in `fluid test` | Exit code |
+|---|---|---|
+| `info` | Recorded, counts as passed | 0 |
+| `warn` | Shown as a warning | 0 (`1` with `--strict`) |
+| `error` | Fails the run | 1 |
+| `critical` | Fails the run | 1 |
 
 ## What you DIDN'T have to do
 
 - Hand-roll dbt tests (`assertions: not_null`) for each column — `dq.rules` is per-product, not per-warehouse-syntax
 - Wire a separate Great Expectations / Soda Core layer
 - Maintain a separate "data quality monitoring" repo
-- Translate rules between cloud-specific systems (BigQuery's column-level constraints, Snowflake's quality rules) — Forge translates them for you at `policy-apply`
+- Write rules per warehouse: `fluid test` runs the same `dq.rules` on whichever provider the expose is bound to, and `--engine soda` runs them through Soda
 
 ## See also
 
 - [Quality, SLAs & Lineage](/forge_docs/concepts/quality-sla-lineage) — full conceptual treatment
 - [Recipe: Add a quality rule](/forge_docs/recipes/add-a-quality-rule) — the 1-page copy-paste version
-- [`fluid test`](/forge_docs/cli/test) — the pre-deploy gate command
-- [`fluid verify`](/forge_docs/cli/verify) — runtime drift detection
+- [`fluid test`](../test.md) — the pre-deploy gate command
+- [`fluid verify`](../verify.md) — runtime drift detection

@@ -2,7 +2,7 @@
 
 Static lint of the contract's governance and compliance declarations. No cloud calls, no state mutation — safe to run from any branch, any environment. Pair with [`fluid validate`](./validate.md) in a pre-commit hook or stage-2 CI gate.
 
-`0.8.0` promotes the unified `fluid policy {check,compile,apply}` subcommand group. The legacy `fluid policy-check` form stays registered as a deprecation alias for one release. Both surfaces share the same argument set.
+`0.8.0` added the unified `fluid policy {check,compile,apply}` subcommand group. The older `fluid policy-check` form is still registered in 0.18.1, prints no deprecation notice, and takes the same arguments.
 
 ## Syntax
 
@@ -10,7 +10,7 @@ Static lint of the contract's governance and compliance declarations. No cloud c
 # New idiomatic form
 fluid policy check CONTRACT
 
-# Legacy alias (same behaviour)
+# Older form (same behaviour)
 fluid policy-check CONTRACT
 ```
 
@@ -19,10 +19,10 @@ fluid policy-check CONTRACT
 | Option | Description |
 | --- | --- |
 | `--env` | Apply an environment overlay |
-| `--strict` | Treat warnings as errors |
-| `--category` | Restrict checks to a category |
-| `--output`, `-o` | Write the policy report |
-| `--format` | `rich`, `text`, or `json` |
+| `--strict` | Treat warnings as errors: a contract whose only finding is a warning exits `1` instead of `0`. |
+| `--category` | Report only violations in one category. See the note below: it does not skip the other checks. |
+| `--output`, `-o` | Write the policy report to this path as JSON |
+| `--format` | `rich` (default), `text`, or `json` |
 | `--show-passed` | Show successful checks too |
 
 Available categories include:
@@ -32,6 +32,52 @@ Available categories include:
 - `data_quality`
 - `lifecycle`
 - `schema_evolution`
+
+## Example output
+
+A contract with a PII column that has a masking rule and no `lifecycle.retention`, checked with `--format text`:
+
+```bash
+fluid policy check contract.fluid.yaml --format text
+```
+
+```text
+📋 Schema-Based Policy Validation
+Contract: gold.finance.customer_360_v1
+Score: 95/100
+
+============================================================
+
+✅ Sensitivity
+
+✅ Access Control
+
+✅ Data Quality
+
+❌ Lifecycle (1 issues)
+  WARNING: Sensitive data should have explicit retention policy
+    💡 Add lifecycle.retention (e.g., 'P90D' for 90 days)
+
+✅ Schema Evolution
+
+============================================================
+Checks Passed: 5
+Checks Failed: 0
+Advisory Issues: 1
+Total Violations: 1
+Blocking Issues: 0
+Policy Score: 95/100
+```
+
+The exit code is `0` here, because the only finding is a warning. With `--strict` it is `1`. A `CRITICAL` violation, for example a `sensitivity: pii` column with no `policy.privacy.masking`, exits `1` without `--strict`.
+
+`--format json` (and `--output`) write `is_compliant`, `score`, `checks_passed`, `checks_failed`, `violations[]` (each with `category`, `severity`, `message`, `field`, `expose_id`, `rule_id`, `remediation`) and `blocking_violations`.
+
+::: warning Measured behaviour of `--category` and the counters in 0.18.1
+- `--category lifecycle` and `--category sensitivity` ran the same checks on the contract above. Only the reported violations differ: with `sensitivity` the lifecycle warning is dropped and the score reads `100/100`, while the log line printed first still says `5 passed, 1 failed, score: 95/100`.
+- The counters do not agree across formats. For the same contract, `--format json` printed `checks_failed: 1` next to `is_compliant: true`, and the rich report printed `Checks Failed: 0`.
+- Judge a run by the exit code and the violations list, not by the counters.
+:::
 
 ## Examples
 
@@ -44,7 +90,7 @@ fluid policy check contract.fluid.yaml --category access_control
 fluid policy check contract.fluid.yaml --format json --output runtime/policy.json
 ```
 
-### Legacy hyphenated form (still works)
+### Hyphenated form (still registered)
 
 ```bash
 fluid policy-check contract.fluid.yaml

@@ -1,15 +1,15 @@
 ---
 title: Debug a failed pipeline run
-description: 3am Slack ping, pipeline broke. Walk through fluid runs status → logs → diff → fix → ship in under 90 seconds.
+description: 3am Slack ping, pipeline broke. Walk through fluid runs status, logs, diff, fix and ship.
 ---
 
 # Task: Debug a failed pipeline run
 
-It's 3am. PagerDuty fired. `gold.finance.customer_360_v1` missed its 1-hour freshness SLA. You have 90 seconds to figure out **where** it broke, **why** it broke, **what** changed, fix it, and ship.
+It's 3am. PagerDuty fired. `gold.finance.customer_360_v1` missed its 1-hour freshness SLA. You need to find out **where** it broke, **why** it broke, **what** changed, fix it, and ship.
 
-This is what `fluid runs` is built for. Three commands, one fix, one `ship`.
+`fluid runs` reads the run records Forge wrote: three commands, one fix, one `ship`. The product, run ids and numbers on this page are a made-up scenario; the command output described is what 0.18.1 prints.
 
-## The 90-second flow
+## The flow
 
 ```bash
 fluid runs status gold.finance.customer_360_v1
@@ -27,75 +27,37 @@ A frame-perfect cast of this exact flow is in the [day2-ops demo](/forge_docs/se
 fluid runs status gold.finance.customer_360_v1
 ```
 
-Shows recent runs of this product:
+Shows the most recent run records of the product's build: for each run its id, state (`succeeded`, `failed`, `partial` or `running`), start and finish time, record count and error, plus the product's freshness (age of the newest succeeded run), its 24-hour error rate and the state of the newest run. The run records are the files under `.fluid/runs/<product-id>/<build-id>/runs/`. If there are none, the command says so and names the directory:
 
-```
-run-id      ts          duration  status   stage
-─────────  ──────────  ────────  ───────  ──────
-r-2a4f8c3  03:01 AM    38 s      FAIL     apply
-r-2a4f8c2  02:01 AM    41 s      FAIL     apply
-r-2a4f8c1  01:01 AM    37 s      FAIL     apply
-r-2a4f8c0  12:01 AM    4.2 m     OK
-─────────────────────────────────────────────────
-3 consecutive failures. First failure: r-2a4f8c1 (01:01 AM)
-⚠ Stage: apply — DDL succeeded, build failed
+```text
+no builds found for product silver.shop.customers_v1 under <project>/.fluid/runs/silver.shop.customers_v1/
 ```
 
-What you learned in 5 seconds:
-- 3 consecutive failures (not a transient fluke)
-- First failure was at 01:01 AM (so the change came in around then)
-- Stage is `apply` — the build inside apply is what's failing, not the IAM or schema layer
+In the scenario of this page, what you read from it:
+- Several consecutive runs in state `failed`, so this is not a transient fluke
+- The oldest of them is the first failure, which dates the change that broke the build
 
-`runs status` shows the 5 most recent runs by default — pass `--last 50` if you need more history, or `--build <id>` to scope to one build.
+`runs status` shows the 5 most recent runs by default. Pass `--last 50` for more history, `--build <id>` to scope it to one build, or `--json` for the machine-readable report ([field list](../runs.md#output-shape-json)).
 
 ## Step 2 — `runs logs --component dlq` (why)
 
 ```bash
-fluid runs logs gold.finance.customer_360_v1 --component dlq --run-id r-2a4f8c1
+fluid runs logs gold.finance.customer_360_v1 --component dlq --run-id <first-fail-run>
 ```
 
-The `dlq` component holds quarantined batches — rows that failed quality gates. `--run-id` pins the fetch to a specific run; omit it and `runs logs` reads the most recent run for the build:
+The `dlq` component holds quarantined batches, the rows that failed a quality gate. `--run-id` pins the fetch to a specific run; omit it and `runs logs` reads the most recent run for the build. In this scenario the log names a failing `completeness` rule on `arpu_30d_eur` and a count of null rows, which tells you which rule fired and how many rows violate it.
 
-```
-01:01:23  build  ERROR  CHECK constraint failed:
-01:01:23           arpu_30d_eur expected NOT NULL,
-01:01:23           got 47 nulls in 12,408 rows
-01:01:23  build  ERROR  Quarantined to dlq:
-01:01:23           s3://forge-runtime/dlq/r-2a4f8c1/...
-01:01:23  apply  FAIL   Hard gate: dq.rules NOT_NULL violated
-```
-
-Now you know:
-- The failing rule is `arpu_30d_eur NOT_NULL`
-- 47 of 12,408 rows are violating
-- The data is preserved in S3 DLQ for re-processing
-
-Other components you can ask about: `--component build`, `--component infra`, `--component server`, `--component worker`. Default is `--component build`. Add `--grep <pattern>` to filter log lines, or `--limit <n>` to cap how many are returned (default 1000).
+Other components: `--component build`, `--component infra`, `--component server`, `--component worker`. The default is `build`. Add `--grep <pattern>` to filter log lines, or `--limit <n>` to cap how many are returned (default 1000).
 
 ## Step 3 — `runs diff` (what)
 
 ```bash
-fluid runs diff gold.finance.customer_360_v1 --build customer_metrics --run-a r-2a4f8c0 --run-b r-2a4f8c1
+fluid runs diff gold.finance.customer_360_v1 --build customer_metrics --run-a <last-ok-run> --run-b <first-fail-run>
 ```
 
-Compares the last successful run to the first failed one — what *changed* between the two:
+Compares the last successful run with the first failed one. The report lists columns added or removed between the two runs and the row-count delta (`added`, `removed` and `row_delta` with `--json`). It does not compare sources or metric definitions, so pair it with `git diff contract.fluid.yaml` to see what changed in the contract between the two runs.
 
-```
-sources:
-  + eu_signups_q4     (new region added 12h before first fail)
-metrics:
-    ~ arpu_30d_eur    now sees < 30 day customers
-─────────────────────────────────────────────────
-✓ Drift surface: 1 source added · 1 metric scope changed
-ℹ dq.rules unchanged — they're correct, but assume 30 days of data
-```
-
-Now you have the full picture:
-- A new EU region was added 12h before the first failure
-- The metric's scope expanded to include customers younger than 30 days
-- The `NOT_NULL` rule is correct, but the data lifecycle changed
-
-The fix is *not* removing the rule — it's making the rule respect the lifecycle.
+In this scenario the contract diff shows that a new region was added before the first failure, which brought in customers younger than 30 days, and the completeness rule assumes 30 days of data. The fix is not removing the rule; it is making the data respect the customer lifecycle.
 
 ## Step 4 — fix (build SQL + rule threshold)
 
@@ -123,7 +85,7 @@ builds:
         LEFT JOIN raw.transactions t USING (customer_id)
 ```
 
-**4b. Relax the rule's threshold** so partial-window rows don't fail the gate:
+**4b. Relax the rule's threshold** so partial-window rows don't fail the gate (`threshold: 1.0` required every row to be non-null):
 
 ```yaml
 exposes:
@@ -145,60 +107,45 @@ exposes:
 
 ```bash
 fluid validate contract.fluid.yaml --strict
-# ✓ Schema 0.7.3 — passed
-# ✓ dq.rules — 8 rules, 1 changed, no breaking moves
-# ✓ Contract validation passed (strict)
 ```
 
-## Step 5 — `ship` (apply + verify + drain DLQ + restore SLA)
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+```
+
+Then run `fluid test contract.fluid.yaml --no-cache` against the rebuilt data: it evaluates the `completeness` rule, and `--no-cache` makes it read the current schema ([the schema cache](../test.md#the-schema-cache)).
+
+## Step 5 — `ship` (validate, bundle, plan, apply)
 
 ```bash
 fluid ship contract.fluid.yaml --strict --env prod --yes
 ```
 
-`ship` is the canonical "I'm fixing an incident, do all the right things" command:
+`ship` chains four stages and stops at the first failure (see [`fluid ship`](../ship.md)):
+1. `validate` (`--strict` makes warnings errors)
+2. `bundle` (skip it with `--skip-bundle` if you don't need a snapshot)
+3. `plan`
+4. `apply`
 
-```
-⏳ Validating contract... ✓
-⏳ Rendering plan... ✓ (plan checksum: a4f8c4...)
-⏳ Applying...
-✓ BigQuery DDL applied (no destructive changes)
-⏳ Re-running quarantined batch from r-2a4f8c1 dlq...
-✓ Recovered 12,361 rows (47 still in dlq, fallback applied)
-✓ Freshness SLA restored: last successful run = 12 s ago
-✓ Ship complete in 87 seconds — incident closed
-```
-
-What `ship` did, in order (per the canonical 4-stage chain — see [`fluid ship`](/forge_docs/cli/ship)):
-1. `validate` (schema check)
-2. `bundle` (skipped here via `--skip-bundle` if you don't need a snapshot)
-3. `plan` (deterministic, plan-bound)
-4. `apply` (idempotent re-application of the contract)
-
-After apply, the runtime drains the DLQ from the failed run and re-runs `verify` against the deployed state. Audit records ship to the platform's native audit channel (BigQuery audit log / Snowflake `ACCESS_HISTORY` / CloudTrail) with the run ID, the contract checksum, and the deployed bindings.
+`ship` does not re-run quarantined batches. Rows in the DLQ stay there until you reprocess them with your own tooling, and `ship` does not run `verify`; run [`fluid verify`](../verify.md) afterwards.
 
 For SOX-grade change tracking, commit the contract change behind a PR — the merged commit is the audit record. `git log contract.fluid.yaml` is the change history; `fluid runs status` is the runtime evidence.
 
-## What about the 47 still in DLQ?
+## What about the rows still in the DLQ?
 
-Those rows had `customer_age_days >= 30` AND null `arpu_30d_eur_raw` — a real data quality issue (mature customer, missing transactions). The new build emits `0` only via `COALESCE(arpu_30d_eur_raw, 0)`, but only when there's no `transactions` row at all; if the row exists with `NULL` already, the COALESCE returns 0 and the rule passes. The 47 are likely transactions-missing-for-the-customer cases — fix upstream or accept as a known quality miss.
-
-Run:
+In this scenario the remaining rows are customers older than 30 days with no transactions at all, a data quality issue upstream rather than a lifecycle effect. List them with:
 
 ```bash
-fluid runs logs gold.finance.customer_360_v1 --component dlq --run-id r-<ship-run-id>
+fluid runs logs gold.finance.customer_360_v1 --component dlq --run-id <ship-run-id>
 ```
 
-…to see them, then either fix upstream or accept them as a known quality miss.
+then fix upstream or accept them as a known quality miss.
 
 ## What you DIDN'T have to do
 
-- Open the BigQuery web console and try to figure out what changed
+- Open the cloud console and try to figure out what changed
 - Diff Terraform state against actual deployed state
-- Translate the schema-validator error into operator language
-- Write a one-off SQL script to manually patch the 12,361 row
-- Update three different tools with the same fix
-- Wake up your platform engineer
+- Write a one-off SQL script to manually patch the rows
 
 ## Common patterns this enables
 
@@ -209,6 +156,6 @@ fluid runs logs gold.finance.customer_360_v1 --component dlq --run-id r-<ship-ru
 ## See also
 
 - [Day-2 ops demo](/forge_docs/see-it-run.html#skip-the-panic) — frame-perfect cast of this exact flow
-- [`fluid runs`](/forge_docs/cli/runs) — the full command reference
-- [`fluid ship`](/forge_docs/cli/ship) — incident-response apply
+- [`fluid runs`](../runs.md) — the full command reference
+- [`fluid ship`](../ship.md) — incident-response apply
 - [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors) — the error taxonomy you'll see in logs

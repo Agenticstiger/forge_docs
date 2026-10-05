@@ -39,7 +39,7 @@ What this declaration does:
 Open `contract.fluid.yaml`. Add `agentPolicy` under the target expose's `policy` block (`exposes[].policy.agentPolicy`). It is **not** a contract-root key — a contract that places `agentPolicy` at the top level fails `fluid validate` (the root object is closed). `accessPolicy` (human/service grants) stays at the contract root; the per-expose `agentPolicy` is the AI/LLM gate:
 
 ```yaml
-fluidVersion: "0.7.4"
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: gold.finance.customer_360_v1
 # ...
@@ -69,63 +69,68 @@ exposes:
 
 ```bash
 fluid validate contract.fluid.yaml --strict
-# ✓ Schema 0.7.4 — passed
-# ✓ agentPolicy.allowedModels — 3 enum values recognized
-# ✓ agentPolicy.deniedUseCases — 2 values, no contradictions
-# ✓ agentPolicy.maxTokensPerRequest — within int range
-# ✓ Contract validation passed (strict)
 ```
 
-`validate --strict` catches contradictions (e.g., a model in both `allowedModels` and `deniedModels`), unknown enum values, and missing `auditRequired` on regulated products.
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+```
 
-## Step 3 — preview enforcement
+Validation fails on a model listed in both `allowedModels` and `deniedModels`, on a use case that is not one of the recognised names, and on keys the schema does not define. Measured against 0.18.1 with all three mistakes in one contract:
+
+```text
+ 1. exposes[0].policy.agentPolicy: Additional properties are not allowed
+('bogusKey' was unexpected)
+ 2. exposes[0].policy.agentPolicy.allowedUseCases[1]: 'nonsense' is not one of
+['inference', 'reasoning', 'analysis', 'summarization', 'classification', ...]
+ 3. ❌  Models appear in both allowedModels and deniedModels: gpt-4.1-mini
+   💡 Remove duplicates from one of the lists
+ 4. ❌  Invalid use case names: nonsense
+```
+
+## Step 3 — lint the declarations
 
 ```bash
-fluid policy-check contract.fluid.yaml --category sensitivity
+fluid policy-check contract.fluid.yaml --category access_control
 ```
 
-This runs the schema-driven policy engine. The **enforcement summary** shows who/what is allowed, what's denied, what's audited:
+`policy-check` is a static lint over the contract's policy declarations, grouped into five categories (`sensitivity`, `access_control`, `data_quality`, `lifecycle`, `schema_evolution`). It does not call a cloud and it does not print a per-model enforcement summary. With the `agentPolicy` above, the `access_control` category ends:
 
-```
-🛡  agentPolicy enforcement summary
-─────────────────────────────────────────────────────
-Models     3 allowed, all others denied
-Use cases  3 allowed, 2 explicitly denied
-Storage    no caching — every read is fresh
-Audit      every read logged (auditRequired=true)
-Limits     maxTokensPerRequest=4000
-─────────────────────────────────────────────────────
-✓ All 11 schema fields covered by agentPolicy gates
-✓ PII-tagged columns (email, phone, ssn) auto-masked at read
-✓ agentPolicy ready to enforce
+```text
+╭──────────────────────── 📈 Policy Compliance Summary ────────────────────────╮
+│         Compliance Score:  ██████████████████████████████ 🏆 100/100         │
+│            Checks Passed:  ✓ 3                                               │
+│            Checks Failed:  ✗ 0                                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+...
+Policy compliance check PASSED
 ```
 
-Run this in CI on every contract change. It's the equivalent of `fluid validate` for the AI-access surface specifically.
+The `sensitivity` category checks fields marked `sensitivity: pii` for a masking strategy in `policy.privacy.masking`. On the quickstart contract it reports those fields and exits non-zero until you add one. Run `policy-check` in CI on every contract change. See [`fluid policy check`](../policy-check.md).
 
 ## Step 4 — compile, then apply the policy
 
 `policy-apply` does not read the contract directly — it deploys a *compiled bindings file*. Compile first, then apply:
 
 ```bash
-# Compile the contract (with the prod overlay) into provider-specific bindings
-fluid policy compile contract.fluid.yaml --env prod --out runtime/policy/bindings.json
+# Compile the contract into provider-specific bindings (add --env <name> for an overlay)
+fluid policy compile contract.fluid.yaml --out runtime/policy/bindings.json
 
-# Apply the compiled bindings — --mode enforce actually deploys the IAM changes
+# Hand the compiled bindings to the provider (see the note below)
 fluid policy apply runtime/policy/bindings.json --mode enforce
 ```
 
-`policy compile` is a pure function (contract in, JSON out — no cloud calls). `policy apply` defaults to `--mode check` (dry-run); pass `--mode enforce` to deploy.
+`policy compile` turns `accessPolicy` grants into bindings (contract in, JSON out, no cloud calls). A contract with no `accessPolicy` grants, like the one above, compiles to `{"bindings": [], "warnings": ["No grants found in accessPolicy"]}`, and `policy apply` then succeeds without doing anything. `agentPolicy` is not compiled into bindings. `policy apply` defaults to `--mode check`. As of 0.18.1, neither mode changes cloud permissions: the GCP provider reports the compiled bindings and every other provider prints that it has no standalone policy applier. See [`fluid policy apply`](../policy-apply.md#what-each-provider-does).
 
-This emits the cloud-specific access bindings and applies them. **What gets emitted is platform-dependent — and not uniform:**
+The access resources that enforce the policy reach the cloud through [`fluid apply`](../apply.md) (stage 7). **What `fluid apply` emits is platform-dependent, and not uniform:**
 
-| Platform | What `policy-apply` emits |
+| Platform | What `fluid apply` emits for the policy |
 |---|---|
-| **AWS / Lake Formation** | LF grants + **cell-level filters** (`aws_lakeformation_data_cells_filter`), row- and column-scoped on the caller's identity. Shipped. |
-| **Snowflake** | Masking / row-access **policy objects** are emitted, but on the default OpenTofu apply path they're created and **not yet auto-attached** (Beta — see [Snowflake provider](/forge_docs/providers/snowflake.html)); RBAC grants are fully applied. |
-| **GCP / BigQuery** | Dataset/table-level IAM bindings. **Fine-grained BigQuery row-level security and column policy tags are roadmap — not emitted** (see [GCP provider](/forge_docs/providers/gcp.html)). |
+| **AWS / Lake Formation** | LF grants from `binding.governance.lakeFormation.grants`, and `policy.authz.columnRestrictions` as Lake Formation excluded columns. `accessPolicy` itself is not emitted on AWS: `fluid validate` warns about it, and `--strict` fails, when the contract has no LF grants. |
+| **Snowflake** | Masking / row-access **policy objects** are emitted, but on the default OpenTofu apply path they're created and **not yet auto-attached** (Beta — see [Snowflake provider](../../providers/snowflake.md)); RBAC grants are applied. |
+| **GCP / BigQuery** | `accessPolicy` becomes non-authoritative dataset IAM members. `policy.authz.columnRestrictions` becomes Data Catalog policy tags with fine-grained readers, and `fluid verify` checks them. Row-level security, dynamic masking and VPC Service Controls are not emitted. The forge-cli release notes describe the policy-tag path as proven against an emulator and a stand-in, with the live GCP apply still to come; one run against real BigQuery on 4 Oct 2026 showed an analyst refused a column protected by its policy tag. See the [GCP provider](../../providers/gcp.md). |
 | **Local (DuckDB)** | No-op (single-user, no IAM model) — `policy-check` still validates the rules. |
 
-Because native row/column enforcement is uneven across clouds, the **reliable, portable agent-policy gate is the MCP output-port server** (next step): it enforces `agentPolicy` at read time regardless of the target platform's fine-grained-policy support. Always confirm what actually deployed with `fluid policy-check`.
+Because native row/column enforcement is uneven across clouds, the **reliable, portable agent-policy gate is the MCP output-port server** (next step): it enforces `agentPolicy` at read time regardless of the target platform's fine-grained-policy support. Confirm what actually deployed with `fluid verify`; `fluid policy-check` lints the declarations and does not inspect the cloud.
 
 ## Step 5 — pick an enforcement mode
 
@@ -143,19 +148,15 @@ This is the cleanest mode. Use it whenever your agent infrastructure can speak M
 
 ### Option B — Side-car interceptor (for existing agents)
 
-If your agents read directly via SQL/HTTP (not MCP), enforcement depends on what your target platform actually compiled (see the table above): **AWS Lake Formation cell-filters enforce at the platform layer today**; Snowflake masking/row-access is **Beta** (policy objects created, attachment on the native path); BigQuery fine-grained RLS is **roadmap**. Where native enforcement isn't available, route reads through the MCP output-port gate (Option A) instead — and verify what deployed with `fluid policy-check`.
+If your agents read directly via SQL/HTTP (not MCP), enforcement depends on what your target platform actually compiled (see the table above): **AWS Lake Formation grants and excluded columns enforce at the platform layer**; Snowflake masking/row-access is **Beta** (policy objects created, attachment on the native path); BigQuery row-level security is **not emitted** (column policy tags are). Where native enforcement isn't available, route reads through the MCP output-port gate (Option A) instead — and verify what deployed with `fluid verify`.
 
-Example (BigQuery):
+Example (BigQuery column policy tag). A principal that holds neither the fine-grained reader role nor masked-read access is refused the protected column:
 
-```sql
--- The agent's connection identifies as: user@analytics-svc.iam (a service account)
--- with custom JWT claims: agent_id="bi-dashboard", model="claude-sonnet-4-6", use_case="analysis"
-SELECT * FROM gold.finance.customer_360_v1
-WHERE event_date >= '2026-01-01';
--- → BigQuery checks: agent in allowedModels? ✓
--- →                  use_case in allowedUseCases? ✓
--- →                  rows returned with audit log entry written
+```text
+User has neither fine-grained reader nor masked get permission to get data protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.
 ```
+
+That refusal is the warehouse enforcing `columnRestrictions`. BigQuery does not evaluate `allowedModels` or `allowedUseCases`; those are enforced only by the MCP output-port gate (Option A) or your application (Option C).
 
 ### Option C — Application-level (last resort)
 
@@ -256,5 +257,5 @@ agentPolicy:
 - [Agent Policy concept](/forge_docs/concepts/agent-policy) — full conceptual treatment + audit event schema
 - [Agent policy demo](/forge_docs/see-it-run.html) — frame-perfect cast of validate → policy-check → audit replay
 - [`fluid mcp output-port serve`](/forge_docs/cli/mcp) — the consumer-side MCP server that enforces agentPolicy (`fluid mcp serve` is the separate producer/authoring tool server)
-- [`fluid policy-apply`](/forge_docs/cli/policy-apply) — emit + apply the side-car interceptors
+- [`fluid policy apply`](../policy-apply.md) — what the policy stage does on each provider in 0.18.1
 - [Governance & Policy](/forge_docs/concepts/governance-policy) — `accessPolicy` for human/service principals (the complementary gate)
