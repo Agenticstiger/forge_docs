@@ -372,7 +372,7 @@ The contract's `binding.platform: gcp` selects the provider, and `binding.locati
 fluid apply contract.fluid.yaml --dry-run
 ```
 
-The GCP provider applies through OpenTofu. A dry-run writes the OpenTofu module, runs `tofu plan` against your project with your Application Default Credentials, and stops:
+The GCP provider applies through OpenTofu. A dry-run writes the OpenTofu module, runs `tofu plan` against your project with your Application Default Credentials, and stops. The `bigquery_retention_event_time` warning from validate prints here too, before the OpenTofu block, and is trimmed from the sample:
 
 ```text
 OpenTofu engine — provider: gcp
@@ -699,7 +699,7 @@ The function runs as `ingestion@...`, the account named in the contract's `acces
 
 ### Option 2: Apache Airflow
 
-`fluid generate schedule` generates Airflow, Dagster and Prefect artifacts from a contract's `builds[]` and `orchestration` block. The contract on this page has neither: the ingestion is outside the contract, and `fluid generate schedule` stops on it with `Contract missing 'orchestration' section`. When your contract declares builds, follow [Declarative Airflow integration](./airflow-declarative.md). The older `fluid generate-airflow` command still runs; it prints `Note: 'generate-airflow' is deprecated. Use 'fluid generate schedule --scheduler airflow' instead.`
+`fluid generate schedule` generates Airflow, Dagster and Prefect artifacts from a contract's `builds[]` and `orchestration` block. The contract on this page has neither: the ingestion is outside the contract, and `fluid generate schedule contract.fluid.yaml` asks for `orchestration.engine` or `--scheduler`; with `--scheduler airflow` it stops with `Contract missing 'orchestration' section`. When your contract declares builds, follow [Declarative Airflow integration](./airflow-declarative.md). The older `fluid generate-airflow` command still runs; it prints `Note: 'generate-airflow' is deprecated. Use 'fluid generate schedule --scheduler airflow' instead.`
 
 ---
 
