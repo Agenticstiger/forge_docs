@@ -45,7 +45,7 @@ fluid validate contract.fluid.yaml --format json          # machine-readable res
 fluid validate runtime/bundle.tgz                         # validate a bundle
 ```
 
-`--format json` prints `valid`, `schema_version`, `errors`, `warnings` and `validation_time`.
+For a single contract, `--format json` prints `valid`, `schema_version`, `errors`, `warnings` and `validation_time`. For a `.tgz` bundle it prints the same report `--report` writes (`bundleDigest`, `input`, `strict`, `status`, `summary`, `issues`).
 
 ## Exit codes
 
@@ -99,7 +99,7 @@ All 1 product valid.
 When there is no workspace, it validates `contract.fluid.yaml` in the current directory. With neither, it fails with `contract_required`.
 
 ::: warning The workspace form runs the schema check only
-As of 0.18.1, the per-product check in workspace mode is JSON Schema validation. It does not run sovereignty and agent-policy checks, the rules described in [Governance binding checks](#governance-binding-checks-since-0-17-0), the Iceberg and GCP binding checks, packaging, semantics, composition or plugin validators, and it ignores `--probe`, `--report` and `--format json`. The contract from the first example on this page, placed in a workspace as `gov/contract.fluid.yaml`, fails with two errors when you pass its path, and the workspace form reports it valid:
+As of 0.18.1, the per-product check in workspace mode is JSON Schema validation. It does not run sovereignty and agent-policy checks, the rules described in [Governance binding checks](#governance-binding-checks-since-0-17-0), the Iceberg and GCP binding checks, packaging, semantics, composition or plugin validators, and it ignores `--probe`, `--report`, `--format json`, `--min-version`, `--max-version` and `--schema-version`. `--strict`, `--offline` and `--env` are honored, and a failing product prints only its first three errors. The contract from the first example on this page, placed in a workspace as `gov/contract.fluid.yaml`, fails with two errors when you pass its path, and the workspace form reports it valid:
 
 ```text
 $ fluid validate gov/contract.fluid.yaml
@@ -115,7 +115,7 @@ Validating 1 product in workspace 'ws3'...
 All 1 product valid.
 ```
 
-In a workspace, give `fluid validate` the path of each contract you want fully checked.
+In a workspace, give `fluid validate` the path of each contract you want fully checked. This includes any CI job that gates on `--min-version` or `--max-version`: in the workspace form those flags do nothing and the job passes.
 :::
 
 ## `--env` and environment overlays
