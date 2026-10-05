@@ -86,7 +86,7 @@ The `validate → plan → apply` lifecycle is bound by cryptographic digests (`
 > **Why it matters**
 > Most organizations are already multi-cloud — one team on Snowflake, another on BigQuery, a third on S3 + Athena. One base contract serves all of them; what changes per cloud is the binding, not the product.
 
-The schema, quality rules, access policy and sovereignty stay in one base contract. A per-cloud overlay changes only the binding: the platform, the format, the location (a BigQuery dataset, an S3 bucket and Glue database) and, with fluid-schema 0.7.6, which real identities the contract's principals are on that cloud. `fluid apply --env gcp` and `fluid apply --env aws` then emit each cloud's own resources. Changing `binding.platform` alone is not enough: `fluid validate` warns that the binding resolves to no resource on the new cloud. → [Switch clouds](/forge_docs/recipes/switch-clouds.html) · [Providers](/forge_docs/providers/)
+The schema, quality rules, access policy and sovereignty stay in one base contract. A per-cloud overlay changes only the binding: the platform, the format, the location (a BigQuery dataset, an S3 bucket and Glue database) and, with fluid-schema 0.7.6, which real identities the contract's principals are on that cloud. `fluid apply --env gcp` and `fluid apply --env aws` then emit each cloud's own resources. Changing `binding.platform` alone is not enough: `fluid validate` warns that the binding resolves to no resource on the new cloud. → [One contract, two clouds](/forge_docs/recipes/one-contract-two-clouds.html) · [Switch clouds](/forge_docs/recipes/switch-clouds.html) · [Providers](/forge_docs/providers/)
 
 ### Residency you declare, and the CLI blocks
 

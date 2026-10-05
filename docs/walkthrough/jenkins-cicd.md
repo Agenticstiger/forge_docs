@@ -108,7 +108,7 @@ Parameter values reach the shell as environment variables, and the Jenkinsfile b
 fluid generate ci contract.fluid.yaml --system jenkins --fluid-env-default prod --out Jenkinsfile.prod
 ```
 
-The overlay is a file beside the contract, `overlays/<env>.yaml`, that patches the binding. See [Per-environment overlays](../recipes/per-environment-overlays.md) and [Switch clouds](../recipes/switch-clouds.md). If two jobs for different clouds both publish the same product, the Command Center keeps whichever published last; see [Stage 10](./11-stage-pipeline.md#stage-10-publish).
+The overlay is a file beside the contract, `overlays/<env>.yaml`, that patches the binding. See [Per-environment overlays](../recipes/per-environment-overlays.md), [One contract, two clouds](../recipes/one-contract-two-clouds.md) and [Switch clouds](../recipes/switch-clouds.md). A product applied from two clouds keeps two [OpenTofu states](../concepts/state.md). If two jobs for different clouds both publish the same product, the Command Center keeps whichever published last; see [Stage 10](./11-stage-pipeline.md#stage-10-publish).
 
 ### Require approval before apply
 

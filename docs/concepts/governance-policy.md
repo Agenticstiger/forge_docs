@@ -124,7 +124,13 @@ fluid validate contract.fluid.yaml
 # exit 1
 ```
 
-On GCP a denied principal gets an access error on the restricted columns, and `SELECT * EXCEPT (email)` still works for it.
+On GCP a denied principal gets an access error on the restricted columns, and `SELECT * EXCEPT (email)` still works for it. Measured against real Google Cloud on 4 October 2026, BigQuery's refusal reads:
+
+```text
+User has neither fine-grained reader nor masked get permission to get data protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.
+```
+
+The policy tables for both clouds, with the refusals before apply, are in [Governance parity](./governance-parity.md#column-restrictions). To tag columns and see masking land, follow [tag PII](../recipes/tag-pii.md).
 
 ## Masking: `policy.privacy.masking`
 
@@ -216,7 +222,7 @@ What `fluid apply` and `fluid generate iac` write for each field on 0.18.1. Cell
 | `lifecycle {retention, expire: true}` (0.7.6) | S3 lifecycle rule on the binding's prefix | Daily partitions that expire `retention` after their day | Not read |
 | `binding.encryption.kms` (0.7.6) | SSE-KMS with a product key, an alias or an ARN | Cloud KMS key ring and key per dataset, 90-day rotation | Not read |
 
-`fluid verify` checks column restrictions, retention and encryption on the live platform for AWS and GCP. As of 0.18.1 it does not check dataset grants. Per-cloud detail: [GCP](../providers/gcp.md#column-restrictions-policy-tags), [AWS](../providers/aws.md#accesspolicy-on-aws) and [Snowflake](../providers/snowflake.md#snowflake-native-security). To tag columns and see masking land, follow [tag PII](../recipes/tag-pii.md).
+`fluid verify` checks column restrictions, retention and encryption on the live platform for AWS and GCP. As of 0.18.1 it does not check dataset grants. [Governance parity](./governance-parity.md) sets the two clouds side by side, with what `fluid verify` checks on each and what has been measured against a real account. Per-cloud detail: [GCP](../providers/gcp.md#column-restrictions-policy-tags), [AWS](../providers/aws.md#accesspolicy-on-aws) and [Snowflake](../providers/snowflake.md#snowflake-native-security). To tag columns and see masking land, follow [tag PII](../recipes/tag-pii.md).
 
 Since 0.17.0, GCP dataset grants are member resources rather than the dataset's authoritative `access` list, so a grant made outside the contract is no longer removed. The first `fluid apply` after upgrading, on a dataset whose state still holds the old list, revokes once the entries no member resource covers, and prints them.
 
@@ -232,8 +238,8 @@ exposes:
   - binding:
       platform: gcp
       principals:
-        group:analysts@northwind.example: group:analysts@northwind.example.com
-        group:stewards@northwind.example: group:stewards@northwind.example.com
+        group:analysts@northwind.example: group:analysts@<your-domain>
+        group:stewards@northwind.example: group:stewards@<your-domain>
 
 # overlays/aws.yaml
 exposes:
@@ -243,7 +249,7 @@ exposes:
         group:analysts@northwind.example: arn:aws:iam::123456789012:role/analyst
 ```
 
-A value is one identity, a list, or `[]` for "no identity on this cloud" (nothing is granted to it there). With the block present, each principal the expose names must be mapped; an unmapped one is refused (`principal-unmapped`). Overlays are applied with `--env`; see [Per-environment overlays](../recipes/per-environment-overlays.md).
+Replace `<your-domain>` with the domain of your own groups before `--env gcp` validates. A value is one identity, a list, or `[]` for "no identity on this cloud" (nothing is granted to it there). With the block present, each principal the expose names must be mapped; an unmapped one is refused (`principal-unmapped`). On GCP a placeholder principal is refused at every `fluidVersion`, with or without the block. See [Logical principals and `binding.principals`](./governance-parity.md#logical-principals-and-binding-principals). Overlays are applied with `--env`; see [Per-environment overlays](../recipes/per-environment-overlays.md).
 
 ### `fluid policy-apply` enforces nothing
 
@@ -312,11 +318,12 @@ The two gates are separate. Cloud IAM (`accessPolicy`, column restrictions) gove
 No command writes a unified audit record across clouds, and nothing is shipped to BigQuery audit logs, CloudTrail or Snowflake `ACCESS_HISTORY` by forge-cli. What exists:
 
 - **Agent reads:** `fluid mcp output-port serve` writes a `data_access` event for each allow and deny decision it reaches to `~/.fluid/store/audit/` (or `FLUID_AUDIT_ROOT`; a failed audit write is logged at debug level and does not stop the call), and can forward it to `FLUID_MCP_AUDIT_WEBHOOK_URL`. The record is shown on [Agent Policy](./agent-policy.md#audit-event-schema).
-- **Applies:** `fluid apply` emits structured log events; an apply through OpenTofu (aws, gcp, snowflake) sends OpenLineage run events when `OPENLINEAGE_URL` is set; and since 0.17.0 reports each run to a Command Center deployment when the publish config is present (`FLUID_COMMAND_CENTER_ENABLED=false` turns it off).
+- **Applies:** `fluid apply` emits structured log events; an apply through OpenTofu (aws, gcp, snowflake) sends OpenLineage run events when `OPENLINEAGE_URL` is set; and since 0.17.0 reports each run to a Command Center deployment when the publish config is present (`FLUID_COMMAND_CENTER_ENABLED=false` turns it off; see [the Command Center](./command-center.md#what-fluid-apply-reports)).
 - **Platform logs:** the reads themselves land in each cloud's own audit log as usual, under the identities that made them.
 
 ## Where to look next
 
+- [Governance parity](./governance-parity.md) — one contract on AWS and GCP, and what has been measured
 - [Sovereignty](./sovereignty.md) — residency rules, the provision-time and query-time gates
 - [Agent Policy](./agent-policy.md) — declarative LLM and agent access boundaries
 - [Quality, SLAs & Lineage](./quality-sla-lineage.md) — the rule sets `dq.rules` enforces alongside policy

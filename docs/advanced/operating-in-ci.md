@@ -124,11 +124,13 @@ A pipeline whose parameterless builds run in `aws`, apply with builds, and sync 
 ```bash
 fluid generate ci contracts/silver/contract.fluid.yaml --system jenkins \
   --fluid-env-default aws --apply-mode-default amend-and-build \
-  --scheduler-default airflow --scheduler-destination-default s3://acme-dags/dags
+  --scheduler-default airflow --scheduler-destination-default s3://<your-dags-bucket>/dags
 ```
 
 
 ## Plan binding: the integrity chain
+
+A bundle is built for one `--env`; see [Environments](../cli/bundle.md#environments). A fragment-layout root is covered in [Contract fragments](../concepts/fragments.md#in-ci-bundle-once-then-pass-the-bundle).
 
 `fluid plan` stamps two digests into `plan.json`:
 
@@ -146,6 +148,8 @@ Two more checks stop a pipeline that mixes environments. A bundle is never re-ov
 :::
 
 ### The federation check warns
+
+[Federated upstreams](../concepts/federation.md) explains the pin, the manifest and the digest cache. The [upgrade guide](../upgrading.md) lists when the gate became advisory.
 
 When a `consumes[]` entry names an `upstreamWorkspace`, apply fetches the upstream's live digest and compares it with the pinned `upstreamDigest`. The check is advisory: it logs a warning and applies anyway, because its verdict depends on another team's registry being up.
 
@@ -177,6 +181,8 @@ Do not put credentials in the pipeline file. The generated templates read them f
 
 ## Command Center in a pipeline
 
+[The Command Center](../concepts/command-center.md) describes what publish sends and what apply reports.
+
 Stage 10 can publish to a Command Center with `--target=fluid-command-center`. Set `FLUID_CC_ENDPOINT` and `FLUID_API_KEY` on the agent, plus `FLUID_CC_ORG_ID` when the key belongs to more than one organization; `PUBLISH_TARGETS` takes catalog names, not URLs.
 
 The Command Center keeps one product per contract id, whichever `--env` published it last: publishing the same contract from two environments overwrites the product's platform and location with the later publish. For a contract deployed to more than one cloud, publish from one environment's pipeline only. Stage 10 is off unless a pipeline is generated with `--publish-stage-default`, and `--no-publish-stage-default` states the off explicitly.
@@ -199,7 +205,7 @@ If a pipeline runs an LLM-driven command, cap spend explicitly:
 Cloud applies go through the OpenTofu engine, which runs the `tofu` binary:
 
 - **Version floor.** `tofu` must be 1.6.0 or newer; an older one fails before any state is touched.
-- **Provision on demand.** `fluid apply --ensure-opentofu` downloads a pinned, SHA-256-verified OpenTofu build when `tofu` is missing, with no root or gpg needed. The generated apply stage passes it.
+- **Provision on demand.** `fluid apply --ensure-opentofu` downloads a pinned OpenTofu build when `tofu` is missing, with no root or gpg needed, and checks it against the release's `SHA256SUMS` (integrity, not a signature). The generated apply stage passes it. For production, install OpenTofu on the runner image with a cosign- or gpg-verified install instead.
 - **State.** CI wipes the workspace after every run, and a wiped local state re-plans every resource as new. Set `FLUID_STATE_BACKEND=s3://<bucket>` or `gcs://<bucket>` once for the pipeline: each contract and provider then gets its own key. See [Environment variables](./environment-variables.md#apply-state-and-opentofu).
 - **Timeouts.** Each `tofu` call is capped at 1800 s by default; raise it for a large first apply with `FLUID_TOFU_TIMEOUT_SECONDS`.
 - **Review before apply.** `fluid generate iac <contract>` emits a deterministic, credential-free `main.tf.json` you can archive or review in a pull request; see [`fluid generate iac`](../cli/generate-iac.md).
@@ -215,4 +221,5 @@ Since 0.18.0, SQL in a contract runs in a DuckDB sandbox: it reads the contract'
 - [`fluid generate`](../cli/generate.md#fluid-generate-ci): the `generate ci` reference
 - [`fluid apply`](../cli/apply.md), [`fluid plan`](../cli/plan.md), [`fluid bundle`](../cli/bundle.md): stage command references
 - [Environment variables](./environment-variables.md): the variables above in one place
+- [OpenTofu state](../concepts/state.md) and [One contract, two clouds](../recipes/one-contract-two-clouds.md): one job per cloud, one state per provider
 - [Credential resolver](./credential-resolver.md): how source credentials resolve

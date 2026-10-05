@@ -16,7 +16,7 @@ fluid apply [CONTRACT] [--env ENV] [--mode MODE] [--yes] [options]
 
 `CONTRACT` can be:
 
-- A FLUID contract file (e.g. `contract.fluid.yaml`) — plans and applies in one shot. When omitted, `apply` uses `contract.fluid.yaml` in the current directory. The file may be the root of a [fragment layout](../concepts/contract-refs.md): its `$ref` pointers are resolved before the contract is planned.
+- A FLUID contract file (e.g. `contract.fluid.yaml`) — plans and applies in one shot. When omitted, `apply` uses `contract.fluid.yaml` in the current directory. The file may be the root of a [fragment layout](../concepts/fragments.md): its `$ref` pointers are resolved first, within the root contract's directory tree ([rules](../concepts/contract-refs.md)), before the contract is planned.
 - A saved plan JSON file (e.g. `runtime/plan.json`) — applies the already-planned actions, with digest verification. See [Plan binding](#plan-binding).
 - A bundle (`.tgz`) written by [`fluid bundle`](./bundle.md). A bundle carries its overlay already applied, so it is never re-overlaid: an `--env` that disagrees with the env the bundle was built for is refused with `bundle_env_mismatch`.
 
@@ -212,7 +212,7 @@ Relative local paths in a contract (`binding.location.path` on the `local` provi
 | --- | --- |
 | `--allow-data-loss` | Required to run `replace` / `replace-and-build`, and to apply an OpenTofu plan that destroys data-bearing resources. |
 | `--no-verify-plan-binding` | **Emergency escape hatch.** Skip the `bundleDigest` / `planDigest` verification that stage 7 normally enforces on a saved plan. Logged at `WARNING` so audit trails catch it. Use only during documented DR procedures. |
-| `--no-verify-federation` | Skip the federated-`consumes[]` upstream-digest check. Logged at `WARNING`. Unlike plan binding, this check only warns (`apply_consumes_drift`, exit code unchanged), so the flag silences a warning and does not remove a refusal. The digest a downstream product pins comes from [`fluid contract digest`](./contract.md#fluid-contract-digest), which covers only the upstream's root file for a fragment-layout product. See [Federated upstream check](#federated-upstream-check) and [Consume one contract from another](../recipes/consumes-contract-to-contract.md). |
+| `--no-verify-federation` | Skip the federated-`consumes[]` upstream-digest check. Logged at `WARNING`. Unlike plan binding, this check only warns (`apply_consumes_drift`, exit code unchanged), so the flag silences a warning and does not remove a refusal. The digest a downstream product pins comes from [`fluid contract digest`](./contract.md#fluid-contract-digest), which covers only the upstream's root file for a fragment-layout product. `upstreamWorkspace` and `upstreamDigest` exist only in schema 0.7.6; see [preview fields](../reference/preview-fields.md#federated-upstreams). See [Federated upstream check](#federated-upstream-check), [Federated upstreams](../concepts/federation.md) and [Consume one contract from another](../recipes/consumes-contract-to-contract.md). |
 | `--adopt-shared-container` | *(since 0.13.0)* Confirm taking **ownership** of a container this contract previously referenced as a shared pool (`packaging` `shared` → `isolated`). Emits a structured `packaging_adoption_override` audit event; the data-loss gate still applies. See [Packaging modes](#packaging-modes). |
 
 Since `0.13.1`, the structured override events these gates emit — `opentofu_destructive_gate_override` (`--allow-data-loss`) and `packaging_adoption_override` (`--adopt-shared-container`) — log at `WARNING`, so audit pipelines filtering at WARNING-and-above catch them. On `0.13.0` and earlier they logged at `INFO`; event names and payloads are unchanged.
@@ -265,13 +265,17 @@ Without the guard `tofu` would find nothing in the new region, create the resour
 
 ## Remote state
 
+[OpenTofu state](../concepts/state.md) explains the state key, the backends and which commands read state.
+
 On the OpenTofu engine, state is local by default: `.fluid/iac/<provider>/<safe-id>/terraform.tfstate` under `--workspace-dir`. A CI runner that wipes its workspace loses it, and the next run plans every resource as new, so a pipeline keeps state in a bucket.
 
 ```bash
 # One variable serves every product a CI job applies
-export FLUID_STATE_BACKEND=s3://acme-fluid-state
+export FLUID_STATE_BACKEND=s3://<your-state-bucket>
 fluid apply contract.fluid.yaml --yes
 ```
+
+Bucket names are global: use a bucket you own. The bucket name `acme-fluid-state` in the captured output below is illustrative.
 
 ```text
   state:       remote: s3://acme-fluid-state/fluid/analytics.web.pageviews/aws/terraform.tfstate (from FLUID_STATE_BACKEND)
@@ -281,7 +285,7 @@ fluid apply contract.fluid.yaml --yes
 
 ### Which key a bucket-only spec gets
 
-A spec with a key (or prefix) is used as written. A bucket-only spec gets a default key, and the default depends on where the spec came from. Measured on 0.18.1 with an `aws` contract (id `analytics.web.pageviews`):
+A spec with a key (or prefix) is used as written. A bucket-only spec gets a default key, and the default depends on where the spec came from. Measured on 0.18.1 with an `aws` contract (id `analytics.web.pageviews`); the bucket name `acme-fluid-state` is illustrative:
 
 | Spec | `state:` line |
 | --- | --- |
@@ -313,6 +317,8 @@ State that an earlier release wrote at `fluid/<id>/terraform.tfstate` has to fol
 
 ## Reporting to the Command Center (since 0.17.0)
 
+The [Command Center page](../concepts/command-center.md#what-fluid-apply-reports) covers what the report holds and how to configure it.
+
 Each `fluid apply` registers itself with a Command Center when one is configured, and closes the run when it ends. It is best effort: a Command Center that is down, slow or misconfigured costs at most a warning line and the request timeout, and did not change the exit code when measured. This is what the apply prints when the Command Center answers, and when it does not (measured against a local stand-in server on 5 Oct 2026):
 
 ```text
@@ -340,6 +346,8 @@ The Command Center's host check refuses private and cloud-metadata addresses unl
 **Switch it off** with `FLUID_COMMAND_CENTER_ENABLED=false`; the apply then prints `command center: run not reported (FLUID_COMMAND_CENTER_ENABLED is off)` when a Command Center is configured. The [environment variables](../advanced/environment-variables.md#command-center) page lists the other settings.
 
 ## Federated upstream check
+
+[Federated upstreams](../concepts/federation.md) covers the manifest, the pin and the digest cache.
 
 A `consumes[]` entry that names an `upstreamWorkspace` and an `upstreamDigest` pins a product in another mesh. Both keys are part of the preview schema, so the contract declares `fluidVersion: "0.7.6"`; under `0.7.5` they are rejected. Before it runs the native apply, `fluid apply` fetches each upstream's live digest and compares it with the pin.
 
@@ -393,7 +401,7 @@ Options marked *native* are read only by the native engine. As of 0.18.1 the Ope
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--env` | none | Apply an environment overlay (dev / staging / prod / …); see [per-environment overlays](../recipes/per-environment-overlays.md). For a `plan.json` or a bundle the env is recorded in it; see [Plan binding](#plan-binding). |
+| `--env` | none | Apply an environment overlay (dev / staging / prod / …); see [Environments and overlays](../concepts/environments-and-overlays.md) and [per-environment overlays](../recipes/per-environment-overlays.md). A name with no matching overlay warns and uses the base. For a `plan.json` or a bundle the env is recorded in it; see [Plan binding](#plan-binding). |
 | `--provider` | from the contract binding | Disambiguate the target when the contract spans several clouds or declares none. A value that contradicts the cloud the contract declares is rejected with `generate_iac_provider_mismatch` (exit 1) before anything is written. It cannot retarget a contract: change the `binding` instead, as in [Switch clouds](../recipes/switch-clouds.md). |
 | `--project` *(native)* | from the contract | Override the project / account. |
 | `--region` *(native)* | from the contract | Override the region / location. |

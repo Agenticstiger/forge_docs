@@ -35,12 +35,16 @@ governed the same on both.
 ### What has been run live
 
 The forge-cli changelog for `0.17.0` measured the GCP work against moto and a BigQuery
-emulator, and left the real-cloud run open. On 4 October 2026, one deployment applied eleven
-products to real BigQuery from the same base contracts through `--env gcp` overlays. In that run:
+emulator, and left the real-cloud run open. On 4 October 2026, on `0.18.0`, a demo lab applied
+two lineage chains of eleven products to real Google Cloud with `fluid apply --env gcp`, from
+generated Jenkins pipelines, as a deploy service account reached by Workload Identity
+Federation. In that run:
 
-- each build passed `fluid verify` against the live tables, including retention (daily
-  partitions that expire), encryption (a Cloud KMS key ring and key per dataset) and column
-  restrictions (Data Catalog policy tags);
+- each apply created its dataset, key ring and key, its table with daily partitions that
+  expire after the retention, its dataset IAM members, and a policy tag on each restricted
+  column;
+- each build passed `fluid verify` against the live tables, including retention, encryption
+  (Cloud KMS) and column restrictions (Data Catalog policy tags);
 - silver and gold products built on GCP by reading their upstreams from BigQuery;
 - querying as each persona, an analyst was refused each restricted column, a steward could
   read it, and a principal with no dataset grant was refused the table. BigQuery's refusal
@@ -48,8 +52,11 @@ products to real BigQuery from the same base contracts through `--env gcp` overl
   protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.`
 
 The same run found the drift-gate failure on `0.18.0` that [`0.18.1`](./RELEASE_NOTES_0.18.0.md#what-changed-in-0-18-1) fixes.
-As of 5 October 2026, the Lake Formation half (column-limited grants on AWS) has been checked
-against moto and AWS's permissions reference, not against a real AWS account.
+
+Not proven: the Lake Formation half against a real AWS account as `0.17.0` derives it from
+`columnRestrictions`. The grant shape it emits (excluded columns beside `wildcard`) was applied
+and enforced on a real account from `0.16.6`, written by hand in the overlay. See
+[Governance parity](./concepts/governance-parity.md#what-has-been-proven).
 
 ::: tip Who should upgrade
 Anyone who deploys one contract to more than one cloud. Anyone on **Google Cloud** whose
@@ -132,8 +139,8 @@ Each field in this table is enforced natively on both clouds and checked by
 | `policy.authz.columnRestrictions` | each Lake Formation grant's excluded columns | a Data Catalog taxonomy with policy tags and fine-grained access control |
 
 `lifecycle.expire`, `binding.encryption` and `binding.principals` are in fluid-schema `0.7.6`
-only, so a contract needs `fluidVersion: "0.7.6"` to use them. The forge-cli repository's
-`docs/governance-parity.md` has the full table.
+only, so a contract needs `fluidVersion: "0.7.6"` to use them. [Governance parity](./concepts/governance-parity.md)
+has the full table, including what `fluid verify` checks on each cloud.
 
 **`binding.principals`.** An overlay maps the contract's logical principals to the identities
 they are on that cloud: one, a list, or `[]`. With the block present, an unmapped principal is
@@ -253,8 +260,12 @@ The generated 11-stage pipeline runs as generated.
 - [Upgrade guide](./upgrading.md)
 - [`0.18.0` and `0.18.1` release notes](./RELEASE_NOTES_0.18.0.md)
 - [`0.16.0` release notes](./RELEASE_NOTES_0.16.0.md)
-- [Per-environment overlays](./recipes/per-environment-overlays.md),
+- [One contract, two clouds](./recipes/one-contract-two-clouds.md),
+  [Per-environment overlays](./recipes/per-environment-overlays.md),
   [Switch clouds](./recipes/switch-clouds.md)
+- [OpenTofu state](./concepts/state.md), [Governance parity](./concepts/governance-parity.md),
+  [The Command Center](./concepts/command-center.md),
+  [Federated upstreams](./concepts/federation.md)
 - [`fluid apply`](./cli/apply.md), [`fluid diff`](./cli/diff.md),
   [`fluid verify`](./cli/verify.md), [`fluid schedule-sync`](./cli/schedule-sync.md)
 - [11-stage pipeline walkthrough](./walkthrough/11-stage-pipeline.md)

@@ -71,7 +71,7 @@ For a guided walkthrough of the forge journeys, see [AI Forge And Data-Model Jou
 | `--fragments` | Write the contract as a root file plus fragments under `fragments/`. |
 | `--no-fragments` | Write one flat file. |
 
-Both apply on the default AI-copilot path only. See [Single file or fragments?](#single-file-or-fragments).
+Both apply on the default AI-copilot path only. See [Single file or fragments?](#single-file-or-fragments) and [Projects `fluid forge` writes](../concepts/fragments.md#projects-fluid-forge-writes).
 
 ### AI config
 

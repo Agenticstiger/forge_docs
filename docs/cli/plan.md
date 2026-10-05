@@ -35,7 +35,7 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 
 | Option | Description |
 | --- | --- |
-| `--env` | Apply an environment overlay (dev, staging, prod). An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. |
+| `--env` | Apply an environment overlay (dev, staging, prod). An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. See [Environments and overlays](../concepts/environments-and-overlays.md#when-no-overlay-matches). |
 | `--mode` | Apply mode the plan is generated FOR. Stamped into `plan.json` so a later `fluid apply --mode X` can detect a mismatch and refuse (`apply_plan_mode_mismatch`, exit 1). Choices: `amend` \| `amend-and-build` \| `replace` \| `replace-and-build` \| `dry-run` \| `create-only`. When unset, the plan records no mode, and apply treats that as `amend`. |
 | `--out`, `--output` | Write the plan JSON, default `plan.json` in the current directory |
 | `--verbose`, `-v` | Show detailed action information |

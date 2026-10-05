@@ -242,6 +242,8 @@ older page of these docs in its links, this is why.
 ## See also
 
 - [Upgrade guide](./upgrading.md)
+- [OpenTofu state](./concepts/state.md),
+  [Environments and overlays](./concepts/environments-and-overlays.md)
 - [`0.17.0` release notes](./RELEASE_NOTES_0.17.0.md)
 - [`fluid apply`](./cli/apply.md), [`fluid verify`](./cli/verify.md),
   [`fluid generate`](./cli/generate.md)

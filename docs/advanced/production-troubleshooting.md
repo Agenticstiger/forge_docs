@@ -69,6 +69,8 @@ When the bundle is unrecoverable, `fluid apply --no-verify-plan-binding` skips t
 
 ### The federation check
 
+See [Federated upstreams](../concepts/federation.md).
+
 **Symptom:** the apply log has `apply_consumes_drift` and the apply carried on.
 
 The check for a `consumes[]` entry that names an `upstreamWorkspace` is advisory: it warns and applies anyway.
@@ -89,6 +91,8 @@ The `Details` JSON lists each violation with a `violation_kind` (`drift`, `unrea
 | OpenTofu apply blocked with an `opentofu_data_loss_gate` event | The IaC plan wants to destroy resources that hold data | The same override. The bypass logs a WARNING and an `opentofu_destructive_gate_override` event; search for that tag when auditing who overrode the gate |
 
 ## State and region errors
+
+See [OpenTofu state](../concepts/state.md) for how the key and the move work.
 
 **Symptom:** `fluid apply` stops before `tofu apply` with a state or region error.
 
@@ -172,6 +176,8 @@ An upstream source-aligned product's cursor moved backward (a reprocess), and th
 **Fix:** re-run the marked downstream product's build so it re-reads the rewound window, then delete the marker file. Leaving it does not affect execution, but you lose the signal for the next rewind.
 
 ## Publishing to the Command Center
+
+See [The Command Center](../concepts/command-center.md) for configuration and organization selection.
 
 **Symptom:** `fluid publish --target fluid-command-center` fails, including with `--dry-run` or `--verify-only`.
 

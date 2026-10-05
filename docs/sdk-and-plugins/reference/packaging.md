@@ -300,7 +300,7 @@ Semantic versioning. For SDK plugins specifically:
 
 For the SDK dependency, pin to `data-product-forge-sdk>=0.10,<1` (until the SDK ships 1.0; bump the upper bound when it does).
 
-For the CLI dependency (if your plugin needs runtime CLI features), pin the minor line you tested against, for example `data-product-forge>=0.18.1,<0.19`, and test each new minor before widening the bound. Only the `fluid_build.api` surface carries a SemVer promise ([API stability](../../advanced/api-stability.md)); CLI behaviour has changed on purpose inside a minor line, and each release's notes list those changes (for example the [0.18.0 release notes](../../RELEASE_NOTES_0.18.0.md)).
+For the CLI dependency (if your plugin needs runtime CLI features), pin the minor line you tested against, for example `data-product-forge>=0.18.1,<0.19`, and test each new minor before widening the bound. Only the `fluid_build.api` surface carries a SemVer promise ([API stability](../../advanced/api-stability.md)); CLI behaviour has changed on purpose inside a minor line, and the [upgrade guide](../../upgrading.md) and each release's notes list those changes (for example the [0.18.0 release notes](../../RELEASE_NOTES_0.18.0.md)).
 
 ## Changelog
 

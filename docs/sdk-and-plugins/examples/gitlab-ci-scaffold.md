@@ -71,7 +71,7 @@ environments:
 ```
 
 ::: warning The `environments:` block is data for this plugin
-`fluid validate` accepts an `environments:` map, and each entry accepts only `metadata`, `exposes`, `tags` and `labels`: `environments.prod.cloud: {...}` fails with `environments.prod: Additional properties are not allowed ('cloud' was unexpected)`. `fluid plan` and `fluid apply` apply nothing from the block. `fluid apply --env prod` changes a binding only through an overlay file such as `overlays/prod.yaml` (see [per-environment overlays](../../recipes/per-environment-overlays.md)); naming `prod` in `environments:` does not create one. This plugin reads the block to learn which environments to emit files for.
+`fluid validate` accepts an `environments:` map, and each entry accepts only `metadata`, `exposes`, `tags` and `labels`: `environments.prod.cloud: {...}` fails with `environments.prod: Additional properties are not allowed ('cloud' was unexpected)`. `fluid plan` and `fluid apply` apply nothing from the block. `fluid apply --env prod` changes a binding only through an overlay file such as `overlays/prod.yaml` (see [per-environment overlays](../../recipes/per-environment-overlays.md) and [Environments and overlays](../../concepts/environments-and-overlays.md#the-environments-block-applies-nothing)); naming `prod` in `environments:` does not create one. This plugin reads the block to learn which environments to emit files for.
 :::
 
 Generated `config/dev.json`:

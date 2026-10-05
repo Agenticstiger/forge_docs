@@ -16,6 +16,7 @@ on:
       - 'README.md'
       - 'scripts/check_cli_docs.py'
       - 'scripts/check_providers.py'
+      - 'scripts/gen_contract_reference.py'
       - 'scripts/cli-docs-allowlist.yml'
       - '.github/workflows/cli-consistency.yml'
   push:
@@ -76,3 +77,9 @@ jobs:
 
       - name: Verify documented providers match fluid providers
         run: python scripts/check_providers.py
+
+      - name: Verify the contract reference matches the bundled schemas
+        # docs/reference/contract-*.md are generated from the schemas inside the
+        # pinned CLI. --check writes nothing: it fails when a committed page
+        # differs from what the installed CLI would generate.
+        run: python scripts/gen_contract_reference.py --check

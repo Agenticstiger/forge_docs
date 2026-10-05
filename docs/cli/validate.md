@@ -61,7 +61,7 @@ A failure prints a stable `[ERR_<EVENT>]` slug, such as `[ERR_VERSION_BELOW_MINI
 
 | Option | Description |
 | --- | --- |
-| `--env ENV` | Apply the `ENV` overlay to the base contract before validating. See [`--env` and environment overlays](#env-and-environment-overlays). |
+| `--env ENV` | Apply the `ENV` overlay to the base contract before validating. See [`--env` and environment overlays](#env-and-environment-overlays) and [Environments and overlays](../concepts/environments-and-overlays.md). |
 | `--schema-version VERSION` | Validate against this schema version, for example `0.7.6`, instead of the version the contract declares. |
 | `--min-version CONSTRAINT` | Fail with exit `2` when the contract's version does not satisfy the constraint, for example `'>=0.7.5'`. |
 | `--max-version CONSTRAINT` | Fail with exit `2` when the contract's version does not satisfy the constraint. |

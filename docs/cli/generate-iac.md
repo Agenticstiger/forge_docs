@@ -106,6 +106,8 @@ Catalog metadata that previously lived in the retired `glue` and `snowflake_hori
 
 ### Refusals before a module is written
 
+The refusals for retention, keys, column restrictions and principals are tabulated in [Governance parity](../concepts/governance-parity.md#refused-not-dropped-on-aws-and-gcp).
+
 `generate iac` refuses these GCP cases before it writes a module, so a refusal leaves no module behind. With a `sovereignty` block, a GCP binding with no region is refused, because where the data lives cannot be checked, and so is a placement outside the allowed regions or jurisdiction:
 
 ```text
@@ -131,6 +133,8 @@ binding.principals to the real group or service account it stands for, ...
 Other refusal kinds exist for principals and governance fields: `principal-unmapped`, `column-restriction-*` and `encryption-kms-*`. See the [GCP provider page](../providers/gcp.md) for the provider's own behaviour.
 
 ### Access grants on GCP *(0.17.0)*
+
+[Governance parity](../concepts/governance-parity.md) lists the grants, policy tags, keys and retention each cloud receives from one contract.
 
 `accessPolicy.grants[]` on a GCP expose compile to one non-authoritative `google_bigquery_dataset_iam_member` per role and member (a `google_storage_bucket_iam_member` for a Cloud Storage expose), for a contract with or without a `packaging` block. The dataset resource itself sets no `access`:
 
@@ -232,7 +236,7 @@ Detection is deliberately conservative: over-flagging asks a human to look, unde
 ### Plan truthfulness and state key
 
 - Under `packaging.mode: shared`, `plan.json` **no longer lists a create action** for a container the product does not own, and carries a packaging summary — the digest-bound artifact a human approves now tells the truth.
-- With a remote backend, the state key names the provider, so one contract applied to two clouds through `--env` overlays keeps two states: `fluid/<id>/<provider>/terraform.tfstate` for S3, or the prefix `fluid/<id>/<provider>` for GCS *(0.17.0)*. A packaging-bearing contract gets this key, and so does any contract when the backend comes from a bucket-only `FLUID_STATE_BACKEND`, keyed by the contract id as written. The shared legacy key `fluid/terraform.tfstate`, which a contract with no packaging block and no `FLUID_STATE_BACKEND` keeps, and an explicit key are unchanged. State a previous release wrote at `fluid/<id>/terraform.tfstate` is copied to the new key on the first apply, and a key that names no provider and already holds another cloud's resources is refused with `state_shared_with_another_provider`. When a product already applied to `aws` is applied to `gcp` for the first time, the apply finds the `aws` state at the old key, logs `<old key> holds the aws provider's state (hashicorp/aws), not this provider's; left in place`, and writes the `gcp` state to `fluid/<id>/gcp/terraform.tfstate` (observed on 4 Oct 2026, in a first apply against real BigQuery). The flags are on the [`fluid apply`](./apply.md#remote-state) page, and the variables are listed under [Apply, state and OpenTofu](../advanced/environment-variables.md#apply-state-and-opentofu).
+- With a remote backend, the state key names the provider ([OpenTofu state](../concepts/state.md#the-provider-is-part-of-the-key)), so one contract applied to two clouds through `--env` overlays keeps two states: `fluid/<id>/<provider>/terraform.tfstate` for S3, or the prefix `fluid/<id>/<provider>` for GCS *(0.17.0)*. A packaging-bearing contract gets this key, and so does any contract when the backend comes from a bucket-only `FLUID_STATE_BACKEND`, keyed by the contract id as written. The shared legacy key `fluid/terraform.tfstate`, which a contract with no packaging block and no `FLUID_STATE_BACKEND` keeps, and an explicit key are unchanged. State a previous release wrote at `fluid/<id>/terraform.tfstate` is copied to the new key on the first apply, and a key that names no provider and already holds another cloud's resources is refused with `state_shared_with_another_provider`. When a product already applied to `aws` is applied to `gcp` for the first time, the apply finds the `aws` state at the old key, logs `<old key> holds the aws provider's state (hashicorp/aws), not this provider's; left in place`, and writes the `gcp` state to `fluid/<id>/gcp/terraform.tfstate` (observed on 4 Oct 2026, in a first apply against real BigQuery). The flags are on the [`fluid apply`](./apply.md#remote-state) page, and the variables are listed under [Apply, state and OpenTofu](../advanced/environment-variables.md#apply-state-and-opentofu).
 
 ## Operational requirements
 

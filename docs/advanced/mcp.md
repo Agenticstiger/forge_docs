@@ -49,7 +49,7 @@ Every advertised tool includes an MCP `inputSchema`, so clients can provide type
 
 #### Fragment-first contracts
 
-A contract split into fragments keeps `$ref` stubs in its root file (see [Composing a contract with `$ref`](../concepts/contract-refs.md)). `fluid validate`, `fluid plan` and `fluid mcp output-port serve` resolve those references. As of 0.18.1, the authoring tools that take a `contract_path` read the file as written and do not resolve `$ref` stubs. `validate_contract` takes `contract_path` (or `logical_path`) and no inline contract; `score_contract_quality` and `enrich_contract_suggestions` accept either `contract_path` or an inline `contract` object.
+A contract split into fragments keeps `$ref` stubs in its root file (see [Contract fragments](../concepts/fragments.md#which-commands-read-a-fragment-root) and [Composing a contract with `$ref`](../concepts/contract-refs.md)). `fluid validate`, `fluid plan` and `fluid mcp output-port serve` resolve those references. As of 0.18.1, the authoring tools that take a `contract_path` read the file as written and do not resolve `$ref` stubs. `validate_contract` takes `contract_path` (or `logical_path`) and no inline contract; `score_contract_quality` and `enrich_contract_suggestions` accept either `contract_path` or an inline `contract` object.
 
 On a root that holds `$ref` stubs, `validate_contract` reports errors that `fluid validate` does not:
 
@@ -133,7 +133,7 @@ For the flag reference and a quick start, see [`fluid mcp` in the CLI reference]
 
 ### The contract is the policy
 
-Nothing about the gateway's governance is configured on the command line by default — it is read from the bound expose. The CLI flags (`--allow-models`, `--max-sample-rows`, …) are *operational overrides* for incident response; the contract is the source of truth, and the audit trail records which one won via a `policySource` field (`contract`, `cli`, or `default`).
+Nothing about the gateway's governance is configured on the command line by default — it is read from the bound expose. The CLI flags (`--allow-models`, `--max-sample-rows`, …) are *operational overrides* for incident response; the contract is the source of truth, and the audit trail records which one won via a `policySource` field (`contract`, `cli`, or `default`). The `semantics` block that enables the `query` tool is described in [Semantic layer](../concepts/semantic-layer.md).
 
 The expose blocks the gateway reads:
 

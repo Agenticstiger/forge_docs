@@ -24,6 +24,8 @@ A **Fluid Forge contract** is a YAML document that describes a data product: its
 
 ## The required top-level fields
 
+A contract must declare the fields below. [The contract reference](../reference/README.md) has a field table for schema [0.7.5](../reference/contract-0.7.5.md), and [preview fields](../reference/preview-fields.md) lists what needs `fluidVersion: "0.7.6"`.
+
 A contract must declare:
 
 | Field | Purpose |
@@ -125,7 +127,7 @@ fluid split contract.fluid.yaml --dry-run
 
 `fluid validate`, `fluid plan`, `fluid apply` and `fluid bundle` resolve every `$ref` before they do anything else, so the rest of the pipeline sees the same document it would see from one file. `fluid bundle` writes the resolved result. Reasons to split are ownership (governance edits `accessPolicy`, data engineering edits `builds[]`) and smaller diffs in review.
 
-From 0.18.0 a `$ref` may only name a file inside the contract's own directory tree. [Composing a contract with `$ref`](./contract-refs.md) covers the syntax, the ref root, and how to widen it for a monorepo. The command pages are [`fluid split`](../cli/split.md) and [`fluid bundle`](../cli/bundle.md).
+From 0.18.0 a `$ref` may only name a file inside the contract's own directory tree. [Composing a contract with `$ref`](./contract-refs.md) covers the syntax, the ref root, and how to widen it for a monorepo. [Contract fragments](./fragments.md) covers the layout, which commands read a fragment root and how digests behave. The command pages are [`fluid split`](../cli/split.md) and [`fluid bundle`](../cli/bundle.md).
 
 ## Why a contract, and not separate dbt / Terraform / Airflow / OPA files?
 
@@ -177,7 +179,7 @@ BREAKING (1)
 Summary: 1 breaking, 0 non-breaking, 0 info
 ```
 
-Review column changes yourself until that is fixed. See [`fluid diff`](../cli/diff.md#contract-version-diff) for the command.
+Review column changes yourself until that is fixed. See [`fluid diff`](../cli/diff.md#contract-version-diff) for the command, and [Evolve a live product](../recipes/evolve-a-live-product.md) for a gate that does catch them.
 
 ## Common patterns
 
@@ -208,7 +210,11 @@ Use multiple `exposes[]` entries on one contract, one per audience, each with it
 ## Where to look next
 
 - [Builds, Exposes, Bindings](./builds-exposes-bindings.md) - the three core blocks that turn a stub into a real product.
-- [Composing a contract with `$ref`](./contract-refs.md) - write the contract as a root plus fragments.
+- [Contract fragments](./fragments.md) - one contract as a root plus fragment files.
+- [Composing a contract with `$ref`](./contract-refs.md) - the `$ref` syntax and the ref root.
+- [Environments and overlays](./environments-and-overlays.md) and [Workspaces](./workspaces.md) - one contract per environment, and products that read each other.
+- [Federated upstreams](./federation.md) - pin an upstream product in another mesh; [`fluid contract digest`](../cli/contract.md#fluid-contract-digest) computes the pin.
+- [Contract reference](../reference/README.md) - the field tables, by schema version.
 - [Governance & Policy](./governance-policy.md) - how `accessPolicy`, `agentPolicy`, and `sovereignty` work together.
 - [Quality, SLAs & Lineage](./quality-sla-lineage.md) - how `dq.rules`, `qos`, and lineage emit artifacts.
 - [Product types](../data-products/product-type.md) - `metadata.layer` and `metadata.productType`.

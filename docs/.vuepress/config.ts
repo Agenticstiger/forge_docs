@@ -232,65 +232,107 @@ export default defineUserConfig({
     // is exposed. It is also the correct alt for the logo if one is ever
     // added back: a mark sitting beside its own wordmark is decorative.
     logoAlt: '',
+
+    // Information architecture (Diátaxis). The navbar and the sidebar follow the
+    // same reading path: get started -> tutorials -> how-to guides -> concepts
+    // (in reading order) -> reference -> operations -> releases.
+    //
+    // Only the menus are organised here. Page paths are frozen: the CLI prints
+    // some of these URLs in its own output (error links, --help, init comments),
+    // so a page is never moved or renamed to fit the menu.
     navbar: [
-      { text: 'Why Forge', link: '/why' },
+      {
+        text: 'Get started',
+        children: [
+          { text: 'Quickstart', link: '/getting-started/' },
+          { text: 'Snowflake quickstart', link: '/getting-started/snowflake.md' },
+          { text: 'Why Fluid Forge', link: '/why.md' },
+          { text: 'See it run', link: '/see-it-run.md' },
+          { text: 'CLI demos', link: '/demos/' },
+          { text: 'Playground', link: '/playground/' },
+          { text: 'FAQ', link: '/faq/' }
+        ]
+      },
+      {
+        text: 'Tutorials',
+        children: [
+          { text: 'All tutorials', link: '/walkthrough/' },
+          { text: 'Local (DuckDB)', link: '/walkthrough/local.md' },
+          { text: 'Source-aligned (Postgres → DuckDB)', link: '/walkthrough/source-aligned-postgres-duckdb.md' },
+          { text: 'Google Cloud (BigQuery)', link: '/walkthrough/gcp.md' },
+          { text: 'Snowflake team review', link: '/walkthrough/snowflake.md' },
+          { text: 'The 11-stage pipeline', link: '/walkthrough/11-stage-pipeline.md' },
+          { text: 'Jenkins CI/CD', link: '/walkthrough/jenkins-cicd.md' },
+          { text: 'Declarative Airflow', link: '/walkthrough/airflow-declarative.md' },
+          { text: 'MCP output port', link: '/walkthrough/mcp-output-port.md' },
+          { text: 'AI forge and data models', link: '/walkthrough/ai-forge-data-model.md' }
+        ]
+      },
+      {
+        text: 'Guides',
+        children: [
+          { text: 'Recipes', link: '/recipes/' },
+          { text: 'CLI by task', link: '/cli/tasks/' },
+          { text: 'One contract, two clouds', link: '/recipes/one-contract-two-clouds.md' },
+          { text: 'Per-environment overlays', link: '/recipes/per-environment-overlays.md' },
+          { text: 'Change a live data product', link: '/recipes/evolve-a-live-product.md' },
+          { text: 'Consume a data product', link: '/data-products/consume.md' }
+        ]
+      },
       { text: 'Concepts', link: '/concepts/' },
-      { text: 'Get Started', link: '/getting-started/' },
       {
-        text: 'Walkthroughs',
+        text: 'Reference',
         children: [
-          { text: 'Consume a Data Product', link: '/data-products/consume' },
-          { text: 'See it run', link: '/see-it-run' },
-          { text: 'Demos', link: '/demos/' },
-          { text: 'Local (DuckDB)', link: '/walkthrough/local' },
-          { text: 'Source-Aligned (Postgres → DuckDB)', link: '/walkthrough/source-aligned-postgres-duckdb' },
-          { text: 'AI Forge + Data Models', link: '/walkthrough/ai-forge-data-model' },
-          { text: 'MCP Output Port — Serve to AI Agents', link: '/walkthrough/mcp-output-port' },
-          { text: 'GCP (BigQuery)', link: '/walkthrough/gcp' },
-          { text: 'Snowflake Team Collaboration', link: '/walkthrough/snowflake' },
-          { text: 'Declarative Airflow', link: '/walkthrough/airflow-declarative' },
-          { text: 'Orchestration Export', link: '/walkthrough/export-orchestration' },
-          { text: 'Jenkins CI/CD', link: '/walkthrough/jenkins-cicd' },
-          { text: 'Universal Pipeline', link: '/walkthrough/universal-pipeline' },
-          { text: '11-Stage Production Pipeline', link: '/walkthrough/11-stage-pipeline' },
-          { text: 'Catalog Forge End-to-End', link: '/walkthrough/catalog-forge-end-to-end' }
-        ]
-      },
-      { text: 'CLI Reference', link: '/cli/' },
-      {
-        text: 'AI & Agents',
-        children: [
-          { text: 'Agent Policy (concept)', link: '/concepts/agent-policy' },
-          { text: 'MCP Output Port — Serve to Agents', link: '/walkthrough/mcp-output-port' },
-          { text: 'MCP deep-dive', link: '/advanced/mcp' },
-          { text: 'AI-assisted authoring', link: '/advanced/custom-llm-agents' },
-          { text: 'LLM providers & backends', link: '/advanced/llm-providers' }
-        ]
-      },
-      {
-        text: 'SDK & Plugins',
-        children: [
-          { text: 'Overview', link: '/sdk-and-plugins/' },
-          { text: 'Quickstart', link: '/sdk-and-plugins/quickstart' },
-          { text: 'Examples', link: '/sdk-and-plugins/examples/' },
-          { text: 'Your own CI', link: '/sdk-and-plugins/journeys/your-own-ci' },
-          { text: 'Your own scaffolding', link: '/sdk-and-plugins/journeys/your-own-scaffolding' },
-          { text: 'Custom validator', link: '/sdk-and-plugins/journeys/custom-validator' },
-          { text: 'Apply hook', link: '/sdk-and-plugins/journeys/apply-hook' },
-          { text: 'Reference', link: '/sdk-and-plugins/reference/' }
+          { text: 'CLI reference', link: '/cli/' },
+          { text: 'Contract schema', link: '/reference/' },
+          { text: 'Environment variables', link: '/advanced/environment-variables.md' },
+          { text: 'Error codes', link: '/advanced/error-codes.md' },
+          { text: 'API stability', link: '/advanced/api-stability.md' },
+          { text: 'Contract loading API', link: '/advanced/contract-loading-api.md' },
+          { text: 'FLUID specification', link: 'https://open-data-protocol.github.io/fluid/' }
         ]
       },
       {
         text: 'Providers',
         children: [
           { text: 'Overview', link: '/providers/' },
-          { text: 'Architecture', link: '/providers/architecture' },
-          { text: 'GCP (BigQuery)', link: '/providers/gcp' },
-          { text: 'AWS (S3 + Athena)', link: '/providers/aws' },
-          { text: 'Snowflake', link: '/providers/snowflake' },
-          { text: 'Local (DuckDB)', link: '/providers/local' },
-          { text: 'Custom Providers', link: '/providers/custom-providers' },
-          { text: 'Roadmap', link: '/providers/roadmap' }
+          { text: 'Architecture', link: '/providers/architecture.md' },
+          { text: 'GCP (BigQuery)', link: '/providers/gcp.md' },
+          { text: 'AWS (S3 + Athena)', link: '/providers/aws.md' },
+          { text: 'Snowflake', link: '/providers/snowflake.md' },
+          { text: 'Local (DuckDB)', link: '/providers/local.md' },
+          { text: 'Custom providers', link: '/providers/custom-providers.md' },
+          { text: 'Roadmap', link: '/providers/roadmap.md' }
+        ]
+      },
+      {
+        text: 'AI & Agents',
+        children: [
+          { text: 'Agent policy (concept)', link: '/concepts/agent-policy.md' },
+          { text: 'MCP server', link: '/advanced/mcp.md' },
+          { text: 'AI-assisted authoring', link: '/advanced/custom-llm-agents.md' },
+          { text: 'LLM providers', link: '/advanced/llm-providers.md' }
+        ]
+      },
+      {
+        text: 'Operate & extend',
+        children: [
+          { text: 'Advanced topics', link: '/advanced/' },
+          { text: 'Operating in CI', link: '/advanced/operating-in-ci.md' },
+          { text: 'Production troubleshooting', link: '/advanced/production-troubleshooting.md' },
+          { text: 'Governance & compliance', link: '/advanced/governance.md' },
+          { text: 'SDK & Plugins', link: '/sdk-and-plugins/' },
+          { text: 'SDK quickstart', link: '/sdk-and-plugins/quickstart.md' }
+        ]
+      },
+      {
+        text: 'Releases',
+        children: [
+          { text: 'Upgrading', link: '/upgrading.md' },
+          { text: '0.18.0 and 0.18.1', link: '/RELEASE_NOTES_0.18.0.md' },
+          { text: '0.17.0', link: '/RELEASE_NOTES_0.17.0.md' },
+          { text: '0.16.0', link: '/RELEASE_NOTES_0.16.0.md' },
+          { text: '0.15.0', link: '/RELEASE_NOTES_0.15.0.md' }
         ]
       }
     ],
@@ -298,62 +340,113 @@ export default defineUserConfig({
     sidebar: {
       '/': [
         {
-          text: 'Introduction',
+          text: 'Get started',
           children: [
             { text: 'Home', link: '/' },
-            '/why.md',
             '/getting-started/',
             '/getting-started/snowflake.md',
+            '/why.md',
             '/see-it-run.md',
-            '/forge-data-model.md',
-            '/vision.md',
+            '/demos/',
             '/playground/',
             '/faq/'
           ]
         },
+        // Tutorials: learning by doing, in the order a newcomer meets them.
+        {
+          text: 'Tutorials',
+          collapsible: true,
+          children: [
+            '/walkthrough/',
+            '/walkthrough/local.md',
+            '/walkthrough/source-aligned-postgres-duckdb.md',
+            '/walkthrough/gcp.md',
+            '/walkthrough/snowflake.md',
+            '/walkthrough/11-stage-pipeline.md',
+            '/walkthrough/jenkins-cicd.md',
+            '/walkthrough/airflow-declarative.md',
+            '/walkthrough/export-orchestration.md',
+            '/walkthrough/universal-pipeline.md',
+            '/walkthrough/mcp-output-port.md',
+            '/walkthrough/ai-forge-data-model.md',
+            '/walkthrough/catalog-forge-end-to-end.md'
+          ]
+        },
+        // How-to guides: one task each, for a reader who already has a contract.
+        {
+          text: 'How-to guides',
+          collapsible: true,
+          children: [
+            '/recipes/README.md',
+            '/recipes/per-environment-overlays.md',
+            '/recipes/switch-clouds.md',
+            '/recipes/one-contract-two-clouds.md',
+            '/recipes/add-a-quality-rule.md',
+            '/recipes/tag-pii.md',
+            '/recipes/consumes-contract-to-contract.md',
+            '/data-products/consume.md',
+            '/recipes/evolve-a-live-product.md',
+            {
+              text: 'CLI by task',
+              collapsible: true,
+              children: [
+                '/cli/tasks/README.md',
+                '/cli/tasks/switch-clouds.md',
+                '/cli/tasks/add-quality-rules.md',
+                '/cli/tasks/agent-governance.md',
+                '/cli/tasks/debug-failed-run.md'
+              ]
+            }
+          ]
+        },
+        // Concepts: explanation, in the order concepts/README.md reads them.
         {
           text: 'Concepts',
+          collapsible: true,
           children: [
             '/concepts/README.md',
-            '/concepts/builds-exposes-bindings.md',
             '/concepts/contract.md',
+            '/concepts/fragments.md',
+            '/concepts/contract-refs.md',
+            '/concepts/builds-exposes-bindings.md',
+            '/concepts/providers-vs-platforms.md',
+            '/concepts/workspaces.md',
+            '/concepts/environments-and-overlays.md',
+            '/concepts/state.md',
             '/concepts/quality-sla-lineage.md',
             '/concepts/governance-policy.md',
+            '/concepts/governance-parity.md',
             '/concepts/sovereignty.md',
             '/concepts/agent-policy.md',
-            '/concepts/providers-vs-platforms.md',
+            '/concepts/semantic-layer.md',
+            '/data-products/product-type.md',
+            '/concepts/federation.md',
+            '/concepts/command-center.md',
             '/concepts/vs-alternatives.md'
           ]
         },
         {
-          text: 'Data Products',
+          text: 'Contract & runtime reference',
+          collapsible: true,
           children: [
-            '/data-products/consume.md',
-            '/data-products/product-type.md'
+            '/reference/README.md',
+            '/reference/contract-0.7.5.md',
+            '/reference/contract-0.7.6-preview.md',
+            '/reference/preview-fields.md',
+            '/advanced/environment-variables.md',
+            '/advanced/error-codes.md',
+            '/advanced/typed-cli-errors.md',
+            '/advanced/typed-errors.md',
+            '/advanced/api-stability.md',
+            '/advanced/contract-loading-api.md'
           ]
         },
         {
-          text: 'Walkthroughs',
-          children: [
-            '/walkthrough/local.md',
-            '/walkthrough/source-aligned-postgres-duckdb.md',
-            '/walkthrough/ai-forge-data-model.md',
-            '/walkthrough/mcp-output-port.md',
-            '/walkthrough/gcp.md',
-            '/walkthrough/snowflake.md',
-            '/walkthrough/airflow-declarative.md',
-            '/walkthrough/export-orchestration.md',
-            '/walkthrough/jenkins-cicd.md',
-            '/walkthrough/universal-pipeline.md',
-            '/walkthrough/11-stage-pipeline.md',
-            '/walkthrough/catalog-forge-end-to-end.md'
-          ]
-        },
-        {
-          text: 'CLI Reference',
+          text: 'CLI reference',
+          collapsible: true,
           children: [
             '/cli/README.md',
-            // Core workflow — the validate -> plan -> apply lifecycle; open by default.
+            // Core workflow — the validate -> plan -> apply lifecycle.
             {
               text: 'Core workflow',
               children: [
@@ -371,7 +464,9 @@ export default defineUserConfig({
               text: 'Build & ship',
               collapsible: true,
               children: [
+                // bundle and split are inverses; they sit together here.
                 '/cli/bundle.md',
+                '/cli/split.md',
                 '/cli/generate.md',
                 '/cli/generate-artifacts.md',
                 '/cli/validate-artifacts.md',
@@ -388,7 +483,7 @@ export default defineUserConfig({
               ]
             },
             {
-              text: 'AI & Agents',
+              text: 'AI & agent commands',
               collapsible: true,
               children: [
                 '/cli/ai.md',
@@ -437,7 +532,6 @@ export default defineUserConfig({
                 '/cli/product-add.md',
                 '/cli/workspace.md',
                 '/cli/contract.md',
-                '/cli/split.md',
                 '/cli/config.md',
                 '/cli/providers.md',
                 '/cli/plugins.md',
@@ -458,7 +552,10 @@ export default defineUserConfig({
               ]
             },
             {
-              text: 'Catalog adapters',
+              // These adapters READ a source catalog (forge from source).
+              // Publishing to a catalog is `fluid publish` and
+              // `fluid datamesh-manager`, under Build & ship and Standards.
+              text: 'Catalog adapters (read a source)',
               collapsible: true,
               children: [
                 '/cli/catalogs/README.md',
@@ -472,33 +569,85 @@ export default defineUserConfig({
                 '/cli/catalogs/datamesh-manager.md',
                 '/cli/catalogs/openmetadata.md'
               ]
-            },
+            }
+          ]
+        },
+        {
+          text: 'Providers',
+          collapsible: true,
+          children: [
+            '/providers/README.md',
+            '/providers/architecture.md',
+            '/providers/gcp.md',
+            '/providers/aws.md',
+            '/providers/snowflake.md',
+            '/providers/local.md',
+            '/providers/custom-providers.md',
+            '/providers/roadmap.md'
+          ]
+        },
+        // Operations and advanced topics. advanced/README.md indexes the
+        // same four groups.
+        {
+          text: 'Operations & advanced',
+          collapsible: true,
+          children: [
+            '/advanced/README.md',
             {
-              text: 'CLI by task',
+              text: 'Operate & deploy',
               collapsible: true,
               children: [
-                '/cli/tasks/README.md',
-                '/cli/tasks/add-quality-rules.md',
-                '/cli/tasks/agent-governance.md',
-                '/cli/tasks/debug-failed-run.md',
-                '/cli/tasks/switch-clouds.md'
+                '/advanced/operating-in-ci.md',
+                '/advanced/production-troubleshooting.md',
+                '/advanced/airflow.md',
+                '/advanced/blueprints.md',
+                '/advanced/source-aligned-acquisition.md',
+                '/advanced/duckdb-sandbox.md'
+              ]
+            },
+            {
+              text: 'Govern & secure',
+              collapsible: true,
+              children: [
+                '/governance-compliance-roi.md',
+                '/advanced/governance.md',
+                '/advanced/network-safety.md',
+                '/advanced/credential-resolver.md'
+              ]
+            },
+            {
+              text: 'AI & agents',
+              collapsible: true,
+              children: [
+                '/forge-data-model.md',
+                '/advanced/mcp.md',
+                '/advanced/custom-llm-agents.md',
+                '/advanced/forge-copilot-discovery.md',
+                '/advanced/forge-copilot-memory.md',
+                '/advanced/forge-tools.md',
+                '/advanced/guided-forge-ux.md',
+                '/advanced/llm-providers.md',
+                '/advanced/litellm-backend.md',
+                '/advanced/capability-warnings.md',
+                '/advanced/cost-tracking.md',
+                '/advanced/chatgpt-forge-contract-gpt/',
+                '/advanced/agentic-primitives.md'
+              ]
+            },
+            {
+              text: 'Architecture & project',
+              collapsible: true,
+              children: [
+                '/advanced/v1.5-architecture.md',
+                '/vision.md',
+                '/contributing.md'
               ]
             }
           ]
         },
         {
-          text: 'Recipes',
-          children: [
-            '/recipes/README.md',
-            '/recipes/add-a-quality-rule.md',
-            '/recipes/switch-clouds.md',
-            '/recipes/tag-pii.md',
-            '/recipes/consumes-contract-to-contract.md',
-            '/recipes/per-environment-overlays.md'
-          ]
-        },
-        {
           text: 'SDK & Plugins',
+          collapsible: true,
           children: [
             '/sdk-and-plugins/README.md',
             '/sdk-and-plugins/quickstart.md',
@@ -544,91 +693,11 @@ export default defineUserConfig({
             }
           ]
         },
+        // Releases: the upgrade guide first, then the notes, newest first.
         {
-          text: 'Providers',
-          children: [
-            '/providers/README.md',
-            '/providers/architecture.md',
-            '/providers/gcp.md',
-            '/providers/aws.md',
-            '/providers/snowflake.md',
-            '/providers/local.md',
-            '/providers/custom-providers.md',
-            '/providers/roadmap.md'
-          ]
-        },
-        {
-          text: 'AI & Agents',
+          text: 'Releases',
           collapsible: true,
           children: [
-            '/advanced/mcp.md',
-            '/advanced/custom-llm-agents.md',
-            '/advanced/forge-copilot-discovery.md',
-            '/advanced/forge-copilot-memory.md',
-            '/advanced/forge-tools.md',
-            '/advanced/guided-forge-ux.md',
-            '/advanced/llm-providers.md',
-            '/advanced/litellm-backend.md',
-            '/advanced/capability-warnings.md',
-            '/advanced/cost-tracking.md',
-            '/advanced/chatgpt-forge-contract-gpt/',
-            '/advanced/agentic-primitives.md'
-          ]
-        },
-        {
-          text: 'Operate & Deploy',
-          collapsible: true,
-          children: [
-            '/advanced/operating-in-ci.md',
-            '/advanced/production-troubleshooting.md',
-            '/advanced/airflow.md',
-            '/advanced/blueprints.md',
-            '/advanced/source-aligned-acquisition.md'
-          ]
-        },
-        {
-          text: 'Govern & Secure',
-          collapsible: true,
-          children: [
-            '/governance-compliance-roi.md',
-            '/advanced/governance.md',
-            '/advanced/network-safety.md',
-            '/advanced/credential-resolver.md'
-          ]
-        },
-        {
-          text: 'Configuration & Reference',
-          collapsible: true,
-          children: [
-            '/advanced/environment-variables.md',
-            '/advanced/typed-errors.md',
-            '/advanced/typed-cli-errors.md',
-            '/advanced/api-stability.md'
-          ]
-        },
-        {
-          text: 'Architecture & Releases',
-          collapsible: true,
-          children: [
-            '/advanced/v1.5-architecture.md',
-            '/advanced/v1.5-release-notes.md'
-          ]
-        },
-        // CLI 0.18.0: contract confinement (forge-cli #687, #688, #689).
-        // A group of its own so it merges cleanly with edits to the
-        // Concepts / Advanced / Project lists.
-        {
-          text: 'Contract loading & sandboxing',
-          children: [
-            '/concepts/contract-refs.md',
-            '/advanced/duckdb-sandbox.md',
-            '/advanced/contract-loading-api.md'
-          ]
-        },
-        {
-          text: 'Project',
-          children: [
-            '/contributing.md',
             '/upgrading.md',
             '/RELEASE_NOTES_0.18.0.md',
             '/RELEASE_NOTES_0.17.0.md',
@@ -649,6 +718,8 @@ export default defineUserConfig({
             '/RELEASE_NOTES_0.8.5.md',
             '/RELEASE_NOTES_0.8.4.md',
             '/RELEASE_NOTES_0.8.3.md',
+            // The catalog-integration work, first stable in 0.8.3.
+            { text: 'Catalog integration (0.8.3)', link: '/advanced/v1.5-release-notes.md' },
             '/RELEASE_NOTES_0.8.0.md',
             '/RELEASE_NOTES_0.7.11.md',
             '/RELEASE_NOTES_0.7.9.md',

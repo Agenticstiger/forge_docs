@@ -128,7 +128,7 @@ Two guards run before any template renders:
 
 ### Where per-environment data lives
 
-The contract schema validates an `environments:` map, but `fluid plan` and `fluid apply` apply nothing from it, and each environment entry is closed to `metadata`, `exposes`, `tags` and `labels`: `environments.prod.cloud` fails `fluid validate` with `Additional properties are not allowed ('cloud' was unexpected)`. Values that only your bundle reads belong in the pattern's `variables`, as above. Values that `fluid apply --env prod` must act on belong in an overlay file, `overlays/prod.yaml`; see [per-environment overlays](../../recipes/per-environment-overlays.md).
+The contract schema validates an `environments:` map, but `fluid plan` and `fluid apply` apply nothing from it, and each environment entry is closed to `metadata`, `exposes`, `tags` and `labels`: `environments.prod.cloud` fails `fluid validate` with `Additional properties are not allowed ('cloud' was unexpected)`. Values that only your bundle reads belong in the pattern's `variables`, as above. Values that `fluid apply --env prod` must act on belong in an overlay file, `overlays/prod.yaml`; see [per-environment overlays](../../recipes/per-environment-overlays.md) and [Environments and overlays](../../concepts/environments-and-overlays.md#the-environments-block-applies-nothing).
 
 ## Step 3: pick your CI system
 

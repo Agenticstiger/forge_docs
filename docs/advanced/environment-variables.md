@@ -43,7 +43,7 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 | `FLUID_USER_HOME` | Overrides the user-global FLUID directory (`~/.fluid`). |
 | `FLUID_WORKSPACE_ROOT` | Overrides the directory that holds the workspace-local `.fluid/` state. Default: the working directory. |
 | `FLUID_SECRETS_FILE` | Path of a dotenv-style file that is loaded last, over the process environment, when a command hydrates the project's `.env` files (`.env`, `.env.<env>`, `.env.local`, then this file). Best effort, and it needs `python-dotenv`. It is not an encrypted file. |
-| `FLUID_UPSTREAM_CONTRACTS` | Colon-separated extra directories searched for upstream contracts, next to the contract's own workspace. Used when `fluid forge` and the dbt source generator look up an upstream's schema, and when an embedded-SQL build binds a `consumes[]` entry to its upstream's binding. Each root is searched down to four directory levels for `contract.fluid.yaml` or `contract.fluid.json`; build output and VCS directories such as `.git` and `node_modules` are skipped. |
+| `FLUID_UPSTREAM_CONTRACTS` | Colon-separated extra directories searched for upstream contracts, next to the contract's own workspace. Used when `fluid forge` and the dbt source generator look up an upstream's schema, and when an embedded-SQL build binds a `consumes[]` entry to its upstream's binding. Each root is searched down to four directory levels for `contract.fluid.yaml` or `contract.fluid.json`; build output and VCS directories such as `.git` and `node_modules` are skipped. See [Workspaces](../concepts/workspaces.md#how-a-build-finds-the-products-it-consumes). |
 
 ## Contract loading and the DuckDB sandbox
 
@@ -54,6 +54,8 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 | `FLUID_LOCAL_DUCKDB_PATH` | Database file for the legacy `fluid_build.contract_tests` module. Default `:memory:`. |
 
 ## Apply, state and OpenTofu
+
+[OpenTofu state](../concepts/state.md) explains how these variables choose the state key.
 
 | Variable | Effect |
 |---|---|
@@ -67,11 +69,13 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 With a bucket-only `FLUID_STATE_BACKEND`, the remote state key is `fluid/<id>/<provider>/terraform.tfstate` (GCS prefix `fluid/<id>/<provider>`), so one contract applied to two clouds through overlays keeps two states. A spec that names a key is used as written. The first apply after upgrading to 0.17.0 moves state from the old key `fluid/<id>/terraform.tfstate` when it holds this provider's resources; the errors that can follow are in [Production troubleshooting](./production-troubleshooting.md#state-and-region-errors).
 
 ```bash
-export FLUID_STATE_BACKEND=s3://acme-fluid-state     # bucket only: per-contract, per-provider keys
+export FLUID_STATE_BACKEND=s3://<your-state-bucket>     # bucket only: per-contract, per-provider keys
 fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 ```
 
 ## Command Center
+
+[The Command Center](../concepts/command-center.md) says what each of these sends.
 
 `fluid publish` and `fluid apply` read different variables. Publishing to the Command Center uses the catalog configuration; `fluid apply` reuses that configuration to report each run, and falls back to the reporter's own variables.
 
@@ -148,6 +152,8 @@ Masking is applied only on the DuckDB acquisition landing path. See [Production 
 A BigQuery binding that declares no `location.region` gets a load job with no location, so the job runs where the table is. Pin `location.region` in the binding when the data's location matters.
 
 ## Federation and network safety
+
+[Federated upstreams](../concepts/federation.md) says how the check uses these.
 
 | Variable | Effect |
 |---|---|

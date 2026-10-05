@@ -9,7 +9,7 @@ A growing collection of common questions. Each answer either resolves the questi
 
 ## How is Fluid Forge different from dbt / Terraform / Airflow / OPA?
 
-Short answer: it unifies the four contracts (schema + infra + orchestration + policy) into one YAML so they can't drift. Long answer: see [Concepts → vs alternatives](/forge_docs/concepts/vs-alternatives.html) — there's a side-by-side ownership table.
+Short answer: it unifies the four contracts (schema + infra + orchestration + policy) into one contract, a single resolved document that you can write as one file or as a root plus [fragments](/forge_docs/concepts/fragments.html), so they can't drift. Long answer: see [Concepts → vs alternatives](/forge_docs/concepts/vs-alternatives.html) — there's a side-by-side ownership table.
 
 ## Why do I see `pip install fluid-forge` in some old docs and `pip install data-product-forge` in new docs?
 

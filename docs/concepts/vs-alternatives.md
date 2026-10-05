@@ -50,7 +50,7 @@ This page is the comparison page we'd want to read if we were evaluating Forge c
 - **dbt Cloud / dbt Mesh** — if you're committed to the dbt ecosystem and willing to pay for the cloud product, you get IDE, CI, lineage, and discovery without leaving dbt-land.
 
 ### Where Forge wins
-- **Multi-cloud portability** — one base contract, with a per-cloud overlay that changes only the binding (platform, format, location, and on fluid-schema 0.7.6 the principals). `fluid apply --env gcp` emits BigQuery datasets and IAM; `--env aws` emits S3, Glue and Lake Formation. dbt's adapter layer handles SQL dialect differences but not the surrounding infrastructure (datasets, IAM, regions).
+- **Multi-cloud portability** — one base contract, with a per-cloud overlay that changes only the binding (platform, format, location, and on fluid-schema 0.7.6 the principals). `fluid apply --env gcp` emits BigQuery datasets and IAM; `--env aws` emits S3, Glue and Lake Formation. dbt's adapter layer handles SQL dialect differences but not the surrounding infrastructure (datasets, IAM, regions). See [One contract, two clouds](../recipes/one-contract-two-clouds.md) and [Switch clouds](../recipes/switch-clouds.md).
 - **Governance as part of the contract** — `fluid apply` provisions native controls from the contract: BigQuery dataset IAM members and Data Catalog policy tags on GCP, Lake Formation grants with excluded columns on AWS. Coverage differs by cloud, and as of 0.18.1 Snowflake reads none of these fields; see the [per-cloud table](./governance-policy.md#what-gets-emitted-per-cloud). dbt's `grants` config sets privileges on the models it builds.
 - **Agent governance** — `agentPolicy` declares which LLMs can read which fields, with audit logging. dbt has no concept of this.
 - **Sovereignty** — `sovereignty.jurisdiction` and `allowedRegions` are enforced before deploy: `fluid validate` refuses an out-of-policy region, and on AWS and GCP so does `fluid apply`. dbt does not check where data lives.
@@ -80,7 +80,7 @@ builds:
 ### Where Dagster wins
 - **Asset orchestration depth** — software-defined assets, partitioned assets, asset checks, asset sensors. Forge has builds + exposes; Dagster has a richer asset graph model with native lineage.
 - **Python-first** — write your business logic in Python and let Dagster orchestrate. Forge's primary interface is YAML; Python is for builds via `engine: python`.
-- **Dagster Cloud / Plus** — hosted control plane, branch deployments, concurrency controls. Forge has no hosted offering.
+- **Dagster Cloud / Plus** — hosted control plane, branch deployments, concurrency controls. The Forge CLI has no hosted offering; for a web catalog and run history on top of it, see the [Command Center](./command-center.md).
 - **Op-level retries, backfills, and sensors** — operationally rich. Forge defers orchestration to the chosen scheduler (`fluid generate schedule --scheduler dagster | airflow | prefect`).
 
 ### Where Forge wins
@@ -154,7 +154,7 @@ Forge's contract surface is general-purpose. For ML feature stores specifically,
 If `Terraform + dbt + Airflow + OPA` is humming and the team is happy, the migration cost to a unified contract may not pay off. Consider adopting Forge incrementally — start with `fluid validate` for contract testing, expand only if/when the cross-tool drift starts to bite.
 
 ### You need a hosted control plane today
-Forge is currently CLI + GitHub Actions / GitLab CI / Jenkins / Tekton (any CI). There is no hosted Forge Cloud. If you need a SaaS UI for your data team to onboard non-engineers, **Dagster Cloud / dbt Cloud** are mature options today; the equivalent Forge offering is on the roadmap but not shipped.
+Forge is currently CLI + GitHub Actions / GitLab CI / Jenkins / Tekton (any CI). The CLI itself has no hosted offering; the [Command Center](./command-center.md) is a separate web control plane that the CLI can report to. If you need a SaaS UI for your data team to onboard non-engineers, **Dagster Cloud / dbt Cloud** are mature options today; the equivalent Forge offering is on the roadmap but not shipped.
 
 ---
 

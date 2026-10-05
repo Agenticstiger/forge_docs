@@ -10,6 +10,10 @@ A contract can pull any object from another YAML or JSON file with `$ref`.
 ref before they do anything else, so the rest of the pipeline sees one
 document.
 
+This page covers how a single ref is read and which files it may name. For
+working with a split product (the layout `fluid split` writes, which commands
+read it, overlays, CI and digests), see [Contract fragments](./fragments.md).
+
 ::: warning Changed in CLI 0.18.0
 A `$ref` may only name a file inside the contract's own directory tree (the
 **ref root**). URL refs (`file://` included), absolute paths, and `..` or
@@ -111,12 +115,30 @@ exposes:
 
 ## How a ref is read
 
-- A `$ref` node is an object whose only key is `$ref`.
+- A `$ref` node is an object whose only key is `$ref`. An object with
+  other keys next to `$ref` is not resolved, and fails the schema with
+  `Additional properties are not allowed ('$ref', 'description' were
+  unexpected)`. There is no sibling-override; change a field of a fragment
+  with an [overlay](../recipes/per-environment-overlays.md) instead.
 - A ref is resolved relative to the file that contains it, so
   `parts/build.yaml` may itself say `$ref: ./policy.yaml`.
 - `file.yaml#/a/b` selects the object at [JSON pointer](https://www.rfc-editor.org/rfc/rfc6901)
   `/a/b` inside the file. Without a `#`, the whole file is used.
 - Same-document refs (`$ref: "#/definitions/x"`) are left in place as written.
+- A ref can stand for a whole list: `builds: {$ref: lib/lib.yaml#/builds}`.
+  A YAML file used as a fragment must have a mapping at its root
+  (`YAML root must be an object/dict`), so put a list under a key and point
+  at it. A JSON fragment may be a list.
+- JSON pointer escapes (`~0` for `~`, `~1` for `/`) are not decoded, so a key
+  containing `/` cannot be addressed.
+- A ref that leads back to itself fails with `Circular $ref detected`, and
+  resolution stops past a fixed depth with `$ref nesting depth exceeded 20`.
+- Relative data paths inside a fragment, such as a `read_csv('data/orders.csv')`
+  in a build or a `binding.location.path`, are resolved from the root
+  contract's directory, not the fragment's.
+- Errors found after resolution name a path in the resolved document, such
+  as `exposes[1].binding.format`. Count the entries in the root's list, or
+  run `fluid bundle`, to find the fragment it came from.
 
 ## The ref root
 
@@ -331,6 +353,7 @@ the fragment is reported as not validated instead.
 
 ## Related
 
+- [Contract fragments](./fragments.md): working with a product split into fragment files
 - [`fluid bundle`](../cli/bundle.md): write the resolved document or a `.tgz` bundle
 - [Contract loading API](../advanced/contract-loading-api.md): load a contract from Python exactly as `fluid plan` sees it
 - [DuckDB sandbox](../advanced/duckdb-sandbox.md): the matching confinement for SQL inside a contract

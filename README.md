@@ -2,21 +2,25 @@
 
 Documentation for the [Fluid Forge CLI](https://github.com/Agenticstiger/forge-cli).
 
-Fluid Forge is a contract-first CLI for building, validating, and deploying data products across local and cloud targets. The docs in this repo track the promoted CLI surface from `fluid --help`, with local-first onboarding and compatibility notes for older commands where needed.
+Fluid Forge is a contract-first CLI for data products. You declare a product in a contract; the CLI validates it, builds it locally on DuckDB or deploys it to AWS, GCP or Snowflake, and verifies that what landed matches the contract.
 
 ## Start Here
 
+The site is organised the way a reader uses it (get started, tutorials, how-to guides, concepts, reference, releases):
+
 - [Live docs](https://agenticstiger.github.io/forge_docs/)
-- [Getting started](https://agenticstiger.github.io/forge_docs/getting-started/)
-- [Forge data model](https://agenticstiger.github.io/forge_docs/forge-data-model.html)
-- [CLI reference](https://agenticstiger.github.io/forge_docs/cli/)
+- [Getting started](https://agenticstiger.github.io/forge_docs/getting-started/): install and build a first product locally
+- [Tutorials](https://agenticstiger.github.io/forge_docs/walkthrough/): end-to-end builds, with what each one needs
+- [Recipes](https://agenticstiger.github.io/forge_docs/recipes/): one task each, on a contract you already have
+- [Concepts](https://agenticstiger.github.io/forge_docs/concepts/): the model, in reading order
+- [CLI reference](https://agenticstiger.github.io/forge_docs/cli/) and [contract reference](https://agenticstiger.github.io/forge_docs/reference/)
 - [Providers](https://agenticstiger.github.io/forge_docs/providers/)
 - [Forge CLI repo](https://github.com/Agenticstiger/forge-cli)
 
 ## Current Versioning
 
 - Current CLI release documented here: `0.18.1`
-- Current scaffolded contract schema examples: `fluidVersion: 0.7.5`
+- Contract schema: `fluidVersion: 0.7.5` is the stable default; `0.7.6` is an opt-in preview
 
 Those are different on purpose. `fluid version` reports the installed CLI release, while `fluidVersion` inside a contract selects the contract schema version.
 
@@ -29,21 +33,23 @@ What changed in each release, and what to do when you upgrade:
 
 ```bash
 pip install "data-product-forge[local]"
-fluid version
-fluid doctor
-fluid init my-project --quickstart
-cd my-project
+mkdir fluid-quickstart && cd fluid-quickstart
+fluid init my-first-product --blueprint fluid.starter
+cd my-first-product
 fluid validate contract.fluid.yaml
 fluid plan contract.fluid.yaml
-fluid apply contract.fluid.yaml --yes
+fluid apply contract.fluid.yaml --yes --mode amend-and-build
+fluid verify contract.fluid.yaml --strict
+cat runtime/out/my-first-product.csv
 ```
+
+[Getting started](https://agenticstiger.github.io/forge_docs/getting-started/) runs these steps with their output, and says why it uses the `fluid.starter` blueprint rather than `fluid init --quickstart` on 0.18.1 (the quickstart's local apply writes a placeholder file).
 
 Optional AI-assisted scaffolding uses `fluid forge`:
 
 ```bash
 fluid forge
 fluid forge --domain finance
-fluid forge --llm-provider openai --llm-model gpt-4.1-mini
 ```
 
 To forge a reviewable data model from a business intent file:

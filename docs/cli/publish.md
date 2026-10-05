@@ -8,7 +8,7 @@ Stage 10 of the 11-stage pipeline. Publish one or more contracts to one or more 
 fluid publish CONTRACT_FILES [options]
 ```
 
-`CONTRACT_FILES` supports one or more paths or glob patterns. With no `--target`, the contract goes to the FLUID Command Center.
+`CONTRACT_FILES` supports one or more paths or glob patterns. With no `--target`, the contract goes to the FLUID Command Center. [The Command Center](../concepts/command-center.md) covers what is sent, the organization it goes to and who can see the product.
 
 ## Examples
 
@@ -67,7 +67,7 @@ fluid publish contract.fluid.yaml --target command-center --dry-run --format jso
 | `--dry-run` | Show what would be sent (request bodies, lookup and write routes, lineage edges) and make no network call. Secrets in headers are redacted. With `--format json` the preview is machine-readable. |
 | `--verify-only` | Check whether a contract is already published; create nothing. |
 | `--force` | Command Center only: record a contract version even when the stored contract hash says the contract is unchanged. See [Contract versions](#contract-versions). |
-| `--env ENV` | Publish the contract with this environment overlay applied, as `fluid apply --env` loads it. An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. |
+| `--env ENV` | Publish the contract with this environment overlay applied, as `fluid apply --env` loads it. An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. See [Environments and overlays](../concepts/environments-and-overlays.md#when-no-overlay-matches). |
 | `--format`, `-f` | Output format: `text` (default), `json` or `yaml`. |
 | `--verbose`, `-v` | Detailed output |
 | `--quiet`, `-q` | Minimal output |
@@ -142,7 +142,7 @@ The post is skipped, with status `unchanged`, when the product's stored `contrac
 
 ### What is sent
 
-`fluid publish` sends the fully resolved contract, one flattened document: the `$ref` fragments of a [fragment layout](../concepts/contract-refs.md) are composed first and are not published as separate files. Run `fluid bundle` before handing a fragment root to anything that reads a single file, such as a Command Center upload. `{{ env.NAME }}` placeholders are resolved before sending, except those whose name looks like a credential (`..._PASSWORD`, `..._TOKEN`, `..._SECRET`, `..._API_KEY`), which stay literal.
+`fluid publish` sends the fully resolved contract, one flattened document: the `$ref` fragments of a [fragment layout](../concepts/contract-refs.md) are composed first and are not published as separate files ([sharing a contract outside the CLI](../concepts/fragments.md#sharing-a-contract-outside-the-cli)). Run `fluid bundle` before handing a fragment root to anything that reads a single file, such as a Command Center upload. `{{ env.NAME }}` placeholders are resolved before sending, except those whose name looks like a credential (`..._PASSWORD`, `..._TOKEN`, `..._SECRET`, `..._API_KEY`), which stay literal.
 
 ### Dry-run preview
 
@@ -196,7 +196,7 @@ With no organization configured, `organization_id` is `null` and the header read
 
 ### One product per contract id
 
-The Command Center keeps one product per contract. The lookup key is `metadata.fluid_contract_id`, so publishing the same contract again updates that product, whichever `--env` published it last. Publishing one contract from two environments, for example `aws` and `gcp`, makes the product's platform and location whatever the last publish sent. If your pipelines publish from more than one environment, decide which one publishes. For a Jenkins pipeline, `fluid generate ci --no-publish-stage-default` leaves stage 10 off by default.
+The Command Center keeps one product per contract. The lookup key is `metadata.fluid_contract_id`, so publishing the same contract again updates that product, whichever `--env` published it last. Publishing one contract from two environments, for example `aws` and `gcp`, makes the product's platform and location whatever the last publish sent. If your pipelines publish from more than one environment, decide which one publishes; [Publishing an environment, and last-writer-wins](../concepts/command-center.md#publishing-an-environment-and-last-writer-wins) has the detail. For a Jenkins pipeline, `fluid generate ci --no-publish-stage-default` leaves stage 10 off by default.
 
 ## Publishing to Data Mesh Manager (Entropy Data)
 

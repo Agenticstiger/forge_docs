@@ -17,7 +17,7 @@ That inversion changes how teams work. Instead of writing infrastructure code, y
 
 These are the convictions baked into Forge. If you disagree with any of them, Forge is probably the wrong choice for your team — and that's fine.
 
-1. **Schema, infrastructure, orchestration, policy, and AI gating belong in one contract.** Splitting them across four tools is the source of most data-product incidents. The contract can be one file, or a root file plus fragments joined by [`$ref`](./concepts/contract-refs.md); the engine reads one resolved document either way.
+1. **Schema, infrastructure, orchestration, policy, and AI gating belong in one contract.** Splitting them across four tools is the source of most data-product incidents. The contract can be one file, or a root file plus fragments joined by [`$ref`](./concepts/contract-refs.md) ([Contract fragments](./concepts/fragments.md)); the engine reads one resolved document either way.
 2. **Local-first development is non-negotiable.** You should be able to ship a working data product on your laptop with no cloud account, no credit card, no waiting on a platform team. `pipx install "data-product-forge[local]"` and you're three commands from a deployed product.
 3. **Multi-cloud is the default state, not a migration.** Most companies are already multi-cloud (one team on Snowflake, another on BigQuery, a third on S3+Athena). Tools that pretend you're on a single cloud are lying to you.
 4. **Governance is not a separate phase.** It's part of the contract from line one. Adding `accessPolicy` and `agentPolicy` after the fact is when teams discover that everything they shipped six months ago is non-compliant.

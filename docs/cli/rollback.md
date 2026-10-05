@@ -18,7 +18,7 @@ Added in `0.8.0`.
 
 - **`local` bindings** apply natively, but `fluid apply --mode replace --allow-data-loss` on a `local` contract wrote no `.fluid/rollback-state.json` in a 0.18.1 test, although the gate's own message for `local` says the table "will be snapshotted".
 
-Back up the target yourself before a destructive apply on any of these. The rest of this page describes what `fluid rollback` does when a state file is present.
+Back up the target yourself before a destructive apply on any of these. [Evolve a live product](../recipes/evolve-a-live-product.md#breaking-changes-replace-and-rollback) walks through a `replace` and what to check first. The rest of this page describes what `fluid rollback` does when a state file is present.
 :::
 
 ## Syntax
