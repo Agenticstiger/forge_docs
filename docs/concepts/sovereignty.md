@@ -138,7 +138,7 @@ This is the part most worth getting straight, because the two gates share a bloc
 |---|---|---|
 | **Question** | May the data *sit* here? | May this *caller* read it? |
 | **Compares** | each expose's `binding.location.region` → jurisdiction, against `sovereignty.jurisdiction` | the caller's **verified** jurisdiction claim, against `sovereignty.jurisdiction` |
-| **Runs on** | `fluid validate` (always); `fluid plan --check-sovereignty` (run by stage 6 of a generated pipeline); `fluid generate iac` and `fluid apply` on AWS and GCP | every `tools/call` at `fluid mcp output-port serve` |
+| **Runs on** | `fluid validate` (always); `fluid plan --check-sovereignty` (run by stage 6 of a generated pipeline); `fluid generate iac` and `fluid apply` on AWS and GCP | each `tools/call` that reaches the policy check at `fluid mcp output-port serve` |
 | **Since** | `0.7.1`, blocking by default since `0.15.0` | `0.15.0` |
 | **Relaxed by** | `enforcementMode: advisory` / `audit` | `crossBorderTransfer: true` |
 
@@ -151,7 +151,7 @@ One consequence surprises people, so it is worth stating plainly: a jurisdiction
 ```bash
 fluid mcp output-port serve contract.fluid.yaml --transport stdio
 # fluid mcp output-port: refusing to serve over 'stdio'.
-#   This contract pins sovereignty.jurisdiction to EU, so every tool call needs a
+#   This contract pins sovereignty.jurisdiction to EU, so a tool call needs a
 #   cryptographically verified caller jurisdiction.
 # exit 2
 ```
@@ -270,6 +270,6 @@ fluid policy-apply bindings.json
 ## Where to go next
 
 - [Governance & Policy](./governance-policy.md) — `sovereignty` alongside `accessPolicy`, and how both compile to native cloud IAM
-- [Agent Policy](./agent-policy.md) — the other half of what the MCP output port enforces on every agent call
+- [Agent Policy](./agent-policy.md) — the other half of what the MCP output port enforces on agent reads
 - [`fluid validate`](/forge_docs/cli/validate.html) — flags, exit codes and the rest of the validation surface
 - [Advanced → MCP output port](/forge_docs/advanced/mcp.html#caller-jurisdiction-enforcement-since-0-15-0) — the output-port mechanism: verified claims, reason codes, auth modes and JWT claim mapping

@@ -82,10 +82,10 @@ exposes:
           type: STRING
         - name: email
           type: STRING
-          sensitivity: pii         # redacted in every MCP output-port result
+          sensitivity: pii         # value replaced with a redaction token by the MCP output port
 ```
 
-The MCP output port replaces the values of `pii` and `phi` columns with a redaction token in every result it serves, whatever the platform. To change what is stored, declare `policy.privacy.masking` on the expose; it is applied when the DuckDB acquisition runner lands the data. No warehouse masking policy is emitted from either field. See [Governance & Policy → Masking](./governance-policy.md#masking-policy-privacy-masking).
+The MCP output port replaces the values of `pii` and `phi` columns with a redaction token in the results of the query tools it serves. To change what is stored, declare `policy.privacy.masking` on the expose; it is applied when the DuckDB acquisition runner lands the data. No warehouse masking policy is emitted from either field. See [Governance & Policy → Masking](./governance-policy.md#masking-policy-privacy-masking).
 
 ## Where it's enforced
 
@@ -93,7 +93,7 @@ The MCP output port replaces the values of `pii` and `phi` columns with a redact
 |---------|-------------------------------|
 | **`fluid validate`** | Checks the block for consistency: a model in both `allowedModels` and `deniedModels` is an error, for example. |
 | **`fluid mcp output-port serve`** | Read-time enforcement when agents speak MCP. This is the consumer-side data-access gate: every read passes through the agentPolicy gate (model / use-case checked pre-dispatch; the per-request token cap applied after). See "Enforcement modes" below. (`fluid mcp serve` is the producer/authoring tool server — it does **not** gate data reads.) |
-| **Audit record** | The output port writes a local `data_access` record for every decision, allow and deny, whether or not `auditRequired` is set. See [Audit event schema](#audit-event-schema). |
+| **Audit record** | The output port writes a local `data_access` record for each allow and deny decision it reaches, whether or not `auditRequired` is set. A failed audit write is logged at debug level and does not stop the call. See [Audit event schema](#audit-event-schema). |
 
 ## Enforcement modes
 
@@ -113,7 +113,7 @@ agent (claude-sonnet-4-6)  ──read──►  fluid mcp output-port serve
                                           └─ DENY  ─►  TextContent JSON envelope + audit (with reason)
 ```
 
-A denied read does not return an HTTP 403 — the stdio gateway returns a `TextContent` JSON envelope `{error: "AgentPolicyDenied" | "TokenBudgetExceeded", reason, message}`. The server reads `agentPolicy` from the expose at startup and checks it on every request. Each decision is written to the local audit directory (see [Audit event schema](#audit-event-schema)). (`fluid mcp serve` is the producer/authoring tool server — catalog reads, contract regeneration — and does not enforce agentPolicy on data reads.)
+A denied read does not return an HTTP 403 — the stdio gateway returns a `TextContent` JSON envelope `{error: "AgentPolicyDenied" | "TokenBudgetExceeded", reason, message}`. The server reads `agentPolicy` from the expose at startup and checks it on each request that reaches the policy check. Each decision is written to the local audit directory (see [Audit event schema](#audit-event-schema)). (`fluid mcp serve` is the producer/authoring tool server — catalog reads, contract regeneration — and does not enforce agentPolicy on data reads.)
 
 ### 2. Platform-side controls
 

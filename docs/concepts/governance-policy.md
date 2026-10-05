@@ -184,7 +184,7 @@ fluid policy-check contract.fluid.yaml
 # exit 1
 ```
 
-And the [MCP output port](./agent-policy.md) replaces tagged column values with a redaction token in every governed query result. The tag provisions nothing on any platform by itself.
+And the [MCP output port](./agent-policy.md) replaces tagged column values with a redaction token in the results of the query tools it serves. The tag provisions nothing on any platform by itself.
 
 ## Sovereignty
 
@@ -243,7 +243,7 @@ exposes:
         group:analysts@northwind.example: arn:aws:iam::123456789012:role/analyst
 ```
 
-A value is one identity, a list, or `[]` for "no identity on this cloud" (nothing is granted to it there). With the block present, every principal the expose names must be mapped; an unmapped one is refused (`principal-unmapped`). Overlays are applied with `--env`; see [Per-environment overlays](../recipes/per-environment-overlays.md).
+A value is one identity, a list, or `[]` for "no identity on this cloud" (nothing is granted to it there). With the block present, each principal the expose names must be mapped; an unmapped one is refused (`principal-unmapped`). Overlays are applied with `--env`; see [Per-environment overlays](../recipes/per-environment-overlays.md).
 
 ### `fluid policy-apply` enforces nothing
 
@@ -305,13 +305,13 @@ exposes:
         auditRequired: true
 ```
 
-The two gates are separate. Cloud IAM (`accessPolicy`, column restrictions) governs principals that query the platform directly. `agentPolicy` governs callers of `fluid mcp output-port serve`, which checks the model and use case on every tool call. See [Agent Policy](./agent-policy.md).
+The two gates are separate. Cloud IAM (`accessPolicy`, column restrictions) governs principals that query the platform directly. `agentPolicy` governs callers of `fluid mcp output-port serve`, which checks the model and use case on each tool call that reaches the policy check. See [Agent Policy](./agent-policy.md).
 
 ## Audit trail
 
 No command writes a unified audit record across clouds, and nothing is shipped to BigQuery audit logs, CloudTrail or Snowflake `ACCESS_HISTORY` by forge-cli. What exists:
 
-- **Agent reads:** `fluid mcp output-port serve` writes a `data_access` event for every allow and deny decision to `~/.fluid/store/audit/` (or `FLUID_AUDIT_ROOT`), and can forward it to `FLUID_MCP_AUDIT_WEBHOOK_URL`. The record is shown on [Agent Policy](./agent-policy.md#audit-event-schema).
+- **Agent reads:** `fluid mcp output-port serve` writes a `data_access` event for each allow and deny decision it reaches to `~/.fluid/store/audit/` (or `FLUID_AUDIT_ROOT`; a failed audit write is logged at debug level and does not stop the call), and can forward it to `FLUID_MCP_AUDIT_WEBHOOK_URL`. The record is shown on [Agent Policy](./agent-policy.md#audit-event-schema).
 - **Applies:** `fluid apply` emits structured log events; an apply through OpenTofu (aws, gcp, snowflake) sends OpenLineage run events when `OPENLINEAGE_URL` is set; and since 0.17.0 reports each run to a Command Center deployment when the publish config is present (`FLUID_COMMAND_CENTER_ENABLED=false` turns it off).
 - **Platform logs:** the reads themselves land in each cloud's own audit log as usual, under the identities that made them.
 
