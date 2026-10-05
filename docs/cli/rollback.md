@@ -1,8 +1,25 @@
 # `fluid rollback`
 
-Restore a data product from the auto-snapshot taken before a destructive `fluid apply --mode replace` / `replace-and-build`. This is the "how do I undo this?" answer after a bad destructive deploy.
+Restore a table from a snapshot recorded in `.fluid/rollback-state.json`. The intended use is the "how do I undo this?" step after a destructive `fluid apply --mode replace` or `replace-and-build`.
 
 Added in `0.8.0`.
+
+::: warning Check that a snapshot exists before you rely on this (as of 0.18.1)
+`fluid rollback` restores from a state file. It does not create backups. `fluid apply` records a snapshot in that file only on its native apply engine, and in 0.18.1 contracts bound to the following providers do not use it:
+
+- **`aws`, `gcp`, `snowflake` and `confluent` bindings** apply through OpenTofu, which has no snapshot step. The data-loss gate says so before it lets you proceed:
+
+  ```text
+  ❌ apply_mode_data_loss_blocked  [ERR_APPLY_MODE_DATA_LOSS_BLOCKED]
+    mode: replace
+    env: prod
+    reason: --mode replace is destructive (env='prod'; target row count unknown (treating as populated)). Pass --allow-data-loss to confirm the drop. NO SNAPSHOT WILL BE TAKEN: this contract applies through the OpenTofu engine, which has no CTAS/CLONE step, so no <target>__backup_<ts> table is created and `fluid rollback` will have no restore point. Back the target up yourself before proceeding.
+  ```
+
+- **`local` bindings** apply natively, but `fluid apply --mode replace --allow-data-loss` on a `local` contract wrote no `.fluid/rollback-state.json` in a 0.18.1 test, although the gate's own message for `local` says the table "will be snapshotted".
+
+Back up the target yourself before a destructive apply on any of these. The rest of this page describes what `fluid rollback` does when a state file is present.
+:::
 
 ## Syntax
 
@@ -14,132 +31,182 @@ fluid rollback --env ENV --product PRODUCT_ID [--snapshot NAME] [--dry-run] [--y
 fluid rollback --list [--env ENV] [--product PRODUCT_ID]
 ```
 
-## Key options
+## Options
 
 ### Restore mode
 
 | Option | Description |
 | --- | --- |
-| `--env` | Environment the product was applied to (`dev` / `staging` / `prod` / …). Required for restore. |
-| `--product` | Product ID from the contract (matches the `id` field). Required for restore. |
-| `--snapshot` | Specific snapshot name to restore. Default: the most recent snapshot matching `--env` + `--product`. |
-| `--state-file` | Path to the rollback state file. Default `.fluid/rollback-state.json` relative to CWD. |
-| `--dry-run` | Print the target snapshot + restore DDL without executing. Use before every production rollback. |
-| `--yes` | Confirm the destructive restore. Required when not `--dry-run`. |
+| `--env` | Environment the product was applied to, matched against the `env` recorded in each snapshot. Required for restore. |
+| `--product` | Product ID from the contract (its `id` field). Required for restore. |
+| `--snapshot` | Name of the snapshot to restore, as shown in the `backup_name` column of `--list`. Default: the first snapshot in the state file that matches `--env` and `--product`; see [Which snapshot is "latest"](#which-snapshot-is-latest). |
+| `--state-file` | Path to the rollback state file. Default `.fluid/rollback-state.json` relative to the current directory. |
+| `--dry-run` | Print the chosen snapshot and the restore statement without running it. |
+| `--yes` | Confirm the destructive restore. Required unless `--dry-run` is set. |
 
 ### Discovery mode
 
 | Option | Description |
 | --- | --- |
-| `--list` | List available snapshots from `.fluid/rollback-state.json` without performing any restore. Optionally narrow with `--env` and/or `--product`. Read-only; safe in any env. |
+| `--list` | List the snapshots in the state file and restore nothing. Narrow with `--env` and `--product`. Read-only. |
 
-## How snapshots are created
+## The state file
 
-Every time `fluid apply --mode replace*` runs, the pipeline auto-snapshots the target **before** the destructive DDL. The snapshot is recorded in `.fluid/rollback-state.json` (git-ignored by default):
+`.fluid/rollback-state.json` is a JSON object with a `version` and a list of `snapshots`. An entry that `fluid apply` records has this shape:
 
 ```json
 {
   "version": "1",
   "snapshots": [
     {
-      "timestamp": "2026-04-23T10:00:00Z",
+      "backup_name": "BACKUP_SUBSCRIBER360_1790600000",
+      "captured_at": "2026-09-28T12:53:20Z",
       "env": "prod",
       "product_id": "silver.telco.subscriber360_v1",
-      "backup_name": "backup_silver_telco_subscriber360_v1_1714000000",
       "provider": "snowflake",
-      "mode": "replace",
-      "location": {"database": "TELCO_LAB", "schema": "TELCO_FLUID_DEMO"}
+      "location": {
+        "database": "TELCO_LAB",
+        "schema": "BRONZE",
+        "table": "SUBSCRIBER360",
+        "backup_table": "BACKUP_SUBSCRIBER360_1790600000"
+      },
+      "ddl": [
+        "CREATE OR REPLACE TABLE TELCO_LAB.BRONZE.SUBSCRIBER360 CLONE TELCO_LAB.BRONZE.BACKUP_SUBSCRIBER360_1790600000"
+      ]
     }
   ]
 }
 ```
 
-Per-provider snapshot technique. Snowflake clones are **table-level**, not database-level — the snapshot's `ddl[]` array is the source of truth, and limiting clones to the tables actually being changed avoids overwriting unrelated tables in the same database during restore.
+When `fluid apply` appends a snapshot it keeps the 20 most recent per environment and product by default and drops the older entries. It also tries to delete the backup tables of the entries it drops, and logs a warning instead of failing the apply when that cleanup does not work. Set `FLUID_ROLLBACK_KEEP_LAST_N` to change the cap.
 
-| Provider | Snapshot | Restore |
+The `ddl` array is stored for the record and never executed. `fluid rollback` rebuilds the restore statement from `location` after checking that each part is a valid identifier. A state file is plain data that teams commit and review in pull requests, so a crafted `ddl` entry cannot make a restore run arbitrary SQL, and a `location` value with a space, quote or semicolon is rejected.
+
+### Per-provider restore
+
+The `provider` recorded in a snapshot picks the restore:
+
+| `provider` | Restore statement | Notes |
 | --- | --- | --- |
-| **Snowflake** | `CREATE OR REPLACE TABLE <db>.<sch>.<tbl>__backup CLONE <db>.<sch>.<tbl>` (per-table, zero-copy) | `CREATE OR REPLACE TABLE <db>.<sch>.<tbl> CLONE <db>.<sch>.<tbl>__backup` |
-| **BigQuery** | `bq cp --force <src> <backup>` per table | `bq cp --force <backup> <src>` per table |
-| **Redshift** | `CREATE TABLE <backup> AS SELECT * FROM <src>` (slow but correct) | `TRUNCATE <src>; INSERT INTO <src> SELECT * FROM <backup>` in a transaction |
+| `snowflake` | `CREATE OR REPLACE TABLE <db>.<schema>.<table> CLONE <db>.<schema>.<backup_table>` | A zero-copy table clone, one table per snapshot. Runs through the Snowflake provider, so the Snowflake driver must be installed. |
+| `gcp`, `bigquery` | ``CREATE OR REPLACE TABLE `<project>.<dataset>.<table>` AS SELECT * FROM `<project>.<dataset>.<backup_table>` `` | BigQuery has no clone, so the restore copies the backup. Runs with the BigQuery client library under your default credentials. `location.database` holds the project and `location.schema` the dataset. |
+| `redshift` | Not implemented | Fails with `rollback_redshift_not_implemented` and exit `2`. Restore by hand: `TRUNCATE` the live table and `INSERT INTO <live> SELECT * FROM <backup>` inside a transaction. |
+| `aws` | Not accepted | A snapshot with `provider: aws` fails with `rollback_unknown_provider`. It is deliberately not routed to the Redshift restorer. |
+
+Any other `provider` value fails the same way, and the error lists the supported ones.
+
+## Which snapshot is "latest"
+
+::: warning Known issue in 0.18.1: the default snapshot can be the oldest one
+`fluid apply` writes the snapshot time as `captured_at`. `fluid rollback` reads `timestamp` (and `mode`) to order snapshots and to fill the `timestamp` and `mode` columns of `--list`. A state file written by `fluid apply` has neither key, so `--list` shows `—` in those columns, and a restore without `--snapshot` picks the **first** matching entry in the file, which is the oldest.
+:::
+
+With two snapshots recorded for the same product, `--dry-run` selects the older one:
+
+```bash
+fluid rollback --env prod --product silver.telco.subscriber360_v1 --dry-run
+```
+
+```text
+[rollback] env=prod product=silver.telco.subscriber360_v1 provider=snowflake snapshot=BACKUP_SUBSCRIBER360_1790000000 timestamp=None dry-run=True
+[rollback] snowflake CLONE plan:
+    CREATE OR REPLACE TABLE TELCO_LAB.BRONZE.SUBSCRIBER360 CLONE TELCO_LAB.BRONZE.BACKUP_SUBSCRIBER360_1790000000;
+[rollback] ✔ dry-run complete; no state mutated.
+```
+
+`BACKUP_SUBSCRIBER360_1790000000` is the earlier of the two. Until this is fixed, name the snapshot you want with `--snapshot`. `--list` prints newest first (the file is appended in time order and the list reverses it), so the first row is the most recent. The number at the end of a backup name is a Unix timestamp, which gives a second check.
 
 ## Examples
 
 ### Discovery before a restore
 
-Always check what's available first — `--list` is read-only:
+`--list` reads the state file and never touches a provider:
 
 ```bash
-# All recorded snapshots, newest first
 fluid rollback --list
-
-# Narrow by environment
-fluid rollback --list --env prod
-
-# Narrow by product
-fluid rollback --list --product silver.telco.subscriber360_v1
-
-# Both filters
-fluid rollback --list --env prod --product silver.telco.subscriber360_v1
 ```
 
-Sample output:
-
-```
+```text
   #  timestamp                   env       mode                  product_id                                  backup_name
------------------------------------------------------------------------------------------------------
-  1  2026-04-23T10:00:00Z        prod      replace-and-build     silver.telco.subscriber360_v1              backup_silver_telco_subscriber360_v1_1714001000
-  2  2026-04-20T10:00:00Z        dev       replace               silver.telco.subscriber360_v1              backup_silver_telco_subscriber360_v1_1713000000
+------------------------------------------------------------------------------------------------------------------------
+  1  —                           prod      —                     silver.telco.subscriber360_v1               BACKUP_SUBSCRIBER360_1790600000
+  2  —                           prod      —                     silver.telco.subscriber360_v1               BACKUP_SUBSCRIBER360_1790000000
 
-[rollback] 2 snapshot(s). Restore with:
-fluid rollback --env <ENV> --product <ID> --snapshot <BACKUP_NAME> --yes
+[rollback] 2 snapshot(s). Restore with: fluid rollback --env <ENV> --product <ID> --snapshot <BACKUP_NAME> --yes
 ```
 
-### Dry-run preview (SAFE — no state mutation)
+Narrow it:
+
+```bash
+fluid rollback --list --env prod
+fluid rollback --list --product silver.telco.subscriber360_v1
+```
+
+`--list` exits `0` when the state file does not exist. A workspace with no snapshots is not a failure.
+
+### Preview a restore
+
+`--dry-run` prints the statement without running it, and needs no database credentials:
+
+```bash
+fluid rollback --env prod --product silver.sales.orders_v1 --state-file multi.json --dry-run
+```
+
+```text
+[rollback] env=prod product=silver.sales.orders_v1 provider=gcp snapshot=BACKUP_orders_1790000000 timestamp=None dry-run=True
+[rollback] bigquery CTAS restore plan:
+    CREATE OR REPLACE TABLE `demo-proj.sales.orders` AS SELECT * FROM `demo-proj.sales.BACKUP_orders_1790000000`;
+[rollback] ✔ dry-run complete; no state mutated.
+```
+
+Run a dry run before every restore on a production environment, and read the statement it prints.
+
+### Restore a named snapshot
 
 ```bash
 fluid rollback \
   --env prod \
   --product silver.telco.subscriber360_v1 \
-  --dry-run
-```
-
-Prints the exact DDL that would run, the chosen snapshot, and the timestamp. Use this before every production rollback.
-
-### Restore the latest snapshot
-
-```bash
-fluid rollback \
-  --env prod \
-  --product silver.telco.subscriber360_v1 \
+  --snapshot BACKUP_SUBSCRIBER360_1790600000 \
   --yes
 ```
 
-`--yes` is **required** unless `--dry-run` is also set. Rollback is destructive (it overwrites the current state with the snapshot).
+Copy the `backup_name` from `fluid rollback --list`. Without `--yes` and without `--dry-run`, the command refuses and exits `2`:
 
-### Restore a specific named snapshot
-
-Useful when the "latest snapshot" isn't what you want (e.g. you want to roll back two deploys, not one):
-
-```bash
-fluid rollback \
-  --env prod \
-  --product silver.telco.subscriber360_v1 \
-  --snapshot backup_silver_telco_subscriber360_v1_1713000000 \
-  --yes
+```text
+CLI command error
+❌ rollback_confirmation_required  [ERR_ROLLBACK_CONFIRMATION_REQUIRED]
+  hint: rollback is destructive (overwrites the current product state). Re-run with --yes to confirm, or --dry-run to preview the plan.
 ```
 
-Copy the `backup_name` from `fluid rollback --list` output.
+### When the snapshot does not exist
+
+A `--snapshot` that matches nothing for that `--env` and `--product` lists the names that do:
+
+```text
+❌ rollback_snapshot_name_not_found  [ERR_ROLLBACK_SNAPSHOT_NAME_NOT_FOUND]
+  name: nope
+  env: prod
+  product_id: silver.telco.subscriber360_v1
+  available: ['BACKUP_SUBSCRIBER360_1790000000', 'BACKUP_SUBSCRIBER360_1790600000']
+```
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | A restore, a dry run or a listing finished. |
+| `2` | The command refused or failed: missing `--env` or `--product`, no `--yes`, no state file, no matching snapshot, an unsupported or unimplemented provider, an identifier that fails validation, or the restore statement failed. |
 
 ## Safety properties
 
-- **Two-factor destructive gate**: `--yes` required unless `--dry-run`. Refuses to run otherwise with a clear error.
-- **SQL-injection hardened**: every identifier (database, backup name) flows through `validate_ident` + `quote_string_literal` from `providers/_sql_safety.py` before the CLONE / `bq cp` / CTAS DDL is composed. A malicious `--snapshot` value is rejected by the whitelist, not interpolated.
-- **Read-only discovery**: `--list` is guaranteed to not touch the provider. Regression-tested — a future change that accidentally dispatches to the provider restore path under `--list` breaks the CI.
-- **Idempotent**: restoring the same snapshot twice produces the same final state.
+- **A confirmation gate.** A restore without `--yes` and without `--dry-run` exits `2` and changes nothing.
+- **Restore statements are rebuilt, not replayed.** The statement comes from `location` after identifier validation, never from the stored `ddl`.
+- **One statement.** The restore runs the single statement `--dry-run` shows. It does not touch grants, policies or other resources.
+- **Read-only discovery.** `--list` returns before any provider call.
 
 ## Notes
 
-- `.fluid/rollback-state.json` is part of the product's operational history. Commit it to the product repo for an audit trail, or treat it as ephemeral and rely on warehouse-level snapshot retention instead.
-- `--list` exits 0 even when the state file doesn't exist (a fresh workspace has no snapshots — that's not a failure).
-- For providers that don't yet have a restore implementation (BigQuery and Redshift are limited), the CLI raises `rollback_not_implemented` with an actionable hint for the equivalent manual workflow.
-- Rollback is stage-8-agnostic: IAM bindings are not re-applied by rollback. If you need both the data AND the policy rolled back, chain `fluid rollback` with a re-run of `fluid policy apply` against the historical `bindings.json`.
+- `.fluid/rollback-state.json` is a record of destructive operations. Commit it to the product repository for an audit trail, or keep it local and rely on warehouse-level retention.
+- The snapshots themselves are tables in your warehouse (`BACKUP_<table>_<unix timestamp>`, in the table's own schema or dataset). The state file only records where they are, so deleting a backup table makes the matching entry unusable.
+- For how destructive modes and the data-loss gate work, see [`fluid apply`](./apply.md) and [Production troubleshooting](../advanced/production-troubleshooting.md#apply-data-loss-gate).
