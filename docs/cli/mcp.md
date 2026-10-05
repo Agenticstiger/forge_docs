@@ -152,7 +152,7 @@ With several exposes and no `--expose-id`, the check fails with `Contract has 2 
 fluid mcp output-port serve <contract> [options]
 ```
 
-The only positional argument is the **path to a FLUID contract YAML**: a flat contract, or the root file of a contract composed with [`$ref`](../concepts/contract-refs.md), whose references are resolved. An individual fragment file is not a contract: `fluid mcp output-port list fragments/exposes/<id>.yaml` printed `No exposes in ...` and exited `0`.
+The only positional argument is the **path to a FLUID contract YAML**: a flat contract, or the root file of a contract composed with [`$ref`](../concepts/contract-refs.md), whose references are resolved (see [fragment-first contracts](../advanced/mcp.md#fragment-first-contracts) for the authoring tools that take a `contract_path`). An individual fragment file is not a contract: `fluid mcp output-port list fragments/exposes/<id>.yaml` printed `No exposes in ...` and exited `0`.
 
 ```bash
 # Minimal — one expose in the contract, stdio transport, read-only.
@@ -263,7 +263,7 @@ The output port reads `exposes[].policy.rowFilters` and applies it to `sample` a
 exposes[0].policy: Additional properties are not allowed ('rowFilters' was unexpected)
 ```
 
-This was measured against schema 0.7.5 and the 0.7.6 preview. The MCP server loads the contract without schema validation, so a contract that declares `rowFilters` can be served while it cannot be validated or deployed. Until the schema declares the key, do not rely on `rowFilters` in a contract you also validate. Other `agentPolicy` and `policy` fields are not affected.
+This was measured against schema 0.7.5 and the 0.7.6 preview. The MCP server loads the contract without schema validation, so a contract that declares `rowFilters` can be served while it cannot be validated or deployed. Until the schema declares the key, do not rely on `rowFilters` in a contract you also validate. Other `agentPolicy` and `policy` fields are not affected. The [Advanced MCP server guide](../advanced/mcp.md#row-level-security-—-policy-rowfilters) describes how each filter compiles.
 :::
 
 ### Wire it to a client

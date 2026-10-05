@@ -64,7 +64,7 @@ The sweep deletes, by file modification time, every file older than the horizon 
 | `<state-root>/lineage/` | `lineage` | 365 days |
 | `<state-root>/dlq/` | `dlq` | 180 days |
 
-Nothing else in the state root is touched. A directory that does not exist is skipped. A file the sweep cannot delete is logged as a warning and skipped.
+Nothing else in the state root is touched. The contract's own `retention:` block is described under [Top-level retention](../advanced/source-aligned-acquisition.md#top-level-retention), and the [source-aligned walkthrough](../walkthrough/source-aligned-postgres-duckdb.md#retention-in-0-18-1) shows the sweep run against a real state root. A directory that does not exist is skipped. A file the sweep cannot delete is logged as a warning and skipped.
 
 ## Output shape
 

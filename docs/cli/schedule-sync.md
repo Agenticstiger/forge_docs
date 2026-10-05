@@ -42,7 +42,7 @@ Stage 3 writes `<out>/schedule/<product-id>[__<env>]/<build-id>_dag.py`: one dir
 | Directory | `<product-id>__<env>/` | `<product-id>/` |
 | Airflow `dag_id` | `<product>__<env>__<build>` | `<product>__<build>` |
 
-Airflow keys run history on the `dag_id`, so a DAG that moves to an environment-bound id starts a new history.
+Airflow keys run history on the `dag_id`, so a DAG that moves to an environment-bound id starts a new history. [Stage 11 of the pipeline walkthrough](../walkthrough/11-stage-pipeline.md#stage-11-schedule-sync) runs this step in a generated pipeline.
 
 ## Options
 

@@ -49,7 +49,7 @@ No registry configured; showing bundled blueprints. Set FLUID_API_URL or FLUID_P
 `--blueprint-id <id>` shows one blueprint's parameters. `--instantiate` renders it:
 
 - It needs `--params` or `--interactive`. With neither, it prints `No parameters provided. Use --params or --interactive.` and exits `1`.
-- A bundled blueprint renders locally. Any other id is fetched from the blueprint registry, so without a registry it fails with `no_blueprint_marketplace`.
+- A bundled blueprint renders locally. Any other id is fetched from the blueprint registry, which `FLUID_API_URL` or `FLUID_PUBLIC_REGISTRY` names, so without a registry it fails with `no_blueprint_marketplace`. The bundled ids are listed in [Blueprints](../advanced/blueprints.md#the-bundled-blueprints).
 - The contract is printed to the console. It is written to a file only with `-O`/`--output`, and that file is JSON whatever its extension is. JSON is valid YAML, so `fluid validate` reads it.
 - The `fluid.starter` blueprint renders a contract with `fluidVersion: 0.7.4`.
 

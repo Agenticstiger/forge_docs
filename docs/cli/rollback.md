@@ -7,7 +7,7 @@ Added in `0.8.0`.
 ::: warning Check that a snapshot exists before you rely on this (as of 0.18.1)
 `fluid rollback` restores from a state file. It does not create backups. `fluid apply` records a snapshot in that file only on its native apply engine, and in 0.18.1 contracts bound to the following providers do not use it:
 
-- **`aws`, `gcp`, `snowflake` and `confluent` bindings** apply through OpenTofu, which has no snapshot step. The data-loss gate says so before it lets you proceed:
+- **`aws`, `gcp`, `snowflake` and `confluent` bindings** apply through OpenTofu, which has no snapshot step. The data-loss gate ([the mode gate](./apply.md#the-mode-gate) on the `apply` page) says so before it lets you proceed:
 
   ```text
   ❌ apply_mode_data_loss_blocked  [ERR_APPLY_MODE_DATA_LOSS_BLOCKED]

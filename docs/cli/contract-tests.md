@@ -70,7 +70,7 @@ The command does not classify a change as breaking or safe. A widening such as `
 fluid contract-tests contract.fluid.yaml --write-baseline baseline.schema.json
 ```
 
-`--write-baseline` overwrites an existing file without asking.
+`--write-baseline` overwrites an existing file without asking. As of 0.18.1 it does not create parent directories: `--write-baseline nodir/b.json` fails with `contract_tests_failed` (`No such file or directory`) and exit `1` when `nodir/` does not exist. [The contract-test baseline](../walkthrough/universal-pipeline.md#the-contract-test-baseline) shows the step in a full pipeline.
 
 The contract is loaded the way `fluid plan` loads it, with `$ref` fragments and the `--env` overlay applied. A column moved into a fragment is still compared. The baseline file is JSON with one key, `signature`, whose value is a string. Treat it as an artifact the CLI writes; edit nothing by hand.
 

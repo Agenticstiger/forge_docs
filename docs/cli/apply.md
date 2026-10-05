@@ -16,7 +16,7 @@ fluid apply [CONTRACT] [--env ENV] [--mode MODE] [--yes] [options]
 
 `CONTRACT` can be:
 
-- A FLUID contract file (e.g. `contract.fluid.yaml`) — plans and applies in one shot. When omitted, `apply` uses `contract.fluid.yaml` in the current directory.
+- A FLUID contract file (e.g. `contract.fluid.yaml`) — plans and applies in one shot. When omitted, `apply` uses `contract.fluid.yaml` in the current directory. The file may be the root of a [fragment layout](../concepts/contract-refs.md): its `$ref` pointers are resolved before the contract is planned.
 - A saved plan JSON file (e.g. `runtime/plan.json`) — applies the already-planned actions, with digest verification. See [Plan binding](#plan-binding).
 - A bundle (`.tgz`) written by [`fluid bundle`](./bundle.md). A bundle carries its overlay already applied, so it is never re-overlaid: an `--env` that disagrees with the env the bundle was built for is refused with `bundle_env_mismatch`.
 
@@ -66,7 +66,7 @@ Total builds: 1
 ⏭️  Skipped: 0
 ```
 
-A build that reads another product's expose through `consumes[]` is covered in [Consume one contract from another](../recipes/consumes-contract-to-contract.md). This run was against the `customer-360` project from `fluid init --quickstart` on the `local` provider. If you plan without `--mode` and apply with `--mode amend-and-build`, apply stops before any build:
+A build that reads another product's expose through `consumes[]` is covered in [Consume one contract from another](../recipes/consumes-contract-to-contract.md). To land the result of an embedded-SQL build in BigQuery, see [Loading data](../providers/gcp.md#loading-data). This run was against the `customer-360` project from `fluid init --quickstart` on the `local` provider. If you plan without `--mode` and apply with `--mode amend-and-build`, apply stops before any build:
 
 ```text
 ❌ apply_plan_mode_mismatch  [ERR_APPLY_PLAN_MODE_MISMATCH]
@@ -212,7 +212,7 @@ Relative local paths in a contract (`binding.location.path` on the `local` provi
 | --- | --- |
 | `--allow-data-loss` | Required to run `replace` / `replace-and-build`, and to apply an OpenTofu plan that destroys data-bearing resources. |
 | `--no-verify-plan-binding` | **Emergency escape hatch.** Skip the `bundleDigest` / `planDigest` verification that stage 7 normally enforces on a saved plan. Logged at `WARNING` so audit trails catch it. Use only during documented DR procedures. |
-| `--no-verify-federation` | Skip the federated-`consumes[]` upstream-digest check. Logged at `WARNING`. Unlike plan binding, this check only warns, so the flag removes a warning, not a refusal. See [Federated upstream check](#federated-upstream-check). |
+| `--no-verify-federation` | Skip the federated-`consumes[]` upstream-digest check. Logged at `WARNING`. Unlike plan binding, this check only warns (`apply_consumes_drift`, exit code unchanged), so the flag silences a warning and does not remove a refusal. The digest a downstream product pins comes from [`fluid contract digest`](./contract.md#fluid-contract-digest), which covers only the upstream's root file for a fragment-layout product. See [Federated upstream check](#federated-upstream-check) and [Consume one contract from another](../recipes/consumes-contract-to-contract.md). |
 | `--adopt-shared-container` | *(since 0.13.0)* Confirm taking **ownership** of a container this contract previously referenced as a shared pool (`packaging` `shared` → `isolated`). Emits a structured `packaging_adoption_override` audit event; the data-loss gate still applies. See [Packaging modes](#packaging-modes). |
 
 Since `0.13.1`, the structured override events these gates emit — `opentofu_destructive_gate_override` (`--allow-data-loss`) and `packaging_adoption_override` (`--adopt-shared-container`) — log at `WARNING`, so audit pipelines filtering at WARNING-and-above catch them. On `0.13.0` and earlier they logged at `INFO`; event names and payloads are unchanged.
@@ -247,7 +247,7 @@ Removing a resource that only grants access is a revocation, not a loss, and pas
 - `google_data_catalog_policy_tag_iam_member`, `google_data_catalog_policy_tag`, `google_data_catalog_taxonomy`
 - `aws_lakeformation_permissions`
 
-A Cloud KMS key's IAM grant is not exempt: without it BigQuery cannot decrypt the table. If the plan's per-resource events do not account for every removal in its summary (an older `tofu`, a truncated stream), the gate counts every removal.
+A Cloud KMS key's IAM grant is not exempt: without it BigQuery cannot decrypt the table. Any removal of a type not in the list counts, so removing a bucket's lifecycle or server-side-encryption configuration, or a product's KMS key, needs `--allow-data-loss` even though no object is deleted. See [AWS](../providers/aws.md). If the plan's per-resource events do not account for every removal in its summary (an older `tofu`, a truncated stream), the gate counts every removal.
 
 Some governance changes cannot be made to a live BigQuery table in place and plan its replacement, which this gate refuses without the flag: adding retention (`expire: true`) to a table that exists, adding or changing its Cloud KMS key, and removing `expire`. Roll these out as: plan, review the replacement, apply with `--allow-data-loss`, then run the build again to land the data. See [GCP](../providers/gcp.md).
 
@@ -277,7 +277,7 @@ fluid apply contract.fluid.yaml --yes
   state:       remote: s3://acme-fluid-state/fluid/analytics.web.pageviews/aws/terraform.tfstate (from FLUID_STATE_BACKEND)
 ```
 
-`--state-backend` takes `s3://<bucket>/<key>` or `gcs://<bucket>/<prefix>`. Its default is `$FLUID_STATE_BACKEND`, else local state. `--state-backend ""` forces local state when the environment sets the variable. The `state:` line names the object the run uses and where the spec came from.
+`--state-backend` takes `s3://<bucket>/<key>` or `gcs://<bucket>/<prefix>`. Its default is `$FLUID_STATE_BACKEND`, else local state. `--state-backend ""` forces local state when the environment sets the variable. The `state:` line names the object the run uses and where the spec came from. When an apply or a drift check fails on state or region, [State and region errors](../advanced/production-troubleshooting.md#state-and-region-errors) lists the causes.
 
 ### Which key a bucket-only spec gets
 
@@ -337,7 +337,7 @@ It sends no secret: no request header from your environment, no environment valu
 
 The Command Center's host check refuses private and cloud-metadata addresses unless `FLUID_COMMAND_CENTER_HOST_ALLOWLIST` names the host; loopback is allowed.
 
-**Switch it off** with `FLUID_COMMAND_CENTER_ENABLED=false`; the apply then prints `command center: run not reported (FLUID_COMMAND_CENTER_ENABLED is off)` when a Command Center is configured. The [environment variables](../advanced/environment-variables.md#fluid-command-center) page lists the other settings.
+**Switch it off** with `FLUID_COMMAND_CENTER_ENABLED=false`; the apply then prints `command center: run not reported (FLUID_COMMAND_CENTER_ENABLED is off)` when a Command Center is configured. The [environment variables](../advanced/environment-variables.md#command-center) page lists the other settings.
 
 ## Federated upstream check
 
@@ -350,9 +350,11 @@ apply_consumes_drift: 1 federated consumes[] entry could not be confirmed in syn
   consumes[0] partner-mesh/bronze.sales.raw_orders_v1 [unknown-workspace]: Federated workspace 'partner-mesh' not declared in federation/upstreams.yaml. Add it to the manifest before referencing in consumes[].
 ```
 
-The `violation_kind` is `drift`, `unreachable`, `unpinned`, `unknown-workspace` or `not-wired`. A pipeline that wants a hard stop greps the log for `apply_consumes_drift`. If the check itself fails, the log carries `federation_gate_error` and the pins were not verified for that apply. Each `git` operation the fetch runs is bounded by `FLUID_FEDERATION_TIMEOUT_SECONDS` (default 30). `--no-verify-federation` skips the check and logs one warning that it was skipped.
+The `violation_kind` is `drift`, `unreachable`, `unpinned`, `unknown-workspace` or `not-wired`. A pipeline that wants a hard stop greps the log for `apply_consumes_drift`. If the check itself fails, the log carries `federation_gate_error` and the pins were not verified for that apply. Each `git` operation the fetch runs is bounded by `FLUID_FEDERATION_TIMEOUT_SECONDS` (default 30). `--no-verify-federation` skips the check and logs one warning that it was skipped. A pipeline that wants the warning counted reads [the federation check warns](../advanced/operating-in-ci.md#the-federation-check-warns).
 
 As of 0.18.1 this check runs on the native engine only. An apply on the OpenTofu engine (`aws`, `gcp`, `snowflake`, `confluent`) does not run it, so it prints no `apply_consumes_drift` line even when a pin does not match.
+
+It also does not run under `--mode amend-and-build` or `--mode replace-and-build`. The same contract that printed `apply_consumes_drift` under `--mode amend` applied under `--mode amend-and-build` and `--mode replace-and-build` with no such line (`local` provider, measured on 0.18.1). Use `--mode amend` in a stage that is meant to check the pin.
 
 ## Packaging modes
 

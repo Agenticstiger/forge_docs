@@ -120,7 +120,7 @@ Each such build gets its own DAG that runs `fluid apply`, unless the contract ha
 
 ### Layout and naming
 
-- File: `schedule/<product-id>[__<env>]/<build-id>_dag.py`. One directory per product and env, so a sync to a shared DAG root deletes only that product's files. The `__<env>` suffix is present when an env is set, from `--env` or `$FLUID_ENV`.
+- File: `schedule/<product-id>[__<env>]/<build-id>_dag.py`. One directory per product and env, so a sync to a shared DAG root deletes only that product's files (see the [DAG layout](./schedule-sync.md#dag-layout) on the `schedule-sync` page). The `__<env>` suffix is present when an env is set, from `--env` or `$FLUID_ENV`.
 - DAG id: `<product>__<env>__<build>` with an env, `<product>__<build>` without.
 - The DAG is hashed into `MANIFEST.json`, and a rerun of stage 3 replaces it.
 - Upgrading from 0.16.7 or earlier: those versions wrote `schedule/<product-id>/` with DAG id `<product>__<build>`. The first [`fluid schedule-sync`](./schedule-sync.md) after the upgrade has to retire the old DAG of each env, or the old and the new DAG both run and both apply the same product against the same state.

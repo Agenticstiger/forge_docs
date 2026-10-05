@@ -106,7 +106,7 @@ Each contract declares its own `fluidVersion`, and `fluid validate` checks it ag
 | `--quickstart --provider gcp\|snowflake`, `--blueprint` (`fluid.starter`, `fluid.analytics-daily`) | `0.7.4` |
 | `--template` with a code template (`analytics`, `etl_pipeline`, `ml_pipeline`, `starter`, `streaming`), `--discover` | `0.7.3` |
 
-A blueprint writes the version its own file declares. [`fluid product-new`](./product-new.md) and [`fluid import`](./import.md) also write `0.7.3`. To move a `0.7.3` or `0.7.4` contract to `0.7.5`, change the `fluidVersion` line and run [`fluid validate`](./validate.md). The fields each version adds are listed in the [contract concept page](../concepts/contract.md).
+A blueprint writes the version its own file declares. The GCP starter's placeholder project and missing region are described on the [GCP provider](../providers/gcp.md) page. [`fluid product-new`](./product-new.md) and [`fluid import`](./import.md) also write `0.7.3`. To move a `0.7.3` or `0.7.4` contract to `0.7.5`, change the `fluidVersion` line and run [`fluid validate`](./validate.md). The fields each version adds are listed in the [contract concept page](../concepts/contract.md).
 
 ## Templates
 
