@@ -108,6 +108,8 @@ Work through this before you upgrade a CI lane, not after.
     it has no expiry check, so a machine that already holds an entry keeps returning the `0.14.1`
     value. `--no-verify-federation` is the escape hatch while you work through them. `catalog` and
     `http_registry` upstreams are unaffected.
+    *Superseded in 0.16.0:* the gate warns (`apply_consumes_drift`) and no longer aborts; see
+    [the federated upstream check](./cli/apply.md#federated-upstream-check).
 12. **Update anything keyed on DataHub's dotted `customProperties`.** `fluid.layer` → `fluid_layer`,
     `fluid.productType` → `fluid_product_type`, `fluid.version` → `fluid_version`, plus a new
     `fluid_domain`. Structured properties keep their dotted `qualifiedName` — a different namespace,
@@ -663,6 +665,10 @@ those rows, or pass `--no-verify-federation` while you do. Two caveats. The per-
 `.fluid/federation/<workspace>.digest-cache.json` has no expiry check, so a machine already holding
 an entry keeps returning the `0.14.1` value until it is cleared. And only `git_registry` is affected
 — `catalog` and `http_registry` upstreams read a digest off the remote (#587).
+:::
+
+::: tip Superseded in 0.16.0
+The gate now warns with `apply_consumes_drift` and applies; it no longer exits 1. See [the federated upstream check](./cli/apply.md#federated-upstream-check).
 :::
 
 ### Fixed — a contract published to a default DataHub install was readable nowhere

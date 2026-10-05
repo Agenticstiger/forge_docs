@@ -216,7 +216,7 @@ What `fluid apply` and `fluid generate iac` write for each field on 0.18.1. Cell
 | `lifecycle {retention, expire: true}` (0.7.6) | S3 lifecycle rule on the binding's prefix | Daily partitions that expire `retention` after their day | Not read |
 | `binding.encryption.kms` (0.7.6) | SSE-KMS with a product key, an alias or an ARN | Cloud KMS key ring and key per dataset, 90-day rotation | Not read |
 
-`fluid verify` checks column restrictions, retention and encryption on the live platform for AWS and GCP. As of 0.18.1 it does not check dataset grants.
+`fluid verify` checks column restrictions, retention and encryption on the live platform for AWS and GCP. As of 0.18.1 it does not check dataset grants. Per-cloud detail: [GCP](../providers/gcp.md#column-restrictions-policy-tags), [AWS](../providers/aws.md#accesspolicy-on-aws) and [Snowflake](../providers/snowflake.md#snowflake-native-security). To tag columns and see masking land, follow [tag PII](../recipes/tag-pii.md).
 
 Since 0.17.0, GCP dataset grants are member resources rather than the dataset's authoritative `access` list, so a grant made outside the contract is no longer removed. The first `fluid apply` after upgrading, on a dataset whose state still holds the old list, revokes once the entries no member resource covers, and prints them.
 

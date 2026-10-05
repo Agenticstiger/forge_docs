@@ -247,7 +247,7 @@ That is also what keeps the sovereignty check and the placement of the resources
 
 ### Moving a contract between regions
 
-Before planning, `fluid apply` reads the regions its existing state records. If they differ from the pinned region, it stops. This is what a contract first applied from a shell in another region meets: without the guard, `tofu` would plan the resources as new in the pinned region, plan no destroy, and leave the originals unmanaged. `fluid diff` runs the same check.
+Before planning, `fluid apply` reads the regions its existing state records. If they differ from the pinned region, it stops. This is what a contract first applied from a shell in another region meets: without the guard, `tofu` would plan the resources as new in the pinned region, plan no destroy, and leave the originals unmanaged. `fluid diff` runs the same check. The guard is described in [`fluid apply`](../cli/apply.md#region-move-guard).
 
 ```text
 CLI command error
@@ -353,7 +353,7 @@ An embedded-SQL build (`engine: sql`) lands its result the same way when the fir
 
 Contract SQL on the DuckDB engine can read and write only the contract's own directory and the locations the contract declares. For S3 that means the declared `s3://` locations: an `s3://` URL in SQL that the contract does not declare is refused, and `http(s)://`, `gs://` and Azure URLs cannot be read from contract SQL at all. Land remote data with an acquisition build first. The rules are in [DuckDB sandbox for contract SQL](../advanced/duckdb-sandbox.md); `$ref` composition is confined the same way, see [Contract references](../concepts/contract-refs.md).
 
-For acquisition build properties, see [Source-aligned acquisition](../advanced/source-aligned-acquisition.md).
+For acquisition build properties, see [Source-aligned acquisition](../advanced/source-aligned-acquisition.md); the same landing rules are in [where the build lands data](../advanced/source-aligned-acquisition.md#where-the-build-lands-data).
 
 ## Credentials setup
 
@@ -664,7 +664,7 @@ exposes:
 
 The build is refused, before any rows move, for `k_anonymity` (a property of a whole table, not of one value), for parameters the strategy does not take, for a literal `salt` or `key` in `params`, for an unset or too-short secret, and for a column whose declared type is not a string, because a treated column always lands as a string. Set the secret in the environment that runs the build, never in the contract. Quality gates run on the source values, before the rewrite.
 
-`fluid verify` fails (CRITICAL) a masked column whose landed values lack the strategy's shape, so a table that declares masking but holds cleartext in that column, loaded by a `python` build or by hand, fails the check. See [Verify on AWS](#verify-on-aws). For the strategies in full, see [Source-aligned acquisition](../advanced/source-aligned-acquisition.md) and [tag PII](../recipes/tag-pii.md).
+`fluid verify` fails (CRITICAL) a masked column whose landed values lack the strategy's shape, so a table that declares masking but holds cleartext in that column, loaded by a `python` build or by hand, fails the check. See [Verify on AWS](#verify-on-aws). For the strategies in full, see [masking at landing](../advanced/source-aligned-acquisition.md#masking-at-landing) and [tag PII](../recipes/tag-pii.md). What the platform enforces across clouds is on [Governance](../advanced/governance.md#what-the-platform-enforces).
 
 ### Encryption at rest and retention
 

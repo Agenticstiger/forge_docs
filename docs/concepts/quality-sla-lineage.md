@@ -1,6 +1,6 @@
 ---
 title: Quality, SLAs & Lineage
-description: Block bad deploys before they happen. dq.rules, qos, and auto-derived lineage.
+description: Declare data quality rules, SLA targets and lineage in the contract, and run the rules with fluid test.
 ---
 
 # Quality, SLAs & Lineage
@@ -52,6 +52,8 @@ Each rule needs `id`, `type` and `severity` to validate, and a `selector` to run
 | `freshness` | The newest value of the `selector` timestamp is no older than `window` |
 | `anomaly_detection` | Row count (`selector: "*"`) against `threshold` and `operator` |
 | `schema`, `drift_detection` | Not implemented. The schema accepts them, and `fluid test` reports each as a failed rule at its declared severity, saying the gate is not enforced |
+
+`fluid apply` does not evaluate `dq.rules`, so a failing rule does not stop a deploy; `fluid test` is the gate. A step-by-step example, including the exit codes, is in [Add a quality rule](../recipes/add-a-quality-rule.md).
 
 ## SLAs — `qos`
 

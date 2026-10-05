@@ -215,7 +215,7 @@ Contract types are written as BigQuery types:
 | `datetime` | `DATETIME` |
 | `date`, `time`, `json`, `bytes` (`blob`) | `DATE`, `TIME`, `JSON`, `BYTES` |
 
-A bare `array` is written as `ARRAY`, which is not a BigQuery column type; declare a typed column or a JSON column instead. `fluid verify` treats BigQuery's legacy names (`INTEGER`, `FLOAT`, `BOOLEAN`, `RECORD`) as equal to `INT64`, `FLOAT64`, `BOOL` and `STRUCT`.
+A bare `array` is written as `ARRAY`, which is not a BigQuery column type; declare a typed column or a JSON column instead. `fluid verify` treats BigQuery's legacy names (`INTEGER`, `FLOAT`, `BOOLEAN`, `RECORD`) as equal to `INT64`, `FLOAT64`, `BOOL` and `STRUCT`; see [`fluid verify`](../cli/verify.md#bigquery).
 
 ### Not emitted
 
@@ -438,7 +438,7 @@ exposes:
           type: STRING
 ```
 
-Refused before any work runs: more than one stream, a sink format other than `parquet`, a source mode other than `full_refresh` or `incremental_append`, and an install without the `gcp` extra (`loading into BigQuery needs the gcp extra: pip install 'data-product-forge[gcp]'`). Masking in `policy.privacy.masking` is applied before the file is staged. See [source-aligned acquisition](../advanced/source-aligned-acquisition.md).
+Refused before any work runs: more than one stream, a sink format other than `parquet`, a source mode other than `full_refresh` or `incremental_append`, and an install without the `gcp` extra (`loading into BigQuery needs the gcp extra: pip install 'data-product-forge[gcp]'`). Masking in `policy.privacy.masking` is applied before the file is staged. See [source-aligned acquisition](../advanced/source-aligned-acquisition.md#masking-at-landing). A downstream product that reads this table through `consumes[]` is shown in [the same chain on S3 and BigQuery](../recipes/consumes-contract-to-contract.md#the-same-chain-on-s3-and-bigquery).
 
 ### Load location and emulators
 
@@ -510,7 +510,7 @@ Map such a logical principal to a real identity in [`binding.principals`](#logic
 
 Before 0.17.0 the grants were the dataset's authoritative `access` list. The first `fluid apply` on a dataset whose state still holds that list sets `access`, for that one apply, to the list minus the entries no member resource covers, which revokes them; the apply prints the dataset and the revoked entries. Entries added to the dataset by hand since the last apply are removed too, as the old module removed them. Special groups, views and routines are kept. `fluid diff` shows the same change, so run it first to preview the revocation. A dataset whose every entry would be revoked is refused, naming the entries to revoke by hand. Later applies leave `access` alone.
 
-Revoking a grant deletes no data, so it applies without `--allow-data-loss`.
+Revoking a grant deletes no data, so it applies without `--allow-data-loss`; the [OpenTofu data-loss gate](../cli/apply.md#opentofu-data-loss-gate) lists what that flag does cover. The role table is also in [`fluid generate iac`](../cli/generate-iac.md#access-grants-on-gcp-0-17-0). For the AWS side of the same fields, see [`accessPolicy` on AWS](./aws.md#accesspolicy-on-aws).
 
 #### `metadata.policies` is deprecated
 
@@ -586,7 +586,7 @@ User has neither fine-grained reader nor masked get permission to get data prote
 Two kinds of masking exist, and only one is applied on GCP:
 
 - **Masking at landing (applied).** A DuckDB acquisition build applies `policy.privacy.masking` while it writes the staged Parquet file, so BigQuery receives treated values. Since 0.17.0, `fluid verify` fails (CRITICAL) a masked BigQuery column whose values lack the strategy's shape.
-- **BigQuery dynamic data masking (not emitted).** No BigQuery data policy is created, so a reader with table access sees the stored value. Use [column restrictions](#column-restrictions-policy-tags) to keep a column from a principal.
+- **BigQuery dynamic data masking (not emitted).** No BigQuery data policy is created, so a reader with table access sees the stored value. Use [column restrictions](#column-restrictions-policy-tags) to keep a column from a principal. The AWS side is [masking at landing](./aws.md#masking-at-landing); what the platform enforces overall is on [Governance](../advanced/governance.md#what-the-platform-enforces).
 
 ```yaml
 policy:

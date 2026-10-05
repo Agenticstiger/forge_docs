@@ -114,7 +114,7 @@ On the local provider a plain `fluid apply` runs the build's SQL; no `--mode ame
 |---|---|
 | `name` | The view name the SQL uses (`customers_raw` above) |
 | `path` | The file; a glob such as `data/sales_*.csv` works |
-| `format` | `csv`, `parquet` or `json` |
+| `format` | `csv`, `parquet` or `json`. Read by a plain `fluid apply`; `--mode amend-and-build` picks the reader from the file extension and ignores it |
 | `schema` | Optional column types for the view |
 
 `fluid apply` registers each entry as a DuckDB view before the SQL runs. `fluid generate transformation` writes the same statements to `00_inputs.sql` next to the build's SQL, so the generated script runs on its own:
