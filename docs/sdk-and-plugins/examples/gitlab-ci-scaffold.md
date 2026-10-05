@@ -1,12 +1,12 @@
 # Example: `gitlab-ci-scaffold` — generate a complete CI project
 
-A realistic `CustomScaffold` plugin: given any fluid contract, emit a full `README.md` + `.gitlab-ci.yml` + one `config/<env>.json` per declared environment. ~140 LOC, 22 passing tests (15 inherited from the conformance harness + 5 plugin-specific).
+A realistic `CustomScaffold` plugin: given any fluid contract, emit a full `README.md` + `.gitlab-ci.yml` + one `config/<env>.json` per declared environment. about 140 lines of plugin code, with the conformance harness's tests plus 5 plugin-specific ones.
 
 > **Source:** [`Agenticstiger/forge-cli-sdk` → `examples/gitlab-ci-scaffold/`](https://github.com/Agenticstiger/forge-cli-sdk/tree/main/examples/gitlab-ci-scaffold).
 
 ## What it does
 
-The contract is the source of truth. Change `environments` in the contract, regenerate, and the CI definition + config files adapt automatically — no per-env template editing.
+The contract is the source of truth for what the plugin emits. Change the `environments` map in the contract, regenerate, and the CI definition and config files follow, with no per-env template editing.
 
 Given a contract that declares its environments, the plugin emits:
 
@@ -18,7 +18,7 @@ config/staging.json
 config/prod.json
 ```
 
-Add a fourth environment to the contract, regenerate, and a fourth deploy job + config appears. Drop one, and the CI shrinks. **The contract drives the pipeline.**
+Add a fourth environment to the contract, regenerate, and a fourth deploy job + config appears. Drop one, and the CI shrinks. The contract drives the pipeline.
 
 ### Contract shape
 
@@ -31,14 +31,26 @@ That's it. The plugin doesn't know or care which cloud you're on — it just she
 
 ```yaml
 # contract.fluid.yaml
-fluidVersion: "0.7.4"
+fluidVersion: "0.7.5"
 kind: DataProduct
-id: order-events
+id: bronze.commerce.order_events_v1
 name: Order Events
 description: Realtime order event stream.
 domain: commerce
 metadata:
+  layer: Bronze
+  productType: SDP
   owner: { team: commerce, email: events-team@example.com }
+exposes:
+  - exposeId: order_events
+    kind: table
+    binding:
+      platform: local
+      format: parquet
+      location: { path: out/order_events.parquet }
+    contract:
+      schema:
+        - { name: order_id, type: STRING, required: true }
 
 environments:
   dev:
@@ -57,6 +69,10 @@ environments:
         cloud.accountId: "order-events-prod"
         cloud.region: us-east1
 ```
+
+::: warning The `environments:` block is data for this plugin
+`fluid validate` accepts an `environments:` map, and each entry accepts only `metadata`, `exposes`, `tags` and `labels`: `environments.prod.cloud: {...}` fails with `environments.prod: Additional properties are not allowed ('cloud' was unexpected)`. `fluid plan` and `fluid apply` apply nothing from the block. `fluid apply --env prod` changes a binding only through an overlay file such as `overlays/prod.yaml` (see [per-environment overlays](../../recipes/per-environment-overlays.md)); naming `prod` in `environments:` does not create one. This plugin reads the block to learn which environments to emit files for.
+:::
 
 Generated `config/dev.json`:
 
@@ -193,7 +209,7 @@ def _render_ci(self, c: ContractHelper) -> str:
     envs = c.environment_names()
     lines: List[str] = []
     lines.append(f"# Auto-generated GitLab CI for {c.id}")
-    lines.append("# DO NOT EDIT BY HAND — regenerate via `fluid generate-custom-scaffold`")
+    lines.append("# DO NOT EDIT BY HAND — regenerate via `fluid custom-scaffold`")
     lines.append("")
     lines.append("stages:")
     lines.append("  - validate")
@@ -220,7 +236,7 @@ def _render_ci(self, c: ContractHelper) -> str:
     return "\n".join(lines)
 ```
 
-Note the `when: manual` branch — prod deploys are gated so they don't auto-run on merge to main. A reviewer has to click "Run" in the GitLab pipeline UI. This is the single most important production-safety convention this plugin enforces, and it's pinned by a test (`test_prod_deploy_is_manual`).
+Note the `when: manual` branch: prod deploys are gated so they don't auto-run on merge to main, and a reviewer has to click "Run" in the GitLab pipeline UI. A test pins that convention (`test_prod_deploy_is_manual`). The upstream plugin's header comment names `fluid generate custom-scaffold`, which is not a command; the copy above says `fluid custom-scaffold`.
 :::
 
 
@@ -251,18 +267,18 @@ Reads two flat string labels off `environments.<env>.metadata.labels` (`cloud.ac
 
 Two things to note about the design:
 
-- **`ContractHelper` is the only contract-shape dependency.** No raw dict-walking against the contract root; the helper smooths over `fluidVersion` evolution so the plugin doesn't break when the schema moves. Per-env metadata (`env.get("metadata")`) is read directly as a plain dict — that shape (`environments.<env>.metadata.labels`) is stable across versions.
+- **`ContractHelper` is the plugin's way into the contract.** It avoids raw dict-walking at the contract root and returns empty values for missing fields. Per-env metadata (`env.get("metadata")`) is read as a plain dict from `environments.<env>.metadata.labels`, a path that `fluid validate` accepts.
 - **The renderer is plain f-strings.** No template engine required — the SDK's role is enough for most scaffolds. For more complex output (loops, conditionals, partials), see the [your-own-CI journey](../journeys/your-own-ci.md) which uses the YAML+Jinja bundle pattern.
 
-## Tests — 22 in total
+## Tests
 
-The `CustomScaffoldTestHarness` gives you 15 conformance invariants for free. The 5 plugin-specific assertions below are the full set in `tests/test_scaffold.py`:
+`CustomScaffoldTestHarness` supplies the conformance tests. The 5 plugin-specific assertions below are the ones in `tests/test_scaffold.py` (the upstream file also pins `fluidVersion` in its sample contract, which this page does not need):
 
 ```python
 # tests/test_scaffold.py
 
 MULTI_ENV_CONTRACT = {
-    "fluidVersion": "0.7.4",
+    "fluidVersion": "0.7.5",
     "kind": "DataProduct",
     "id": "my-data-product",
     "name": "My Data Product",
@@ -324,7 +340,11 @@ class TestGitLabCIScaffold(CustomScaffoldTestHarness):
 # in the gitlab-ci-scaffold/ directory
 pip install -e ".[dev]"
 pytest
-# ============== 22 passed ===============
+```
+
+```text
+..............................                                           [100%]
+30 passed in 0.11s
 ```
 
 End-to-end against a real contract:
@@ -337,24 +357,29 @@ pip install data-product-forge data-product-forge-custom-scaffold gitlab-ci-scaf
 #     customScaffold:
 #       libraries:
 #         - id: ci
-#           source: { kind: pypi, package: gitlab-ci-scaffold, version: ">=0.1" }
+#           source: { kind: entrypoint, name: gitlab-ci }
 #       patterns:
 #         - use: ci:gitlab-ci
 
-fluid generate-custom-scaffold
-# ✓ 5 files written, 0 failed
-#   README.md
-#   .gitlab-ci.yml
-#   config/dev.json
-#   config/staging.json
-#   config/prod.json
+fluid custom-scaffold
 ```
+
+```text
+✓ 5 files written, 0 failed (0.0033s)
+  <cwd>/.gitlab-ci.yml
+  <cwd>/README.md
+  <cwd>/config/dev.json
+  <cwd>/config/prod.json
+  <cwd>/config/staging.json
+```
+
+`source.name` is the entry-point key in the plugin's `pyproject.toml` (`gitlab-ci`). The engine supports the source kinds `path`, `git` and `entrypoint`; there is no `pypi` kind, so a pip-installed plugin is reached through `entrypoint`. The engine also writes `fluid-scaffold.lock`.
 
 ## You'll know it worked when
 
-- All 22 tests pass under `pytest`.
+- The tests pass under `pytest`.
 - The generated `.gitlab-ci.yml` has exactly one `deploy:<env>:` block per environment in your contract, and the `deploy:prod:` block carries `when: manual`.
-- Adding a new `environments.staging-eu` entry to the contract and re-running `fluid generate-custom-scaffold` produces a new `config/staging-eu.json` and a new `deploy:staging-eu:` block — without editing any plugin code.
+- Adding a new `environments.staging-eu` entry to the contract and re-running `fluid custom-scaffold` produces a new `config/staging-eu.json` and a new `deploy:staging-eu:` block — without editing any plugin code.
 - `git diff` between two consecutive runs (no contract changes) is empty (determinism).
 
 ## When **not** to use this pattern

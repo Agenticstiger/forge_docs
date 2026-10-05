@@ -6,16 +6,16 @@ The complete `.github/workflows/ci.yml.j2` template, ready to drop into your bun
 
 ## What this template does
 
-- One `validate` job + one `deploy-<env>` job per environment declared in the contract.
+- One `validate` job + one `deploy-<env>` job per entry in the contract's `targets` variable.
 - Uses **GitHub Environments** for the `prod` approval gate (configure approvers in repo settings → Environments).
-- Authenticates via OIDC (no long-lived cloud keys) — switches on `env.cloud.provider`.
+- Authenticates via OIDC (no long-lived cloud keys) — switches on each target's `provider`.
 - `needs: validate` makes every deploy job depend on a green validate.
 
 ## `templates/.github/workflows/ci.yml.j2`
 
 ```jinja
-# Auto-generated GitHub Actions workflow for {{ contract.metadata.id }}
-# Rendered from my-org-ci-bundle@{{ bundle.version }} — do not edit by hand.
+# Auto-generated GitHub Actions workflow for {{ product_id }}
+# Rendered from {{ bundle.name }}@{{ bundle.version }} - do not edit by hand.
 
 name: CI
 
@@ -39,40 +39,59 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.15.0') }}"
+      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
       - run: fluid validate contract.fluid.yaml --strict
-
-{% for env_name, env in contract.environments.items() %}
+{% for env_name, t in targets.items() %}
   deploy-{{ env_name }}:
     needs: validate
     runs-on: ubuntu-latest
-    {% if env_name == "prod" -%}
+{%- if env_name == "prod" %}
     environment:
       name: production              # requires an approver gate in repo settings
-    {%- endif %}
+{%- endif %}
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.15.0') }}"
-      {% if env.cloud.provider == "aws" -%}
+      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
+{%- if t.provider == "aws" %}
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::{{ env.cloud.account }}:role/forge-deploy
-          aws-region: {{ env.cloud.region }}
-      {%- elif env.cloud.provider == "gcp" -%}
+          role-to-assume: arn:aws:iam::{{ t.account }}:role/forge-deploy
+          aws-region: {{ t.region }}
+{%- elif t.provider == "gcp" %}
       - uses: google-github-actions/auth@v3
         with:
           # Replace <pool> / <provider> with your Workload Identity Pool's IDs.
-          workload_identity_provider: projects/{{ env.cloud.project }}/locations/global/workloadIdentityPools/<pool>/providers/<provider>
-          service_account: forge-deploy@{{ env.cloud.project }}.iam.gserviceaccount.com
-      {%- endif %}
+          workload_identity_provider: projects/{{ t.project_number }}/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+          service_account: forge-deploy@{{ t.project }}.iam.gserviceaccount.com
+{%- endif %}
       - run: fluid apply contract.fluid.yaml --env {{ env_name }} --yes
-
 {% endfor %}
 ```
+
+## What the template reads from the contract
+
+The template uses the render-context names the engine provides (`product_id`, `owner`, `bundle`, ...) and one pattern variable, `targets`, which the product team supplies under `patterns[].variables` in their contract. The bundle manifest from [step 2](./your-own-ci.md#step-2-write-the-bundle-manifest) declares a JSON Schema for `targets`, so a missing or malformed value fails before any file is written.
+
+```yaml
+# contract.fluid.yaml (the product team's side)
+extensions:
+  customScaffold:
+    libraries:
+      - id: my-ci
+        source: { kind: path, path: ../my-org-ci-bundle }
+    patterns:
+      - use: my-ci:github
+        variables:
+          targets:
+            dev:  { provider: gcp, project: order-events-dev,  project_number: "111111111111", region: us-central1 }
+            prod: { provider: aws, account: "333333333333",          region: eu-west-1 }
+```
+
+The GitHub template needs `account` for an `aws` target, and `project` plus `project_number` for a `gcp` target. A Workload Identity provider path uses the project **number**, not the project id.
 
 ## Per-cloud detail
 

@@ -6,15 +6,15 @@ The complete `.circleci/config.yml.j2` template, ready to drop into your bundle'
 
 ## What this template does
 
-- `jobs:` block defines validate + one deploy job per env.
+- `jobs:` block defines validate + one deploy job per entry in the contract's `targets` variable.
 - `workflows:` block sequences them: validate runs first; deploys run on main; prod has an approval gate via `type: approval`.
 - Uses CircleCI's built-in Python image (`cimg/python:3.12`) — no Docker layer setup needed.
 
 ## `templates/.circleci/config.yml.j2`
 
 ```jinja
-# Auto-generated CircleCI config for {{ contract.metadata.id }}
-# Rendered from my-org-ci-bundle@{{ bundle.version }} — do not edit by hand.
+# Auto-generated CircleCI config for {{ product_id }}
+# Rendered from {{ bundle.name }}@{{ bundle.version }} - do not edit by hand.
 
 version: 2.1
 
@@ -24,26 +24,25 @@ jobs:
       - image: cimg/python:3.12
     steps:
       - checkout
-      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.15.0') }}"
+      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
       - run: fluid validate contract.fluid.yaml --strict
-
-{% for env_name, env in contract.environments.items() %}
+{% for env_name, t in targets.items() %}
   deploy-{{ env_name }}:
     docker:
       - image: cimg/python:3.12
     steps:
       - checkout
-      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.15.0') }}"
+      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
       - run: fluid apply contract.fluid.yaml --env {{ env_name }} --yes
-{% endfor %}
+{%- endfor %}
 
 workflows:
   ci:
     jobs:
       - validate
-{% for env_name, env in contract.environments.items() %}
-      {% if env_name == "prod" -%}
-      # Manual approval gate — pauses until a human clicks "Approve" in the UI.
+{%- for env_name, t in targets.items() %}
+{%- if env_name == "prod" %}
+      # Manual approval gate: pauses until a human clicks "Approve" in the UI.
       - hold-{{ env_name }}:
           type: approval
           requires: [validate]
@@ -51,13 +50,34 @@ workflows:
       - deploy-{{ env_name }}:
           requires: [hold-{{ env_name }}]
           filters: { branches: { only: [main] } }
-      {%- else -%}
+{%- else %}
       - deploy-{{ env_name }}:
           requires: [validate]
           filters: { branches: { only: [main] } }
-      {%- endif %}
-{% endfor %}
+{%- endif %}
+{%- endfor %}
 ```
+
+## What the template reads from the contract
+
+The template uses the render-context names the engine provides (`product_id`, `owner`, `bundle`, ...) and one pattern variable, `targets`, which the product team supplies under `patterns[].variables` in their contract. The bundle manifest from [step 2](./your-own-ci.md#step-2-write-the-bundle-manifest) declares a JSON Schema for `targets`, so a missing or malformed value fails before any file is written.
+
+```yaml
+# contract.fluid.yaml (the product team's side)
+extensions:
+  customScaffold:
+    libraries:
+      - id: my-ci
+        source: { kind: path, path: ../my-org-ci-bundle }
+    patterns:
+      - use: my-ci:circleci
+        variables:
+          targets:
+            dev:  { provider: gcp, project: order-events-dev,  region: us-central1 }
+            prod: { provider: gcp, project: order-events-prod, region: us-east1 }
+```
+
+This template reads only each target's name (`dev`, `prod`, ...); `provider` and `region` are validated by the manifest schema but not rendered.
 
 ## Why `type: approval` for prod
 
@@ -82,7 +102,7 @@ workflows:
           filters: { branches: { only: [main] } }
 ```
 
-You can extend the Jinja template to do this — add `context: {{ env_name }}-{{ env.cloud.provider }}-deploy` inside the per-env loop. The platform team owns the context name → secret mapping.
+You can extend the Jinja template to do this — add `context: {{ env_name }}-{{ t.provider }}-deploy` inside the per-env loop. The platform team owns the context name → secret mapping.
 
 ## Per-cloud orb shortcut
 

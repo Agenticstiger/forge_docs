@@ -7,27 +7,27 @@ The complete `.gitlab-ci.yml.j2` template, ready to drop into your bundle's `tem
 ## What this template does
 
 - Three stages: **validate**, **build**, **deploy**.
-- One deploy job per environment declared in the contract.
-- Switches on `env.cloud.provider` (`aws` / `gcp` / `snowflake`) to inject the right env vars per cloud.
+- One deploy job per entry in the contract's `targets` variable.
+- Switches on each target's `provider` (`aws` / `gcp` / `snowflake`) to inject the right variables per cloud.
 - The `prod` deploy is gated with `when: manual` so production deploys require a click in the UI.
 
 ## `templates/.gitlab-ci.yml.j2`
 
 ```jinja
-# Auto-generated GitLab CI for {{ contract.metadata.id }}
-# Rendered from my-org-ci-bundle@{{ bundle.version }} — do not edit by hand.
+# Auto-generated GitLab CI for {{ product_id }}
+# Rendered from {{ bundle.name }}@{{ bundle.version }} - do not edit by hand.
 
 stages: [validate, build, deploy]
 
 variables:
-  PRODUCT_ID: {{ contract.metadata.id }}
-  PRODUCT_OWNER: {{ contract.metadata.owner.email }}
+  PRODUCT_ID: {{ product_id }}
+  PRODUCT_OWNER: {{ owner.email }}
 
 validate:
   stage: validate
   image: python:3.12
   script:
-    - pip install --quiet "data-product-forge=={{ fluid_cli_version | default('0.15.0') }}"
+    - pip install --quiet "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
     - fluid validate contract.fluid.yaml --strict
 
 build:
@@ -39,34 +39,56 @@ build:
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-
-{% for env_name, env in contract.environments.items() %}
+{% for env_name, t in targets.items() %}
 deploy:{{ env_name }}:
   stage: deploy
   image: python:3.12
   variables:
-{% if env.cloud.provider == "aws" %}
-    AWS_ACCOUNT: "{{ env.cloud.account }}"
-    AWS_REGION:  {{ env.cloud.region }}
-{% elif env.cloud.provider == "gcp" %}
-    GCP_PROJECT: {{ env.cloud.project }}
-    GCP_REGION:  {{ env.cloud.region }}
-{% elif env.cloud.provider == "snowflake" %}
-    SF_ACCOUNT:   "{{ env.cloud.account }}"
-    SF_WAREHOUSE: {{ env.cloud.warehouse }}
-    SF_ROLE:      {{ env.cloud.role }}
-{% endif %}
+{%- if t.provider == "aws" %}
+    AWS_ACCOUNT: "{{ t.account }}"
+    AWS_REGION: {{ t.region }}
+{%- elif t.provider == "gcp" %}
+    GCP_PROJECT: {{ t.project }}
+    GCP_REGION: {{ t.region }}
+{%- elif t.provider == "snowflake" %}
+    SF_ACCOUNT: "{{ t.account }}"
+    SF_WAREHOUSE: {{ t.warehouse }}
+    SF_ROLE: {{ t.role }}
+{%- endif %}
   script:
-    - pip install --quiet "data-product-forge=={{ fluid_cli_version | default('0.15.0') }}"
+    - pip install --quiet "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
     - fluid apply contract.fluid.yaml --env {{ env_name }} --yes
   environment:
     name: {{ env_name }}
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-      {% if env_name == "prod" %}when: manual{% endif %}
-
+{%- if env_name == "prod" %}
+      when: manual
+{%- endif %}
 {% endfor %}
 ```
+
+## What the template reads from the contract
+
+The template uses the render-context names the engine provides (`product_id`, `owner`, `bundle`, ...) and one pattern variable, `targets`, which the product team supplies under `patterns[].variables` in their contract. The bundle manifest from [step 2](./your-own-ci.md#step-2-write-the-bundle-manifest) declares a JSON Schema for `targets`, so a missing or malformed value fails before any file is written.
+
+```yaml
+# contract.fluid.yaml (the product team's side)
+extensions:
+  customScaffold:
+    libraries:
+      - id: my-ci
+        source: { kind: path, path: ../my-org-ci-bundle }
+    patterns:
+      - use: my-ci:main
+        variables:
+          targets:
+            dev:     { provider: gcp, project: order-events-dev,     region: us-central1 }
+            staging: { provider: gcp, project: order-events-staging, region: us-central1 }
+            prod:    { provider: gcp, project: order-events-prod,    region: us-east1 }
+```
+
+Each target needs `provider` and `region`. The keys the template reads beyond that depend on the provider: `account` (aws, snowflake), `project` (gcp), `warehouse` and `role` (snowflake). The template does not render a variables block for a provider it has no branch for.
 
 ## Per-cloud detail
 

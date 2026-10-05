@@ -57,20 +57,32 @@ If your docs change is the companion to a CLI change, link the related `forge-cl
 
 ### What we look for in docs PRs
 
-- The page is accurate and easy to follow
+- The page is accurate and easy to follow, and every example output is real output from the pinned CLI (trim with `...`), not written by hand.
 - Links still work
 - Navigation and headings still make sense
-- `npm run docs:build` passes locally
-- `python scripts/check_cli_docs.py` and `python scripts/check_providers.py` pass against the pinned CLI
+- The pages and headings the CLI links to are untouched (see [Pages the CLI links to](#pages-the-cli-links-to))
+- These pass locally, with the pinned CLI on your `PATH`:
+
+```bash
+npm run docs:build
+node scripts/check-dist-links.mjs
+python scripts/check_cli_docs.py
+python scripts/check_providers.py
+```
 
 ### Keeping the docs in sync with the CLI
 
-Every CLI release bumps the supported version in [`docs/.vuepress/cli-version.json`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/.vuepress/cli-version.json). The [`cli-consistency`](https://github.com/Agenticstiger/forge_docs/actions/workflows/cli-consistency.yml) GitHub Actions workflow installs that exact version of `data-product-forge` from PyPI on every PR and verifies:
+Every CLI release bumps the supported version in [`docs/.vuepress/cli-version.json`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/.vuepress/cli-version.json). The [`cli-consistency`](https://github.com/Agenticstiger/forge_docs/actions/workflows/cli-consistency.yml) GitHub Actions workflow installs that exact version of `data-product-forge` from PyPI on every PR and runs `scripts/check_cli_docs.py` and `scripts/check_providers.py`. Together they verify:
 
 1. `fluid --version` matches the pinned `supportedCliVersion`.
-2. Every subcommand listed by `fluid --help` has a matching `docs/cli/<name>.md` page.
-3. Every page in `docs/cli/` corresponds to a real CLI command (or sits in `scripts/cli-docs-allowlist.yml` with a comment explaining why).
-4. Every provider returned by `fluid providers --json` has a matching `docs/providers/<name>.md` page.
+2. Every subcommand registered by the CLI's argparse parser has a matching `docs/cli/<name>.md` page, and every page in `docs/cli/` corresponds to a real command, unless it sits in `scripts/cli-docs-allowlist.yml` with a comment explaining why.
+3. `fluid init --quickstart` emits the `fluidVersion` pinned as `quickstartScaffoldVersion`.
+4. The contract versions pinned in `cli-version.json` exist in the pinned CLI's bundled schema set.
+5. **Flag oracle:** each `fluid ...` invocation inside a fenced code block under `docs/` uses subcommands and flags the pinned CLI registers. The oracle reads the parser, so it proves a flag exists, not that a command's output is what the page shows. Run the commands you document.
+6. **Version sweep:** no page names an older CLI or contract version as the current baseline. A line that mentions an older release on purpose carries `<!-- cli-version: historical -->` (on the line, or on its own line before a fenced block). The header of `scripts/check_cli_docs.py` explains the three scopes.
+7. Every provider returned by `fluid providers --json` has a matching `docs/providers/<name>.md` page.
+
+The oracle runs against the core CLI. A command that a companion package registers, such as `fluid custom-scaffold` from `data-product-forge-custom-scaffold`, is unknown to it, so pages that document such a command need an entry in the `flag_oracle_ok` section of `scripts/cli-docs-allowlist.yml`, scoped to that one invocation.
 
 When a new CLI version ships:
 
@@ -90,31 +102,63 @@ python scripts/check_providers.py
 
 Existing pages follow the layout in [`docs/cli/init.md`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/cli/init.md) — a one-line summary, `## Syntax`, `## Key options`, `## Examples`, `## Notes`. Match that shape for new pages so the reference reads consistently.
 
+### Pages the CLI links to
+
+The CLI prints documentation links in its own output: the error messages, `--help` text, `fluid doctor` and the comments `fluid init` writes. Those links are a contract between this site and every installed copy of the CLI, and a copy installed last month keeps printing the URL it was built with. No CI step checks them today: `scripts/check-dist-links.mjs` verifies that a page exists but states that fragment and anchor targets are not verified, and `scripts/check_cli_docs.py` does not read the CLI's link list.
+
+Do not move or rename these pages, and do not change the text of a heading that produces one of these anchors. As of CLI 0.18.1 the links come from the literal URLs in `fluid_build` and from the route map in `fluid_build/_errors.py` (`_DOC_ROUTES` and `_DOC_FALLBACK`).
+
+Pages:
+
+- `getting-started/`
+- `cli/`: `providers`, `secrets`, `verify-signature`, `apply`, `validate`, `contract`, `contract-validation`, `split`, `import`, `init`, `doctor`, `agents`, `market`
+- `concepts/`: `sovereignty`, `contract`, `quality-sla-lineage`, `agent-policy`
+- `advanced/`: `capability-warnings`, `cost-tracking`, `typed-cli-errors`, `production-troubleshooting` (the fallback for an error with no mapped topic), `airflow`, `forge-copilot-memory`
+- `providers/gcp`
+- `recipes/add-a-quality-rule`
+
+Anchors on `advanced/typed-cli-errors`: `#validation-schema`, `#capability-negotiation`, `#connectivity-secrets`, `#pipeline-operations` and `#governance`.
+
+To re-derive the list for a new CLI version, install it and run this from a clone of `forge-cli`:
+
+```bash
+git grep -ohE 'agenticstiger\.github\.io/forge_docs[^" )\\]*' -- fluid_build | sort -u
+python -c "import fluid_build._errors as e; print(e._DOC_ROUTES, e._DOC_FALLBACK)"
+```
+
+The first command finds literal URLs; the second prints the routes that are composed at run time and never appear as URLs in the source.
+
 ### Build a Custom Provider
 
-Fluid Forge is designed to be extended. See the [Custom Providers Guide](/forge_docs/providers/custom-providers) for the full walkthrough, but the gist is:
+Fluid Forge is designed to be extended. See the [Custom Providers Guide](/forge_docs/providers/custom-providers) for the walkthrough and [SDK & Plugins → Roles](/forge_docs/sdk-and-plugins/reference/roles.html#infraprovider) for the role-typed class. A provider package built on `data-product-forge-sdk` looks like this:
 
 ```python
-from fluid_provider_sdk import ApplyResult, BaseProvider, ProviderError
+from fluid_sdk import ContractHelper, ExecutionResult, InfraProvider, provision_action
 
-class MyProvider(BaseProvider):
+
+class MyProvider(InfraProvider):
     name = "my-cloud"
 
     def plan(self, contract):
-        return [{"op": "create_table", "resource_id": "demo"}]
+        c = ContractHelper(contract)
+        return [
+            provision_action(
+                op="create_table",
+                resource_type="table",
+                resource_id=c.id or "demo",
+            ).to_dict()
+        ]
 
     def apply(self, actions):
-        if not actions:
-            raise ProviderError("No actions to apply")
-        return ApplyResult(
-            provider=self.name,
+        return ExecutionResult(
+            plugin=self.name,
             applied=len(actions),
             failed=0,
-            duration_sec=0.0,
-            timestamp="",
             results=[{"status": "ok", "op": action["op"]} for action in actions],
         )
 ```
+
+Register it with `[project.entry-points."fluid_build.providers"]` and `my-cloud = "my_cloud.provider:MyProvider"`. After `pip install -e .`, `fluid plugins list --role provider` shows `my-cloud` and `fluid providers` lists it as `my_cloud`.
 
 ### Contribute a Forge Tool (`@forge_tool`)
 
@@ -152,33 +196,22 @@ exception-text scrubbing invariant, and the testing checklist.
 
 ## Add a Catalog Adapter
 
-Catalog adapters are the **source-side** complement to providers:
-they pull metadata FROM an existing catalog (Snowflake Horizon,
-Databricks Unity, BigQuery, Glue, DataHub, Data Mesh Manager) and
-feed it into the staged forge pipeline. Each adapter is roughly
-200 LOC and follows nine reusable patterns.
+Catalog adapters are the **source-side** complement to providers: they pull metadata FROM an existing catalog (Snowflake Horizon, Databricks Unity, BigQuery, Glue, DataHub, Data Mesh Manager) and feed it into the staged forge pipeline. Each adapter follows the reusable patterns in `fluid_build/copilot/catalog/_patterns.py`.
 
-A community contributor with a weekend can ship a new one. The
-walkthrough lives in the forge-cli repo at
-[`CONTRIBUTING.md` → "Adding a Catalog Adapter"](https://github.com/Agenticstiger/forge-cli/blob/main/CONTRIBUTING.md#adding-a-catalog-adapter).
+The walkthrough lives in the forge-cli repo at [`CONTRIBUTING.md` → "Adding a Catalog Adapter"](https://github.com/Agenticstiger/forge-cli/blob/main/CONTRIBUTING.md#adding-a-catalog-adapter).
 
 The path covers:
 
-1. Subclass `CatalogAdapter` (4 abstract methods).
-2. Honour the nine patterns in `_patterns.py` — soft-fail on
-   optional reads, lazy SDK import, per-call client lifecycle,
-   error translation with next-action suggestions, etc.
-3. Add a typed `*Credentials` Pydantic class with `SecretStr`
-   fields.
+1. Subclass `CatalogAdapter`.
+2. Honour the patterns in `_patterns.py`: soft-fail on optional reads, lazy SDK import, per-call client lifecycle, error translation with next-action suggestions, and the rest.
+3. Add a typed `*Credentials` Pydantic class with `SecretStr` fields.
 4. Register the optional install extra in `pyproject.toml`.
-5. Wire the dispatch in `cli/forge_data_model.py` and `cli/mcp.py`.
-6. Write the test file (templates: every existing adapter ships
-   with one — copy the closest fit and edit).
+5. Wire the dispatch: `cli/forge_data_model.py` for `--source-type`, and the `_SOURCE_ADAPTERS` map in `cli/mcp/dispatch.py` for the MCP `forge_from_source` tool.
+6. Write the test file. Every existing adapter ships one; copy the closest fit and edit.
 7. Pin the public API in `tests/test_public_api_stability.py`.
-8. Document the new catalog at
-   `forge_docs/docs/cli/catalogs/<name>.md`.
+8. Document the new catalog at `docs/cli/catalogs/<name>.md` in this repo.
 
-The seven existing adapters
+The existing adapters
 ([snowflake](cli/catalogs/snowflake.md),
 [unity](cli/catalogs/unity.md),
 [bigquery](cli/catalogs/bigquery.md),
@@ -186,15 +219,17 @@ The seven existing adapters
 [glue](cli/catalogs/glue.md),
 [datahub](cli/catalogs/datahub.md),
 [datamesh-manager](cli/catalogs/datamesh-manager.md)) are working
-templates — read one front-to-back before starting.
+templates. Read one front to back before starting.
 
 ## Docs Standards
 
 A few things that help reviewers focus on what matters in your change:
 
-- **Clarity first** — practical examples and direct language help readers learn fast.
+- **Examples first** — show what to run and what the reader will see, then explain. Keep tutorial, how-to, reference and explanation separate on a page.
+- **Real output** — run every command you document against the pinned CLI and paste trimmed real output. Where the CLI misbehaves, write what it does ("As of 0.18.1, ...") instead of what it should do.
+- **No unverifiable generalisations** — a sentence with "every", "all", "never" or a count about the product or the docs needs a check that re-derives it today. Delete the sentence otherwise.
 - **Build cleanly** — `npm run docs:build` catches issues early so reviewers can focus on content.
-- **Links that work** — point at the published docs site and current repo URLs so nothing 404s a month from now.
+- **Links that work** — use relative links to `.md` files for pages in this repo (`[apply](cli/apply.md)`), and current repo URLs for everything else, so nothing 404s a month from now.
 - **Conventional Commits** — `feat:` / `fix:` / `docs:` / `chore:` ([reference](https://www.conventionalcommits.org/)); helps changelog automation pick up your work.
 
 ## Code of Conduct
@@ -207,4 +242,4 @@ By contributing, you agree that your work will be licensed under [Apache 2.0](ht
 
 ---
 
-<p style="text-align: center; opacity: 0.7; font-size: 0.9rem;">Copyright 2025-2026 <a href="https://fluidhq.io">Agentics Transformation Pty Ltd</a> · Open source under <a href="https://github.com/Agenticstiger/forge-cli/blob/main/LICENSE">Apache 2.0</a></p>
+<p style="text-align: center; opacity: 0.7; font-size: 0.9rem;">Copyright 2025-2026 <a href="https://fluidhq.io">Agentics Transformation Limited</a> · Open source under <a href="https://github.com/Agenticstiger/forge-cli/blob/main/LICENSE">Apache 2.0</a></p>

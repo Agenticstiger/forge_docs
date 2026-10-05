@@ -1,11 +1,11 @@
 # Quickstart — your first plugin
 
-You're going to write a tiny plugin that turns a fluid contract into a `README.md` file. About ~15 lines of Python, two TOML stanzas, one CLI command. Realistic time: **5–10 minutes** end to end (the longest part is `pip install`).
+You're going to write a tiny plugin that turns a fluid contract into a `README.md` file. About 15 lines of Python, two TOML stanzas, one CLI command. Realistic time: **5–10 minutes** end to end (the longest part is `pip install`).
 
 By the end you'll have:
 
-- A working `CustomScaffold` plugin discovered automatically by `fluid generate-custom-scaffold`.
-- ~20 conformance tests passing against it (you write four lines, the SDK adds the rest).
+- A working `CustomScaffold` plugin that `fluid custom-scaffold` finds by its entry-point name.
+- The SDK's conformance tests passing against it (you write four lines, the SDK adds the rest).
 - A clear mental model of what to change to make it produce something other than `README.md`.
 
 ## Prerequisites
@@ -29,29 +29,50 @@ pip install --quiet -e .
 mkdir /tmp/quickstart-demo && cd /tmp/quickstart-demo
 
 cat > contract.fluid.yaml <<'EOF'
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
+kind: DataProduct
+id: bronze.demo.my_first_product_v1
+name: My First Product
+description: Generated from the hello-scaffold plugin.
+domain: demo
 metadata:
-  id: my-first-product
-  name: My First Product
-  description: Generated from the hello-scaffold plugin.
-  owner: { email: data-team@example.com }
-  layer: Bronze
-  productType: SDP
+  layer: Bronze          # (medallion) Bronze / Silver / Gold
+  productType: SDP       # (Data Mesh) SDP / ADP / CDP, paired with layer
+  owner: { team: data-team, email: data-team@example.com }
+exposes:
+  - exposeId: items
+    kind: table
+    binding:
+      platform: local
+      format: parquet
+      location: { path: out/items.parquet }
+    contract:
+      schema:
+        - { name: item_id, type: STRING, required: true }
 extensions:
   customScaffold:
-    libraries: [{id: hi, source: {kind: entrypoint, name: hello-scaffold}}]
-    patterns: [{use: hi:main}]
+    libraries:
+      - id: hi
+        # 'name' matches the entry-point KEY in pyproject.toml ("hello").
+        source: { kind: entrypoint, name: hello }
+    patterns:
+      - use: hi:main
 EOF
 
-fluid generate-custom-scaffold
+fluid custom-scaffold
 ```
 
-What you should see:
+What you should see (CLI 0.18.1 prints absolute paths; `<cwd>` stands for the directory you ran it in):
 
 ```text
-✓ 1 file written, 0 failed
-  README.md
+Resolved libraries:
+  hi  (entrypoint)  version=0.1.0
+
+✓ 1 files written, 0 failed (0.0004s)
+  <cwd>/README.md
 ```
+
+The engine also writes a `fluid-scaffold.lock` next to the contract.
 
 And `cat README.md`:
 
@@ -63,8 +84,8 @@ Generated from the hello-scaffold plugin.
 
 Two things to notice:
 
-1. **The contract's `metadata.name` ("My First Product") and `metadata.description` end up in the rendered file.** The contract drives the output.
-2. **Running `fluid generate-custom-scaffold` twice produces the same bytes.** Determinism is a guarantee, not an accident.
+1. **The contract's `name` ("My First Product") and `description` end up in the rendered file.** The contract drives the output.
+2. **Running `fluid custom-scaffold` twice produces the same bytes.** The harness you add in Step 4 tests for this.
 
 That's the result. Now we'll build it from scratch so you understand each piece.
 
@@ -117,7 +138,7 @@ where = ["src"]
 testpaths = ["tests"]
 ```
 
-The `fluid_build.custom_scaffolds` group is one of several entry-point groups the CLI walks. Others (`fluid_build.validators`, `fluid_build.apply_hooks`, `fluid_build.providers`, `fluid_build.catalog_adapters`, …) are for the other plugin shapes — see the [Entry points reference](./reference/entry-points.md) for the full set and which command discovers each.
+`fluid_build.custom_scaffolds` is one of several entry-point groups. Others (`fluid_build.validators`, `fluid_build.apply_hooks`, `fluid_build.providers`, `fluid_build.catalog_adapters`, …) are for the other plugin shapes. The group for scaffolds is walked by the scaffold engine's `fluid custom-scaffold` command, not by the CLI itself. See the [Entry points reference](./reference/entry-points.md) for the full set and which code discovers each.
 
 ## Step 3 — write the plugin
 
@@ -149,10 +170,10 @@ class HelloScaffold(CustomScaffold):
 That's the whole plugin. Three things to know about what you didn't write:
 
 - **`apply(actions)` is inherited** from `CustomScaffold`. The reference implementation writes files atomically with `sha256` verification and path-traversal guards. You don't override it unless you're doing something custom.
-- **`ContractHelper`** is a read-only parser tolerant of every `fluidVersion` from `0.4` through `0.7.5`. `c.name`, `c.id`, `c.description`, `c.environment_names()`, etc. — your plugin doesn't break when the contract schema evolves.
+- **`ContractHelper`** is a read-only parser over the contract dict. `c.name`, `c.id`, `c.description`, `c.labels`, `c.environment_names()` and the rest return `None`, `{}` or `[]` for a missing field instead of raising, so a partial contract does not crash your plugin.
 - **`write_file_action(...)`** builds a canonical action dict with sha256 + base64-encoded content + atomic-write semantics. Returning these from `plan()` is the entire interface.
 
-## Step 4 — write the test (just four lines, get 15 for free)
+## Step 4 — write the test (four lines of yours, the rest from the SDK)
 
 ```python
 # my-first-plugin/tests/test_scaffold.py
@@ -172,13 +193,14 @@ pip install -e ".[dev]"
 pytest
 ```
 
-You should see:
+You should see (the count depends on the SDK version; this is SDK 0.10.0):
 
 ```text
-============== 20 passed in 0.07s ===============
+.........................                                                [100%]
+25 passed in 0.08s
 ```
 
-The harness runs 20 invariants against your `plugin_class`: role declaration is correct, `plan()` is deterministic, output is idempotent, no path traversal in destinations, sha256 verification works, atomic-write semantics hold, public-API contract is intact, and more. You wrote four lines; you got 20 tests.
+The harness runs its invariants against your `plugin_class`: the role is declared correctly, `plan()` is deterministic and its actions are JSON-serialisable, destinations are free of path traversal, sha256 verification works, the atomic-write behaviour holds, and more. You wrote four lines. `sample_contracts` must hold at least one contract: with an empty list the harness fails `test_sample_contracts_present`, so that it cannot pass against nothing.
 
 ## Step 5 — drive it from a real contract
 
@@ -189,33 +211,47 @@ mkdir -p /tmp/my-product && cd /tmp/my-product
 pip install data-product-forge data-product-forge-custom-scaffold
 
 cat > contract.fluid.yaml <<'EOF'
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
+kind: DataProduct
+id: bronze.demo.my_first_product_v1
+name: My First Product
+description: Generated from the hello-scaffold plugin.
+domain: demo
 metadata:
-  id: my-first-product
-  name: My First Product
-  description: Generated from the hello-scaffold plugin.
-  owner: { email: data-team@example.com }
-  layer: Bronze         # (medallion) — Bronze / Silver / Gold
-  productType: SDP      # (Data Mesh) — SDP / ADP / CDP (paired with layer)
-
+  layer: Bronze          # (medallion) Bronze / Silver / Gold
+  productType: SDP       # (Data Mesh) SDP / ADP / CDP, paired with layer
+  owner: { team: data-team, email: data-team@example.com }
+exposes:
+  - exposeId: items
+    kind: table
+    binding:
+      platform: local
+      format: parquet
+      location: { path: out/items.parquet }
+    contract:
+      schema:
+        - { name: item_id, type: STRING, required: true }
 extensions:
   customScaffold:
     libraries:
       - id: hi
-        # The 'name' here matches the entry-point key in pyproject.toml.
-        source: { kind: entrypoint, name: hello-scaffold }
+        # 'name' matches the entry-point KEY in pyproject.toml ("hello").
+        source: { kind: entrypoint, name: hello }
     patterns:
       - use: hi:main
 EOF
 
-fluid generate-custom-scaffold
+fluid custom-scaffold
 ```
 
-You should see:
+You should see the same output as in Step 0:
 
 ```text
-✓ 1 file written, 0 failed
-  README.md
+Resolved libraries:
+  hi  (entrypoint)  version=0.1.0
+
+✓ 1 files written, 0 failed (0.0004s)
+  <cwd>/README.md
 ```
 
 ```bash
@@ -230,7 +266,7 @@ Generated from the hello-scaffold plugin.
 
 ## Why both `metadata.layer` and `metadata.productType`?
 
-`fluidVersion: "0.7.3"` introduced the Data Mesh-aligned `productType` (SDP / ADP / CDP) alongside the existing medallion `layer` (Bronze / Silver / Gold). Both vocabularies are first-class — pick the one your org uses, or set both (the validator checks consistency).
+Contract schema 0.7.3 introduced the Data Mesh-aligned `productType` (SDP / ADP / CDP) alongside the medallion `layer` (Bronze / Silver / Gold). Set the one your org uses, or both. When both are present `fluid validate` checks them against each other: `layer: Bronze` with `productType: CDP` fails with `metadata consistency: metadata.layer='Bronze' and metadata.productType='CDP' are inconsistent`.
 
 Canonical mapping: Bronze↔SDP, Silver↔ADP, Gold↔CDP. Detail in the [data products section](../data-products/product-type.md).
 
@@ -242,8 +278,8 @@ Most common cause: you forgot `pip install -e .` after editing `pyproject.toml`.
 ```bash
 pip install -e .
 
-# Confirm the entry-point registered. `fluid plugins` (CLI 0.10.0) lists
-# installed plugins per role with allow/block status:
+# Confirm the entry-point registered. `fluid plugins` lists installed
+# plugins per role with allow/block status:
 fluid plugins                                 # or: fluid plugins list --json
 fluid plugins list --detailed                 # also shows declared metadata
 
@@ -267,37 +303,49 @@ hello = "hello_scaffold.scaffold:HelloScaffold"
 ```
 :::
 
-::: details `fluid generate-custom-scaffold` says `no plugin named 'hello-scaffold' found`
-Check the contract's `source.name` matches the entry-point key, not the class name:
+::: details `fluid custom-scaffold` says `no plugin named 'hello-scaffold' found`
+The full message is:
+
+```text
+❌ Unexpected error: no plugin named 'hello-scaffold' found under entry-point 
+group 'fluid_build.custom_scaffolds'. Install the package that provides it, then
+re-run. Available plugins: ['hello']
+```
+
+The contract's `source.name` has to match the entry-point **key** in `pyproject.toml`, not the class name or the plugin's `name` attribute. The message lists the keys it can see:
 
 ```toml
-# pyproject.toml — the KEY is what end users reference
+# pyproject.toml — the KEY is what contracts reference
 [project.entry-points."fluid_build.custom_scaffolds"]
-hello-scaffold = "hello_scaffold.scaffold:HelloScaffold"
+hello = "hello_scaffold.scaffold:HelloScaffold"
 #  ↑ this is the name users put in source.name
 ```
 
 ```yaml
 # contract.fluid.yaml
-source: { kind: entrypoint, name: hello-scaffold }
+source: { kind: entrypoint, name: hello }
                                   # ↑ matches the pyproject key
 ```
 
 If you renamed the entry-point, re-run `pip install -e .` and try again.
 :::
 
-::: details Tests pass locally but `fluid generate` produces empty output
-Your `plan()` is probably returning the action *objects* instead of dicts. The harness accepts both; the CLI requires `.to_dict()`. Add `.to_dict()` to every `write_file_action(...)` return:
+::: details `fluid plugins` shows my scaffold as `NOT DISPATCHED`
+`fluid plugins` lists a `custom_scaffold` plugin under a `custom_scaffold  (1)  — NOT DISPATCHED` heading and ends with `custom_scaffold: declared and governed, but this build has no dispatch site — plugins registered under it are never invoked.` That describes the CLI itself: nothing in `fluid` walks the `fluid_build.custom_scaffolds` group. The `fluid custom-scaffold` command comes from `data-product-forge-custom-scaffold`, and that engine looks your plugin up by entry-point name when it runs. Observed on CLI 0.18.1 with engine 0.4.1: a plugin carrying this label rendered its files normally. The engine applies the same `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` policy itself before it loads the plugin, and `fluid plugins` still shows the allow/block status and the package that installed it.
+:::
+
+::: details Should `plan()` return action objects or dicts?
+Return dicts: call `.to_dict()` on every `write_file_action(...)`. `plan()` is documented to return a list of action dicts, and the harness checks that they are JSON-serialisable. On CLI 0.18.1 with engine 0.4.1, a plugin that returned the action objects unconverted still wrote its file, so a missing `.to_dict()` is not what makes output empty; look at the entry-point and `source.name` first.
 
 ```python
 return [
-    write_file_action(...).to_dict(),   # ← .to_dict() is required
+    write_file_action(...).to_dict(),
 ]
 ```
 :::
 
 ::: details `ContractHelper(contract).name` is `None`
-The contract is missing `metadata.name`. Either add it to the YAML, or fall back gracefully in your plugin:
+The contract is missing its root `name`. Either add it to the YAML, or fall back gracefully in your plugin:
 
 ```python
 title = c.name or c.id or "Unnamed"

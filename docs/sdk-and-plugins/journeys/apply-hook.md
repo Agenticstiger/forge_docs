@@ -4,7 +4,7 @@ The check you want to enforce **can't run at validate time** — it depends on s
 
 - "The deployer must have a specific secret in their env."
 - "The image referenced by the contract must be signed by my-org's release key."
-- "The scaffold bundle this contract was generated from must not have drifted since the last `fluid generate`."
+- "The scaffold bundle this contract was generated from must not have drifted since the last `fluid custom-scaffold`."
 - "Production deploys must be approved by a human in the last 24 hours."
 
 A `Validator` plugin can't help here — it runs on contract authors, who don't have any of that state. **Apply hooks** are the tool: they run inside `fluid apply`, after the contract is loaded, before any provider executes.
@@ -13,7 +13,7 @@ This guide walks through writing one from scratch. By the end you'll have:
 
 - An apply hook that runs every `fluid apply` and refuses to proceed if its invariant is violated.
 - A documented escape hatch (`--force-pattern-drift`) for emergencies.
-- A test that exercises both the pass and fail paths.
+- Tests that exercise both the pass and fail paths.
 
 Realistic time end-to-end: **15–20 minutes**.
 
@@ -40,43 +40,48 @@ fluid apply contract.fluid.yaml --env prod
 
 Three things to know about the hook contract:
 
-1. **Hook signature is fixed.** `hook(contract_dir: Path, contract: Dict, errors: List[str]) -> None`. Append to `errors` to fail; leave empty to pass.
+1. **The base signature is `hook(contract_dir: Path, contract: Dict, errors: List[str]) -> None`.** Append to `errors` to fail; leave empty to pass. A hook can opt in to the resolved `--env` by declaring an `env` parameter (see Step 3).
 2. **The contract is a deep copy.** You can read or even mutate it inside the hook — the rest of `fluid apply` sees the original. (See [trust model](../reference/trust-model.md) for why.)
 3. **Plugin exceptions are trapped.** If your hook raises, the CLI converts it to a structured error and continues — a broken hook can never crash the CLI. But appending to `errors` is the cleaner contract.
 
 ## Step 0 — see the result first
 
-For a contract that fails the hook:
+For a contract that fails the hook (output from CLI 0.18.1, local-platform contract with an `overlays/prod.yaml`):
 
 ```bash
 unset FLUID_PROD_DEPLOY_KEY
-fluid apply contract.fluid.yaml --env prod
+fluid apply contract.fluid.yaml --env prod --yes
 ```
 
 ```text
-✗ apply hook: prod-key-guard:
-  FLUID_PROD_DEPLOY_KEY is not set in the environment.
+apply hook: prod-key-guard: FLUID_PROD_DEPLOY_KEY is not set in the environment.
   This is required for prod deploys. Either:
     • Set the env var (export FLUID_PROD_DEPLOY_KEY=...), OR
     • Pass --force-pattern-drift if you have a specific reason to bypass the check.
+apply aborted by an apply-time plugin hook. Pass --force-pattern-drift to override.
 ```
 
 Exit code `1`. With the env var set:
 
 ```bash
 export FLUID_PROD_DEPLOY_KEY="$(read-from-secret-manager)"
-fluid apply contract.fluid.yaml --env prod
+fluid apply contract.fluid.yaml --env prod --yes
 # (proceeds normally)
 ```
 
-Override flag for emergencies (logged at WARN, audit-able):
+Override flag for emergencies (logged as a warning, so the override shows in the deploy log):
 
 ```bash
-fluid apply contract.fluid.yaml --env prod --force-pattern-drift
-# ⚠ apply hook drift ignored (--force-pattern-drift):
-#   FLUID_PROD_DEPLOY_KEY is not set in the environment.
-# (proceeds)
+fluid apply contract.fluid.yaml --env prod --force-pattern-drift --yes
 ```
+
+```text
+apply hook drift ignored (--force-pattern-drift): prod-key-guard: FLUID_PROD_DEPLOY_KEY is not set in the environment.
+  This is required for prod deploys. Either:
+  ...
+```
+
+The apply then proceeds.
 
 ## Step 1 — set up the package
 
@@ -119,115 +124,135 @@ testpaths = ["tests"]
 
 ```python
 # src/prod_key_guard/hook.py
-"""Apply-time guard: refuse prod deploys without FLUID_PROD_DEPLOY_KEY set."""
+"""Apply-time guard: refuse prod deploys without FLUID_PROD_DEPLOY_KEY set.
+
+Registered as an apply hook via the ``fluid_build.apply_hooks`` entry-point
+group. Invoked by the CLI early in ``fluid apply``, after the contract is
+loaded but before any provider executes.
+
+Hook contract (see entry-points reference):
+    hook(contract_dir: Path, contract: Dict, errors: List[str],
+         env: Optional[str] = None) -> None
+
+Append messages to ``errors`` to fail the apply; leave it empty to pass.
+Plugin exceptions are trapped, redacted, and added to errors automatically
+— a buggy hook cannot crash the CLI.
+"""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 REQUIRED_ENV_VAR = "FLUID_PROD_DEPLOY_KEY"
+# Fallback for applies that don't pass `--env`: your deploy runner / CI job
+# sets DEPLOY_ENV before invoking `fluid apply`. The CLI itself does not set
+# it — see the "Apply hooks can receive `--env`" note further down.
+DEPLOY_ENV_VAR = "DEPLOY_ENV"
 
 
 def check_prod_deploy_key(
     contract_dir: Path,
     contract: Dict[str, Any],
     errors: List[str],
+    env: Optional[str] = None,
 ) -> None:
     """Fail prod applies when FLUID_PROD_DEPLOY_KEY isn't set."""
-    # DEPLOY_ENV is a convention env var the deploy runner sets — not
-    # something fluid itself populates. The CLI can also hand the hook the
-    # resolved `--env` directly; see the "Reading `--env` in your hook"
-    # callout below.
-    if os.environ.get("DEPLOY_ENV", "") != "prod":
-        return  # not a prod apply — nothing to enforce
+    # `env` is the resolved `--env` value the CLI was invoked with, or None
+    # when the flag was omitted. DEPLOY_ENV is the runner-set fallback.
+    target = env or os.environ.get(DEPLOY_ENV_VAR, "")
+    if target != "prod":
+        return  # not a prod apply — nothing to check
 
     if not os.environ.get(REQUIRED_ENV_VAR):
         errors.append(
             f"prod-key-guard: {REQUIRED_ENV_VAR} is not set in the environment.\n"
             f"  This is required for prod deploys. Either:\n"
             f"    • Set the env var (export {REQUIRED_ENV_VAR}=...), OR\n"
-            f"    • Pass --force-pattern-drift if you have a specific reason "
-            f"to bypass the check."
+            f"    • Pass --force-pattern-drift if you have a specific reason to bypass the check."
         )
 ```
 
 Three things worth calling out:
 
-- **`DEPLOY_ENV` is a convention env var, not something the CLI populates.** Your deploy runner / CI job exports it before invoking `fluid apply`. The CLI also forwards the resolved `--env` value to hooks that opt into it by signature (see "Reading `--env` in your hook" below); `DEPLOY_ENV` remains a runner convention, useful when you want a signal independent of the overlay flag, or when the hook must also run under a pre-`0.11.0` CLI.
-- **The error message is specific.** It tells the user what's wrong, what to do, and what the escape hatch is. Copy that shape — never tell the user "something is wrong" without saying how to fix it.
-- **Append, don't raise.** Raising works (the CLI catches it), but appending produces cleaner output.
+- **`env` is the CLI's own signal; `DEPLOY_ENV` is the fallback.** `fluid apply --env prod` reaches the hook as `env="prod"`. `DEPLOY_ENV` is a convention env var your CI runner exports, and it covers applies invoked without `--env`. Checking `env` first means a CI job that forgets to export `DEPLOY_ENV` still gets the guard. A guard keyed only on a runner-set variable passes silently when the export is forgotten.
+- **The error message is specific.** It tells the user what is wrong, what to do, and what the escape hatch is. Copy that shape.
+- **Append, don't raise.** Raising works (the CLI catches it and reports `apply hook '<name>' raised: ...`), but appending produces cleaner output.
 
-::: tip Reading `--env` in your hook
-CLI `0.15.0` calls a legacy hook as `hook(contract_dir, contract, errors)` and forwards the resolved `--env` to hooks that opt in by declaring an `env` parameter, `**kwargs`, a 4th positional slot (under any name), or `*args`. Legacy 3-parameter hooks are called exactly as before, with no behaviour change.
+::: tip How a hook receives `--env`
+`fluid apply` calls a legacy hook as `hook(contract_dir, contract, errors)` and forwards the resolved `--env` to hooks that opt in by declaring an `env` parameter, `**kwargs`, a 4th positional slot (under any name), or `*args` (since CLI `0.11.0`). Legacy 3-parameter hooks are called as before. The value is the argparse-validated `--env` string, or `None` when the flag was omitted, so an env-aware hook has to handle `None`.
 
-```python
-def check_prod_deploy_key(contract_dir, contract, errors, env=None):
-    if env != "prod":
-        return
-```
-
-The value is the argparse-validated `--env` string, or `None` when the flag was omitted, so an env-aware hook has to handle `None`.
-
-**The other two signals, for a hook that keeps the legacy 3-parameter shape:**
-- Have your CI runner / deploy script `export DEPLOY_ENV=...` (or your team's convention) before invoking `fluid apply`. The hook reads that env var.
-- Inspect post-overlay contract values — e.g. if your contract sets `region` per env, the hook can branch on the resolved region. Brittle (couples to contract content).
-
-This guide's worked example uses the runner-set env var pattern throughout, so that it runs unchanged on any CLI line. It is no longer the only option: reading `env` avoids the case where CI forgets to export the var and the guard silently passes.
+For a hook that keeps the legacy 3-parameter shape, the other signals are a runner-exported variable such as `DEPLOY_ENV`, or a post-overlay contract value (for example a `labels` entry that differs per overlay). The second couples the hook to contract content.
 :::
 
 ## Step 4 — test both paths
 
 ```python
 # tests/test_hook.py
-"""Apply-hook tests — pass and fail paths."""
+"""Tests for prod-key-guard apply hook."""
 
+import os
 from pathlib import Path
 
 import pytest
 
-from prod_key_guard.hook import REQUIRED_ENV_VAR, check_prod_deploy_key
+from prod_key_guard.hook import (
+    check_prod_deploy_key,
+    DEPLOY_ENV_VAR,
+    REQUIRED_ENV_VAR,
+)
 
 
 @pytest.fixture(autouse=True)
 def clear_env(monkeypatch):
     """Every test starts with a clean env — no DEPLOY_ENV, no deploy key."""
-    monkeypatch.delenv("DEPLOY_ENV", raising=False)
+    monkeypatch.delenv(DEPLOY_ENV_VAR, raising=False)
     monkeypatch.delenv(REQUIRED_ENV_VAR, raising=False)
 
 
-def test_non_prod_target_always_passes(monkeypatch):
-    monkeypatch.setenv("DEPLOY_ENV", "dev")
+def test_non_prod_target_passes_without_key(monkeypatch):
+    monkeypatch.setenv(DEPLOY_ENV_VAR, "dev")
     errors: list[str] = []
     check_prod_deploy_key(Path("/tmp"), {}, errors)
     assert errors == []
 
 
-def test_no_deploy_env_passes_through(monkeypatch):
-    """If DEPLOY_ENV is unset, the hook can't tell what's being deployed —
-    pass through. Opt-in semantics; flip the check if you want enforce-by-default."""
+def test_no_deploy_env_passes(monkeypatch):
+    """No `--env`, and no DEPLOY_ENV: the hook can't tell what's being
+    deployed — pass through. The convention here is opt-in: pass `--env` or
+    set DEPLOY_ENV when you want the guard to run."""
     errors: list[str] = []
     check_prod_deploy_key(Path("/tmp"), {}, errors)
     assert errors == []
 
 
-def test_prod_with_key_passes(monkeypatch):
-    monkeypatch.setenv("DEPLOY_ENV", "prod")
-    monkeypatch.setenv(REQUIRED_ENV_VAR, "secret-deploy-key")
-    errors: list[str] = []
-    check_prod_deploy_key(Path("/tmp"), {}, errors)
-    assert errors == []
-
-
-def test_prod_without_key_fails(monkeypatch):
-    monkeypatch.setenv("DEPLOY_ENV", "prod")
+def test_prod_target_missing_key_fails(monkeypatch):
+    monkeypatch.setenv(DEPLOY_ENV_VAR, "prod")
     errors: list[str] = []
     check_prod_deploy_key(Path("/tmp"), {}, errors)
     assert len(errors) == 1
     assert REQUIRED_ENV_VAR in errors[0]
-    assert "--force-pattern-drift" in errors[0]  # message points to the escape
+    assert "--force-pattern-drift" in errors[0]  # message points to the escape hatch
+
+
+def test_prod_target_with_key_passes(monkeypatch):
+    monkeypatch.setenv(DEPLOY_ENV_VAR, "prod")
+    monkeypatch.setenv(REQUIRED_ENV_VAR, "secret-key-value")
+    errors: list[str] = []
+    check_prod_deploy_key(Path("/tmp"), {}, errors)
+    assert errors == []
+
+
+def test_env_argument_fires_without_deploy_env():
+    """`fluid apply --env prod` reaches the hook directly — no DEPLOY_ENV
+    needed, so a CI job that forgets to export it can't silently skip the
+    guard."""
+    errors: list[str] = []
+    check_prod_deploy_key(Path("/tmp"), {}, errors, env="prod")
+    assert len(errors) == 1
+    assert REQUIRED_ENV_VAR in errors[0]
 ```
 
 Run it:
@@ -235,7 +260,11 @@ Run it:
 ```bash
 pip install -e ".[dev]"
 pytest
-# ============== 4 passed in 0.04s ===============
+```
+
+```text
+.....                                                                    [100%]
+5 passed in 0.02s
 ```
 
 ## Step 5 — wire it in
@@ -244,9 +273,25 @@ pytest
 # On the deployer's machine (CI runner, on-call laptop, etc):
 pip install data-product-forge prod-key-guard
 
-# Hook auto-discovered — no contract change needed. Verify with the
-# importlib.metadata one-liner (the CLI's plugins-list command isn't
-# wired up yet):
+# The hook is auto-discovered. No contract change needed. Confirm it:
+fluid plugins list --json
+```
+
+The JSON has an `apply_hook` key; the plugin shows up there:
+
+```json
+{
+  "allowed": true,
+  "dispatched": true,
+  "distribution": "prod-key-guard 0.1.0",
+  "group": "fluid_build.apply_hooks",
+  "name": "prod-key-guard"
+}
+```
+
+Or use the `importlib.metadata` one-liner:
+
+```bash
 python -c "
 from importlib.metadata import entry_points
 for ep in entry_points(group='fluid_build.apply_hooks'):
@@ -255,28 +300,29 @@ for ep in entry_points(group='fluid_build.apply_hooks'):
 # prod-key-guard: prod_key_guard.hook:check_prod_deploy_key
 ```
 
-End-to-end:
+End-to-end (CLI 0.18.1, local-platform contract with an `overlays/prod.yaml`):
 
 ```bash
-# Convention: your deploy runner sets DEPLOY_ENV. For local testing,
-# set it on the same line as the apply.
-
-# This should fail — no FLUID_PROD_DEPLOY_KEY in env.
-unset FLUID_PROD_DEPLOY_KEY
-DEPLOY_ENV=prod fluid apply contract.fluid.yaml --env prod
-# ✗ apply hook: prod-key-guard:
-#   FLUID_PROD_DEPLOY_KEY is not set in the environment.
+# This fails: no FLUID_PROD_DEPLOY_KEY in the environment.
+unset FLUID_PROD_DEPLOY_KEY DEPLOY_ENV
+fluid apply contract.fluid.yaml --env prod --yes
+# apply hook: prod-key-guard: FLUID_PROD_DEPLOY_KEY is not set in the environment.
 #   ...
+# apply aborted by an apply-time plugin hook. Pass --force-pattern-drift to override.
 
-# Pass the check with the key set:
-export FLUID_PROD_DEPLOY_KEY=...
-DEPLOY_ENV=prod fluid apply contract.fluid.yaml --env prod
+# The check passes with the key set:
+export FLUID_PROD_DEPLOY_KEY=<key>
+fluid apply contract.fluid.yaml --env prod --yes
 # (proceeds normally)
 
-# Break-glass override (audited via WARN log):
-DEPLOY_ENV=prod fluid apply contract.fluid.yaml --env prod --force-pattern-drift
-# ⚠ apply hook drift ignored (--force-pattern-drift):
-#   FLUID_PROD_DEPLOY_KEY is not set in the environment.
+# Non-prod targets are untouched:
+fluid apply contract.fluid.yaml --env dev --yes
+# (proceeds normally)
+
+# Break-glass override (logged as a warning):
+unset FLUID_PROD_DEPLOY_KEY
+fluid apply contract.fluid.yaml --env prod --force-pattern-drift --yes
+# apply hook drift ignored (--force-pattern-drift): prod-key-guard: FLUID_PROD_DEPLOY_KEY is not set in the environment.
 ```
 
 ## Variations — the same shape, different invariants
@@ -285,7 +331,7 @@ DEPLOY_ENV=prod fluid apply contract.fluid.yaml --env prod --force-pattern-drift
 ::: details Check that the contract's owner matches the deployer's team
 ```python
 def check_team_match(contract_dir, contract, errors):
-    declared = (contract.get("metadata") or {}).get("team")
+    declared = (contract.get("labels") or {}).get("team")
     deployer = os.environ.get("TEAM_NAME", "")
     if declared and declared != deployer:
         errors.append(
@@ -295,7 +341,7 @@ def check_team_match(contract_dir, contract, errors):
         )
 ```
 
-Useful when CI runners are tagged with the team they belong to (`TEAM_NAME` env var injected by the runner config).
+Useful when CI runners are tagged with the team they belong to (`TEAM_NAME` env var injected by the runner config). The contract's `labels` map sits at the contract root.
 :::
 
 
@@ -305,7 +351,7 @@ Useful when CI runners are tagged with the team they belong to (`TEAM_NAME` env 
 from datetime import datetime, timezone
 
 def check_business_hours(contract_dir, contract, errors):
-    # Same DEPLOY_ENV convention as the headline example.
+    # Reads the runner-set DEPLOY_ENV; add an `env=None` parameter to use --env.
     if os.environ.get("DEPLOY_ENV", "") != "prod":
         return
     now = datetime.now(timezone.utc)
@@ -322,26 +368,33 @@ def check_business_hours(contract_dir, contract, errors):
 
 
 
-::: details Check the bundle digest hasn't drifted
+::: details Check that the scaffold lock matches the contract's bundle ref
 ```python
-import json, hashlib
+from pathlib import Path
 
-def check_bundle_digest(contract_dir, contract, errors):
-    lockfile = contract_dir / "fluid-custom-scaffold.lock.json"
+import yaml  # a dependency of data-product-forge
+
+
+def check_scaffold_lock(contract_dir, contract, errors):
+    lockfile = Path(contract_dir) / "fluid-scaffold.lock"
     if not lockfile.exists():
         return
-    locked = json.loads(lockfile.read_text())
-    libs = ((contract.get("extensions") or {})
-            .get("customScaffold") or {}).get("libraries", [])
-    for lib in libs:
-        lib_id = lib.get("id")
-        locked_sha = (locked.get("libraries") or {}).get(lib_id, {}).get("digest")
-        # Re-resolve via data_product_forge_custom_scaffold.resolvers,
-        # then hashlib.sha256 over the resolved tree, then compare.
-        # ... (full version in the custom-scaffold repo)
+    locked = yaml.safe_load(lockfile.read_text()) or {}
+    libraries = ((contract.get("extensions") or {})
+                 .get("customScaffold") or {}).get("libraries", [])
+    for lib in libraries:
+        wanted = (lib.get("source") or {}).get("ref")
+        recorded = ((locked.get("libraries") or {})
+                    .get(lib.get("id")) or {}).get("ref")
+        if wanted and recorded and wanted != recorded:
+            errors.append(
+                f"scaffold-lock: library {lib.get('id')!r} asks for ref "
+                f"{wanted!r}, but the lock was written at {recorded!r}. "
+                "Re-run `fluid custom-scaffold --update`."
+            )
 ```
 
-Pairs naturally with the [your-own-CI bundle pattern](./your-own-ci.md) — every product team can opt into bundle-digest-drift detection by `pip install`-ing this hook.
+`fluid custom-scaffold` writes `fluid-scaffold.lock` (YAML) with, per library, the `ref` the contract asked for and the resolved `commit`. Pairs with the [your-own-CI bundle pattern](./your-own-ci.md): a product team that bumps `ref` and forgets to regenerate is stopped before deploying.
 :::
 
 
@@ -370,12 +423,12 @@ If the network call is too slow for a hot apply path, cache the lookup or only r
 
 ## You'll know it worked when
 
-- The `importlib.metadata` one-liner above (Step 5) shows `prod-key-guard` under `apply_hooks`.
-- All 4 tests pass under `pytest`.
-- `DEPLOY_ENV=prod fluid apply --env prod` fails with the structured message when `FLUID_PROD_DEPLOY_KEY` is unset.
+- `fluid plugins list --json` (or the `importlib.metadata` one-liner above) shows `prod-key-guard` under `apply_hook`.
+- All the tests pass under `pytest`.
+- `fluid apply --env prod` fails with the structured message when `FLUID_PROD_DEPLOY_KEY` is unset, with no `DEPLOY_ENV` exported.
 - The same command succeeds when the deploy-key env var is set.
-- `DEPLOY_ENV=dev fluid apply --env dev` passes regardless of the deploy-key env var (only prod is gated).
-- `--force-pattern-drift` downgrades the error to a WARN and lets the apply proceed (and the WARN line appears in stdout for audit purposes).
+- `fluid apply --env dev` passes regardless of the deploy-key env var (only prod is gated).
+- `--force-pattern-drift` downgrades the error to a logged warning and lets the apply proceed.
 
 ## When **not** to use an apply hook
 
@@ -385,11 +438,11 @@ If the network call is too slow for a hot apply path, cache the lookup or only r
 
 ## Common gotchas
 
-::: details `DEPLOY_ENV` is empty in the hook
-If your deploy runner didn't `export DEPLOY_ENV=...` before calling `fluid apply`, your hook can't tell what's being deployed. The example's opt-in pattern (pass through when unset) is one valid choice; if you'd rather enforce-by-default, flip the check:
+::: details The hook passes on a prod deploy
+`env` is `None` when `fluid apply` ran without `--env`, and `DEPLOY_ENV` is only set if your runner exported it. With neither, the hook above cannot tell what is being deployed and passes through. That opt-in behaviour is one valid choice; if you would rather enforce by default, flip the check:
 
 ```python
-deploy_env = os.environ.get("DEPLOY_ENV")
+deploy_env = env or os.environ.get("DEPLOY_ENV")
 if deploy_env is None:
     errors.append("prod-key-guard: DEPLOY_ENV must be set to dev/staging/prod")
     return
@@ -397,7 +450,7 @@ if deploy_env != "prod":
     return
 ```
 
-If you want the hook to read the `--env` flag fluid was invoked with, declare an `env` parameter (or `**kwargs`) in your hook signature — the CLI forwards the resolved `--env` value to hooks that opt in. It is `None` when `--env` was not passed. See "Reading `--env` in your hook" earlier on this page.
+The hook reads the `--env` flag through its `env` parameter; see "How a hook receives `--env`" in Step 3.
 :::
 
 ::: details I want a different override flag, not `--force-pattern-drift`
@@ -423,6 +476,6 @@ The CLI prints apply-hook errors verbatim, so newlines and indentation are prese
 
 - [Custom validator](./custom-validator.md) — for checks that can run at `fluid validate` instead
 - [Your own CI](./your-own-ci.md) — bundle pattern for scaffolds, often paired with apply hooks for drift detection
-- [Reference → Entry points](../reference/entry-points.md) — full signature reference for all three plugin groups
+- [Reference → Entry points](../reference/entry-points.md) — signature reference for the plugin groups
 - [Reference → Trust model](../reference/trust-model.md) — what the CLI guarantees about hook execution (deep-copied contract, exception trapping, redaction)
 - [Apply-hook example](../examples/apply-hook-prod-key-guard.md) — same hook in example form, with more variations
