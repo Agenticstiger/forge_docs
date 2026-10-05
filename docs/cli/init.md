@@ -185,7 +185,7 @@ The CLI registers discoverers for the file schemes `file`, `http`, `https`, `s3`
 ::: danger A credential in the URI is written into the contract
 For `postgres://` and `mysql://` URIs, the password in the URI is copied verbatim into `builds[].properties.source.connection.password`. Nothing is redacted, so the emitted file is not safe to commit. The command also prints the URI, password included, on its first line.
 
-Before you commit, replace the value with `{{ env.<NAME> }}` (for example `{{ env.PGPASSWORD }}`). That is the only placeholder form the loader substitutes; a literal `${VAR}` stays a literal string. Importers behave differently: [`fluid import`](./import.md) redacts secrets for the tools that carry them.
+Before you commit, replace the value with `{{ env.<NAME> }}` (for example `{{ env.PGPASSWORD }}`). In a contract, `{{ env.<NAME> }}` is the form the loader substitutes; a literal `${VAR}` stays a literal string. Importers behave differently: [`fluid import`](./import.md) redacts secrets for the tools that carry them.
 :::
 
 ### Run a discovered contract

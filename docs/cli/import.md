@@ -92,7 +92,7 @@ connection:
   password: '{{ env.PASSWORD }}'
 ```
 
-`{{ env.NAME }}` is the only placeholder form the loader substitutes; a literal `${NAME}` would stay a literal string. Export the variable before `fluid apply`. Review the file anyway: the match is on the key name, so a secret under a key named something else is copied as written. The `dlt` importer writes an empty `connection`, and the `dbt` importer carries no connection. This is different from [`fluid init --discover`](./init.md#discover-—-introspect-a-source-into-a-bronze-contract), which does not redact.
+In a contract, `{{ env.NAME }}` is the form the loader substitutes; a literal `${NAME}` would stay a literal string. Export the variable before `fluid apply`. Review the file anyway: the match is on the key name, so a secret under a key named something else is copied as written. The `dlt` importer writes an empty `connection`, and the `dbt` importer carries no connection. This is different from [`fluid init --discover`](./init.md#discover-—-introspect-a-source-into-a-bronze-contract), which does not redact.
 
 ### Example — migrating from Meltano
 
