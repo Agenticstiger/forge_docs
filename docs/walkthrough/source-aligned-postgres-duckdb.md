@@ -11,7 +11,7 @@ A minimal end-to-end walkthrough of a source-aligned Bronze (`SDP`) data product
   title="Six months → sixty seconds — Fluid Forge source-aligned Bronze">
 </iframe>
 
-The reel above shows the flow this walkthrough covers: `fluid init --discover postgres://…`, `fluid validate --probe`, `fluid apply`, `fluid runs status`. The steps below start from the contract the repo ships instead of discovering one.
+The reel above shows the flow this walkthrough covers: `fluid init --discover postgres://…`, `fluid validate`, `fluid apply`, `fluid runs status`. The steps below start from the contract the repo ships instead of discovering one.
 
 ::: tip Where this walkthrough lives
 The exact contract, docker-compose, seed SQL, Makefile, and verification script for this walkthrough live in the `forge-cli` repo at [`examples/source-aligned-postgres-duckdb/`](https://github.com/Agenticstiger/forge-cli/tree/main/examples/source-aligned-postgres-duckdb). The contract declares schema `0.7.3`, as the repo ships it; `0.7.5`, the latest stable schema, also validates it. This page was run against `data-product-forge` 0.18.1.

@@ -99,7 +99,7 @@ A long agent loop accumulates tool results, and each turn carries the previous o
   insight="$0.503 to $0.048 per 20-turn run in this recording (10.5x), with no code change. | truncate, summarize and hybrid are set with FLUID_COMPACTION_STRATEGY. | The contract and the agent are unchanged; only context-window handling differs."
 />
 
-Pairs with [Agentic primitives → Token-budget pre-flight & compaction](/forge_docs/advanced/agentic-primitives.html#token-budget-preflight-and-compaction). Long-form animated reel preserved at [`/forge_docs/reels/compaction-and-warnings.html`](/forge_docs/reels/compaction-and-warnings.html).
+Pairs with [Agentic primitives → Token-budget pre-flight & compaction](/forge_docs/advanced/agentic-primitives.html#token-budget-pre-flight-compaction). Long-form animated reel preserved at [`/forge_docs/reels/compaction-and-warnings.html`](/forge_docs/reels/compaction-and-warnings.html).
 
 ---
 

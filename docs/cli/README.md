@@ -35,7 +35,7 @@ See [Walkthrough → 11-stage pipeline](../walkthrough/11-stage-pipeline.md) for
 | [`fluid forge`](./forge.md) | AI-assisted scaffolding |
 | [`fluid forge data-model`](../forge-data-model.md) | Forge a reviewable data model from an intent file, DDL, or source catalog |
 | [`fluid skills`](./skills.md) | Industry knowledge packs that augment `fluid forge` |
-| [Source catalogs (V1.5)](./catalogs/README.md) | Forge directly from Snowflake / Unity / BigQuery / Dataplex / Glue / DataHub / DMM metadata |
+| [Source catalogs](./catalogs/README.md) | Forge directly from Snowflake / Unity / BigQuery / Dataplex / Glue / DataHub / DMM metadata |
 | [`fluid validate`](./validate.md) | Check contract syntax and provider rules |
 | [`fluid plan`](./plan.md) | Plan execution (`--html`, `--env`, `--out`) |
 | [`fluid apply`](./apply.md) | Deploy end-to-end (`--mode`, `--yes`, `--dry-run`) |
@@ -58,7 +58,7 @@ These commands each map to one stage of the 11-stage production pipeline. Most u
 
 | # | Command | What it does |
 | --- | --- | --- |
-| 1 | [`fluid bundle`](./bundle.md) | Package contract + sources into a signed tgz bundle (`--sign`, `--attest`, `--format tgz`) |
+| 1 | [`fluid bundle`](./bundle.md) | Package contract + sources into a signed tgz bundle (`--sign`, `--attest`, `--format tgz`); [`fluid split`](./split.md) is the inverse for a fragment layout |
 | 2 | [`fluid validate`](./validate.md) | Check contract syntax and provider rules (`--strict`, `--report`) |
 | 3 | [`fluid generate artifacts`](./generate-artifacts.md) | Fanout: ODCS + ODPS-Bitol + schedule + policy bindings |
 | 4 | [`fluid validate-artifacts`](./validate-artifacts.md) | Verify MANIFEST SHA-256 + per-format schema checks |
@@ -76,7 +76,7 @@ These commands are for production-safety concerns that live alongside the pipeli
 
 | Command | What it is for |
 | --- | --- |
-| [`fluid rollback`](./rollback.md) | Restore from the auto-snapshot taken before `apply --mode replace` (use `--list` for read-only discovery) |
+| [`fluid rollback`](./rollback.md) | Restore from a snapshot recorded in `.fluid/rollback-state.json` (use `--list` for read-only discovery). Not every apply records one; see [the availability note](./rollback.md) |
 | [`fluid verify-signature`](./verify-signature.md) | Verify a Sigstore cosign signature + SLSA attestation on a tgz bundle |
 
 ## Generate & Visualize

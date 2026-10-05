@@ -42,6 +42,8 @@ builds:
 | `multi-stage` | `stages[]`: each has `name`, `pattern`, `properties`, `dependsOn`, `outputs` | Orchestration of named build steps. |
 | `acquisition` | `source` (required), `sink`, `delivery`, `schemaEvolution`, `quality`, and engine blocks | An ingestion engine. See [Source-Aligned Acquisition](../advanced/source-aligned-acquisition.md). |
 
+A build with `properties` and no `pattern` fails validation: the schema cannot tell which key set applies, so it reports the missing and unexpected keys of several patterns at once (`'model' is a required property`, `'source' is a required property`, and `'sql' was unexpected`). Name the `pattern`.
+
 There is no `script` key on `embedded-logic`: a build that carries `properties.script` fails validation with `properties: Additional properties are not allowed ('script' was unexpected)` and `'sql' is a required property`. A Python script is a `hybrid-reference` build, shown in [Build execution](#build-execution-where-sql-and-python-run).
 
 ### Which builds `fluid apply` runs
@@ -82,7 +84,7 @@ parameters:
 
 Four rules, each measured on 0.18.1:
 
-- **The reader comes from the file extension.** A `.csv` path is read as CSV, a `.parquet` path as Parquet. The `format:` key is accepted by the schema, but the local provider does not read it: a Parquet file named `orders.bin` with `format: parquet` fails with `Invalid Input Error: Error when sniffing file "orders.bin"`, because it was read as CSV.
+- **The reader depends on the mode.** Under `--mode amend-and-build` it comes from the file extension: a `.csv` path is read as CSV, a `.parquet` path as Parquet, and the `format:` key, though the schema accepts it, is not read. A Parquet file named `orders.bin` with `format: parquet` fails there with `Invalid Input Error: Error when sniffing file "orders.bin"`, because it was read as CSV. A plain `fluid apply` honours `format:` for the same input and loads it as Parquet. Name the file with its real extension and both agree.
 - **The path resolves against the directory you run `fluid` from**, not the contract's directory. `fluid apply orders/contract.fluid.yaml` from the parent directory fails with `Input file not found: data/orders.csv`. The same is true of a relative path you write inside the SQL (`read_csv_auto('./data/orders.csv')`).
 - **`{{ env.NAME }}` works in `path`**, so a shared data directory can be set per run (`path: "{{ env.SHOP_DATA }}/orders.csv"`).
 - **An input named like a `consumes[]` entry's `exposeId` wins over that entry.** See [`consumes[]`](#consumes-depending-on-another-product).
@@ -151,6 +153,8 @@ An expose needs `exposeId`, `kind`, `binding` and `contract`. The schema lives a
 For `s3_file`, the key is `path`, and `prefix` is not a key. `fluid generate iac` with `bucket`, `path` and `region` writes the bucket; with `prefix` the contract does not validate.
 
 ### Where a local `path` points
+
+The rules for every local path, inputs included, are in [Local provider: where paths resolve](../providers/local.md#where-paths-resolve).
 
 A relative `location.path` on `platform: local` resolves against the **contract's directory**, not the directory you run `fluid` from. That holds for the build, for the local provider, and for `fluid verify` and `fluid diff`, so a relative output lands under the contract's directory:
 

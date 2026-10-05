@@ -23,7 +23,7 @@ fluid verify-signature BUNDLE_TGZ [options]
 | `--timeout SECONDS` | Per-subprocess cosign timeout. Default 120. |
 
 ::: tip Got `SupplyChainViolationError` instead?
-That error is not raised by this command. It comes from an Airbyte acquisition build whose connector image failed its Cosign check. The check is configured on the build, under `builds[].properties.airbyte.image_signature` (`verifier: cosign`, `publicKey`, `slsaProvenance`), and the failing image is named in the error. Its fix text also mentions `sovereignty.allowedSigners`; as of 0.18.1 no bundled contract schema defines that field, so pin the signer with `publicKey`. See [typed CLI errors](../advanced/typed-cli-errors.md) and [Source-Aligned Acquisition](../advanced/source-aligned-acquisition.md). `fluid verify-signature` checks a `fluid bundle` tarball, not a container image.
+That error is not raised by this command. It comes from an Airbyte acquisition build whose connector image failed its Cosign check. The check is configured on the build, under `builds[].properties.airbyte.image_signature` (`verifier: cosign`, `publicKey`, `slsaProvenance`), and the failing image is named in the error. Its fix text also mentions `sovereignty.allowedSigners`; as of 0.18.1 no bundled contract schema defines that field, so pin the signer with `publicKey`. See [typed CLI errors](../advanced/typed-cli-errors.md#governance) and [Source-Aligned Acquisition](../advanced/source-aligned-acquisition.md). `fluid verify-signature` checks a `fluid bundle` tarball, not a container image.
 :::
 
 ## Exit codes

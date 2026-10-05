@@ -164,7 +164,7 @@ exposes:
         auditRequired: true
 ```
 
-Per-tenant row filters are also read from `policy.rowFilters`, with a caveat about schema validation: see [Row-level security](#row-level-security-policy-rowfilters).
+Per-tenant row filters are also read from `policy.rowFilters`, with a caveat about schema validation: see [Row-level security](#row-level-security-—-policy-rowfilters).
 
 ### Per-`tools/call` enforcement order
 
@@ -356,7 +356,7 @@ The output-port gateway loads the contract without schema validation, so the fil
 {"rows": [{"customer_id": 1, "email": "[REDACTED-PII]", "segment": "gold", "tenant_id": "t1"}], "rowCount": 1}
 ```
 
-So a contract that uses `rowFilters` can be served but cannot go through the validate, plan and apply path. Until the schema accepts it, use the cloud-native row policies from the [IAM compilers](#cloud-iam-compilers-defending-the-bypass-path) for warehouse-side enforcement on a contract you apply.
+So a contract that uses `rowFilters` can be served but cannot go through the validate, plan and apply path. Until the schema accepts it, use the cloud-native row policies from the [IAM compilers](#cloud-iam-compilers-—-defending-the-bypass-path) for warehouse-side enforcement on a contract you apply. The [MCP output port walkthrough](../walkthrough/mcp-output-port.md#policy-rowfilters-is-read-by-the-gateway-and-rejected-by-fluid-validate) shows the same refusal from a worked example.
 :::
 
 `${caller.<attr>}` placeholders resolve from `caller_attributes`: the `fluid` block of the client's declared capabilities over stdio, or JWT claims and the mTLS cert over HTTP. The supported operators are `equals` (scalar) and `in` (non-empty list); values are always **bound as parameters**, never interpolated.

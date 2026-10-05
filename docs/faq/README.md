@@ -33,6 +33,14 @@ pip install "data-product-forge[local]"
 
 Or for an isolated CLI install: `pipx install "data-product-forge[local]"`.
 
+## A local build says `duckdb not installed. Install it with: pip install duckdb`.
+
+The same cause as above: the `[local]` extra is missing. Install `data-product-forge[local]`, which pins `duckdb>=1.5.0` for the contract-SQL sandbox.
+
+## A local output file contains `id,value` and `1,materialized`.
+
+That is the placeholder the local planner writes when it has no SQL to run, for example for a Python or acquisition build in the default `fluid apply` mode. The apply still reports success. Run the build with `--mode amend-and-build`; see [the default mode takes a simpler path](../walkthrough/local.md#the-default-mode-takes-a-simpler-path).
+
 ## Where do I report a bug or ask a question?
 
 - **Bug?** [open an issue](https://github.com/Agenticstiger/forge-cli/issues/new) with `fluid version` + `fluid doctor` output.

@@ -211,9 +211,12 @@ The MCP server (Option A) tags each read with the agent identity, model, and use
 
 ## Common patterns
 
+Each fragment goes under `exposes[].policy` of the expose it protects, in the same place as in Step 1.
+
 ### "No training, ever" (most regulated data)
 
 ```yaml
+# under exposes[].policy
 agentPolicy:
   deniedUseCases: ["training", "fine_tuning", "embedding"]
   canStore: false
@@ -224,6 +227,7 @@ agentPolicy:
 ### "Internal vetted models only" (default for production)
 
 ```yaml
+# under exposes[].policy
 agentPolicy:
   allowedModels: ["claude-sonnet-4-6", "claude-opus-4-7"]
   allowedUseCases: ["analysis", "summarization", "qa"]
@@ -237,6 +241,7 @@ agentPolicy:
 ### "Open to any agent for QA" (low-sensitivity)
 
 ```yaml
+# under exposes[].policy
 agentPolicy:
   allowedUseCases: ["qa"]            # any model, but only QA
   deniedUseCases: ["training"]

@@ -67,7 +67,7 @@ fluid validate contract.fluid.yaml
 # exit 1
 ```
 
-The mode decides the outcome, as for any other finding: `strict` refuses, `advisory` warns and exits 0, `audit` logs.
+The mode decides the outcome, as for any other finding: `strict` refuses, `advisory` warns and exits 0, `audit` logs. The rule is also covered in [Governance & Compliance](../advanced/governance.md#every-cloud-binding-names-its-region).
 
 A region the table cannot resolve to a jurisdiction is refused the same way under `strict` on a cloud binding, unless you vouch for it by naming it in `allowedRegions`:
 

@@ -260,6 +260,8 @@ As of 0.18.1, `--emit-dimensional-variants` on a Data Vault 2.0 model creates th
 | `--llm-timeout-seconds` | `120` | HTTP timeout for each staged LLM call |
 | `--tiered`, `--no-cache` | off | Per-stage model tiers; disable the staged LLM cache |
 
+`from-ddl` also takes `--ddl <file>...` and `--source-type` (`snowflake`, `bigquery`, `postgres`, `postgresql`, `oracle`, `mysql`). `from-source` also takes `--source`, `--uri`, `--credential-id`, `--database`, `--schema`, `--catalog`, `--tables`, `--name` and `--allow-metadata-service`. `--emit-osi-sidecar` writes the OSI interchange document next to the contract. The same table is in [`fluid forge`](./cli/forge.md#data-model-flags).
+
 Run `fluid forge data-model from-intent -h` for the full list on your version.
 
 ## Review and iteration

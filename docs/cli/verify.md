@@ -73,7 +73,7 @@ Without `--strict` the same run reports the drift and exits `0`. Remove the extr
 | `--athena-output-location S3_URI` | Where Athena writes the row-count query result. Env `FLUID_ATHENA_OUTPUT_LOCATION`. See [S3 and Glue](#s3-and-glue-athena). |
 | `--athena-workgroup NAME` | Athena workgroup for the row-count query. Env `FLUID_ATHENA_WORKGROUP`, default `primary`. |
 | `--athena-timeout SECONDS` | Stop the Athena row-count query and fail after this long. Env `FLUID_ATHENA_TIMEOUT_SECONDS`, default `300`. |
-| `--env` | Apply an environment overlay. See [Per-environment overlays](../recipes/per-environment-overlays.md). |
+| `--env` | Apply an environment overlay. See [Per-environment overlays](../recipes/per-environment-overlays.md). An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. A stage-1 bundle built for another env is refused with `bundle_env_mismatch`. |
 
 For the Athena options the flag wins over the environment variable.
 

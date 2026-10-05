@@ -286,6 +286,8 @@ Generated 1 files (airflow scheduler):
 
 The DAG's contents, its worker requirements and the environment it passes to fluid are on the [`generate artifacts`](./generate-artifacts.md#scheduled-builds) page. The DAG id carries the env: `<product>__<env>__<build>`.
 
+`generate schedule` writes the DAG file straight into `-o`, with no per-product directory. [`fluid schedule-sync`](./schedule-sync.md) with its default `--delete-scope product` refuses a directory that is not one directory per product, so write to `-o <dags-dir>/<product-id>/`; see [What gets deleted](./schedule-sync.md#what-gets-deleted). A DAG id that changed in 0.17.0 needs the one-time retirement of the old DAG described under [Upgrading from 0.16.7 and earlier](./schedule-sync.md#upgrading-from-0-16-7-and-earlier).
+
 This is the promoted path for orchestration generation.
 
 ### `fluid generate ci`

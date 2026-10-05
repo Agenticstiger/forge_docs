@@ -43,7 +43,7 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 | `FLUID_USER_HOME` | Overrides the user-global FLUID directory (`~/.fluid`). |
 | `FLUID_WORKSPACE_ROOT` | Overrides the directory that holds the workspace-local `.fluid/` state. Default: the working directory. |
 | `FLUID_SECRETS_FILE` | Path of a dotenv-style file that is loaded last, over the process environment, when a command hydrates the project's `.env` files (`.env`, `.env.<env>`, `.env.local`, then this file). Best effort, and it needs `python-dotenv`. It is not an encrypted file. |
-| `FLUID_UPSTREAM_CONTRACTS` | Colon-separated extra directories searched for upstream contracts when `fluid forge` and the dbt source generator look up an upstream's schema. |
+| `FLUID_UPSTREAM_CONTRACTS` | Colon-separated extra directories searched for upstream contracts, next to the contract's own workspace. Used when `fluid forge` and the dbt source generator look up an upstream's schema, and when an embedded-SQL build binds a `consumes[]` entry to its upstream's binding. Each root is searched down to four directory levels for `contract.fluid.yaml` or `contract.fluid.json`; build output and VCS directories such as `.git` and `node_modules` are skipped. |
 
 ## Contract loading and the DuckDB sandbox
 
@@ -57,7 +57,7 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 
 | Variable | Effect |
 |---|---|
-| `FLUID_STATE_BACKEND` | Default of `--state-backend` for `fluid apply`, `fluid diff` and `fluid verify --state-drift`: `s3://<bucket>[/<key>]` or `gcs://<bucket>[/<prefix>]`. A spec that names only a bucket gives every contract its own key (see below); the flag does not. An empty `--state-backend ""` forces local state for one run. |
+| `FLUID_STATE_BACKEND` | Default of `--state-backend` for `fluid apply`, `fluid diff` and `fluid verify --state-drift`: `s3://<bucket>[/<key>]` or `gcs://<bucket>[/<prefix>]` (see [Remote state](../cli/apply.md#remote-state)). A spec that names only a bucket gives every contract its own key (see below); the flag does not. An empty `--state-backend ""` forces local state for one run. |
 | `FLUID_TOFU_TIMEOUT_SECONDS` | Wall-clock cap per `tofu` invocation. Default `1800`. A timed-out call reports exit code 124. |
 | `FLUID_OPENTOFU_VERSION` | Pins the OpenTofu version that [`fluid apply --ensure-opentofu`](../cli/apply.md) installs when `tofu` is missing. |
 | `FLUID_REDSHIFT_WORKGROUP`, `FLUID_REDSHIFT_DATABASE`, `FLUID_REDSHIFT_SQL` | Set by the generated AWS module for its Redshift Serverless statements. They are outputs of the generator, not settings. |
@@ -102,7 +102,7 @@ The CLI itself does not read these; the generated pipeline and the generated DAG
 | `FLUID_CONFIG_PATH` | set by generated pipelines | `./fluid_config`. Nothing in the CLI reads it. |
 | `FLUID_PROJECT_DIR` | the generated Airflow DAG, on the worker | Directory that holds the product checkout. Required. |
 | `FLUID_BIN` | the generated Airflow DAG | The `fluid` executable on the worker. Default `fluid`. |
-| `FLUID_DAG_ENV_PASSTHROUGH` | the generated Airflow DAG | Space-separated extra variable names handed to the `fluid apply` process. |
+| `FLUID_DAG_ENV_PASSTHROUGH` | the generated Airflow DAG | Space-separated extra variable names handed to the `fluid apply` process. A name that starts with `AIRFLOW` never passes, so the worker's Airflow configuration and connection variables stay out of `fluid`. |
 | `FLUID_DAG_CONTRACT`, `FLUID_DAG_ENV`, `FLUID_DAG_BUILD_ID`, `FLUID_DAG_CONTRACT_ENV` | the generated Airflow DAG | Set by the DAG's task from constants in the file; do not set them on the worker. |
 
 See [Airflow](./airflow.md) for which variables reach `fluid apply` on the worker and [Operating in CI](./operating-in-ci.md) for the pipeline parameters.
@@ -142,6 +142,7 @@ Masking is applied only on the DuckDB acquisition landing path. See [Production 
 | `FLUID_IMPORT_AIRBYTE_URL` | Airbyte API base URL for `fluid import airbyte`. The importer has no default endpoint: without `--server-url` or this variable it refuses before building a client. |
 | `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT`, `CLOUDSDK_CORE_PROJECT` | Read in this order for the BigQuery load project when the binding names none. |
 | `BIGQUERY_EMULATOR_HOST` | Points the BigQuery client at an emulator. fluid then uses anonymous credentials, so no token reaches the emulator. |
+| `AWS_ENDPOINT_URL_S3`, `AWS_ENDPOINT_URL` | Point DuckDB's S3 access at a non-AWS endpoint, such as a local object-store emulator; `AWS_ENDPOINT_URL_S3` wins when both are set, and `AWS_IGNORE_CONFIGURED_ENDPOINT_URLS=true` turns the override off. A value that is not an `http(s)` URL naming a host, or that carries a user and password, is ignored with a warning. When DuckDB cannot be pointed at a valid override the build fails with `ObjectStoreEndpointError` rather than write to AWS. |
 | `FLUID_GCP_PROJECT` | Counted by the `fluid forge` welcome scan as a sign that GCP is configured. |
 
 A BigQuery binding that declares no `location.region` gets a load job with no location, so the job runs where the table is. Pin `location.region` in the binding when the data's location matters.
@@ -314,7 +315,7 @@ litellm 1.98.0 added a module that imports `NotRequired` straight from `typing`,
 - [Operating in CI](./operating-in-ci.md): the pipeline parameters and the variables a runner needs
 - [Production troubleshooting](./production-troubleshooting.md): errors and what to do
 - [LiteLLM backend](./litellm-backend.md): LLM variables in context
-- [Cost tracking](./cost-tracking.md): cost gates in context
+- [Cost tracking](./cost-tracking.md): the LLM cost ceilings in context. The acquisition `cost.budget` is described under [source-aligned acquisition](./source-aligned-acquisition.md#cost-tracking-and-budget-gates)
 - [Network safety](./network-safety.md): SSRF allowlists in context
 - [Catalog overview](../cli/catalogs/overview.md): publish-side variables in context
 - [`fluid generate iac`](../cli/generate-iac.md): IaC engine variables in context

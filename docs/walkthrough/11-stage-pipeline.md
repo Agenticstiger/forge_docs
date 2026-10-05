@@ -22,6 +22,8 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
   |- Jenkins plugins required: workflow-aggregator, git
 ```
 
+On 0.18.1 `fluid generate ci` renders this 11-stage pipeline for Jenkins and Tekton; [which systems read which option](../cli/generate.md#which-systems-read-which-option) lists the other systems and what they take.
+
 The Jenkinsfile installs the CLI itself (stage 0), then runs the stages in this table. Stages 2, 3, 5, 6 and 9 read the bundle that stage 1 wrote, and stage 7 applies the plan against it, so they work on the same bytes.
 
 | Stage | Command | Reads | Writes |
@@ -328,7 +330,7 @@ CLI command error
   contract: .../sov.fluid.yaml
 ```
 
-The plan file is still written; the exit code is what stops the pipeline. `enforcementMode: advisory` reports without blocking. See [Sovereignty](../concepts/sovereignty.md).
+The plan file is still written; the exit code is what stops the pipeline. `enforcementMode: advisory` reports without blocking. See [Sovereignty](../concepts/sovereignty.md), and [Governance](../advanced/governance.md) for how the enforcement modes apply to the plan and to apply.
 
 ### Stage 7: apply
 
@@ -448,6 +450,8 @@ fluid policy-apply dist/artifacts/policy/bindings.json --mode enforce
 
 With the empty bindings file this contract produced, the command prints nothing and exits 0.
 
+On 0.18.1 the command has an applier for some providers only. For an `aws` or `snowflake` binding it prints `No policy bindings were enforced` and exits 0, so this stage does nothing for them. On AWS the grants come from `governance.lakeFormation.grants` instead, which `fluid apply` writes: see [accessPolicy on AWS](../providers/aws.md#accesspolicy-on-aws).
+
 ### Stage 9: verify
 
 [`fluid verify`](../cli/verify.md) reconciles the bundle with what is deployed. The Jenkins stage is skipped after a dry-run apply, because nothing was applied.
@@ -485,11 +489,11 @@ Total verified: 1
 📄 Report saved: .../runtime/verify-report.json
 ```
 
-What `verify` checks depends on the target. For a local CSV or Parquet file it is the column names and a row count. For BigQuery tables it also checks a row count against the build's run records, that masked columns do not hold cleartext, and, when the contract declares them, retention, encryption and column restrictions, with a query that needs `bigquery.jobs.create` on the project; for S3 with Glue it adds a Lake Formation column check. [`fluid verify`](../cli/verify.md) is the reference for the command. Under `--strict` a mismatch exits 1.
+What `verify` checks depends on the target. For a local CSV or Parquet file it is the column names and a row count. For BigQuery tables it also checks a row count against the build's run records, that masked columns do not hold cleartext, and, when the contract declares them, retention, encryption and column restrictions, with a query that needs `bigquery.jobs.create` on the project; for S3 with Glue it adds a Lake Formation column check. [`fluid verify`](../cli/verify.md) is the reference for the command. Under `--strict` a mismatch exits 1. An expose with no verifier for its binding is reported as `unsupported`, skipped and never fails the run, so a green stage does not mean every expose was checked; the per-target dimensions and the statuses are in the [`fluid verify`](../cli/verify.md) reference.
 
 ### Stage 10: publish
 
-[`fluid publish`](../cli/publish.md) sends the contract and its catalog artifacts to one or more catalogs. `--target <name>` is repeatable, and the result names each target, so a partial failure is visible:
+[`fluid publish`](../cli/publish.md) sends the contract and its catalog artifacts to one or more catalogs; the `fluid-command-center` target is described in [Publishing to the FLUID Command Center](../cli/publish.md#publishing-to-the-fluid-command-center). `--target <name>` is repeatable, and the result names each target, so a partial failure is visible:
 
 ```bash
 fluid publish contract.fluid.yaml --env dev --target datamesh-manager --target fluid-command-center --format json
@@ -527,7 +531,7 @@ rc=0
 airflow-dags/entertainment.genre_preferences_v1__dev/build_genre_preferences_dag.py
 ```
 
-`--delete-scope product`, the default, treats each directory of `--dags-dir` as one product and mirrors it into the same-named directory of the destination. Stale DAGs are deleted in that directory only, so other products' files in a shared DAG root are left alone. The report records what the sync replaced:
+`--delete-scope product`, the default, treats each directory of `--dags-dir` as one product and mirrors it into the same-named directory of the destination. Stale DAGs are deleted in that directory only, so other products' files in a shared DAG root are left alone. [What gets deleted](../cli/schedule-sync.md#what-gets-deleted) lists the other scopes. The report records what the sync replaced:
 
 ```json
 {

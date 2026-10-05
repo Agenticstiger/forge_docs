@@ -37,7 +37,7 @@ In the scenario of this page, what you read from it:
 - Several consecutive runs in state `failed`, so this is not a transient fluke
 - The oldest of them is the first failure, which dates the change that broke the build
 
-`runs status` shows the 5 most recent runs by default. Pass `--last 50` for more history, `--build <id>` to scope it to one build, or `--json` for the machine-readable report ([field list](../runs.md#output-shape-json)).
+`runs status` shows the 5 most recent runs by default. Pass `--last 50` for more history, `--build <id>` to scope it to one build, or `--json` for the machine-readable report ([field list](../runs.md#fluid-runs-status)).
 
 ## Step 2 — `runs logs --component dlq` (why)
 

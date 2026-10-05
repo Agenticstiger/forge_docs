@@ -16,7 +16,7 @@ Pick a starter, edit the YAML, copy it. Paste it into a local file and run `flui
 
 - **Local · DuckDB** uses `platform: local` with `format: parquet` and a build step that reads a source table.
 - **GCP · BigQuery** has a schema, a BigQuery binding, IAM grants in `accessPolicy.grants[]`, an AI/agent boundary and a PII-tagged column.
-- **AWS · Athena** has an S3-backed table with a bucket and a prefix.
+- **AWS · Athena** has an S3-backed table with a bucket and a bucket-relative `path`.
 - **Snowflake** has a three-part-name binding and a role grant.
 
 ## What the starters do on CLI 0.18.1

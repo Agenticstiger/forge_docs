@@ -321,7 +321,7 @@ PGHOST=10.255.255.1 fluid validate contract.fluid.yaml --probe
 Validation completed in 0.007s
 ```
 
-`fluid validate` never raises `ConnectivityProbeError`. In 0.18.1 only [`fluid init --discover`](./init.md) raises it, when it cannot reach the source it was asked to introspect. Do not read a passing `fluid validate --probe` as evidence that a source is reachable. Test the connection with the source's own client, or run `fluid init --discover <uri>` against it.
+`fluid validate` never raises `ConnectivityProbeError`. In 0.18.1 only [`fluid init --discover`](./init.md) raises it (see [Connectivity and secrets](../advanced/typed-cli-errors.md#connectivity-secrets)), when it cannot reach the source it was asked to introspect. Do not read a passing `fluid validate --probe` as evidence that a source is reachable. Test the connection with the source's own client, or run `fluid init --discover <uri>` against it.
 
 ## Notes
 

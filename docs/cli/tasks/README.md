@@ -11,7 +11,7 @@ The [CLI Reference](../README.md) is the command index, grouped by purpose — u
 
 | Task | Walkthrough | Key commands |
 |---|---|---|
-| **Deploy a data product to a new cloud** | [Switch clouds with one line](./switch-clouds) | `init` · `validate` · `plan` · `apply` |
+| **Deploy a data product to a new cloud** | [Switch clouds by changing the binding](./switch-clouds) | `init` · `validate` · `plan` · `apply` |
 | **Add quality rules to my product** | [Add a quality rule](./add-quality-rules) | `validate` · `test` |
 | **Debug a failed pipeline run** | [Debug a 3am incident](./debug-failed-run) | `runs status` · `runs logs` · `runs diff` · `ship` |
 | **Add AI / agent access governance** | [Gate LLM access with agentPolicy](./agent-governance) | `validate` · `policy check` · `mcp output-port serve` |

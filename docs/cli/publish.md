@@ -62,12 +62,12 @@ fluid publish contract.fluid.yaml --target command-center --dry-run --format jso
 | Option | Description |
 | --- | --- |
 | `--target`, `-t` *(repeatable)* | Target catalog name, with an optional `:<endpoint>` suffix to override the catalog's URL for this target. Pass it more than once to publish to several catalogs. Default `fluid-command-center`. See [Target names](#target-names). |
-| `--catalog`, `-c` | **Deprecated** one-release alias for `--target`, single catalog only. Emits a warning; treat it as historical. |
+| `--catalog`, `-c` | **Deprecated** alias for `--target`, single catalog only. Still registered in 0.18.1. Emits a warning; treat it as historical. |
 | `--list-catalogs` | List configured catalogs. `CONTRACT_FILES` is still a required argument, so pass any contract path: `fluid publish contract.fluid.yaml --list-catalogs`. |
 | `--dry-run` | Show what would be sent (request bodies, lookup and write routes, lineage edges) and make no network call. Secrets in headers are redacted. With `--format json` the preview is machine-readable. |
 | `--verify-only` | Check whether a contract is already published; create nothing. |
 | `--force` | Command Center only: record a contract version even when the stored contract hash says the contract is unchanged. See [Contract versions](#contract-versions). |
-| `--env ENV` | Publish the contract with this environment overlay applied, as `fluid apply --env` loads it. |
+| `--env ENV` | Publish the contract with this environment overlay applied, as `fluid apply --env` loads it. An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. |
 | `--format`, `-f` | Output format: `text` (default), `json` or `yaml`. |
 | `--verbose`, `-v` | Detailed output |
 | `--quiet`, `-q` | Minimal output |
@@ -100,7 +100,7 @@ Set these in the environment, or under `catalogs.fluid-command-center` in a FLUI
 | Organization id | `FLUID_CC_ORG_ID` | `organization_id` |
 | Organization slug | | `organization` |
 
-For the endpoint, API key and organization id, an environment variable wins over the config file. These variables belong to `fluid publish`. `FLUID_COMMAND_CENTER_URL` and `FLUID_COMMAND_CENTER_API_KEY` are different settings, read by [`fluid market`](./market.md) detection and by run reporting, so setting them does not change where `fluid publish` sends a contract.
+For the endpoint, API key and organization id, an environment variable wins over the config file. These variables belong to `fluid publish`. `FLUID_COMMAND_CENTER_URL` and `FLUID_COMMAND_CENTER_API_KEY` are different settings, read by [`fluid market`](./market.md) detection and by run reporting, so setting them does not change where `fluid publish` sends a contract. [`fluid apply`](./apply.md#reporting-to-the-command-center-since-0-17-0) reuses this Command Center configuration and organization to report its runs.
 
 ```yaml
 # ~/.fluid/config.yaml

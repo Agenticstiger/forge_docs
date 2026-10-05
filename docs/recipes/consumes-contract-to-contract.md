@@ -265,6 +265,8 @@ What the build reads and where it lands depends on the downstream's first expose
 | `aws`, with `location.bucket` and `location.path`, format parquet, csv or json | Written to `s3://<bucket>/<path>/<table or exposeId>.<ext>`, inside the Glue table's location, so `fluid verify --env aws` counts it |
 | `gcp` with `bigquery_table` | Written as Parquet under `.fluid/staging/<build>/`, then one load job moves it into the table with `WRITE_TRUNCATE` and `CREATE_NEVER`, using the table's own schema. A failed or short load fails the build. The load is recorded as a run, so `fluid verify` holds the table's row count to the rows landed |
 
+The BigQuery read and landing rules are in [Loading data](../providers/gcp.md#loading-data).
+
 Refused before any SQL runs, as `EmbeddedSqlLandingError`:
 
 - A `gs://` or other non-S3 URI, a GCS bucket, or an Azure, Snowflake or Databricks binding as the landing.
@@ -333,7 +335,7 @@ consumes:
     upstreamDigest: sha256:1a030aedfaab1eb340a772c1b433ba150ceab87fb13311ab1e0cd5af6834c963
 ```
 
-`fluid apply` fetches each federated upstream's live digest, caches it in `.fluid/federation/<workspace>.digest-cache.json`, and compares. The cache has no expiry. Measured on 0.18.1 with the workspace above, unreachable:
+The check is described in [Federated upstream check](../cli/apply.md#federated-upstream-check). `fluid apply` fetches each federated upstream's live digest, caches it in `.fluid/federation/<workspace>.digest-cache.json`, and compares. The cache has no expiry. Measured on 0.18.1 with the workspace above, unreachable:
 
 ```text
 apply_consumes_drift: 1 federated consumes[] entry could not be confirmed in sync (1 unreachable). Applying anyway.

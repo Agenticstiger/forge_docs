@@ -242,7 +242,7 @@ against the sovereignty policy (the platform would choose)
    💡 Set binding.location.region to one of: europe-west1
 ```
 
-A GCP binding with no sovereignty block still validates without a region, and BigQuery then places the dataset in the `US` multi-region. Add `sovereignty` and the missing region is an error.
+A GCP binding with no sovereignty block still validates without a region, and BigQuery then places the dataset in the `US` multi-region. Add `sovereignty` and the missing region is an error. The rule and the GCP location table are in [A cloud binding must name a region it can place](../concepts/sovereignty.md#a-cloud-binding-must-name-a-region-it-can-place).
 
 BigQuery and Cloud Storage multi-regions are regions too. Write `region: EU` or `region: US`; each resolves to the EU or US jurisdiction. Because `allowedRegions` is compared by name, a product that lives in the `EU` multi-region lists `EU` there, next to or instead of `europe-west1`.
 
