@@ -79,7 +79,7 @@ Read the cells carefully:
 
 - **Snowflake reads none of the governance fields.** The Snowflake emitter writes grants, masking and row access policies only from a top-level `security:` block, which the schema rejects, so a valid contract produces none of them. `fluid validate` does not warn about this as of 0.18.1. Manage Snowflake access outside the contract for now.
 - **AWS access is the binding's, not `accessPolicy`'s.** The AWS emitter does not write `accessPolicy.grants`. Declare readers under `binding.governance.lakeFormation.grants`; column restrictions then narrow those grants.
-- **Not built on GCP:** VPC Service Controls, BigQuery row-level security and BigQuery data policies are not emitted as of 0.18.1. Policy tags come from `fluid apply`, not from `fluid policy apply`.
+- **Not built on GCP:** VPC Service Controls, BigQuery row-level security and BigQuery data policies are not emitted as of 0.18.1. Policy tags are written by the OpenTofu path of `fluid apply`.
 - **Masking is at landing, not at query time.** No cloud gets a dynamic masking policy. Values are treated when the DuckDB acquisition runner writes them, and an embedded-SQL build that would land a masked expose is refused. See [masking at landing](/forge_docs/advanced/source-aligned-acquisition.html#masking-at-landing).
 - **What is proven.** forge-cli's tests run the governed GCP modules through `tofu validate` and through `tofu plan`/`apply` against an in-process BigQuery stand-in, and the Lake Formation grants against moto. A run against real BigQuery on 4 Oct 2026 verified retention, CMEK keys and policy tags with `fluid verify`, and a denied principal was refused the restricted column. The Lake Formation half has been proven against moto only.
 
