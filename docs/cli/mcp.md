@@ -7,7 +7,7 @@ There are **two distinct servers** under this command, with two different threat
 | Server | Audience | What it serves |
 | --- | --- | --- |
 | `fluid mcp serve` | **Producer** — a data engineer authoring contracts | Forge *authoring* tools: inspect, validate, and carefully edit forge artifacts, including `forge_run`. |
-| `fluid mcp output-port serve` | **Consumer** — an AI agent reading a published data product | Read-only *data-access* tools (`describe` / `sample` / `query` / gated `query_sql`) bound to **one expose** of a contract, with contract-driven governance enforced on every call. |
+| `fluid mcp output-port serve` | **Consumer** — an AI agent reading a published data product | Read-only *data-access* tools (`describe` / `sample` / `query` / gated `query_sql`) bound to **one expose** of a contract, with contract-driven governance applied. |
 
 ::: tip Which one do I want?
 If you are *building* a data product and want an editor's AI to help write the contract, use **`fluid mcp serve`**. If you have a *published* data product and want an agent to safely query it, use **`fluid mcp output-port serve`**.
@@ -239,7 +239,7 @@ The output port advertises a bounded surface derived from the bound expose's sha
 | `describe` | yes | none | Returns the bound expose's metadata: `contract.schema`, `semantics`, `binding` (platform / format / table reference / dialect / capabilities), and the `agentPolicy` block. No engine round-trip. |
 | `sample` | yes | `limit` (≤ `--max-sample-rows`) | Returns up to `--max-sample-rows` rows. Restricted columns are dropped and PII/PHI columns are redacted to `[REDACTED-PII]`. Where the expose declares `policy.rowFilters`, they are applied; see the warning below. |
 | `query` | when `semantics` present | `metric` **or** `measure`, optional `dimensions[]`, optional `filters{}`, optional `limit` | Runs a **predeclared semantic query**. Pick a metric or measure from `expose.semantics`, group by zero or more dimensions, optionally filter on dimension keys. The server compiles to parameterised SQL — preferred over `query_sql`. |
-| `query_sql` | only with `--allow-sql` | `sql` (SELECT only), optional `limit` | Runs caller-supplied `SELECT` SQL against the bound expose. Refuses any statement referencing a restricted or PII column (aliasing does not bypass the mask). A server-side `LIMIT` is always appended. |
+| `query_sql` | only with `--allow-sql` | `sql` (SELECT only), optional `limit` | Runs caller-supplied `SELECT` SQL against the bound expose. Refuses any statement referencing a restricted or PII column (aliasing does not bypass the mask). The gateway applies a server-side row limit. |
 
 Every tool ships an MCP `inputSchema`. Each `tools/call` is checked against the contract's `agentPolicy` (allowed/denied models + use-cases), the tool allow/deny lists, a sliding-window rate limit, a token budget, a circuit breaker, and a concurrency cap — see the [deep dive](../advanced/mcp.md) for the enforcement order.
 
