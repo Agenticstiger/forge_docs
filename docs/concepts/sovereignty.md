@@ -205,7 +205,7 @@ If you need a genuinely multi-jurisdiction product with real limits, name them i
 
 `fluid generate iac` and `fluid apply` refuse an out-of-policy placement on AWS and GCP before any module is written or any resource is created:
 
-- **GCP** (since 0.17.0) checks every location its OpenTofu plugin emits and every action its planner produces, including regions a resource inherits by default: the planner's `US` dataset default, a provider region a Cloud Scheduler job or staging bucket picks up. A KMS key ring or Data Catalog taxonomy is placed at its dataset's location and checked there.
+- **GCP** (since 0.17.0) checks the locations its OpenTofu plugin emits and the actions its planner produces, including regions a resource inherits by default: the planner's `US` dataset default, a provider region a Cloud Scheduler job or staging bucket picks up. A KMS key ring or Data Catalog taxonomy is placed at its dataset's location and checked there.
 - **AWS** checks the region its planner is configured with against the policy.
 - **Local and Snowflake** have no such gate; `fluid validate` is the check.
 

@@ -54,7 +54,7 @@ A Fluid Forge contract **is** that context — made machine-readable and shipped
 | What a consumer (human or agent) needs to know | Where it lives in the contract |
 |---|---|
 | What this data *means* | `exposes[].contract.schema` — typed fields, descriptions, `sensitivity` (PII / PHI) |
-| Whether to trust it | `exposes[].contract.dq.rules` (completeness, freshness, drift) + `exposes[].qos` (freshness / availability SLOs) |
+| Whether to trust it | `exposes[].contract.dq.rules` (completeness, uniqueness, freshness) + `exposes[].qos` (freshness / availability SLOs) |
 | Who may use it, and for what | `accessPolicy` (people & services) + `agentPolicy` (which models, which use-cases) |
 | Where it came from | `lineage` + the SDP → ADP → CDP `consumes[]` chain |
 | Where it may physically live | `sovereignty` (`jurisdiction`, `allowedRegions`, `regulatoryFramework`) |

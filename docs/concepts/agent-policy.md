@@ -9,14 +9,14 @@ Declared per-expose at `exposes[].policy.agentPolicy` — a block that declares 
 
 > **Why it matters**
 > AI agents are often your largest data consumer — `agentPolicy` makes their access boundaries declarative, the same way `accessPolicy` governs people.
-> Forge enforces those rules at the MCP output port on every agent call. An agent that queries the warehouse directly with its own credentials is governed by cloud IAM, not by `agentPolicy`.
+> Forge applies those rules at the MCP output port when an agent reads through it. An agent that queries the warehouse directly with its own credentials is governed by cloud IAM, not by `agentPolicy`.
 
 <CliCast
   src="/forge_docs/demos/agent-policy.svg"
   title="agentPolicy — declare, validate, gate (validate → policy-check → audit)"
   caption="Watch agentPolicy enforce: the YAML block with allowedModels / deniedUseCases / canStore / auditRequired, schema validation, the policy-check enforcement summary, and a replay of agent reads — gpt-4 + analysis allowed, claude-3 + training denied, an unlisted model denied, gemini summarization allowed."
   width="920"
-  insight="Declared in YAML. Enforced at read-time by the MCP output port. | Model and use case are checked before each call; the token caps apply to what is returned. | Every allow and every deny is written as a local data_access audit record."
+  insight="Declared in YAML. Enforced at read-time by the MCP output port. | Model and use case are checked before each call; the token caps apply to what is returned. | The output port writes a local data_access audit record for each allow and deny."
 />
 
 ## Why declarative?
@@ -97,7 +97,7 @@ The MCP output port replaces the values of `pii` and `phi` columns with a redact
 
 ## Enforcement modes
 
-`agentPolicy` is a declaration. The MCP output port is the only forge-cli component that enforces it; the other two modes below are what you do when agents do not read through it.
+`agentPolicy` is a declaration. The MCP output port is where forge-cli applies it to reads; the other two modes below are what you do when agents do not read through it.
 
 ### 1. MCP server (preferred for agentic workflows)
 
@@ -123,7 +123,7 @@ When agents query the warehouse directly over SQL or HTTP, the gateway is not in
 - **AWS:** `binding.governance.lakeFormation` grants, excluded columns and data cells filters, at `fluid apply`.
 - **Snowflake:** nothing from contract fields (see the [per-cloud table](./governance-policy.md#what-gets-emitted-per-cloud)).
 
-`fluid_build.output_ports.iam_compiler` is a Python module that compiles `agentPolicy` and `rowFilters` into Snowflake and PostgreSQL row access SQL; BigQuery and Lake Formation are stubs. No command calls it, so you run its output yourself; see "Cloud-IAM compilers" on [Advanced → MCP output port](../advanced/mcp.md).
+`fluid_build.output_ports.iam_compiler` is a Python module that compiles `agentPolicy` and `rowFilters` into Snowflake and PostgreSQL row access SQL; BigQuery and Lake Formation are stubs. As of 0.18.1 no command calls it, so you run its output yourself; see "Cloud-IAM compilers" on [Advanced → MCP output port](../advanced/mcp.md).
 
 ### 3. Application-level (when neither MCP nor platform IAM fits)
 

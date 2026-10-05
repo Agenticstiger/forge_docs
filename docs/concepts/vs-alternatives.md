@@ -71,8 +71,6 @@ builds:
       target: prod              # forwarded as dbt --target
 ```
 
-A build with `properties` and no `pattern` never validates: the properties are checked against every pattern at once.
-
 ---
 
 ## Forge vs Dagster

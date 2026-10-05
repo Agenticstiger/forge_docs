@@ -33,7 +33,7 @@ Five declarations carry the governance surface. All are reviewed, versioned and 
 | **Access** | `accessPolicy.grants[]` | *Who* (people and service principals) may do what — `read`, `select`, `write`, `admin`, … | `fluid apply`: dataset IAM members on GCP. On AWS access is the binding's Lake Formation grants. Not emitted on Snowflake |
 | **Column restrictions** | `exposes[].policy.authz.columnRestrictions` | Which readers may not see which columns | `fluid apply`: Data Catalog policy tags on GCP, Lake Formation excluded columns on AWS; checked by `fluid verify` |
 | **Sensitivity and masking** | `schema[].sensitivity`, `exposes[].policy.privacy.masking` | *What's sensitive*, and how its values are treated before they land | `fluid policy-check` requires masking for `pii`/`phi` columns; the DuckDB acquisition runner applies masking at landing; `fluid verify` fails cleartext; the MCP output port redacts tagged columns |
-| **Agent access** | `exposes[].policy.agentPolicy` | *Which AI models* may read *this expose*, for which use cases, with what token caps | `fluid mcp output-port serve`, on every tool call |
+| **Agent access** | `exposes[].policy.agentPolicy` | *Which AI models* may read *this expose*, for which use cases, with what token caps | `fluid mcp output-port serve`, on each tool call |
 | **Sovereignty** | `sovereignty` | *Where* data may live — jurisdiction, allowed/denied regions, cross-border transfer | `fluid validate` and `fluid plan --check-sovereignty`; `fluid generate iac` and `fluid apply` on AWS and GCP |
 
 > **Honesty note — placement matters.** `agentPolicy` lives **per-expose** at `exposes[].policy.agentPolicy`, so each expose carries its own AI-access boundary. A contract that puts `agentPolicy` at the **contract root** fails schema validation. Likewise, there is **no top-level `security:` block** in the current schema (v0.7.5) — the contract root is closed, and a `security:` key fails `fluid validate`. If a draft you inherit has either, it never passed validation.
@@ -53,7 +53,7 @@ Five declarations carry the governance surface. All are reviewed, versioned and 
 | **HIPAA** (PHI access) | PHI columns must declare masking; column restrictions keep named readers off them; encryption at rest with a managed key (0.7.6 preview) | `sensitivity: phi`, `policy.authz.columnRestrictions`, `binding.encryption.kms`; checked by `fluid policy-check` and `fluid verify` |
 | **CCPA / CPRA** | As for GDPR: tagging, masking at landing, access grants | `sensitivity`, `policy.privacy.masking`, `accessPolicy.grants[]` |
 | **Change management** (SOX, SOC 2 evidence) | The reviewed plan is what runs: `fluid apply` refuses a `plan.json` whose digest no longer matches; a plan that destroys data needs `--allow-data-loss`; `fluid verify` reports drift from the contract | `fluid plan` → `fluid apply plan.json`, `fluid verify --strict` |
-| **Agent access logging** | Every allow and deny at the MCP output port is written as a `data_access` record, with the policy digest that decided it | `exposes[].policy.agentPolicy`; records under `FLUID_AUDIT_ROOT` |
+| **Agent access logging** | The MCP output port writes a `data_access` record for each allow and deny, with the policy digest that decided it | `exposes[].policy.agentPolicy`; records under `FLUID_AUDIT_ROOT` |
 
 > **Framing, deliberately:** Forge **supports these controls** — it gives you the declarations, the CI gate, and the native audit trail that an auditor asks for. It does **not** *certify* you compliant. Compliance is an organizational outcome; Forge is the tooling that makes the technical evidence cheap to produce and hard to fake.
 
@@ -73,7 +73,7 @@ Five declarations carry the governance surface. All are reviewed, versioned and 
 | **Platform dynamic masking** | ❌ Lake Formation controls access; it does not mask values | ❌ No BigQuery data policy emitted | ❌ No masking policy emitted |
 | **Retention** (`lifecycle.expire`, 0.7.6 preview) | ✅ S3 lifecycle rule; verified | ✅ Expiring daily partitions; verified | ❌ Not read |
 | **Encryption at rest** (`binding.encryption.kms`, 0.7.6 preview) | ✅ SSE-KMS with a product key, alias or ARN; verified | ✅ Cloud KMS key ring and key per dataset; verified | ❌ Not read |
-| **Residency** (`sovereignty`) | ✅ `validate`, and the planner refuses an out-of-policy region | ✅ `validate`, and `generate iac`/`apply` refuse every out-of-policy placement, defaults included | `validate` only |
+| **Residency** (`sovereignty`) | ✅ `validate`, and the planner refuses an out-of-policy region | ✅ `validate`, and `generate iac`/`apply` refuse an out-of-policy placement, including regions a resource inherits by default | `validate` only |
 
 Read the cells carefully:
 
