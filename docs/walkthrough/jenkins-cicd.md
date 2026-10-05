@@ -153,8 +153,8 @@ This is a notice, not an error. Only `amend-and-build` and `replace-and-build` r
 **Stage 5 fails on a pipeline that was green before an upgrade.**
 Since 0.16.3 the drift gate compares live targets. See [Stage 5](./11-stage-pipeline.md#stage-5-diff-drift-gate) for the statuses and what counts as drift.
 
-**Stages 8 to 11 print `stage 7 ran as a dry run ... skipped`.**
-`APPLY_MODE` is `dry-run`, the default. Nothing was applied, so there is nothing to verify, publish or schedule.
+**Stages 9 to 11 print `stage 7 ran as a dry run ... skipped`.**
+`APPLY_MODE` is `dry-run`, the default. Nothing was applied, so there is nothing to verify, publish or schedule. Stage 8 does not skip: after a dry run it prints that the bindings are checked, not enforced, and runs `policy-apply` with `--mode check`.
 
 ## Hand-written pipelines
 

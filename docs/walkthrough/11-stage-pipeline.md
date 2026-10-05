@@ -32,7 +32,7 @@ The Jenkinsfile installs the CLI itself (stage 0), then runs the stages in this 
 | 4 | `fluid validate-artifacts` | `dist/artifacts/` | `runtime/validate-artifacts-report.json` |
 | 5 | `fluid diff` | the bundle and the live target | `runtime/diff-report.json` |
 | 6 | `fluid plan` | the bundle | `runtime/plan.json`, `runtime/plan.html` |
-| 7 | `fluid apply` | the plan and the bundle | the deployment, `runtime/apply-report.html` |
+| 7 | `fluid apply` | the plan and the bundle | the deployment, `runtime/apply-report.html` (non-build modes only, see [Stage 7](#stage-7-apply)) |
 | 8 | `fluid policy-apply` | `dist/artifacts/policy/bindings.json` | `runtime/policy-apply-report.json` |
 | 9 | `fluid verify` | the bundle and the live target | `runtime/verify-report.json` |
 | 10 | `fluid publish` | the contract | `runtime/publish-report.json` |
@@ -375,6 +375,8 @@ fluid plan runtime/bundle.tgz --env dev --mode amend-and-build --out runtime/pla
 fluid apply runtime/plan.json --bundle runtime/bundle.tgz --mode amend-and-build --env dev --yes \
   --ensure-opentofu --report runtime/apply-report.html --build-id build_genre_preferences
 ```
+
+As of 0.18.1, `--report` is written only on the non-build modes. An `amend-and-build` apply does not write `runtime/apply-report.html`; it writes run records and `runtime/out/local_apply_log.jsonl` instead. The generated Jenkinsfile archives the report with `allowEmptyArchive: true`, so the stage stays green without it.
 
 ```text
 Loading pre-generated execution plan

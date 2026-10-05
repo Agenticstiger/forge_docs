@@ -214,6 +214,7 @@ load_data = BigQueryInsertJobOperator(
 
 # Task dependencies
 create_dataset >> create_table
+create_table >> load_data
 ```
 
 The GCP exporter reads `dataset_id` and `table_id` from `params` (not `dataset` and `table`); a missing key falls back to `unknown_dataset` or `unknown_table`. It maps `gcp.bigquery.create_dataset`, `create_table` and `query`, plus the Cloud Storage, Pub/Sub and Dataflow services; other actions become `PythonOperator` tasks. The imports are the `apache-airflow-providers-google` operators.
