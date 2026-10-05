@@ -39,6 +39,7 @@ echo $?
    Target: /.../output/orders.csv
 
    🔴 Severity: CRITICAL (Impact: HIGH)
+   ...
    📊 Rows: 1
 
    🔍 Dimension 1: Schema Structure
@@ -182,7 +183,7 @@ When the expose declares them, three governance dimensions read the live dataset
 | `encryption` | `exposes[].binding.encryption.kms` | `kmsKeyName` of the table, and of the dataset's default when the product owns the dataset, is the declared key. |
 | `columnRestrictions` | `exposes[].policy.authz.columnRestrictions` | Each restricted column carries a policy tag, the fine-grained readers on the tag are exactly the readers the contract derives, and the tag's taxonomy enforces fine-grained access control. |
 
-A mismatch is CRITICAL. `retention` and `encryption` come from `lifecycle.expire` and `binding.encryption.kms`, which are in contract schema 0.7.6, a preview schema selected with `fluidVersion: "0.7.6"`. `columnRestrictions` is in 0.7.5. The `columnRestrictions` check calls the Data Catalog API with Application Default Credentials and needs `datacatalog.taxonomies.get` and `datacatalog.taxonomies.getIamPolicy`. No emulator serves Data Catalog, so under `BIGQUERY_EMULATOR_HOST` the readers of the tagged columns are not checked and the dimension reports `unsupported`.
+A mismatch is CRITICAL. `retention` and `encryption` come from `lifecycle.expire` and `binding.encryption.kms`, which are in contract schema 0.7.6, a preview schema selected with `fluidVersion: "0.7.6"`. `columnRestrictions` is in 0.7.5. The `columnRestrictions` check calls the Data Catalog API with Application Default Credentials and reads the taxonomy (Data Catalog `GET`) and each policy tag's IAM policy (`getIamPolicy`), so the credentials need the matching Data Catalog read permissions. No emulator serves Data Catalog, so under `BIGQUERY_EMULATOR_HOST` the readers of the tagged columns are not checked and the dimension reports `unsupported`.
 
 On 4 October 2026 the FLUID team ran `fluid verify` against real BigQuery for 11 products deployed from the same base contracts through a `gcp` overlay. Each passed its retention (DAY partitions with `expiration_ms`), encryption (a Cloud KMS key per dataset) and column-restriction (Data Catalog policy tags) checks. That is one run on one estate. In the same run, a principal outside the allowed readers who selected a restricted column was refused by BigQuery in this form:
 
@@ -237,7 +238,7 @@ The count is compared with the run records the build wrote under `.fluid/runs/<c
 | `incremental_append` | `at_least_cumulative`: the count is at least the sum of `records_total` over the runs back to the last `full_refresh`. |
 | Anything else | `reported`: a merge, dedup, CDC or streaming load can update or delete rows, so the count bounds nothing. |
 
-The count is reported, and only an empty table fails, when there is no run record, no run that landed in this table, a failed newest run, or (for S3) a build that is not `pattern: acquisition`.
+The count is reported, and only an empty table fails, in cases such as: there is no run record, no run that landed in this table, a failed newest run, more than one build writes the expose (there is no single run to compare), or the newest run did not record its row count from the write. S3 also needs a build with `pattern: acquisition`; BigQuery also reads the run records of embedded-SQL builds.
 
 ### Snowflake
 
