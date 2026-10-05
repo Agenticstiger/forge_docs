@@ -97,7 +97,7 @@ The CLI itself does not read these; the generated pipeline and the generated DAG
 | Variable | Read by | Effect |
 |---|---|---|
 | `FLUID_PACKAGE_SPEC` | the generated Jenkins stage 0 | Package spec installed into the workspace venv. Defaults to the generating CLI version with the extras the contract needs, for example `data-product-forge[local]==0.18.1`. |
-| `FLUID_PIP_INDEX_URL`, `FLUID_PIP_EXTRA_INDEX_URL` | the generated install step | Primary and extra pip index. Blank means PyPI. |
+| `FLUID_PIP_INDEX_URL`, `FLUID_PIP_EXTRA_INDEX_URL` | the generated install step | Primary and extra pip index. Blank means PyPI. pip takes the highest version across both, so for private packages use one mirror that proxies PyPI in `FLUID_PIP_INDEX_URL` and leave the extra index empty; see [Operating in CI](./operating-in-ci.md#install). |
 | `FLUID_ALLOW_PRERELEASE` | the generated install step | `true` adds `pip --pre`. |
 | `FLUID_CONFIG_PATH` | set by generated pipelines | `./fluid_config`. Nothing in the CLI reads it. |
 | `FLUID_PROJECT_DIR` | the generated Airflow DAG, on the worker | Directory that holds the product checkout. Required. |

@@ -111,14 +111,14 @@ The `snowflake-biz-lab` flow at full fidelity: env credentials sourced, real `va
 
 ## Policy + IAM compilation
 
-The `policy-check` → `generate artifacts` → `policy-apply --mode check` triple. Validates the access policy, compiles to native cloud IAM (BigQuery/Snowflake/AWS), and runs the bindings in check-only mode (no live IAM mutations).
+The `policy-check` → `generate artifacts` → `policy-apply --mode check` triple. Validates the access policy, compiles to cloud IAM bindings (BigQuery/Snowflake/AWS), and hands the bindings to the provider in check mode (no live IAM mutations; as of 0.18.1 `--mode enforce` makes none either).
 
 <CliCast
   src="/forge_docs/demos/policy-flow.svg"
   title="policy-check → generate artifacts → policy-apply --mode check"
-  caption="Three commands, full policy round-trip from declarative `accessPolicy.grants` in YAML to native cloud IAM JSON, then a dry-run that shows exactly which bindings would apply against the deployed state."
+  caption="Three commands, full policy round-trip from declarative `accessPolicy.grants` in YAML to native cloud IAM JSON, then a check-mode run that reports the bindings the provider received."
   width="920"
-  insight="Three commands turn declarative YAML grants into native cloud IAM bindings. | The recording shows four artifacts from one contract: bindings.json (BigQuery/Snowflake), opa-policies.rego (OPA), ODCS and ODPS. | --mode check shows what would change before anything is applied; --mode enforce applies it."
+  insight="Three commands turn declarative YAML grants into native cloud IAM bindings. | The recording shows four artifacts from one contract: bindings.json (BigQuery/Snowflake), opa-policies.rego (OPA), ODCS and ODPS. | --mode check reports the bindings the provider received; as of 0.18.1 --mode enforce changes no permissions either."
 />
 
 ---

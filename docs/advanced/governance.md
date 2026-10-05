@@ -14,7 +14,7 @@ metadata:
   layer: Gold
   owner:
     team: data-platform
-    email: data-platform@acme.com
+    email: data-platform@acme.example.com
 
 sovereignty:                       # where the data may live
   jurisdiction: EU
@@ -23,9 +23,9 @@ sovereignty:                       # where the data may live
 
 accessPolicy:                      # who may read and write, at the top level
   grants:
-    - principal: group:analysts@acme.com
+    - principal: group:analysts@acme.example.com
       permissions: [read]
-    - principal: serviceAccount:etl@acme-prod.iam.gserviceaccount.com
+    - principal: serviceAccount:etl@my-project-id.iam.gserviceaccount.com
       permissions: [write]
 
 builds:
@@ -43,7 +43,7 @@ exposes:
       platform: gcp
       format: bigquery_table
       location:
-        project: acme-prod
+        project: my-project-id
         dataset: customers
         table: customer_profiles
         region: europe-west1       # required once a sovereignty block exists
@@ -150,19 +150,19 @@ fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json
     {
       "provider": "gcp",
       "resource_type": "bigquery.dataset",
-      "resource_id": "acme-prod.customers",
-      "project": "acme-prod",
+      "resource_id": "my-project-id.customers",
+      "project": "my-project-id",
       "dataset": "customers",
-      "principal": "group:analysts@acme.com",
+      "principal": "group:analysts@acme.example.com",
       "roles": ["roles/bigquery.dataViewer"]
     },
     {
       "provider": "gcp",
       "resource_type": "bigquery.dataset",
-      "resource_id": "acme-prod.customers",
-      "project": "acme-prod",
+      "resource_id": "my-project-id.customers",
+      "project": "my-project-id",
       "dataset": "customers",
-      "principal": "serviceAccount:etl@acme-prod.iam.gserviceaccount.com",
+      "principal": "serviceAccount:etl@my-project-id.iam.gserviceaccount.com",
       "roles": ["roles/bigquery.dataOwner"]
     }
   ],
@@ -179,18 +179,18 @@ fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json
 
 ### `fluid policy-apply`
 
-Applies compiled bindings. It takes the provider and project from the bindings file, so it needs no provider flag.
+Hands the compiled bindings to the provider. It takes the provider and project from the bindings file, so it needs no provider flag. As of 0.18.1 it changes no cloud permissions on any provider, in either mode:
 
 ```bash
 fluid policy-apply runtime/policy/bindings.json --mode check     # the default
-fluid policy-apply runtime/policy/bindings.json --mode enforce   # change IAM
+fluid policy-apply runtime/policy/bindings.json --mode enforce   # same effect in 0.18.1
 ```
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--mode` | `check` or `enforce` | `check` |
+| `--mode` | `check` or `enforce`. Neither changes what a provider does in 0.18.1 | `check` |
 
-An empty bindings file is a no-op that exits 0. When a provider has no standalone policy applier, the command prints that no bindings were enforced and exits 0, because that provider applies its IAM during `fluid apply`.
+On GCP the command reports the compiled bindings and returns `applied: 0`. A provider with no standalone policy applier prints that no bindings were enforced and exits 0. An empty bindings file is a no-op that exits 0. GCP access is provisioned by `fluid apply`, which writes the dataset IAM from `accessPolicy.grants` and the policy tags for column restrictions. See [`fluid policy apply`](../cli/policy-apply.md#what-each-provider-does) for each provider.
 
 ## Governance workflow
 
@@ -198,14 +198,14 @@ An empty bindings file is a no-op that exits 0. When a provider has no standalon
 # 1. Check the contract
 fluid policy-check contract.fluid.yaml --strict
 
-# 2. Compile grants to provider IAM
+# 2. Compile grants to provider IAM bindings, for review
 fluid policy-compile contract.fluid.yaml
 
-# 3. See what would change
+# 3. Hand the bindings to the provider (reports them; changes nothing in 0.18.1)
 fluid policy-apply runtime/policy/bindings.json --mode check
 
-# 4. Enforce
-fluid policy-apply runtime/policy/bindings.json --mode enforce
+# 4. Provision access: on GCP this is the step that creates the IAM
+fluid apply contract.fluid.yaml --env <env>
 ```
 
 In CI, fail the pipeline on any finding and keep the report:

@@ -40,6 +40,10 @@ The generated file installs `data-product-forge` from PyPI (`pip install --quiet
 | deploy | On `main` with `AIRFLOW_DAGS_DEST` set: `rsync` the `dags/` directory to it. |
 | publish | On `main` with `DMM_API_URL` set: `fluid publish $CONTRACT --catalog $CATALOG`. |
 
+::: warning Pin the version in a pipeline that holds credentials
+An unpinned `pip install data-product-forge` takes whatever release is latest when the job runs, and the same job holds the credentials the apply stage uses. After generating, edit the install line to pin the version you tested, for example `pip install --quiet "data-product-forge==0.18.1"`, and move the pin deliberately when you upgrade. [`fluid generate ci`](./generate.md#fluid-generate-ci) pins the install to the version that generated the file.
+:::
+
 The settings are `CONTRACT` (the path you passed), `PROVIDER` (default `default`), `BUILD_ID` (default empty; set it to a `builds[].id` to run that build), `CATALOG` (default `datamesh-manager`), `AIRFLOW_DAGS_DEST` and `DMM_API_URL`. GitLab reads them as CI/CD variables, GitHub Actions as `env`, repository `vars` and `secrets`, Jenkins from the `environment` block.
 
 ::: warning Set `PROVIDER` before the first run

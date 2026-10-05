@@ -40,8 +40,8 @@ The publish report contains a per-target result block, so a partial failure (a D
 
 ```bash
 fluid publish contract.fluid.yaml \
-  --target fluid-command-center:https://cc.internal.acme.com \
-  --target datamesh-manager:https://dmm.internal.acme.com
+  --target fluid-command-center:https://cc.internal.example \
+  --target datamesh-manager:https://dmm.internal.example
 ```
 
 ### Glob input
@@ -106,7 +106,7 @@ For the endpoint, API key and organization id, an environment variable wins over
 # ~/.fluid/config.yaml
 catalogs:
   fluid-command-center:
-    endpoint: https://cc.internal.acme.com
+    endpoint: https://cc.internal.example
     auth:
       type: api_key
     organization: acme-data      # slug; an organization_id here, or FLUID_CC_ORG_ID, wins

@@ -48,7 +48,7 @@ metadata:
 
 accessPolicy:                          # human/service grants — contract root
   grants:
-    - principal: "group:analysts@company.com"
+    - principal: "group:analysts@company.example.com"
       permissions: ["read"]
 
 exposes:

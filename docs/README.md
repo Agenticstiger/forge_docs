@@ -42,7 +42,7 @@ Fluid Forge replaces the five-tool stack most data teams currently maintain. Wit
 - **No Airflow DAG to write or maintain.** `fluid generate schedule --scheduler airflow|dagster|prefect` emits the right artifact.
 - **No JVM heap tuning.** `engine: duckdb` runs embedded for dev; swap to `dlt` / `meltano` / `airbyte` / `kafka-connect` / `debezium` only when you need them.
 - **No Snowflake permission sprawl.** `accessPolicy.grants` compiles to native `GRANT` statements.
-- **No Terraform for data-product IAM.** `policy-apply` emits BigQuery IAM bindings, Snowflake roles, S3 bucket policies — same source.
+- **No hand-written IAM for data products.** On GCP, `fluid apply` writes the dataset IAM from `accessPolicy.grants`. `policy-apply` only reports the compiled bindings as of 0.18.1.
 - **No 27 questions before you ship.** `fluid forge` infers from your local files; you answer 4.
 - **No dbt project layout decisions.** Forge wraps dbt; you write the contract, dbt does what it does best.
 - **No AI access surprises.** `agentPolicy` declares which LLMs can read what, with audit logs, before any model gets a row.
@@ -163,7 +163,7 @@ These are the groups `fluid --help` prints on `0.15.0`. Run it yourself to confi
   [`fluid exporters`](/forge_docs/cli/exporters.html).
 - [`0.9.0`](/forge_docs/RELEASE_NOTES_0.9.0.html) — the streaming Kafka → Iceberg sink.
 - [`0.8.6`](/forge_docs/RELEASE_NOTES_0.8.6.html) — the [`fluid mcp`](/forge_docs/cli/mcp.html)
-  output-port gateway: `agentPolicy` enforced at runtime, with JWT-bearer and mTLS identity.
+  output-port gateway: `agentPolicy` enforced at runtime, with JWT-bearer identity.
 :::
 
 The vocabulary and the product types behind all of it:

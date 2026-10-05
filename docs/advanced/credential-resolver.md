@@ -124,6 +124,18 @@ fluid forge data-model from-source \
 
 Or for the whole process, with `FLUID_ALLOW_METADATA_SERVICE=1`. Via MCP, pass `"allow_metadata_service": true` in the tool arguments. Without the opt-in, when the metadata service is the only source available, the resolver raises `CredentialNotFoundError` rather than silently using broad IAM.
 
+::: danger Over MCP the opt-in belongs to the client, not the operator
+`fluid mcp serve` has no flag that switches the metadata-service fallback off. `list_source_tables`, `inspect_source_table`, `list_source_lineage`, `list_source_glossary` and `forge_from_source` each take an `allow_metadata_service` argument, and the server builds its resolver from the value the client sends, with no server-side check. Any client that can call those tools can set it to `true`, and an LLM-driven client can do so on its own. With the opt-in on, the resolver can use whatever cloud identity the server's host carries (an instance profile, a workload identity, Application Default Credentials on a laptop) when no earlier step of the [resolution chain](#resolution-chain) supplies a credential.
+
+If `fluid mcp serve` is reachable by a client you do not fully trust, either run it where no ambient cloud identity exists, or remove the tools with `--deny-tools`:
+
+```bash
+fluid mcp serve --deny-tools list_source_tables,inspect_source_table,list_source_lineage,list_source_glossary,forge_from_source
+```
+
+`--deny-tools` is evaluated before `--allow-tools`, so a denied tool is blocked even when it is also allowed.
+:::
+
 This switch belongs to the resolver. It does not relax the SSRF guard on outbound HTTP; see [network safety](./network-safety.md).
 
 ## Failure modes

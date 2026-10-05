@@ -17,9 +17,9 @@ fluidVersion: 0.7.5
 # ... id, name, domain, metadata ...
 accessPolicy:
   grants:
-    - principal: group:analysts@northwind.com
+    - principal: group:analysts@northwind.example.com
       permissions: [read]
-    - principal: group:stewards@northwind.com
+    - principal: group:stewards@northwind.example.com
       permissions: [read]
 exposes:
   - exposeId: customers
@@ -35,7 +35,7 @@ exposes:
     policy:
       authz:
         columnRestrictions:
-          - principal: group:analysts@northwind.com
+          - principal: group:analysts@northwind.example.com
             columns: [email]
             access: deny
       privacy:
@@ -52,7 +52,7 @@ exposes:
           sensitivity: pii
 ```
 
-`fluid generate iac` on this contract writes seven OpenTofu resources on 0.18.1: the dataset and table, a `google_bigquery_dataset_iam_member` per reader, a Data Catalog taxonomy with fine-grained access control, a policy tag on `email`, and `roles/datacatalog.categoryFineGrainedReader` on that tag for `group:stewards@northwind.com` only. The analysts can query the table and get an access error on `email`.
+`fluid generate iac` on this contract writes seven OpenTofu resources on 0.18.1: the dataset and table, a `google_bigquery_dataset_iam_member` per reader, a Data Catalog taxonomy with fine-grained access control, a policy tag on `email`, and `roles/datacatalog.categoryFineGrainedReader` on that tag for `group:stewards@northwind.example.com` only. The analysts can query the table and get an access error on `email`.
 
 ## Which command does what
 
@@ -70,9 +70,9 @@ exposes:
 ```yaml
 accessPolicy:
   grants:
-    - principal: group:analysts@northwind.com
+    - principal: group:analysts@northwind.example.com
       permissions: [read]
-    - principal: group:data-eng@northwind.com
+    - principal: group:data-eng@northwind.example.com
       permissions: [read, write]
     - principal: serviceAccount:bi-tool@northwind-prod.iam.gserviceaccount.com
       permissions: [read]
@@ -103,7 +103,7 @@ exposes:
     policy:
       authz:
         columnRestrictions:
-          - principal: group:analysts@northwind.com
+          - principal: group:analysts@northwind.example.com
             columns: [email]
             access: deny          # deny | allow
 ```
@@ -232,8 +232,8 @@ exposes:
   - binding:
       platform: gcp
       principals:
-        group:analysts@northwind.example: group:analysts@northwind.com
-        group:stewards@northwind.example: group:stewards@northwind.com
+        group:analysts@northwind.example: group:analysts@northwind.example.com
+        group:stewards@northwind.example: group:stewards@northwind.example.com
 
 # overlays/aws.yaml
 exposes:
@@ -295,7 +295,7 @@ exposes:
     policy:
       authz:
         columnRestrictions:
-          - principal: group:analysts@northwind.com
+          - principal: group:analysts@northwind.example.com
             columns: [email]
             access: deny
       agentPolicy:

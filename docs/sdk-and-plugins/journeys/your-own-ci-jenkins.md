@@ -108,7 +108,7 @@ Three reasons it's the world-class choice on Jenkins:
 
 If you would rather not hand-write the Jenkinsfile, `fluid generate ci --system jenkins` emits one, with two install modes (see [`fluid generate ci`](../../cli/generate.md#fluid-generate-ci)):
 
-- `--install-mode pypi` (default) installs `data-product-forge` from a package index. The pipeline exposes the install source as build parameters: `FLUID_PACKAGE_SPEC`, `FLUID_PIP_INDEX_URL`, `FLUID_PIP_EXTRA_INDEX_URL` and `FLUID_ALLOW_PRERELEASE`.
+- `--install-mode pypi` (default) installs `data-product-forge` from a package index. The pipeline exposes the install source as build parameters: `FLUID_PACKAGE_SPEC`, `FLUID_PIP_INDEX_URL`, `FLUID_PIP_EXTRA_INDEX_URL` and `FLUID_ALLOW_PRERELEASE`. pip takes the highest version across every index it is given, so for private packages use one mirror that proxies PyPI in `FLUID_PIP_INDEX_URL` and leave `FLUID_PIP_EXTRA_INDEX_URL` empty; see [Operating in CI](../../advanced/operating-in-ci.md#install).
 - `--install-mode dev-source` (contributor labs) installs from a `/forge-cli-src` bind mount and fails loudly if the mount is missing.
 
 The Jenkinsfile that `fluid generate ci` writes gives every parameter a default and reads each with the same default, so a job's first build, which runs without parameters, still works. Observed against a live Jenkins on 4-5 October 2026: Jenkins learns a pipeline's parameters from its first build, so a `buildWithParameters` call against a job that has never run is refused. Trigger one plain build first, then switch to parameterised triggers.

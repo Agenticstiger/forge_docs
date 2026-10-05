@@ -210,12 +210,12 @@ metadata:
   layer: Gold
   owner:
     team: data-engineering
-    email: data-eng@company.com
+    email: data-eng@company.example.com
 
 # Who may read and write. On GCP this becomes dataset-level IAM.
 accessPolicy:
   grants:
-    - principal: "group:data-analysts@company.com"
+    - principal: "group:data-analysts@company.example.com"
       permissions: [read, select]
     - principal: "serviceAccount:ingestion@my-project-id.iam.gserviceaccount.com"
       permissions: [write, insert, update]
@@ -813,11 +813,13 @@ FROM `crypto_data.bitcoin_prices`;
 
 ### "Permission denied" errors
 
-The identity you applied with needs to create datasets and tables and to set dataset IAM. For a throwaway project, grant yourself BigQuery Admin:
+The identity you applied with needs to create datasets and tables and to set dataset IAM. For a throwaway project, grant yourself BigQuery Data Owner and BigQuery Job User, which is narrower than BigQuery Admin:
 ```bash
-gcloud projects add-iam-policy-binding my-project-id \
-  --member="user:YOUR_EMAIL@example.com" \
-  --role="roles/bigquery.admin"
+for role in roles/bigquery.dataOwner roles/bigquery.jobUser; do
+  gcloud projects add-iam-policy-binding my-project-id \
+    --member="user:YOUR_EMAIL@example.com" \
+    --role="$role"
+done
 ```
 
 ### `opentofu_plan_failed` before anything is created

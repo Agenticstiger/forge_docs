@@ -106,7 +106,7 @@ Use the commands this way:
 
 - `fluid policy-check` validates governance declarations in the contract.
 - `fluid policy-compile` turns `accessPolicy` rules into Snowflake RBAC bindings.
-- `fluid policy-apply` applies those compiled bindings.
+- `fluid policy-apply` hands those compiled bindings to the Snowflake provider, which has no standalone policy applier in 0.18.1: it prints that no bindings were enforced and exits 0.
 - Snowflake governance during `apply` covers object-level controls such as descriptions, tags, and masking policies.
 - `fluid verify` checks deployed schema and drift. It is not a full RBAC or entitlement audit.
 

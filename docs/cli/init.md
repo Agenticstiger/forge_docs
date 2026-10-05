@@ -183,9 +183,18 @@ What it does:
 The CLI registers discoverers for the file schemes `file`, `http`, `https`, `s3`, `gs` and `gcs`, and for the database schemes `postgres`, `postgresql`, `mysql` and `mariadb`. Any other scheme fails with `unsupported source scheme`. A discovered source is read again by the build that `apply` runs, and that build runs inside the [DuckDB sandbox](../advanced/duckdb-sandbox.md), which does not read `http(s)://` or `gs://` URLs from contract SQL. This page did not run an apply against a discovered `https://`, `gs://` or `gcs://` source.
 
 ::: danger A credential in the URI is written into the contract
-For `postgres://` and `mysql://` URIs, the password in the URI is copied verbatim into `builds[].properties.source.connection.password`. Nothing is redacted, so the emitted file is not safe to commit. The command also prints the URI, password included, on its first line.
+For `postgres://` and `mysql://` URIs, the password in the URI is copied verbatim into `builds[].properties.source.connection.password`. Nothing is redacted, so the emitted file is not safe to commit. The command also prints the URI, password included, on its first line. A URI typed on the command line also lands in your shell history, and in the process list (`ps`) while the command runs. To keep the password out of both, leave it out of the URI. This page did not test discovery against a live server, so check that your setup authenticates without it.
 
-Before you commit, replace the value with `{{ env.<NAME> }}` (for example `{{ env.PGPASSWORD }}`). In a contract, `{{ env.<NAME> }}` is the form the loader substitutes; a literal `${VAR}` stays a literal string. Importers behave differently: [`fluid import`](./import.md) redacts secrets for the tools that carry them.
+Before you commit, delete the `password:` line and name the secret with a `secretRef`, the form [`fluid secrets`](./secrets.md#how-contracts-consume-secrets) documents for credentials:
+
+```yaml
+connection:
+  host: db.example.com
+  user: ingest
+  secretRef: env://PGPASSWORD
+```
+
+The build resolves the `secretRef` when it runs. Delete the `password:` line first, because when both are present the literal `password` wins and the `secretRef` is ignored. A `{{ env.PGPASSWORD }}` placeholder is also resolved when the build runs, but `fluid apply` and `fluid publish` leave a placeholder whose name looks like a credential unresolved, so use `secretRef` for passwords. A literal `${VAR}` stays a literal string. Importers behave differently: [`fluid import`](./import.md) redacts secrets for the tools that carry them.
 :::
 
 ### Run a discovered contract

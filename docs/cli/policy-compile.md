@@ -41,4 +41,4 @@ fluid policy-compile contract.fluid.yaml --env prod
 - Loads the contract with the requested env overlay and emits a JSON document with `bindings` and `warnings` arrays at the `--out` path.
 - The compiler embeds `provider` and `project` on each binding so [`fluid policy apply`](./policy-apply.md) can target the right account without extra flags.
 - Compiler failures are caught and surfaced as warnings inside the output file — the command still exits `0` so downstream automation can inspect the warnings.
-- Pair with [`fluid policy check`](./policy-check.md) for static linting and [`fluid policy apply`](./policy-apply.md) for enforcement (stage 8).
+- Pair with [`fluid policy check`](./policy-check.md) for static linting and [`fluid policy apply`](./policy-apply.md) for the stage-8 hand-off to the provider (it changes no permissions in 0.18.1).

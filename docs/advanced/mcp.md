@@ -193,7 +193,7 @@ Any other key in that block becomes a caller attribute, which is what `${caller.
 ⚠️  fluid mcp output-port: caller model_id is self-attested via MCP clientInfo. Do not expose this gateway over an untrusted network until P3 (OAuth/mTLS identity) ships. See https://agenticstiger.github.io/forge_docs/concepts/agent-policy.html
 ```
 
-The notice is printed whatever the transport and auth mode. Its "until P3 ships" wording predates JWT and mTLS support: over **HTTP**, configure JWT or mTLS (below) and identity is cryptographically bound, because JWT claims and the mTLS cert subject then *override* self-attestation for `rowFilters` resolution and the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0).
+The notice is printed whatever the transport and auth mode. Its "until P3 ships" wording predates the JWT mode: over **HTTP** with `FLUID_MCP_AUTH_MODE=jwt`, identity is cryptographically bound, because the verified JWT claims then *replace* self-attestation for the model and use-case gates, `rowFilters` resolution and the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0). A client certificate checked by a proxy does not bind identity; see [mTLS authenticates the connection](#authentication-modes) under Authentication modes.
 :::
 
 ### agentPolicy runtime gates
@@ -266,7 +266,7 @@ Before `0.15.0`, `sovereignty` bound provisioning and nothing else: a contract d
 | `jurisdiction: Global` or `Multi-Region` | Not enforced — the contract is explicitly not pinned to one jurisdiction. |
 | No `jurisdiction` at all | Not enforced. Every contract that has never pinned one is entirely unaffected, policy digest included. |
 
-**Verified claims only, and fail-closed.** The claim is admissible only from `request.scope["fluid_auth_attrs"]`, which the HTTP `_AuthMiddleware` writes *after* validating a JWT or mTLS identity — never from the caller's self-attested `clientInfo`. A client typing `jurisdiction: "EU"` into its own handshake satisfies nothing and collapses to the same `missing-caller-jurisdiction` denial as no claim at all. There is no no-auth fallback, on purpose. Matching is **exact and case-sensitive**: a verified `"eu"` against a contract pinning `"EU"` is refused.
+**Verified claims only, and fail-closed.** The claim is admissible only from `request.scope["fluid_auth_attrs"]`, which the HTTP `_AuthMiddleware` writes *after* a credential validates — never from the caller's self-attested `clientInfo`. In practice that means the `jurisdiction` claim of a verified JWT: a shared token and a proxy-forwarded client certificate carry no jurisdiction. A client typing `jurisdiction: "EU"` into its own handshake satisfies nothing and collapses to the same `missing-caller-jurisdiction` denial as no claim at all. There is no no-auth fallback, on purpose. Matching is **exact and case-sensitive**: a verified `"eu"` against a contract pinning `"EU"` is refused.
 
 ::: warning Startup refusal, new in `0.15.0`
 A jurisdiction-pinned contract **refuses to serve and exits 2** on the two deployments that could never satisfy the rule, rather than denying every call one at a time:
@@ -275,6 +275,8 @@ A jurisdiction-pinned contract **refuses to serve and exits 2** on the two deplo
 - `--transport http` with `FLUID_MCP_AUTH_MODE` unset, `none`, `off` or `disabled` — the middleware short-circuits before stamping anything.
 
 Both messages name the contract's jurisdiction and give the command that fixes it: serve over HTTP with `FLUID_MCP_AUTH_MODE=jwt` (plus `FLUID_MCP_JWT_ISSUER` / `_AUDIENCE` / `_JWKS_URL`), or set `sovereignty.crossBorderTransfer: true` if the data may leave. The most common desktop-client setup — stdio — is therefore the one configuration such a contract cannot serve.
+
+The startup check looks only at whether an auth mode is configured. `FLUID_MCP_AUTH_MODE=shared-token` passes it, and a shared token carries no jurisdiction, so such a contract then denies every call as `missing-caller-jurisdiction`. Only `jwt` can supply the claim.
 :::
 
 `jurisdiction` is also one of the [default JWT claim mappings](#authentication-modes), and it is the one default whose absence **closes** the gate rather than widening it: an operator whose IdP calls the claim something else locks themselves out of a jurisdiction-pinned contract until they map it.
@@ -287,14 +289,27 @@ Identity is resolved once at gateway start from `FLUID_MCP_AUTH_MODE`. There are
 | --- | --- | --- |
 | `shared-token` *(default)* | Symmetric bearer token compared with `hmac.compare_digest` (constant-time). One secret, every client uses the same value. | `FLUID_MCP_AUTH_TOKEN` |
 | `jwt` | RFC 7519 bearer. Validates the signature against an issuer's **JWKS** endpoint (`RS256` / `ES256` / `EdDSA`), checks `iss` / `aud` / `exp` / `nbf`, and maps configured claims into `caller_attributes`. Works with Auth0, Okta, Keycloak, AWS Cognito, Google IAP, Azure AD. JWKS keys are cached in-process with a TTL. | `FLUID_MCP_JWT_ISSUER`, `FLUID_MCP_JWT_AUDIENCE`, `FLUID_MCP_JWT_JWKS_URL`, optional `FLUID_MCP_JWT_ALGORITHMS`, `FLUID_MCP_JWT_CLAIM_MAPPING` |
-| `none` | Operator explicitly opts out. Every request is allowed; the audit trail records `identity_kind=none` so un-authed traffic is greppable. *(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` refuses to start in this mode — see below. | — |
+| `none` | Operator explicitly opts out. Every request is allowed and the gateway logs a startup warning that it is unauthenticated. The `data_access` audit record has no field that says how the caller authenticated, so unauthenticated traffic cannot be told apart in it. *(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` refuses to start in this mode — see below. | — |
 | *(unconfigured)* | If `shared-token` has no token, or JWT is missing issuer/audience/JWKS, the gateway runs **unauthenticated** and emits a loud startup warning. *(since 0.15.0)* Same exception: a jurisdiction-pinned contract refuses to start instead. | — |
 
 ::: warning Startup refusal for a jurisdiction-pinned contract, new in `0.15.0`
 The two rows above no longer hold for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`. Because the caller-jurisdiction gate admits only claims the auth middleware verified, an unauthenticated gateway would deny **every** call — so `fluid mcp output-port serve` writes a refusal to stderr and **returns exit code 2** before binding, for `--transport stdio` (any auth mode: a pipe carries no headers) and for `--transport http` with `FLUID_MCP_AUTH_MODE` unset, `none`, `off` or `disabled`. See [Caller-jurisdiction enforcement](#caller-jurisdiction-enforcement-since-0-15-0).
 :::
 
-**mTLS** is handled by the reverse proxy in front of the gateway, not inside it. The proxy terminates the client cert and forwards `X-Client-CN` + `X-Client-Fingerprint`; the gateway reads those headers (`extract_mtls_identity`) and stamps the cert identity onto the audit event **alongside** the JWT claims, so a call carries both "which token" and "which cert."
+Only a verified JWT binds identity. With `shared-token`, the gateway knows that the caller held the shared secret and nothing else: once the token is enforced, any `model`, `useCase` or tenant attribute the client declares for itself is dropped. A contract with an `allowedModels` or `deniedModels` gate then denies every call as `missing-model-identity`, and one with `allowedUseCases` as `missing-use-case-with-allowlist`. Use `jwt` when the gates must see who is calling.
+
+::: warning mTLS authenticates the connection; it does not bind identity
+`FLUID_MCP_AUTH_MODE` accepts only `shared-token`, `jwt` and `none`. With `FLUID_MCP_AUTH_MODE=mtls`, `fluid mcp output-port serve --transport http` exits 1 with a traceback that ends `ValueError: unknown FLUID_MCP_AUTH_MODE='mtls'; expected one of shared-token / jwt / none`.
+
+A proxy in front of the gateway can require client certificates, which keeps hosts without one off the network path. The gateway never sees the certificate. It sees two request headers the proxy sets, `X-Client-CN` and `X-Client-Fingerprint`, and what it does with them is narrow:
+
+- It reads them only when an auth mode is enforced: `jwt` with its three settings, or `shared-token` with `FLUID_MCP_AUTH_TOKEN` set. With `none`, or with neither configured, the middleware passes the request on without looking.
+- It copies them, unverified, into the request's caller attributes as `client_cn` and `client_fingerprint`. A `${caller.client_cn}` placeholder resolves from the header, so the gateway must be reachable only through the proxy, and the proxy must overwrite any copy of those headers the client sends.
+- They never supply `model`, `use_case`, `tenant_id` or `jurisdiction`. Those come from the mapped claims of a verified JWT, or from the client's own declaration when no auth mode is enforced.
+- In 0.18.1 neither header is written to a `data_access` audit record.
+
+Without an auth mode, the gateway is unauthenticated whatever the proxy does: a caller picks its own model, use case and `tenant_id`, so a `${caller.tenant_id}` row filter filters on a value the caller chose.
+:::
 
 `FLUID_MCP_JWT_CLAIM_MAPPING` is a comma-separated `claim=attr` list, e.g. `sub=principal,https://fluid/model=model,https://fluid/tenant=tenant_id`. Mapped claims land in `caller_attributes`, which is exactly what `rowFilters` `${caller.<attr>}` placeholders resolve against — so on the JWT path, per-tenant filters resolve **cryptographically** rather than from self-attested `clientInfo`.
 
@@ -359,7 +374,7 @@ The output-port gateway loads the contract without schema validation, so the fil
 So a contract that uses `rowFilters` can be served but cannot go through the validate, plan and apply path. Until the schema accepts it, use the cloud-native row policies from the [IAM compilers](#cloud-iam-compilers-—-defending-the-bypass-path) for warehouse-side enforcement on a contract you apply. The [MCP output port walkthrough](../walkthrough/mcp-output-port.md#policy-rowfilters-is-read-by-the-gateway-and-rejected-by-fluid-validate) shows the same refusal from a worked example.
 :::
 
-`${caller.<attr>}` placeholders resolve from `caller_attributes`: the `fluid` block of the client's declared capabilities over stdio, or JWT claims and the mTLS cert over HTTP. The supported operators are `equals` (scalar) and `in` (non-empty list); values are always **bound as parameters**, never interpolated.
+`${caller.<attr>}` placeholders resolve from `caller_attributes`: the `fluid` block of the client's declared capabilities over stdio or over HTTP with no auth mode enforced, or the mapped claims of a verified JWT over HTTP with `FLUID_MCP_AUTH_MODE=jwt`. A client certificate checked by a proxy does not supply `tenant_id`; see [Authentication modes](#authentication-modes). The supported operators are `equals` (scalar) and `in` (non-empty list); values are always **bound as parameters**, never interpolated.
 
 **Missing identity fails closed.** If a filter references `${caller.tenant_id}` and the caller never supplied it, the read raises `RowFilterIdentityMissing` and serves **no rows**. The gateway prefers no rows to wrong rows.
 
@@ -452,11 +467,11 @@ Audit events are auto-correlated with the rest of the forge-cli pipeline: the ga
 
 ### HTTP and SSE transport, and the reverse-proxy templates
 
-`--transport http` serves the gateway over MCP-SSE (`mcp.server.sse.SseServerTransport` + Starlette + uvicorn, transitive deps of the `mcp` extra). Clients connect at `http://host:port/sse`. Identity binding is identical to stdio — only the wire differs.
+`--transport http` serves the gateway over MCP-SSE (`mcp.server.sse.SseServerTransport` + Starlette + uvicorn, transitive deps of the `mcp` extra). Clients connect at `http://host:port/sse`. With no auth mode enforced, identity binding is the same as over stdio: the client declares it. With one enforced, only verified attributes bind, as described under [Authentication modes](#authentication-modes).
 
 The HTTP transport has **no built-in TLS or strong identity on its own.** Front it with a reverse proxy. The repo ships ready-to-edit templates at `examples/mcp-output-port-docker/proxy/`:
 
-- **`Caddyfile`** — Caddy 2.x: automatic TLS, `client_auth { mode require_and_verify }` mTLS, a proxy-layer bearer-token check, `flush_interval -1` for SSE, and `header_up X-Client-CN {tls_client_subject}` / `X-Client-Fingerprint {tls_client_fingerprint}` so the gateway records cert identity.
+- **`Caddyfile`** — Caddy 2.x: automatic TLS, `client_auth { mode require_and_verify }` mTLS, a proxy-layer bearer-token check, `flush_interval -1` for SSE, and `header_up X-Client-CN {tls_client_subject}` / `X-Client-Fingerprint {tls_client_fingerprint}`, which forward the certificate's subject and fingerprint as the headers described under [Authentication modes](#authentication-modes).
 - **`nginx.conf`** — equivalent for nginx shops: `ssl_verify_client on`, `proxy_buffering off` + long read/send timeouts for SSE, and the same `X-Client-CN` / `X-Client-Fingerprint` forwarding.
 
 This is **defence-in-depth** — every layer stops a different failure:
@@ -468,6 +483,8 @@ This is **defence-in-depth** — every layer stops a different failure:
 | `agentPolicy.allowedModels` / `allowedUseCases` | A legitimate client running an unapproved model / use case | Gateway (per-`tools/call`) |
 | `policy.rowFilters[]` | A legitimate client bound to a different tenant | Gateway (per-row `WHERE`) |
 | Cloud row-access policy (IAM compiler) | Bypass-the-gateway direct warehouse reads | Cloud (warehouse-side) |
+
+The model, use-case and tenant rows tell a legitimate client from another one only when the caller's identity is verified, which is `FLUID_MCP_AUTH_MODE=jwt`. Behind the shared token the gateway drops what the client declares about itself, and a client certificate supplies none of those attributes; see [Authentication modes](#authentication-modes).
 
 ### Environment variables (output port)
 

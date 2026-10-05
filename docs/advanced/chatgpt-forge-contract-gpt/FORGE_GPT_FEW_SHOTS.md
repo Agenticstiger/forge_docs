@@ -385,6 +385,6 @@ Example correction:
 
 ```text
 Open questions
-- Which groups or service accounts should be able to read this table, as real IAM members such as group:analysts@acme.com
+- Which groups or service accounts should be able to read this table, as real IAM members such as group:analysts@acme.example.com
 ```
 

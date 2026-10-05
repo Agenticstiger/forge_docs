@@ -241,7 +241,7 @@ exposes:
       location: { project: prod, dataset: analytics, table: customer_360 }
     policy:
       authz:
-        readers: [group:analysts@company.com]
+        readers: [group:analysts@company.example.com]
     contract:
       schema:
         - { name: customer_id, type: STRING }
@@ -254,7 +254,7 @@ exposes:
       location: { project: prod, dataset: features, table: customer_360_v1 }
     policy:
       authz:
-        readers: [group:ml-team@company.com, "serviceAccount:training@<project>.iam.gserviceaccount.com"]
+        readers: [group:ml-team@company.example.com, "serviceAccount:training@<project>.iam.gserviceaccount.com"]
     contract:
       schema:
         - { name: customer_id, type: STRING }

@@ -74,6 +74,19 @@ The pipeline carries no provider logic. The contract declares `binding.platform`
 
 This is the complete Jenkinsfile. The same file runs against GCP, AWS and Snowflake contracts:
 
+::: danger Do not run this Jenkinsfile with production credentials as written
+It demonstrates a provider-agnostic structure. It also has these defects:
+
+- **Credentials come from the checkout.** With `CREDENTIALS_ID` empty, Setup copies a `.env` from the repository into `.fluid-creds`. Every stage then runs `set -a; . .fluid-env`, which executes the file as shell. Anyone whose change the job builds controls what runs with the build's credentials.
+- **The secret is copied out of `withCredentials`.** Setup writes the Secret File into the workspace (`.fluid-creds`, `.fluid-env`, `.gcp-key.json`) and every stage sources it, including `pip3 install -r requirements.txt` in Execute Builds, which runs code from the repository's dependencies with the credentials in its environment.
+- **Build permission is root on the host.** `FLUID_IMAGE` is a free-text parameter and the agent mounts `/var/run/docker.sock`, so whoever may start a build can run any image with control of the host's Docker daemon.
+- **A build picks its own credentials.** `CREDENTIALS_ID` is free text, so a build of a dev branch can name the production credential.
+- **The credentials are long-lived and broad.** The header comment shows an `AKIA...` access key and `SNOWFLAKE_ROLE=SYSADMIN`.
+- **`main` deploys to production without a gate.** `ENV` is `prod` on `main`, and `fluid apply --yes` runs with no `input` step before it.
+
+For a pipeline you will run, use `fluid generate ci --system jenkins`. Its Jenkinsfile has no `.env` fallback and no Docker socket mount, takes credentials from the agent or from Jenkins credentials you bind, and defaults `APPLY_MODE` to `dry-run`. See [Jenkins CI/CD](./jenkins-cicd.md#give-the-pipeline-credentials), and [Require approval before apply](./jenkins-cicd.md#require-approval-before-apply) for the gate.
+:::
+
 ```groovy
 #!/usr/bin/env groovy
 /**
@@ -390,7 +403,7 @@ This means **adding a new provider** requires zero Jenkinsfile changes:
 | 5 | Plan | `fluid plan` | Generate execution plan |
 | 6 | Tests | `fluid contract-tests` | Compare the schema with a committed baseline |
 | 7 | Apply Infra | `fluid apply` | Deploy cloud resources |
-| 8 | Apply IAM | `fluid policy-apply` | Enforce IAM/RBAC bindings |
+| 8 | Apply IAM | `fluid policy-apply` | Hand the compiled bindings to the provider; changes no permissions in 0.18.1 |
 | 9 | Execute | `fluid apply --mode amend-and-build` | Run build scripts (ingest, transform) |
 | 10 | Airflow DAG | `fluid generate schedule` | Generate the Airflow DAG for the environment |
 | 11 | Summary | — | Print artifacts and results |

@@ -51,11 +51,11 @@ metadata:
   layer: Gold
   owner:
     team: data-engineering
-    email: data-engineering@company.com
+    email: data-engineering@company.example.com
 
 accessPolicy:
   grants:
-    - principal: "group:data-analysts@company.com"
+    - principal: "group:data-analysts@company.example.com"
       permissions: [read, select]
 
 exposes:
@@ -335,7 +335,7 @@ metadata:
   layer: Silver
   owner:
     team: sales-data
-    email: sales-data@company.com
+    email: sales-data@company.example.com
 builds:
   - id: orders_daily
     pattern: embedded-logic
@@ -455,7 +455,7 @@ With `BIGQUERY_EMULATOR_HOST` set, loads, reads and `fluid verify` go to that ho
 ```yaml
 accessPolicy:
   grants:
-    - principal: "group:data-analysts@company.com"
+    - principal: "group:data-analysts@company.example.com"
       permissions: [read, select]
     - principal: "serviceAccount:etl@my-project-id.iam.gserviceaccount.com"
       permissions: [write, insert]
@@ -464,8 +464,8 @@ accessPolicy:
 Each grant becomes one non-authoritative `google_bigquery_dataset_iam_member` per role and member, on every dataset the contract creates:
 
 ```text
-google_bigquery_dataset_iam_member  ..._roles_bigquery_dataViewer_group_data_analysts_company_com_6987d71929
-    member: group:data-analysts@company.com   role: roles/bigquery.dataViewer
+google_bigquery_dataset_iam_member  ..._roles_bigquery_dataViewer_group_data_analysts_company_example_com_4451af44f1
+    member: group:data-analysts@company.example.com   role: roles/bigquery.dataViewer
 google_bigquery_dataset_iam_member  ..._roles_bigquery_dataEditor_serviceAccount_etl_my_project_id_iam_gserviceaccount_com_ef975625fb
     member: serviceAccount:etl@my-project-id.iam.gserviceaccount.com   role: roles/bigquery.dataEditor
 ```
@@ -546,7 +546,7 @@ exposes:
     policy:
       authz:
         columnRestrictions:
-          - principal: "group:interns@company.com"
+          - principal: "group:interns@company.example.com"
             columns: [email]
             access: deny
     contract:
@@ -564,7 +564,7 @@ With the `accessPolicy` above, `fluid apply` emits, for any `fluidVersion`:
 |---|---|
 | `google_data_catalog_taxonomy` | one per product and dataset, `activated_policy_types: [FINE_GRAINED_ACCESS_CONTROL]`, in the binding's region |
 | `google_data_catalog_policy_tag` | one per set of restricted columns that share their readers, attached through the table schema's `policyTags` |
-| `google_data_catalog_policy_tag_iam_member` | `roles/datacatalog.categoryFineGrainedReader` for each allowed reader (here `group:data-analysts@company.com`) |
+| `google_data_catalog_policy_tag_iam_member` | `roles/datacatalog.categoryFineGrainedReader` for each allowed reader (here `group:data-analysts@company.example.com`) |
 
 Semantics:
 
@@ -579,7 +579,7 @@ A denied principal gets an error on the restricted columns, and `SELECT * EXCEPT
 User has neither fine-grained reader nor masked get permission to get data protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.
 ```
 
-`fluid policy-apply` is a different path: on GCP it applies dataset IAM only. Column restrictions are enforced by `fluid apply`.
+`fluid policy-apply` is a different path, and in 0.18.1 it changes nothing on GCP: it reports the compiled bindings and returns `applied: 0`. Both the dataset IAM and the policy tags that enforce column restrictions are provisioned by `fluid apply`. See [`fluid policy apply`](../cli/policy-apply.md#what-each-provider-does).
 
 ### Data Masking
 
@@ -665,8 +665,8 @@ exposes:
   - binding:
       platform: gcp
       principals:
-        group:data-platform@northwind.example: group:data-platform@northwind.com
-        group:analysts@northwind.example: group:analysts@northwind.com
+        group:data-platform@northwind.example: group:data-platform@northwind.example.com
+        group:analysts@northwind.example: group:analysts@northwind.example.com
 ```
 
 A value is one identity, a list, or `[]` (no identity on this cloud, nothing granted). With `binding.principals` present, every principal the expose names must be mapped (`principal-unmapped`). The same mapping drives dataset grants and policy-tag readers.
@@ -713,7 +713,7 @@ forge-cli's own tests prove the governed module against `tofu validate` and an i
 
 ### "Access Denied" during apply
 
-The identity running `fluid apply` needs permission to create and update datasets, tables and dataset IAM in the target project (for example `roles/bigquery.admin`), plus the roles in [Prerequisites for governed resources](#prerequisites-for-governed-resources) when the contract uses them.
+The identity running `fluid apply` needs permission to create and update datasets, tables and dataset IAM in the target project. Grant it `roles/bigquery.dataOwner` and `roles/bigquery.jobUser` on that project, not `roles/bigquery.admin`, which carries project-wide BigQuery administration that an apply does not need. Add the roles in [Prerequisites for governed resources](#prerequisites-for-governed-resources) for the features the contract uses: `roles/datacatalog.categoryAdmin` for column restrictions and `roles/cloudkms.admin` for `encryption.kms: product`.
 
 ### A placeholder grant is refused
 

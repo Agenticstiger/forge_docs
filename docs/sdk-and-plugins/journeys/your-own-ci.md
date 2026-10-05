@@ -226,7 +226,7 @@ EOF
 git add fluid-scaffold.yaml templates/ static/
 git commit -m "v1.0.0: initial bundle"
 git tag v1.0.0
-git remote add origin https://github.com/my-org/ci-bundle.git
+git remote add origin https://github.com/<your-org>/ci-bundle.git
 git push --tags origin main
 ```
 
@@ -267,7 +267,7 @@ extensions:
       - id: my-ci
         source:
           kind: git
-          url: "https://github.com/my-org/ci-bundle"
+          url: "https://github.com/<your-org>/ci-bundle"
           ref: "v1.0.0"                      # pin the tag
           auth: { secret_ref: GITHUB_TOKEN } # only needed for private bundles
     patterns:
@@ -353,7 +353,7 @@ The contract's `source.ref` is required. Leaving it out is a deliberate failure,
 ```yaml
 source:
   kind: git
-  url:  "https://github.com/my-org/ci-bundle"
+  url:  "https://github.com/<your-org>/ci-bundle"
   ref:  "v1.0.0"
   auth: { secret_ref: GITHUB_TOKEN }
 ```

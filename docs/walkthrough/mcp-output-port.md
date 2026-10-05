@@ -176,13 +176,13 @@ the same way, because the auth middleware never runs. See
 Stop that server (`Ctrl-C`) and drive it with the official **MCP Inspector CLI** — no editor needed. The Inspector starts the server itself: give it the server command, then the method to call. First, list the tools:
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli \
+npx -y @modelcontextprotocol/inspector@2.9.0 --cli \
   fluid mcp output-port serve contract.fluid.yaml \
   --method tools/list
 ```
 
-::: tip Inspector argument order
-The Inspector's argument syntax has changed between releases. This form worked with Inspector `2.9.0` on 5 October 2026: the server command first, then `--method`, `--tool-name` and `--tool-arg`. An older `--transport stdio ... -- <command>` form is rejected by that release with `Method is required`. If yours rejects this one, run `npx @modelcontextprotocol/inspector --help`.
+::: tip Inspector argument order, and why the version is pinned
+The Inspector's argument syntax has changed between releases. This form worked with Inspector `2.9.0` on 5 October 2026: the server command first, then `--method`, `--tool-name` and `--tool-arg`. An older `--transport stdio ... -- <command>` form is rejected by that release with `Method is required`. The commands pin `@2.9.0` because `npx -y` runs whatever release the registry serves, with your user's permissions, and `2.9.0` is the only version whose syntax this page checked. If you move the pin, run `npx @modelcontextprotocol/inspector@<version> --help` first.
 :::
 
 You should see **three** tools: `describe`, `sample`, and `query`. (`query` appears because the expose has a `semantics` block; `query_sql` is hidden because we didn't pass `--allow-sql`.)
@@ -190,7 +190,7 @@ You should see **three** tools: `describe`, `sample`, and `query`. (`query` appe
 ### describe — learn the shape without touching the data
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli \
+npx -y @modelcontextprotocol/inspector@2.9.0 --cli \
   fluid mcp output-port serve contract.fluid.yaml \
   --method tools/call --tool-name describe
 ```
@@ -202,7 +202,7 @@ npx -y @modelcontextprotocol/inspector --cli \
 The agent doesn't write SQL; it picks a metric (or measure) from `expose.semantics`:
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli \
+npx -y @modelcontextprotocol/inspector@2.9.0 --cli \
   fluid mcp output-port serve contract.fluid.yaml \
   --method tools/call --tool-name query --tool-arg metric=ltv_total
 ```
@@ -231,7 +231,7 @@ To break that total down by segment, a real MCP client (Claude, Cursor) sends th
 `email` is marked `sensitivity: pii` in the contract, so the gateway redacts its **values** on every result while keeping the column visible. Call `sample`:
 
 ```bash
-npx -y @modelcontextprotocol/inspector --cli \
+npx -y @modelcontextprotocol/inspector@2.9.0 --cli \
   fluid mcp output-port serve contract.fluid.yaml \
   --method tools/call --tool-name sample --tool-arg limit=2
 ```
@@ -316,7 +316,7 @@ renamed or removed — only a reader validating against a closed key set notices
 :::
 
 ::: tip Self-attested over stdio
-Over stdio the model id comes from `clientInfo` and a client could lie. That's fine for a trusted desktop tool; for an untrusted network you bind identity cryptographically with JWT or mTLS — see [auth modes](../advanced/mcp.md#authentication-modes).
+Over stdio the model id comes from `clientInfo` and a client could lie. That's fine for a trusted desktop tool; for an untrusted network you bind identity cryptographically with a JWT (`FLUID_MCP_AUTH_MODE=jwt`). A client certificate checked by a proxy authenticates the connection but binds no model, use case or tenant — see [auth modes](../advanced/mcp.md#authentication-modes).
 :::
 
 ::: warning Self-attestation moved channel on MCP SDK 2.x *(since `0.15.0`)*
@@ -344,7 +344,7 @@ declared capabilities under `experimental.fluid`, which both SDK generations par
 
 An existing environment does not move until it is upgraded, and pinning
 `mcp>=1.20,<2.0` still works. None of this applies once authentication is enforced:
-verified JWT or mTLS claims replace self-attestation outright.
+verified JWT claims replace self-attestation outright, and with `FLUID_MCP_AUTH_TOKEN` set the self-attested values are dropped.
 :::
 
 ---
@@ -401,6 +401,10 @@ fluid mcp output-port serve ./contract.fluid.yaml \
   --transport http --host 127.0.0.1 --port 8765
 ```
 
+::: warning mTLS and a bearer token authenticate the connection, not the model
+`FLUID_MCP_AUTH_MODE` accepts `shared-token`, `jwt` and `none`, so a client certificate checked by the proxy is not an identity the gateway can use. With `FLUID_MCP_AUTH_TOKEN` set, the gateway drops the model and use case a client declares, so a contract with an `allowedModels` gate, like this walkthrough's, denies every call as `missing-model-identity`. To gate by model or tenant over HTTP, use `FLUID_MCP_AUTH_MODE=jwt` and have the token carry the `model`, `use_case` and `tenant_id` claims. With no auth mode set, the gateway is unauthenticated and the caller chooses its own. See [Authentication modes](../advanced/mcp.md#authentication-modes).
+:::
+
 ### `policy.rowFilters` is read by the gateway and rejected by `fluid validate`
 
 The gateway and the cloud IAM compiler read per-tenant `policy.rowFilters[]` from an expose. No bundled schema (0.7.1 to 0.7.6) declares that key, and `exposes[].policy` allows no other properties, so a contract that declares it fails validation, and with it `plan` and `apply`:
@@ -413,7 +417,7 @@ Do not rely on `rowFilters` in a contract that goes through `fluid validate`. Th
 
 ### Go deeper
 
-- [Advanced: MCP output-port governance](../advanced/mcp.md) — the full enforcement order, auth modes (shared-token / JWT / mTLS), the five drivers, cloud-IAM compilers, rate-limit / circuit-breaker / audit internals.
+- [Advanced: MCP output-port governance](../advanced/mcp.md) — the full enforcement order, auth modes (shared-token / JWT, and what an mTLS proxy does and does not bind), the five drivers, cloud-IAM compilers, rate-limit / circuit-breaker / audit internals.
 - [`fluid mcp` CLI reference](../cli/mcp.md) — the flags, with copy-paste examples.
 - [Governance](../advanced/governance.md) — `policy-check`, `policy-compile` and the access, classification and quality blocks.
 - [Agent policy](../concepts/agent-policy.md) — `agentPolicy` and where it is enforced.

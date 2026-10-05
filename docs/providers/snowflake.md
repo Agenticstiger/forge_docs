@@ -85,7 +85,7 @@ metadata:
   layer: Gold
   owner:
     team: data-engineering
-    email: data-engineering@company.com
+    email: data-engineering@company.example.com
 
 # ── Data Sovereignty ──────────────────────────────────────────
 sovereignty:
@@ -122,7 +122,7 @@ accessPolicy:
     - principal: "role:DATA_ENGINEER"
       permissions: [write, insert, update, delete, create]
 
-    - principal: "user:looker_service@company.com"
+    - principal: "user:looker_service@company.example.com"
       permissions: [read, select]
 
 # ── Expose: Snowflake Table ───────────────────────────────────

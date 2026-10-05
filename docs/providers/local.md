@@ -42,7 +42,7 @@ metadata:
   layer: Bronze
   owner:
     team: data-analytics
-    email: team@company.com
+    email: team@company.example.com
 
 builds:
   - id: build_customers

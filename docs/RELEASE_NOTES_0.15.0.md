@@ -275,8 +275,9 @@ Those are entirely unaffected, policy digest included, and all 25 pre-existing c
 keep their exact digest.
 
 The claim is admissible **only when verified**: `_resolve_verified_jurisdiction` reads the attributes
-the HTTP auth middleware writes after it validates a JWT or mTLS identity, and never the caller's
-self-attested `clientInfo`. A client typing `jurisdiction: "EU"` satisfies nothing and collapses to
+the HTTP auth middleware writes after it validates a credential, and never the caller's
+self-attested `clientInfo`. *(Checked against `0.18.1`: of the three auth modes, only a verified JWT carries a
+jurisdiction claim. A proxy-forwarded client certificate does not.)* A client typing `jurisdiction: "EU"` satisfies nothing and collapses to
 the same `missing-caller-jurisdiction` denial as no claim at all. There is no no-auth fallback on
 purpose, and matching is exact and case-sensitive — a verified `"eu"` against a contract pinning
 `"EU"` is refused.

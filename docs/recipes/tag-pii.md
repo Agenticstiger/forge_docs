@@ -27,7 +27,7 @@ Five additions to one contract, each read by a different part of forge. The firs
 | `sensitivity: pii` on a schema column | `fluid policy-check` (it requires a masking rule for the column); the MCP output port (it redacts the values) |
 | `policy.privacy.masking` on the expose | The DuckDB acquisition runner (it treats the values as they land); `fluid verify` (it checks them); the MCP output port (it leaves the column out) |
 | `policy.authz.columnRestrictions` | `fluid apply` on a BigQuery or AWS Lake Formation binding; the MCP output port |
-| `accessPolicy.grants` | `fluid policy compile` and `fluid policy apply`; dataset grants on GCP |
+| `accessPolicy.grants` | `fluid policy compile` writes the bindings; `fluid apply` provisions the dataset grants on GCP. `fluid policy apply` changes nothing in 0.18.1 |
 | `policy.agentPolicy` | The MCP output port |
 
 As of 0.18.1, the engine that applies masking at landing is the DuckDB acquisition runner (`pattern: acquisition`, `engine: duckdb`). An embedded-SQL build refuses an expose that declares masking; see [Edge cases](#edge-cases).
@@ -221,7 +221,7 @@ exposes:
 
 ```bash
 fluid policy compile contract.fluid.yaml --out runtime/policy/bindings.json
-fluid policy apply runtime/policy/bindings.json --mode check     # dry run; --mode enforce deploys
+fluid policy apply runtime/policy/bindings.json --mode check     # reports the bindings; changes nothing in 0.18.1, in either mode
 ```
 
 ```json

@@ -384,7 +384,7 @@ extensions:
       - id: skel
         source:
           kind: git
-          url:  "https://github.com/my-org/project-bundle"
+          url:  "https://github.com/<your-org>/project-bundle"
           ref:  "v1.0.0"
     patterns:
       - use: skel:main

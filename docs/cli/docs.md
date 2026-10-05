@@ -68,7 +68,7 @@ An `index.json` entry looks like this:
   "kind": "DataProduct",
   "owner": {
     "team": "customer-analytics",
-    "email": "customer-analytics@company.com"
+    "email": "customer-analytics@company.example.com"
   },
   "domain": null,
   "layer": "Gold",

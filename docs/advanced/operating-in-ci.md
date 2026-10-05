@@ -90,6 +90,10 @@ Stage 0 creates `$WORKSPACE/.fluid-venv`, because agents that follow PEP 668 ref
 
 Pin a different version at build time with `FLUID_PACKAGE_SPEC=data-product-forge==X.Y.Z`. `FLUID_PIP_INDEX_URL` (blank means PyPI), `FLUID_PIP_EXTRA_INDEX_URL` and `FLUID_ALLOW_PRERELEASE` (`true` adds `pip --pre`) cover TestPyPI pilots and private mirrors. With `--install-mode dev-source` the file installs from a `/forge-cli-src` bind mount and fails if the mount is missing; it never falls back to PyPI.
 
+::: warning Do not pair a test or private index with PyPI
+pip picks the highest version of a package across every index it is given, so `FLUID_PIP_EXTRA_INDEX_URL` lets a second index outvote the first for `data-product-forge` and for each of its dependencies. Anyone can register a name on TestPyPI. For private packages, set `FLUID_PIP_INDEX_URL` to one mirror that proxies PyPI and leave `FLUID_PIP_EXTRA_INDEX_URL` empty. Run TestPyPI pilots only on an agent that holds no deploy credentials.
+:::
+
 A committed Jenkinsfile keeps what it was generated with. Regenerate it after upgrading the CLI to pick up newer stage logic.
 
 ### `fluid generate ci` options

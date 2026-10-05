@@ -100,4 +100,4 @@ fluid policy-check contract.fluid.yaml --strict
 ## Related
 
 - [`fluid policy compile`](./policy-compile.md) — after the lint passes, compile to `bindings.json`.
-- [`fluid policy apply`](./policy-apply.md) — deploy the compiled bindings (stage 8 of the pipeline).
+- [`fluid policy apply`](./policy-apply.md) — hand the compiled bindings to the provider (stage 8 of the pipeline; it changes no permissions in 0.18.1).

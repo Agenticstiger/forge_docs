@@ -22,6 +22,10 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
   |- Jenkins plugins required: workflow-aggregator, git
 ```
 
+::: warning Do not pair a test or private index with PyPI
+pip picks the highest version across every index it is given, so a TestPyPI index next to `FLUID_PIP_EXTRA_INDEX_URL=https://pypi.org/simple/` lets either one supply `data-product-forge` and its dependencies. Run TestPyPI pilots only on an agent that holds no deploy credentials, and for private packages use one mirror that proxies PyPI in `FLUID_PIP_INDEX_URL` with `FLUID_PIP_EXTRA_INDEX_URL` empty. See [Set up Jenkins](./jenkins-cicd.md#set-up-jenkins).
+:::
+
 On 0.18.1 `fluid generate ci` renders this 11-stage pipeline for Jenkins and Tekton; [which systems read which option](../cli/generate.md#which-systems-read-which-option) lists the other systems and what they take.
 
 The Jenkinsfile installs the CLI itself (stage 0), then runs the stages in this table. Stages 2, 3, 5, 6 and 9 read the bundle that stage 1 wrote, and stage 7 applies the plan against it, so they work on the same bytes.
@@ -442,7 +446,7 @@ Back the target up yourself before a destructive mode. The OpenTofu engine the c
 
 ### Stage 8: policy apply
 
-[`fluid policy-apply`](../cli/policy-apply.md) applies the access bindings from `dist/artifacts/policy/bindings.json`. It runs after apply, because grants need the target objects, and before verify, so a transform that fails for lack of access shows up as a policy failure rather than a build error. The Jenkins stage skips when the file is missing, and after a dry-run apply it runs with `--mode check` instead of `enforce`.
+[`fluid policy-apply`](../cli/policy-apply.md) hands the access bindings from `dist/artifacts/policy/bindings.json` to the provider. It runs after apply and before verify. In 0.18.1 it changes no cloud permissions, as described below. The Jenkins stage skips when the file is missing, and after a dry-run apply it runs with `--mode check` instead of `enforce`.
 
 ```bash
 fluid policy-apply dist/artifacts/policy/bindings.json --mode enforce
@@ -450,7 +454,7 @@ fluid policy-apply dist/artifacts/policy/bindings.json --mode enforce
 
 With the empty bindings file this contract produced, the command prints nothing and exits 0.
 
-On 0.18.1 the command has an applier for some providers only. For an `aws` or `snowflake` binding it prints `No policy bindings were enforced` and exits 0, so this stage does nothing for them. On AWS the grants come from `governance.lakeFormation.grants` instead, which `fluid apply` writes: see [accessPolicy on AWS](../providers/aws.md#accesspolicy-on-aws).
+On 0.18.1 the command provisions nothing on any provider, in either mode. For a `gcp` binding it reports the compiled bindings and returns `applied: 0`; GCP IAM is created by stage 7, `fluid apply`. For an `aws` or `snowflake` binding it prints `No policy bindings were enforced` and exits 0. On AWS the grants come from `governance.lakeFormation.grants` instead, which `fluid apply` writes: see [accessPolicy on AWS](../providers/aws.md#accesspolicy-on-aws).
 
 ### Stage 9: verify
 

@@ -377,7 +377,7 @@ CONTRACT_WRONG_DOMAIN = {
     "id": "p4",
     "labels": {
         "principal.steward.id": "emp-12345",
-        "principal.steward.email": "alice@gmail.com",
+        "principal.steward.email": "alice@example.com",
     },
 }
 
@@ -436,6 +436,10 @@ fluid validate contract.fluid.yaml
 
 That's the whole user surface. Once `pip install my-org-validators` resolves on a developer's machine (or in CI), the contracts they validate run the rules. Onboarding a new team is a `pip install`.
 
+::: danger Install private plugins from your private index
+`my-org-validators` is a private name. With only PyPI configured, `pip install my-org-validators` asks a public index for it, and anyone can register that name there. A plugin runs inside `fluid validate` with the permissions of whoever runs it. Install it from your own index: one mirror that proxies PyPI, set with `--index-url` or `PIP_INDEX_URL`, with no extra index and the version pinned. pip picks the highest version across every index it is given, so a private index added next to PyPI with `--extra-index-url` does not protect the name.
+:::
+
 ## Distributing across the org
 
 Three places this typically gets installed:
@@ -455,9 +459,13 @@ Three places this typically gets installed:
    ```
 3. **CI** — the bundle from [your-own-ci](./your-own-ci.md) already has a `validate` stage. Add `my-org-validators` to the `pip install` line:
    ```yaml
-   - run: pip install "data-product-forge==0.18.1" my-org-validators
+   - run: pip install --index-url "<your-private-index-url>" "data-product-forge==0.18.1" "my-org-validators==<version>"
    - run: fluid validate contract.fluid.yaml --strict
+     env:
+       FLUID_PLUGINS_ALLOWLIST: "steward-required,cost-center-required,classification-from-vocab,local"
    ```
+
+   `FLUID_PLUGINS_ALLOWLIST` takes entry-point names, and only the names listed load, so a package that lands in the CI environment by another route is never imported. It removes every plugin it omits, the providers `data-product-forge` ships included (`fluid plugins --role provider` shows each as `BLOCKED`), so name the provider your job binds to as well; `local` is the example here. See the [trust model](../reference/trust-model.md#operator-governance-—-allowlist-and-blocklist).
 
 ## You'll know it worked when
 

@@ -126,7 +126,7 @@ builds:
       streams: [public.orders]
 ```
 
-The runner resolves the URI when the build runs. The schemes are:
+The runner resolves the URI when the build runs. A literal `password` in the same `connection` block wins over `secretRef`, so a contract that [`fluid init --discover`](./init.md#discover-—-introspect-a-source-into-a-bronze-contract) wrote, which carries the URI's password in `connection.password`, needs that line deleted when you add the `secretRef`. A password typed into a command-line URI also lands in shell history and in `ps` output; keep it out of the URI where you can. The schemes are:
 
 | Scheme | Reads from |
 |---|---|

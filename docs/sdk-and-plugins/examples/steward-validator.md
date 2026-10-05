@@ -164,7 +164,7 @@ CONTRACT_GOOD_STEWARD = {"id": "p2", "labels": {
 CONTRACT_STEWARD_NO_EMAIL = {"id": "p3", "labels": {"principal.steward.id": "emp-12345"}}
 CONTRACT_WRONG_DOMAIN = {"id": "p4", "labels": {
     "principal.steward.id": "emp-12345",
-    "principal.steward.email": "alice@gmail.com"}}
+    "principal.steward.email": "alice@example.com"}}
 
 
 class TestStewardValidator(ValidatorTestHarness):

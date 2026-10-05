@@ -24,6 +24,10 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
   |- Jenkins plugins required: workflow-aggregator, git
 ```
 
+::: warning Do not pair a test or private index with PyPI
+pip picks the highest version of a package across every index it is given. With `FLUID_PIP_INDEX_URL` set to TestPyPI and `FLUID_PIP_EXTRA_INDEX_URL` set to PyPI, as the output above suggests, whichever index holds the higher version wins, for `data-product-forge` and for each of its dependencies. Anyone can register a name on TestPyPI, so a pilot build can install a package you did not choose. Run TestPyPI pilots only on an agent that holds no deploy credentials. For private packages, set `FLUID_PIP_INDEX_URL` to one mirror that proxies PyPI and leave `FLUID_PIP_EXTRA_INDEX_URL` empty.
+:::
+
 Commit the `Jenkinsfile` beside the contract. The file is generated once and then belongs to you: after you upgrade the CLI, regenerate it and review the diff to pick up changes. The `CONTRACT` parameter defaults to the path you generated from, and `FLUID_PACKAGE_SPEC` to the CLI version that generated the file with the extras the contract and its overlays need. A contract that has an `overlays/gcp.yaml` binding to BigQuery generates `data-product-forge[gcp,local]==0.18.1`; `--fluid-package-spec` overrides it.
 
 ## Set up Jenkins
@@ -34,7 +38,7 @@ Commit the `Jenkinsfile` beside the contract. The file is generated once and the
 | Agent | `python3` with the `venv` module, and `rsync` when the stage-11 destination is a `file://` or `ssh://` path |
 | Workspace cleanup | nothing: the Jenkinsfile removes the workspace with the core `deleteDir()` step, so the `ws-cleanup` plugin is not needed |
 
-Stage 0 creates a virtual environment at `$WORKSPACE/.fluid-venv` and installs `FLUID_PACKAGE_SPEC` into it, because agents that follow PEP 668 refuse a bare `pip install`. Every later stage runs the `fluid` from that environment. A private package index goes in the `FLUID_PIP_INDEX_URL` and `FLUID_PIP_EXTRA_INDEX_URL` parameters; `FLUID_ALLOW_PRERELEASE` adds `pip --pre`.
+Stage 0 creates a virtual environment at `$WORKSPACE/.fluid-venv` and installs `FLUID_PACKAGE_SPEC` into it, because agents that follow PEP 668 refuse a bare `pip install`. Every later stage runs the `fluid` from that environment. A private package index goes in the `FLUID_PIP_INDEX_URL` parameter, as one mirror that also proxies PyPI. Leave `FLUID_PIP_EXTRA_INDEX_URL` empty, for the reason in the warning under [Generate the Jenkinsfile](#generate-the-jenkinsfile). `FLUID_ALLOW_PRERELEASE` adds `pip --pre`.
 
 ## Create the job
 
@@ -57,10 +61,9 @@ Run that first build with the defaults. Jenkins learns a Pipeline's parameters f
 | Data Mesh Manager | `DMM_API_URL`, `DMM_API_KEY`, only for `fluid publish` |
 | Command Center | `FLUID_CC_ENDPOINT`, `FLUID_API_KEY` (sent as `X-API-Key`) and `FLUID_CC_ORG_ID`, for `--target fluid-command-center`; `FLUID_CC_ORG_ID` is optional when the key belongs to exactly one organization |
 
-Surface them to the build in one of two ways:
+Surface them to the build with Jenkins credentials. The agent's environment is the other route, and it carries the warning at the end of this section.
 
-- **Agent environment.** Set the variables on the agent: a Docker Compose `environment:`, a Kubernetes agent template, or Jenkins Global Node Properties. `sh` steps inherit them and the Jenkinsfile needs no change.
-- **Jenkins credentials.** Create credentials under **Manage Jenkins**, **Credentials**, then bind them in the Jenkinsfile's `environment {}` block:
+**Jenkins credentials (recommended).** Create credentials under **Manage Jenkins**, **Credentials**, then bind them in the Jenkinsfile's `environment {}` block. Jenkins masks a bound value in the console log. `withCredentials([...])` around the steps that need a secret does the same for a narrower scope:
 
 ```groovy
 environment {
@@ -69,7 +72,15 @@ environment {
 }
 ```
 
-For `GOOGLE_APPLICATION_CREDENTIALS` the credential is a Secret file, which Jenkins exposes as the path of a temporary file. Do not write a key into the Jenkinsfile or into a job parameter.
+For `GOOGLE_APPLICATION_CREDENTIALS` the credential is a Secret file, which Jenkins exposes as the path of a temporary file. Do not write a key into the Jenkinsfile or into a job parameter. A binding in the pipeline-level `environment {}` is visible to every stage, stage 0's `pip install` included. To keep it out of that stage, bind it in the `environment {}` of the stages that talk to the target, or use `withCredentials`.
+
+Prefer short-lived credentials to stored keys where the cloud offers them: Workload Identity Federation for GCP and an OIDC role for AWS (the generated Jenkinsfile's header comment lists both as alternatives), in place of a service-account key file or an `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` pair that does not expire.
+
+**Agent environment.** Set the variables on the agent: a Docker Compose `environment:`, a Kubernetes agent template, or Jenkins Global Node Properties. `sh` steps inherit them and the Jenkinsfile needs no change.
+
+::: danger Do not put secrets in Global or Node Properties
+Jenkins stores Global and Node Properties as plain text in its XML configuration (`config.xml` on the controller), does not mask them in build logs, and gives them to every job that runs on that scope. Never use them for `AWS_SECRET_ACCESS_KEY`, `SNOWFLAKE_PASSWORD` or `FLUID_API_KEY`. If the agent's environment is the route you take, give these pipelines a dedicated agent label (`agent { label '<fluid-agents>' }` in place of the generated `agent any`) and inject the values into that agent from a Kubernetes Secret (`secretKeyRef` in the agent template), not as inline `value:` entries.
+:::
 
 Since 0.17.0, a pipeline configured to publish to the Command Center also reports each `fluid apply` run there, with the same credentials; see [Stage 7](./11-stage-pipeline.md#stage-7-apply).
 

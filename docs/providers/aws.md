@@ -55,7 +55,7 @@ metadata:
   layer: Gold
   owner:
     team: data-engineering
-    email: data-eng@company.com
+    email: data-eng@company.example.com
 
 # The binding's region must be one of these. With enforcementMode: strict,
 # a region written as an {{ env.* }} placeholder fails `fluid validate`.

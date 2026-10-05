@@ -51,7 +51,7 @@ Tighten the regexps in production so only signatures from your org's GitHub Acti
 
 ```bash
 fluid verify-signature runtime/bundle.tgz \
-  --identity-regexp 'https://github.com/myorg/.*' \
+  --identity-regexp 'https://github.com/<your-org>/.*' \
   --oidc-issuer-regexp 'https://token.actions.githubusercontent.com'
 ```
 

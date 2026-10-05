@@ -136,9 +136,9 @@ Other refusal kinds exist for principals and governance fields: `principal-unmap
 
 ```json
 "google_bigquery_dataset_iam_member": {
-  "analytics_gcpq_analytics_roles_bigquery_dataViewer_group_data_analysts_company_com_6987d71929": {
+  "analytics_gcpq_analytics_roles_bigquery_dataViewer_group_data_analysts_company_example_com_4451af44f1": {
     "dataset_id": "${google_bigquery_dataset.analytics_gcpq_analytics.dataset_id}",
-    "member": "group:data-analysts@company.com",
+    "member": "group:data-analysts@company.example.com",
     "project": "your-gcp-project",
     "role": "roles/bigquery.dataViewer"
   }
