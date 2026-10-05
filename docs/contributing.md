@@ -72,7 +72,7 @@ python scripts/check_providers.py
 
 ### Keeping the docs in sync with the CLI
 
-Every CLI release bumps the supported version in [`docs/.vuepress/cli-version.json`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/.vuepress/cli-version.json). The [`cli-consistency`](https://github.com/Agenticstiger/forge_docs/actions/workflows/cli-consistency.yml) GitHub Actions workflow installs that exact version of `data-product-forge` from PyPI on every PR and runs `scripts/check_cli_docs.py` and `scripts/check_providers.py`. Together they verify:
+[`docs/.vuepress/cli-version.json`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/.vuepress/cli-version.json) pins the CLI version the docs track. The [`cli-consistency`](https://github.com/Agenticstiger/forge_docs/actions/workflows/cli-consistency.yml) GitHub Actions workflow installs that exact version of `data-product-forge` from PyPI on every PR and runs `scripts/check_cli_docs.py` and `scripts/check_providers.py`. Together they verify:
 
 1. `fluid --version` matches the pinned `supportedCliVersion`.
 2. Every subcommand registered by the CLI's argparse parser has a matching `docs/cli/<name>.md` page, and every page in `docs/cli/` corresponds to a real command, unless it sits in `scripts/cli-docs-allowlist.yml` with a comment explaining why.
@@ -104,7 +104,7 @@ Existing pages follow the layout in [`docs/cli/init.md`](https://github.com/Agen
 
 ### Pages the CLI links to
 
-The CLI prints documentation links in its own output: the error messages, `--help` text, `fluid doctor` and the comments `fluid init` writes. Those links are a contract between this site and every installed copy of the CLI, and a copy installed last month keeps printing the URL it was built with. No CI step checks them today: `scripts/check-dist-links.mjs` verifies that a page exists but states that fragment and anchor targets are not verified, and `scripts/check_cli_docs.py` does not read the CLI's link list.
+The CLI prints documentation links in its own output: the error messages, `--help` text, `fluid doctor` and the comments `fluid init` writes. Those links are a contract between this site and installed copies of the CLI, and a copy installed last month keeps printing the URL it was built with. No CI step checks them today: `scripts/check-dist-links.mjs` verifies that a page exists but states that fragment and anchor targets are not verified, and `scripts/check_cli_docs.py` does not read the CLI's link list.
 
 Do not move or rename these pages, and do not change the text of a heading that produces one of these anchors. As of CLI 0.18.1 the links come from the literal URLs in `fluid_build` and from the route map in `fluid_build/_errors.py` (`_DOC_ROUTES` and `_DOC_FALLBACK`).
 
@@ -207,7 +207,7 @@ The path covers:
 3. Add a typed `*Credentials` Pydantic class with `SecretStr` fields.
 4. Register the optional install extra in `pyproject.toml`.
 5. Wire the dispatch: `cli/forge_data_model.py` for `--source-type`, and the `_SOURCE_ADAPTERS` map in `cli/mcp/dispatch.py` for the MCP `forge_from_source` tool.
-6. Write the test file. Every existing adapter ships one; copy the closest fit and edit.
+6. Write the test file; copy the closest existing adapter's test and edit it.
 7. Pin the public API in `tests/test_public_api_stability.py`.
 8. Document the new catalog at `docs/cli/catalogs/<name>.md` in this repo.
 
