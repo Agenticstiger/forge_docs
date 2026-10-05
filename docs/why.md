@@ -11,7 +11,7 @@ You write the product specification once. The CLI compiles it for your target cl
 
 ```bash
 pip install data-product-forge
-fluid init my-project --quickstart
+fluid init my-project --quickstart && cd my-project
 fluid validate contract.fluid.yaml   # catch a breaking change in review, not at 2am
 fluid plan contract.fluid.yaml
 fluid apply contract.fluid.yaml --yes # a real, versioned data product — on your laptop, no cloud account
@@ -54,7 +54,7 @@ A Fluid Forge contract **is** that context — made machine-readable and shipped
 | What a consumer (human or agent) needs to know | Where it lives in the contract |
 |---|---|
 | What this data *means* | `exposes[].contract.schema` — typed fields, descriptions, `sensitivity` (PII / PHI) |
-| Whether to trust it | `dq.rules` (completeness, freshness, drift) + `exposes[].qos` (freshness / availability SLOs) |
+| Whether to trust it | `exposes[].contract.dq.rules` (completeness, uniqueness, freshness) + `exposes[].qos` (freshness / availability SLOs) |
 | Who may use it, and for what | `accessPolicy` (people & services) + `agentPolicy` (which models, which use-cases) |
 | Where it came from | `lineage` + the SDP → ADP → CDP `consumes[]` chain |
 | Where it may physically live | `sovereignty` (`jurisdiction`, `allowedRegions`, `regulatoryFramework`) |
@@ -84,16 +84,16 @@ The `validate → plan → apply` lifecycle is bound by cryptographic digests (`
 ### Multi-cloud by default, not as a migration
 
 > **Why it matters**
-> Most organizations are already multi-cloud — one team on Snowflake, another on BigQuery, a third on S3 + Athena. One contract works across all of them, with no per-cloud rewrite and no lock-in at the contract layer.
+> Most organizations are already multi-cloud — one team on Snowflake, another on BigQuery, a third on S3 + Athena. One base contract serves all of them; what changes per cloud is the binding, not the product.
 
-Change `binding.platform` and the same contract retargets `local` (DuckDB) → `aws` (Athena / Glue) → `gcp` (BigQuery) → `snowflake`. Every provider implements the same interface, so the compiled output changes without touching the contract. → [Providers](/forge_docs/providers/)
+The schema, quality rules, access policy and sovereignty stay in one base contract. A per-cloud overlay changes only the binding: the platform, the format, the location (a BigQuery dataset, an S3 bucket and Glue database) and, with fluid-schema 0.7.6, which real identities the contract's principals are on that cloud. `fluid apply --env gcp` and `fluid apply --env aws` then emit each cloud's own resources. Changing `binding.platform` alone is not enough: `fluid validate` warns that the binding resolves to no resource on the new cloud. → [Switch clouds](/forge_docs/recipes/switch-clouds.html) · [Providers](/forge_docs/providers/)
 
 ### Residency you declare, and the CLI blocks
 
 > **Why it matters**
 > "This data stays in the EU" is usually a sentence in a DPIA, checked by whoever reviews the Terraform. Here it's a field in the contract, and a binding in the wrong jurisdiction fails the build — in code review, before anything is provisioned.
 
-`sovereignty.jurisdiction` states where the product's data may reside. `fluid validate` resolves every `binding.location.region` to a jurisdiction and compares. Since `0.15.0`, `enforcementMode` defaults to `strict`, so a contract pinning `EU` with an expose bound to `us-east-1` fails with **exit 1** — no flag to enable, and nothing to remember to switch on:
+`sovereignty.jurisdiction` states where the product's data may reside. `fluid validate` resolves every `binding.location.region` to a jurisdiction and compares, and on AWS and GCP `fluid apply` refuses the same placements, including a cloud binding that names no region. `enforcementMode` defaults to `strict`, so a contract pinning `EU` with an expose bound to `us-east-1` fails with **exit 1** — no flag to enable, and nothing to remember to switch on:
 
 ```bash
 fluid validate contract.fluid.yaml

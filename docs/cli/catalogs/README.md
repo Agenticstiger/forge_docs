@@ -1,10 +1,11 @@
-# Source Catalog Integration (V1.5)
+# Source Catalog Integration
 
 Forge data products **directly from your existing catalog metadata** —
 no re-typing descriptions, tags, lineage, ownership, or sensitivity
-classifications you've already invested in. V1.5 turns forge-cli into
-a vendor-neutral modeling layer that consumes the seven major catalog
-ecosystems and emits one Fluid contract.
+classifications you've already invested in. forge-cli reads seven
+catalog ecosystems through one vendor-neutral modeling layer and emits
+one Fluid contract. The architecture is in
+[Catalog integration architecture](../../advanced/v1.5-architecture.md).
 
 ```bash
 fluid forge data-model from-source \

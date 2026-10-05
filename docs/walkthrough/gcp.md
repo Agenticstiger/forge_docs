@@ -2,46 +2,43 @@
 
 **Time:** 20 minutes  
 **Difficulty:** Intermediate  
-**Prerequisites:** GCP account, gcloud CLI, Python 3.10+
+**Prerequisites:** GCP account, gcloud CLI, Python 3.10+, [OpenTofu](https://opentofu.org/docs/intro/install/) (`tofu`) on your `PATH` (or pass `--ensure-opentofu` to `fluid apply`)
 
 <CliCast
   src="/forge_docs/demos/gcp-quickstart.svg"
   title="The same contract on BigQuery — swap one line, redeploy"
   caption="Click play above: the Customer 360 quickstart contract, re-pointed from local DuckDB to BigQuery by swapping one binding line. The walkthrough below hand-builds a different example step by step, with auth + contract editing."
   width="920"
-  insight="Same contract. One line changed (platform: local → platform: gcp). | BigQuery dataset, table, and view — all created from the YAML you already had. | Schema, dq.rules, the 5-stage build — byte-identical to the local run."
+  insight="Same contract. One line changed (platform: local → platform: gcp). | BigQuery dataset, table, and view — all created from the YAML you already had. | Schema, dq.rules and the build stages — unchanged from the local run."
 />
 
-::: warning Compatibility note
-The contract snippets on this page use `fluidVersion: "0.7.1"`. The CLI validates each contract against its own declared version, so these examples remain valid. For new contracts the current stable schema is `0.7.5` — `fluid forge` scaffolds a contract on it; `fluid init my-project --quickstart` copies a bundled template pinned at `0.7.2`, which the CLI still validates. Browse the bundled templates with `fluid init --list-templates`.
+::: warning Which schema version this page uses
+The contract below declares `fluidVersion: "0.7.6"`, the **preview** schema. It is the first schema that has `exposes[].lifecycle.expire`, which is what turns a retention period into a BigQuery partition expiry (Step 3). `0.7.5` is the latest stable schema and rejects that key (`exposes[0].lifecycle: Additional properties are not allowed ('expire' was unexpected)`). `fluid init --quickstart` scaffolds `0.7.5`, so if you start from a scaffold, change the version line by hand. For the stable and preview schemas, see [Getting started](../getting-started/README.md).
 :::
 
 ---
 
 ## Overview
 
-This walkthrough deploys a **production-ready Bitcoin price tracking data product** to **Google Cloud Platform** using BigQuery with real-time CoinGecko API integration.
+This walkthrough deploys a **Bitcoin price tracking data product** to **Google Cloud Platform**. Fluid Forge creates the BigQuery dataset and table from a contract; a small Python script loads prices from the CoinGecko API.
 
 ::: tip Working Example
-**Want to jump straight to code?** A complete, runnable example is available in [examples/bitcoin-tracker](https://github.com/Agenticstiger/forge_docs/tree/main/examples/bitcoin-tracker) with deployment scripts for both US and Germany regions!
+A runnable example with deployment scripts for US and Germany regions is in [examples/bitcoin-tracker](https://github.com/Agenticstiger/forge_docs/tree/main/examples/bitcoin-tracker). It is a separate, larger example (dbt builds, Airflow, Jenkins); the contract on this page is a smaller one written for this walkthrough.
 :::
 
 ### What You'll Build
 
-- Production BigQuery data warehouse
-- Real-time Bitcoin price ingestion from CoinGecko API
-- Partitioned tables for time-series optimization (us-central1)
-- Scheduled hourly data pipelines
-- Cost-optimized analytics platform
-- Multi-region deployment capability (US → Germany)
+- A BigQuery dataset and a day-partitioned table, created by `fluid apply`
+- A 90-day retention rule declared in the contract and enforced as a partition expiry
+- Dataset-level access for an analyst group and an ingestion service account
+- A Python ingestion script and an hourly Cloud Scheduler trigger (these live outside the contract)
 
 ### What You'll Learn
 
-- GCP provider configuration
-- BigQuery partitioning best practices
-- API integration patterns
-- Production deployment workflows
-- Time-series data modeling
+- How a contract maps to BigQuery resources, and what `fluid apply` runs
+- How to declare retention, and what it does to existing data
+- What `fluid verify` compares against the live table
+- Which parts of a typical GCP setup Fluid Forge does not manage in 0.18.1
 
 ---
 
@@ -51,9 +48,10 @@ This walkthrough deploys a **production-ready Bitcoin price tracking data produc
 
 ::: warning Substitute your own project id
 `my-project-id` is a placeholder. Project ids are unique across the whole of Google Cloud, so this
-one will not be free: replace it with your own everywhere it appears on this page, and set
-`GCP_PROJECT_ID` before running any of the Python. The scripts below deliberately have no default,
-so an unset variable stops them rather than writing to a project you do not own.
+one will not be free: replace it with your own everywhere it appears on this page (the contract,
+the commands and the Python), and set `GCP_PROJECT_ID` before running any of the Python. The
+scripts below deliberately have no default, so an unset variable stops them rather than writing to
+a project you do not own.
 :::
 
 ```bash
@@ -74,10 +72,7 @@ gcloud billing projects link my-project-id \
 ```
 
 ::: tip Free Tier
-This tutorial stays within GCP free tier limits:
-- 1 TB of queries per month (free)
-- 10 GB storage (free)
-- CoinGecko API is free for basic usage
+BigQuery has a monthly free tier for queries and storage (limits are set by Google and change; see the [BigQuery pricing page](https://cloud.google.com/bigquery/pricing)). One table that receives a row an hour stays far inside it. The CoinGecko API has a free tier with rate limits.
 :::
 
 ### Enable Required APIs
@@ -89,21 +84,25 @@ gcloud services enable cloudresourcemanager.googleapis.com
 gcloud services enable iam.googleapis.com
 ```
 
+Encrypting the table with a Cloud KMS key (the optional section after Step 6) also needs `cloudkms.googleapis.com`.
+
 ### Authenticate
+
+`fluid apply` runs OpenTofu, and the OpenTofu Google provider reads Application Default Credentials:
 
 ```bash
 # Authenticate with your Google account
 gcloud auth application-default login
 
 # Verify authentication
-gcloud auth application-default print-access-token
+gcloud auth application-default print-access-token > /dev/null && echo "ADC works"
 ```
 
 ---
 
 ## Step 2: Create API Ingestion Script
 
-Create a Python script to fetch Bitcoin prices from CoinGecko:
+Fluid Forge provisions the table. Loading rows into it is your code. This script fetches the current Bitcoin price from CoinGecko and streams one row into BigQuery.
 
 ### Create `ingest_bitcoin_prices.py`
 
@@ -114,7 +113,7 @@ Bitcoin price ingestion from CoinGecko API to BigQuery
 """
 import requests
 from google.cloud import bigquery
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import sys
 
@@ -129,33 +128,34 @@ def fetch_bitcoin_price():
         "include_24hr_change": "true",
         "include_last_updated_at": "true"
     }
-    
-    response = requests.get(url, params=params)
+
+    response = requests.get(url, params=params, timeout=30)
     response.raise_for_status()
     data = response.json()["bitcoin"]
-    
+    now = datetime.now(timezone.utc).isoformat()
+
     return {
-        "price_timestamp": datetime.now().isoformat(),
+        "price_timestamp": now,
         "price_usd": data["usd"],
         "price_eur": data["eur"],
         "price_gbp": data["gbp"],
         "market_cap_usd": data["usd_market_cap"],
         "volume_24h_usd": data["usd_24h_vol"],
         "price_change_24h_percent": data.get("usd_24h_change", 0.0),
-        "ingestion_timestamp": datetime.now().isoformat()
+        "ingestion_timestamp": now
     }
 
 def insert_to_bigquery(row, project_id, dataset_id="crypto_data", table_id="bitcoin_prices"):
     """Insert Bitcoin price data into BigQuery"""
     client = bigquery.Client(project=project_id)
     table_ref = f"{project_id}.{dataset_id}.{table_id}"
-    
+
     errors = client.insert_rows_json(table_ref, [row])
-    
+
     if errors:
         raise Exception(f"BigQuery insert errors: {errors}")
-    
-    print(f"✅ Inserted Bitcoin price: ${row['price_usd']:,.2f} at {row['price_timestamp']}")
+
+    print(f"Inserted Bitcoin price: ${row['price_usd']:,.2f} at {row['price_timestamp']}")
 
 if __name__ == "__main__":
     # No default project: an unset variable stops the script rather than
@@ -166,19 +166,19 @@ if __name__ == "__main__":
         project_id = sys.argv[1]
 
     if not project_id:
-        print("❌ Error: GCP_PROJECT_ID environment variable not set")
+        print("Error: GCP_PROJECT_ID environment variable not set")
         print("Usage: python ingest_bitcoin_prices.py [PROJECT_ID]")
         print("   or: export GCP_PROJECT_ID=your-project-id && python ingest_bitcoin_prices.py")
         sys.exit(1)
-    
+
     # Fetch price
     price_data = fetch_bitcoin_price()
-    
+
     # Insert to BigQuery
     insert_to_bigquery(price_data, project_id)
-    
-    print(f"📊 Market Cap: ${price_data['market_cap_usd']:,.0f}")
-    print(f"📈 24h Volume: ${price_data['volume_24h_usd']:,.0f}")
+
+    print(f"Market Cap: ${price_data['market_cap_usd']:,.0f}")
+    print(f"24h Volume: ${price_data['volume_24h_usd']:,.0f}")
 ```
 
 Install dependencies:
@@ -188,85 +188,49 @@ pip install requests google-cloud-bigquery
 
 ---
 
-## Step 3: Create Production Contract
+## Step 3: Create the Contract
 
 Create `contract.fluid.yaml`:
 
 ```yaml
-fluidVersion: "0.7.1"
+fluidVersion: "0.7.6"
 kind: DataProduct
 id: crypto.bitcoin_prices_gcp
 name: bitcoin-prices-gcp
+description: Bitcoin price tracking on BigQuery, fed hourly from the CoinGecko API.
 
-# Product-level tags for discovery and categorization
 tags:
   - crypto
   - bitcoin
-  - real-time
-  - api-integration
   - time-series
-  - public-data
-
-# Product-level labels for FinOps and governance
-labels:
-  cost-center: "engineering"
-  business-unit: "data-platform"
-  data-classification: "public"
-  retention-policy: "90-days"
-  compliance-framework: "none"
-  billing-tag: "crypto-analytics"
-
-description: Production Bitcoin price tracking on Google Cloud Platform
 
 metadata:
+  layer: Gold
   owner:
     team: data-engineering
     email: data-eng@company.com
-  businessContext:
-    domain: Financial Markets
-    subdomain: Cryptocurrency Analytics
 
-# Builds hold the view-definition SQL; each names the expose it produces.
-builds:
-  - id: build_daily_price_summary
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        SELECT
-          DATE(price_timestamp) as date,
-          AVG(price_usd) as avg_price_usd,
-          MIN(price_usd) as min_price_usd,
-          MAX(price_usd) as max_price_usd,
-          STDDEV(price_usd) as daily_volatility,
-          SUM(volume_24h_usd) as total_volume_usd
-        FROM `my-project-id.crypto_data.bitcoin_prices`
-        GROUP BY DATE(price_timestamp)
-        ORDER BY date DESC
-    outputs:
-      - daily_price_summary
+# Who may read and write. On GCP this becomes dataset-level IAM.
+accessPolicy:
+  grants:
+    - principal: "group:data-analysts@company.com"
+      permissions: [read, select]
+    - principal: "serviceAccount:ingestion@my-project-id.iam.gserviceaccount.com"
+      permissions: [write, insert, update]
 
 exposes:
   - exposeId: bitcoin_prices_table
     kind: table
-    description: "Real-time Bitcoin prices from CoinGecko API"
-    
-    # Expose-level tags for dataset categorization
+    description: Bitcoin prices from the CoinGecko API
     tags:
       - raw-data
-      - time-series
-      - high-frequency
       - non-pii
-    
-    # Expose-level labels for BigQuery resource tracking
-    labels:
-      environment: production
-      data-source: coingecko-api
-      update-frequency: hourly
-      cost-allocation: crypto-team
-      sla-tier: gold
-      data-owner: data-engineering
-    
+
+    # Keep 90 days. Partitions older than that expire.
+    lifecycle:
+      retention: P90D
+      expire: true
+
     binding:
       platform: gcp
       format: bigquery_table
@@ -275,329 +239,217 @@ exposes:
         dataset: crypto_data
         table: bitcoin_prices
         region: us-central1
-      
-      # Provider-specific binding properties
-      properties:
-        # Time-series partitioning for performance
-        partitioning:
-          type: time
-          field: price_timestamp
-          granularity: DAY
-          expirationDays: 90  # Keep 90 days of history
-      
-      # Labels propagate to BigQuery table for cost tracking
-      labels:
-        environment: production
-        data-source: coingecko-api
-        update-frequency: hourly
-        cost-center: engineering
-        team: data-platform
-    
-    # Data governance policies
+        partitionBy: [price_timestamp]
+
     policy:
-      classification: Public  # No PII, publicly available data
-      
-      authz:
-        readers:
-          - group:data-analysts@company.com
-          - group:data-scientists@company.com
-          - serviceAccount:airflow@company.iam.gserviceaccount.com
-        writers:
-          - serviceAccount:ingestion@company.iam.gserviceaccount.com
-    
+      classification: Public
+
     contract:
-      # Contract-level tags for data quality
-      tags:
-        - validated
-        - production-ready
-      
       schema:
         - name: price_timestamp
           type: TIMESTAMP
           required: true
-          description: "When the price was recorded"
-          sensitivity: none  # Public data
+          description: When the price was recorded
+          sensitivity: none
           semanticType: timestamp
-          tags:
-            - partition-key
-            - time-series
-        
         - name: price_usd
           type: FLOAT64
           required: true
-          description: "Bitcoin price in USD"
+          description: Bitcoin price in USD
           sensitivity: none
           semanticType: currency
-          businessName: "Bitcoin Price (USD)"
-          tags:
-            - metric
-            - price-data
-          labels:
-            unit: "usd"
-            precision: "2-decimals"
-        
         - name: price_eur
           type: FLOAT64
           required: true
-          description: "Bitcoin price in EUR"
+          description: Bitcoin price in EUR
           sensitivity: none
           semanticType: currency
-          businessName: "Bitcoin Price (EUR)"
-          tags:
-            - metric
-            - price-data
-          labels:
-            unit: "eur"
-        
         - name: price_gbp
           type: FLOAT64
           required: true
-          description: "Bitcoin price in GBP"
+          description: Bitcoin price in GBP
           sensitivity: none
           semanticType: currency
-          businessName: "Bitcoin Price (GBP)"
-          tags:
-            - metric
-            - price-data
-          labels:
-            unit: "gbp"
-        
         - name: market_cap_usd
           type: FLOAT64
           required: true
-          description: "Total market capitalization in USD"
+          description: Total market capitalization in USD
           sensitivity: none
           semanticType: currency
-          businessName: "Market Capitalization"
-          tags:
-            - metric
-            - market-data
-          labels:
-            aggregation: "sum"
-        
         - name: volume_24h_usd
           type: FLOAT64
           required: true
-          description: "24-hour trading volume in USD"
+          description: 24-hour trading volume in USD
           sensitivity: none
           semanticType: currency
-          businessName: "24h Trading Volume"
-          tags:
-            - metric
-            - volume-data
-          labels:
-            window: "24h"
-        
         - name: price_change_24h_percent
           type: FLOAT64
           required: false
-          description: "24-hour price change percentage"
+          description: 24-hour price change percentage
           sensitivity: none
           semanticType: percentage
-          businessName: "24h Price Change"
-          tags:
-            - metric
-            - derived
-          labels:
-            calculation: "percentage-change"
-        
         - name: ingestion_timestamp
           type: TIMESTAMP
           required: true
-          description: "When data was ingested into BigQuery"
-          sensitivity: internal  # Operational metadata
+          description: When the row was written to BigQuery
+          sensitivity: internal
           semanticType: timestamp
-          tags:
-            - metadata
-            - audit-trail
-  
-  # Analytical views
-  - exposeId: daily_price_summary
-    kind: view
-    description: "Daily Bitcoin price statistics"
+```
+
+What each block does on GCP:
+
+| Block | What `fluid apply` emits |
+| --- | --- |
+| `binding.location` (`project`, `dataset`, `table`, `region`) | One `google_bigquery_dataset` and one `google_bigquery_table`. `region` becomes the dataset location. |
+| `lifecycle.retention` + `lifecycle.expire: true` | `time_partitioning` on the table: type `DAY`, and `expiration_ms` set to the retention period (`P90D` is `7776000000` ms). |
+| `binding.location.partitionBy` | The column the partitions are cut on. It is an **array** naming one `DATE`, `TIMESTAMP` or `DATETIME` column; a scalar fails `fluid validate`. It takes effect only together with `lifecycle.expire: true`. With `expire: true` and no `partitionBy`, the table is partitioned by ingestion time. |
+| `accessPolicy.grants` | `google_bigquery_dataset_iam_member` resources: `read`/`select` become `roles/bigquery.dataViewer`, `write`/`insert`/`update` become `roles/bigquery.dataEditor`. |
+| `contract.schema` | The table schema (`name`, `type`, `mode` and `description` per column). |
+
+As of 0.18.1 the GCP emitter does not write the expose `description` and `tags`, `policy.classification`, or the per-column `sensitivity` and `semanticType` into the BigQuery resources. They stay in the contract, and the exports in Step 9a read from it.
+
+::: warning Keys that look like they configure BigQuery and do not
+`binding.properties.partitioning` (with `expirationDays` or `expiration_days`), `binding.properties.clustering` and `policy.authz.readers` / `writers` are not read by the GCP emitter. A contract that uses them validates, plans and applies, and produces a table with **no** partitioning, no expiry and no IAM grants. Use `lifecycle` and `location.partitionBy` for partitioning and expiry, and `accessPolicy.grants` for access. As of 0.18.1 the emitter writes no clustering at all.
+:::
+
+::: warning Contract labels do not reach BigQuery
+The labels on the tables and the dataset are `managed_by: fluid` and `fluid_contract: <contract id with dots as underscores>`. A `labels:` map on the contract, the expose or the binding is not copied to them. Use the `fluid_contract` label for cost attribution (Step 11).
+:::
+
+---
+
+## Step 4: Validate the Contract
+
+```bash
+fluid validate contract.fluid.yaml
+```
+
+Output:
+
+```text
+bigquery_retention_event_time exposes[bitcoin_prices_table]: partitioned by price_timestamp, so each row expires P90D after the date in price_timestamp, not after it was written (a backfill of older rows is deleted at once). Drop binding.location.partitionBy to count from landing, as the S3 rule does.
+✅ Valid FLUID contract (schema v0.7.6)
+Validation completed in 0.015s
+```
+
+The first line is a warning, not an error. With `partitionBy`, retention counts from the **date in the column**, not from when the row was written, so loading old rows into the table deletes them at once. The ingestion script here writes the current time, so the two are the same. If you backfill history, remove `partitionBy` and BigQuery partitions by ingestion time instead.
+
+Validation checks the contract against the schema version it declares. It does not check your GCP project.
+
+---
+
+## Step 5: Preview the Plan
+
+```bash
+fluid plan contract.fluid.yaml
+```
+
+```text
+============================================================
+FLUID Execution Plan
+============================================================
+Contract: bitcoin-prices-gcp
+Version: 0.7.6
+Total Actions: 1
+============================================================
+
+1. provision_bitcoin_prices_table (provisionDataset)
+
+✅ Plan saved to: .../plan.json
+```
+
+`fluid plan` lists one provisioning action for the table. It does not call Google Cloud and does not list the individual BigQuery resources. To see those, use the dry-run in Step 6.
+
+The contract's `binding.platform: gcp` selects the provider, and `binding.location.project` names the project, so you do not need `--provider`, `--project`, `FLUID_PROVIDER` or `FLUID_PROJECT` here.
+
+---
+
+## Step 6: Deploy to GCP
+
+### Preview the infrastructure
+
+```bash
+fluid apply contract.fluid.yaml --dry-run
+```
+
+The GCP provider applies through OpenTofu. A dry-run writes the OpenTofu module, runs `tofu plan` against your project with your Application Default Credentials, and stops. The `bigquery_retention_event_time` warning from validate prints here too, before the OpenTofu block, and is trimmed from the sample:
+
+```text
+OpenTofu engine — provider: gcp
+  module:      .fluid/iac/gcp/crypto_bitcoin_prices_gcp/main.tf.json
+  state:       local
+  credentials: ...
+
+  tofu plan: +5 ~0 -0
+
+dry-run: plan only — not applying.
+```
+
+`+5` is the five resources this contract creates. Open `.fluid/iac/gcp/crypto_bitcoin_prices_gcp/main.tf.json` to read them:
+
+| Resource | Why |
+| --- | --- |
+| `google_bigquery_dataset` | `crypto_data`, location `us-central1`, labels `managed_by` and `fluid_contract` |
+| `google_bigquery_table` | `bitcoin_prices` with the schema, and `time_partitioning` (below) |
+| `terraform_data` | A marker that holds the partition column; see [Changing retention later](#changing-retention-later) |
+| `google_bigquery_dataset_iam_member` (two) | The analyst group as `roles/bigquery.dataViewer`, the ingestion service account as `roles/bigquery.dataEditor` |
+
+The table's partitioning, from the emitted module:
+
+```json
+"time_partitioning": {
+  "expiration_ms": 7776000000,
+  "field": "price_timestamp",
+  "type": "DAY"
+}
+```
+
+### Apply
+
+```bash
+fluid apply contract.fluid.yaml --yes
+```
+
+This creates the dataset, the table and the two IAM members. State is local by default (the `state:` line above); pass `--state-backend gcs://<bucket>/<prefix>` when more than one person or a CI job applies the same contract (see [`fluid apply`](../cli/apply.md)). Keep `.fluid/` out of version control. If `tofu` is not installed, add `--ensure-opentofu` to download a pinned build.
+
+Check the result with `bq`:
+
+```bash
+bq show --format=prettyjson my-project-id:crypto_data.bitcoin_prices | jq '{timePartitioning, labels}'
+```
+
+The `timePartitioning` object shows `type: DAY`, `field: price_timestamp` and `expirationMs: "7776000000"`, and `labels` shows the two Fluid labels.
+
+::: tip Apply output
+`fluid apply` prints the OpenTofu plan and apply progress for your project; this page shows only the lines that were reproduced offline (the dry-run above). Your apply log will differ in the resource ids and timings.
+:::
+
+### Optional: encrypt the table with a Cloud KMS key
+
+Add an `encryption` block next to `location`, and enable `cloudkms.googleapis.com` first:
+
+```yaml
     binding:
       platform: gcp
       format: bigquery_table
       location:
-        project: my-project-id
-        dataset: crypto_data
-        table: daily_summary
-    
-    contract:
-      schema:
-        - name: date
-          type: DATE
-        - name: avg_price_usd
-          type: FLOAT64
-        - name: min_price_usd
-          type: FLOAT64
-        - name: max_price_usd
-          type: FLOAT64
-        - name: daily_volatility
-          type: FLOAT64
-        - name: total_volume_usd
-          type: FLOAT64
+        # ...unchanged
+      encryption:
+        kms: product
 ```
 
-::: tip Tags & Labels for Governance + FinOps
-This contract showcases **multi-level tags and labels** for comprehensive governance:
+With `kms: product`, the emitted module gains a key ring and a key named `bigquery` in the dataset's location, with a rotation period of 90 days (`7776000s`). For this contract the key ring is `fluid-crypto_bitcoin_prices_gcp-crypto_data`. The module grants `roles/cloudkms.cryptoKeyEncrypterDecrypter` on the key to the project's BigQuery service agent and sets the key as the dataset default and on the table. The table waits for that grant.
 
-**🏷️ Product-level labels** (FinOps tracking):
-- `cost-center: engineering` - Charge costs to engineering budget
-- `billing-tag: crypto-analytics` - Group billing across resources
-- `data-classification: public` - No encryption/access restrictions needed
+- `kms: projects/<project>/locations/<loc>/keyRings/<ring>/cryptoKeys/<key>` uses a key you already own; you grant the service agent yourself.
+- `kms: none` is Google-managed encryption.
+- Applying needs the caller to hold `roles/cloudkms.admin`. Cloud KMS key rings cannot be deleted once created, so a `tofu destroy` leaves the ring behind.
+- Tables of one dataset must agree on one key; mixed settings are refused.
 
-**📊 Expose-level labels** (Resource tracking):
-- `cost-allocation: crypto-team` - Team-level cost attribution
-- `sla-tier: gold` - Priority support and SLA tracking
-- Labels automatically propagate to BigQuery tables for cost reporting
-
-**🔒 Field-level sensitivity** (Data governance):
-- `sensitivity: none` - Public market data (no PII)
-- `sensitivity: internal` - Operational metadata (ingestion_timestamp)
-- Enables automated policy enforcement and access controls
-
-**🛡️ Policy classification**:
-- `classification: Public` - Publicly available cryptocurrency data
-- `authz.readers` - Control who can query the data
-- `authz.writers` - Control who can insert/update data
-
-**💰 FinOps Benefits**:
-- Query `INFORMATION_SCHEMA.TABLE_STORAGE` with label filters
-- Group costs by `cost-center`, `team`, or `environment`
-- Track spending across data products and teams
-:::
-
-::: warning PII Data Example
-For datasets with PII, use field-level sensitivity and stricter classification:
-```yaml
-policy:
-  classification: Restricted  # Highest protection level
-  
-  authz:
-    readers:
-      - group:pii-approved-analysts@company.com  # Restricted access
-    writers:
-      - serviceAccount:secure-ingestion@company.iam.gserviceaccount.com
-
-schema:
-  - name: user_email
-    type: STRING
-    sensitivity: pii  # Triggers access controls
-    semanticType: email
-    tags:
-      - pii
-      - restricted
-    
-  - name: credit_card
-    type: STRING
-    sensitivity: restricted  # Highest protection
-    tags:
-      - pci-dss
-      - encrypted
-```
-This enables:
-- 🔐 Field-level access control via sensitivity classification
-- 🚫 Role-based access enforcement (authz)
-- 🎯 Automated discovery of PII fields via tags
-- 📋 Compliance reporting (GDPR, CCPA, HIPAA)
-:::
-
-
+Running `fluid apply --dry-run` on this variant writes a module with `google_kms_key_ring`, `google_kms_crypto_key`, `google_kms_crypto_key_iam_member` and a `data.google_bigquery_default_service_account` lookup. The lookup calls the BigQuery API, so unlike the plain contract, this dry-run needs working credentials to reach `tofu plan`.
 
 ---
 
-## Step 4: Validate Contract
-
-```bash
-fluid validate contract.fluid.yaml
-
-# Expected output:
-# Starting validate_contract
-# Metric: validation_duration=0.017seconds
-# Metric: validation_errors=0count
-# Metric: validation_warnings=0count
-# ✅ Valid FLUID contract (schema v0.7.1)
-# Validation completed in 0.003s
-# Completed validate_contract in 0.02s
-```
-
-::: tip Provider Specification
-The `--provider` flag is not needed for validation. Provider is specified via environment variable `FLUID_PROVIDER` for deployment commands.
-:::
-
----
-
-## Step 5: Preview Deployment Plan
-
-See what will be created before deploying:
-
-```bash
-# Set provider and project via environment variables
-export FLUID_PROVIDER=gcp
-export FLUID_PROJECT=my-project-id
-
-fluid plan contract.fluid.yaml
-
-# Expected output:
-# ============================================================
-# FLUID Execution Plan
-# ============================================================
-# Contract: bitcoin-prices-gcp
-# Version: 0.7.1
-# Total Actions: 3
-# ============================================================
-# 
-# 1. provision_bitcoin_prices_table (provisionDataset)
-# 2. provision_daily_price_summary (provisionDataset)
-# 3. schedule_build_daily_price_summary (scheduleTask)
-# 
-# ✅ Plan saved to: plan.json
-```
-
-::: tip Environment Variables
-Use `FLUID_PROVIDER` and `FLUID_PROJECT` environment variables instead of command-line flags:
-- `FLUID_PROVIDER=gcp` - Specifies Google Cloud Platform
-- `FLUID_PROJECT=your-project-id` - Your GCP project ID
-:::
-
----
-
-## Step 6: Deploy to GCP!
-
-```bash
-# Ensure environment variables are set
-export FLUID_PROVIDER=gcp
-export FLUID_PROJECT=my-project-id
-
-fluid apply contract.fluid.yaml
-
-# Expected output:
-# ☁️ Deploying to Google Cloud Platform
-# Project: my-project-id
-# 
-# ⏳ Creating dataset 'crypto_data'... ✅ Created (1.2s)
-# ⏳ Creating table 'bitcoin_prices'...
-#    Partitioning: DAY on price_timestamp
-#    Partition expiration: 90 days ✅ Created (2.1s)
-# ⏳ Creating view 'daily_summary'... ✅ Created (0.6s)
-# 
-# ✨ Deployment successful!
-# 
-# 📊 Resources created in BigQuery:
-#   • Dataset: my-project-id.crypto_data
-#   • Table: bitcoin_prices (partitioned)
-#   • View: daily_summary
-# 
-# 🔗 View in BigQuery Console:
-#   https://console.cloud.google.com/bigquery?project=my-project-id&d=crypto_data
-# 
-# 💰 Estimated cost: $0.00/month (within free tier)
-```
-
----
-
-## Step 7: Ingest First Bitcoin Price
+## Step 7: Ingest the First Bitcoin Price
 
 Run the ingestion script to load the first price data point:
 
@@ -607,19 +459,26 @@ export GCP_PROJECT_ID=my-project-id
 
 # Run ingestion
 python ingest_bitcoin_prices.py
-
-# Expected output:
-# ✅ Inserted Bitcoin price: $45,230.50 at 2024-01-16T15:30:00.123456
-# 📊 Market Cap: $885,000,000,000
-# 📈 24h Volume: $28,500,000,000
 ```
 
-Verify in BigQuery Console:
+The script prints the price it inserted (the values are whatever CoinGecko returns when you run it):
+
+```text
+Inserted Bitcoin price: $<price> at <timestamp>
+Market Cap: $<market cap>
+24h Volume: $<volume>
+```
+
+Check the row:
 
 ```bash
 bq query --use_legacy_sql=false \
   'SELECT * FROM `crypto_data.bitcoin_prices` ORDER BY price_timestamp DESC LIMIT 1'
 ```
+
+::: warning The first rows may not show up in a query for a short while
+BigQuery streaming inserts land in a streaming buffer. A `SELECT` normally sees them within seconds, but DML (`UPDATE`, `DELETE`) on those rows is blocked for a while after the insert.
+:::
 
 ---
 
@@ -638,17 +497,13 @@ ORDER BY price_timestamp DESC
 LIMIT 10;
 
 -- Daily summary statistics
-SELECT * FROM `crypto_data.daily_summary`
-ORDER BY date DESC;
-
--- Price volatility analysis
-SELECT 
+SELECT
   DATE(price_timestamp) as date,
-  MIN(price_usd) as daily_low,
-  MAX(price_usd) as daily_high,
-  AVG(price_usd) as daily_avg,
-  MAX(price_usd) - MIN(price_usd) as daily_range,
-  STDDEV(price_usd) as volatility
+  AVG(price_usd) as avg_price_usd,
+  MIN(price_usd) as min_price_usd,
+  MAX(price_usd) as max_price_usd,
+  STDDEV(price_usd) as daily_volatility,
+  SUM(volume_24h_usd) as total_volume_usd
 FROM `crypto_data.bitcoin_prices`
 GROUP BY DATE(price_timestamp)
 ORDER BY date DESC;
@@ -659,7 +514,7 @@ ORDER BY date DESC;
 ```bash
 # Query from command line
 bq query --use_legacy_sql=false \
-  'SELECT 
+  'SELECT
     price_timestamp,
     price_usd,
     price_eur,
@@ -668,157 +523,127 @@ bq query --use_legacy_sql=false \
   ORDER BY price_timestamp DESC
   LIMIT 5'
 
-# Export to CSV
+# Export to CSV in a bucket you own
 bq extract \
   --destination_format CSV \
   crypto_data.bitcoin_prices \
-  gs://my-project-id-exports/bitcoin_prices_*.csv
+  gs://<your-bucket>/bitcoin_prices_*.csv
 ```
+
+### A view for the daily summary (outside the contract)
+
+A view over the table is plain BigQuery SQL:
+
+```bash
+bq query --use_legacy_sql=false \
+  'CREATE OR REPLACE VIEW `crypto_data.daily_summary` AS
+   SELECT DATE(price_timestamp) AS date,
+          AVG(price_usd) AS avg_price_usd,
+          MIN(price_usd) AS min_price_usd,
+          MAX(price_usd) AS max_price_usd
+   FROM `crypto_data.bitcoin_prices`
+   GROUP BY date'
+```
+
+Fluid Forge does not manage this view. As of 0.18.1 a contract cannot declare a BigQuery view: the GCP emitter recognises `binding.format: bigquery_view` with a `location.query`, but none of the bundled schemas (0.7.1 to 0.7.6) accepts either, so `fluid validate` rejects them. An expose declared as `kind: view` with `format: bigquery_table` is created as an empty **table**. To produce a derived table from SQL, write a second data product whose embedded-SQL build reads this one through `consumes[]`; the build reads the upstream BigQuery table through the API and loads its result into the first expose's BigQuery table (see [`fluid apply`](../cli/apply.md)).
 
 ---
 
 ## Step 9: Verify Deployment
 
 ```bash
-# Verify deployment against contract
-export FLUID_PROVIDER=gcp
-export FLUID_PROJECT=my-project-id
-
-fluid verify contract.fluid.yaml
-
-# Expected output:
-# 🔍 Verifying GCP deployment against contract
-# 
-# ✅ Dataset 'crypto_data' exists
-#    Location: us-central1 ✓
-#    Description matches ✓
-# 
-# ✅ Table 'bitcoin_prices' matches contract
-#    Schema: 8/8 columns ✓
-#    Partitioning: DAY on price_timestamp ✓
-#    Partition expiration: 90 days ✓
-#    Labels: environment=production, data-source=coingecko-api ✓
-#    Row count: 1+ rows
-# 
-# ✅ View 'daily_summary' exists
-#    Query definition matches ✓
-# 
-# 🎉 Deployment verified! Everything matches contract.
+fluid verify contract.fluid.yaml --out verify.json
 ```
+
+`fluid verify` reads the live table with your credentials and compares it with the contract. For a BigQuery table it reports these dimensions, and `verify.json` holds each one under `dimensions`:
+
+| Dimension | Compared with |
+| --- | --- |
+| `structure` | Column names and count |
+| `types` | Each column's BigQuery type |
+| `constraints` | `required` against `REQUIRED` / `NULLABLE` |
+| `location` | `binding.location.region` against the dataset location |
+| `retention` | `lifecycle` against the table's partition expiry (only when the expose declares it) |
+| `encryption` | `binding.encryption` against the table's key (only when declared) |
+| `columnRestrictions` | Policy tags against the contract's column restrictions (only when declared) |
+| `row_count` | The table's row count (taken with a query), compared with the rows a Fluid build recorded when it loaded the table, when such a run record exists |
+
+Severity levels and flags such as `--strict` are in the [`fluid verify` reference](../cli/verify.md). Measured against real BigQuery on 4 October 2026: products deployed with `fluid apply` passed `fluid verify`, including the retention and encryption dimensions.
 
 ---
 
 ## Step 9a: Export to Open Standards (ODPS & ODCS)
 
-Fluid Forge supports exporting your data product to industry-standard formats for interoperability and data catalog integration.
+Fluid Forge can export your data product to industry-standard formats for catalogs and contract tooling.
 
 ### Export to ODPS (Open Data Product Specification)
 
-The [Open Data Product Specification](https://github.com/Open-Data-Product-Initiative) is a vendor-neutral, open-source standard for describing data products.
+The [Open Data Product Specification](https://github.com/Open-Data-Product-Initiative) is a vendor-neutral standard for describing data products. `--spec odps-4.1` writes the LF/ODPI v4.1 JSON document:
 
 ```bash
-# Export to ODPS v4.1 format
 fluid odps export contract.fluid.yaml --spec odps-4.1 --out bitcoin-tracker.odps.json
-
-# Expected output:
-# ✓ Exported to ODPS v4.1 (LF/ODPI): bitcoin-tracker.odps.json
-#   Specification: https://github.com/Open-Data-Product-Initiative/v4.1
 ```
 
-The ODPS export creates a JSON file that can be:
-- Imported into data catalogs (Collibra, Alation, DataHub)
-- Shared with data mesh platforms
-- Used for governance and compliance reporting
-- Published to data marketplaces
+```text
+✓ Exported to ODPS v4.1 (LF/ODPI): bitcoin-tracker.odps.json
+  Specification: https://github.com/Open-Data-Product-Initiative/v4.1
+```
+
+Without `--spec`, `fluid odps export` writes Bitol ODPS v1.0.0 (one product document plus one ODCS contract per output port), as YAML. The start of the v4.1 file for this contract:
+
+```json
+{
+  "schema": "https://github.com/Open-Data-Product-Initiative/v4.1/blob/main/source/schema/odps.json",
+  "version": "4.1",
+  "product": {
+    "details": {
+      "en": {
+        "name": "bitcoin-prices-gcp",
+        "productID": "crypto.bitcoin_prices_gcp",
+        "visibility": "private",
+        "status": "draft",
+        ...
+```
 
 ### Export to ODCS (Open Data Contract Standard)
 
-The [Open Data Contract Standard](https://github.com/bitol-io/open-data-contract-standard) from Bitol.io provides data contract specifications with quality and SLA definitions.
+The [Open Data Contract Standard](https://github.com/bitol-io/open-data-contract-standard) from Bitol.io describes the schema, quality rules and servers of one dataset:
 
 ```bash
-# Export to ODCS v3.1 format
 fluid odcs export contract.fluid.yaml --output bitcoin-tracker.odcs.yaml
-
-# Expected output:
-# Converting FLUID contract to ODCS v3.1.0
-# Exported ODCS contract: bitcoin-tracker.odcs.yaml
-# ✓ Exported to bitcoin-tracker.odcs.yaml
 ```
 
-The ODCS export creates a YAML file optimized for:
-- Data contract management
-- Schema evolution tracking
-- Quality assertions and SLAs
-- Integration with dbt and data observability tools
+```text
+Exported ODCS contract: bitcoin-tracker.odcs.yaml
+✓ Exported to bitcoin-tracker.odcs.yaml
+```
 
-### Validate Exported Files
+### Validate the Exported Files
+
+`fluid odps validate` checks Bitol ODPS v1.0.0 unless you name the spec, so pass `--spec odps-4.1` for the file above:
 
 ```bash
-# Validate ODPS export
-fluid odps validate bitcoin-tracker.odps.json
-
-# Validate ODCS export  
+fluid odps validate bitcoin-tracker.odps.json --spec odps-4.1
 fluid odcs validate bitcoin-tracker.odcs.yaml
 ```
 
-::: tip Why Export to Open Standards?
-**Portability**: Move between platforms without vendor lock-in  
-**Interoperability**: Integrate with existing data governance tools  
-**Compliance**: Meet industry standards for data documentation  
-**Collaboration**: Share data product definitions across organizations  
-:::
-
-### Compare Formats
-
-| Feature | FLUID (Native) | ODPS | ODCS |
-|---------|---------------|------|------|
-| **Purpose** | Deployment automation | Product catalog | Data contracts |
-| **Format** | YAML | JSON | YAML |
-| **Version** | 0.7.1 | 4.1 | 3.1.0 |
-| **Best For** | Infrastructure-as-Code | Data marketplaces | Quality & SLAs |
-| **Governance** | Built-in | Product-focused | Contract-focused |
-| **Adoption** | Fluid Forge | Open Data Product Initiative | Bitol.io ecosystem |
-
-::: details View Sample ODPS Output
-```json
-{
-  "odps_version": "1.0",
-  "generator": "fluid-forge-odps-provider",
-  "target_platform": "generic",
-  "artifacts": {
-    "schema": "https://github.com/Open-Data-Product-Initiative/v4.1",
-    "version": "4.1",
-    "product": {
-      "details": {
-        "en": {
-          "name": "bitcoin-prices-gcp",
-          "productID": "crypto.bitcoin_prices_gcp",
-          "type": "dataset",
-          "description": "Bitcoin price tracking data product"
-        }
-      },
-      "dataAccess": [
-        {
-          "name": {"en": "bitcoin_prices_table"},
-          "outputPortType": "API",
-          "format": "JSON"
-        }
-      ]
-    }
-  }
-}
+```text
+✓ ODPS v4.1 file is valid: bitcoin-tracker.odps.json
+  Schema: https://github.com/Open-Data-Product-Initiative/v4.1/blob/main/source/schema/odps.json
+✓ jsonschema: clean
 ```
-:::
+
+Without `--spec odps-4.1`, the v4.1 file fails validation with `'apiVersion' is a required property`, because it is checked against the other standard. The [`fluid odps`](../cli/odps.md), [`fluid odcs`](../cli/odcs.md) and [`fluid generate standard`](../cli/generate.md) pages list the formats.
 
 ---
 
 ## Step 10: Set Up Scheduled Ingestion
 
-Create an hourly cron job to ingest Bitcoin prices:
+The hourly load is your code on your scheduler. Fluid Forge does not deploy it.
 
-### Option 1: Using Cloud Scheduler + Cloud Functions
+### Option 1: Cloud Scheduler and a Cloud Function
 
-Create `main.py` for Cloud Function:
+Create `main.py` for the Cloud Function:
 
 ```python
 import functions_framework
@@ -832,13 +657,11 @@ def main(request):
     project_id = os.getenv("GCP_PROJECT_ID")
     if not project_id:
         return {"status": "error", "message": "GCP_PROJECT_ID is not set on this function"}, 500
-    
+
     try:
-        # Fetch and insert price data
         price_data = fetch_bitcoin_price()
         insert_to_bigquery(price_data, project_id)
 
-        
         return {
             "status": "success",
             "price_usd": price_data["price_usd"],
@@ -848,414 +671,90 @@ def main(request):
         return {"status": "error", "message": str(e)}, 500
 ```
 
-Deploy:
+Deploy it so that only Cloud Scheduler can call it. The function writes to your warehouse, so do not deploy it with `--allow-unauthenticated`:
 
 ```bash
-# Deploy Cloud Function
+# Deploy Cloud Function (requires authentication to invoke)
 gcloud functions deploy bitcoin-price-ingestion \
   --runtime python310 \
   --trigger-http \
+  --no-allow-unauthenticated \
   --entry-point main \
   --source . \
+  --service-account=ingestion@my-project-id.iam.gserviceaccount.com \
   --set-env-vars GCP_PROJECT_ID=my-project-id \
-  --region us-central1 \
-  --allow-unauthenticated
+  --region us-central1
 
-# Create Cloud Scheduler job (runs hourly)
+# Create Cloud Scheduler job (runs hourly), authenticating as a service account
+# that holds the Cloud Functions invoker role on the function
 gcloud scheduler jobs create http bitcoin-hourly-ingest \
   --schedule="0 * * * *" \
   --uri="https://us-central1-my-project-id.cloudfunctions.net/bitcoin-price-ingestion" \
   --http-method=GET \
+  --oidc-service-account-email=scheduler@my-project-id.iam.gserviceaccount.com \
   --location=us-central1
-
-echo "✅ Scheduled hourly Bitcoin price ingestion"
 ```
 
-### Option 2: Using Apache Airflow (Declarative)
+The function runs as `ingestion@...`, the account named in the contract's `accessPolicy` write grant, so the dataset grant that `fluid apply` created is the one the function uses.
 
-For production orchestration with robust scheduling, monitoring, and retry capabilities, use Apache Airflow with FLUID's **declarative DAG generation**.
+### Option 2: Apache Airflow
 
-#### Quick Start - Declarative DAG Generation ⭐
-
-**Generate production-ready Airflow DAG from your contract:**
-
-```bash
-# The FLUID way - fully declarative
-fluid generate-airflow contract.fluid.yaml \
-  -o airflow/dags/bitcoin_tracker.py \
-  --dag-id bitcoin_tracker \
-  --schedule "0 * * * *" \
-  --verbose
-```
-
-**Output:**
-```
-✓ Loading contract from contract.fluid.yaml
-✓ Generating Airflow DAG...
-✓ DAG written to: airflow/dags/bitcoin_tracker.py
-  Contract ID: crypto.bitcoin_prices_gcp
-  DAG ID: bitcoin_tracker
-  Schedule: 0 * * * *
-  Tasks: 6 (3 provisions + 3 builds)
-```
-
-**What you get:**
-- ✅ Tasks generated from `builds` array
-- ✅ Dataset provisioning from `exposes` bindings
-- ✅ Retry configuration from `execution.retries`
-- ✅ Provider-specific commands (GCP BigQuery)
-- ✅ Dependencies inferred from `outputs`
-- ✅ No manual coding required!
-
-#### Alternative: Basic Scaffold (Legacy)
-
-For a simple 3-task DAG (validate → plan → apply):
-
-```bash
-export FLUID_PROVIDER=gcp
-export FLUID_PROJECT=your-project-id
-
-python3 -m fluid_build.cli scaffold-composer contract.fluid.yaml \
-  --out-dir airflow/dags
-```
-
-**Output:**
-```
-✓ Generated: airflow/dags/crypto_bitcoin_prices_gcp.py
-```
-
-Start local Airflow:
-
-```bash
-# Install Airflow
-pip install apache-airflow==2.8.0 \
-  apache-airflow-providers-google==10.12.0
-
-# Initialize database
-airflow db init
-
-# Create admin user
-airflow users create \
-  --username admin \
-  --firstname Admin \
-  --lastname User \
-  --role Admin \
-  --email admin@example.com \
-  --password admin
-
-# Start webserver (terminal 1)
-airflow webserver --port 8080
-
-# Start scheduler (terminal 2)
-airflow scheduler
-```
-
-Access Airflow UI at http://localhost:8080 (admin/admin) and enable the DAG.
-
-#### Enhanced DAG with Python Operators
-
-For production use, the example includes an enhanced DAG with:
-- Hourly Bitcoin price ingestion
-- dbt transformation execution
-- Data quality checks
-- Email alerts on failures
-- Execution metrics tracking
-
-See the complete guide: **[Declarative Airflow Integration](/forge_docs/walkthrough/airflow-declarative)**
-
-#### Deploy to Cloud Composer
-
-Cloud Composer provides managed Airflow on GCP:
-
-```bash
-# Create Cloud Composer environment
-gcloud composer environments create bitcoin-tracker-env \
-  --location us-central1 \
-  --image-version composer-2.6.0-airflow-2.6.3 \
-  --machine-type n1-standard-2
-
-# Upload enhanced DAG
-BUCKET=$(gcloud composer environments describe bitcoin-tracker-env \
-  --location us-central1 \
-  --format="get(config.dagGcsPrefix)")
-
-gsutil cp examples/bitcoin-tracker/airflow/dags/bitcoin_tracker_enhanced.py $BUCKET/dags/
-gsutil cp examples/bitcoin-tracker/ingest_bitcoin_prices.py $BUCKET/dags/
-```
-
-The enhanced DAG includes:
-- **Hourly Schedule:** Runs every hour at minute 0
-- **Automatic Retries:** 3 retries with exponential backoff
-- **Data Quality Checks:** Validates data after ingestion and transformations
-- **Monitoring:** Logs execution metrics (price, market cap, volume)
-- **Email Alerts:** Notifies on failures
-
-For detailed Airflow setup, deployment options, and troubleshooting, see:
-📖 **[Declarative Airflow Integration](/forge_docs/walkthrough/airflow-declarative)**
+`fluid generate schedule` generates Airflow, Dagster and Prefect artifacts from a contract's `builds[]` and `orchestration` block. The contract on this page has neither: the ingestion is outside the contract, and `fluid generate schedule contract.fluid.yaml` asks for `orchestration.engine` or `--scheduler`; with `--scheduler airflow` it stops with `Contract missing 'orchestration' section`. When your contract declares builds, follow [Declarative Airflow integration](./airflow-declarative.md). The older `fluid generate-airflow` command still runs; it prints `Note: 'generate-airflow' is deprecated. Use 'fluid generate schedule --scheduler airflow' instead.`
 
 ---
 
-## Step 11: Monitor Costs with Labels (FinOps)
+## Step 11: Attribute Costs
 
-### Query Costs by Label
-
-The labels from your FLUID contract automatically appear in BigQuery for cost tracking:
+The tables and the dataset that Fluid Forge creates carry two labels: `managed_by=fluid` and `fluid_contract=<contract id>`. The contract id has `.` replaced with `_`: for this contract, `crypto_bitcoin_prices_gcp`.
 
 ```bash
-# View table with labels
-bq show --format=prettyjson my-project-id:crypto_data.bitcoin_prices | \
-  jq '.labels'
-
-# Expected output:
-# {
-#   "environment": "production",
-#   "data-source": "coingecko-api",
-#   "update-frequency": "hourly",
-#   "cost-center": "engineering",
-#   "team": "data-platform"
-# }
+bq show --format=prettyjson my-project-id:crypto_data.bitcoin_prices | jq '.labels'
 ```
 
-### FinOps: Track Costs by Team/Product
-
-```sql
--- Query costs grouped by cost-center label
-SELECT
-  table_schema,
-  table_name,
-  REGEXP_EXTRACT(option_value, r'cost-center:([^,}]+)') as cost_center,
-  SUM(size_bytes) / POW(10,9) as size_gb,
-  SUM(size_bytes) / POW(10,9) * 0.02 as monthly_storage_cost_usd
-FROM `my-project-id.crypto_data.INFORMATION_SCHEMA.TABLE_OPTIONS`
-WHERE option_name = 'labels'
-GROUP BY table_schema, table_name, cost_center;
-
--- Track query costs by label
-SELECT
-  project_id,
-  user_email,
-  query,
-  total_bytes_processed / POW(10,12) as tb_processed,
-  total_bytes_processed / POW(10,12) * 5 as query_cost_usd,  -- $5/TB
-  TIMESTAMP_DIFF(end_time, start_time, SECOND) as duration_sec
-FROM `region-us`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
-WHERE creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
-  AND job_type = 'QUERY'
-  AND referenced_tables LIKE '%crypto_data%'
-ORDER BY query_cost_usd DESC
-LIMIT 10;
+```json
+{
+  "fluid_contract": "crypto_bitcoin_prices_gcp",
+  "managed_by": "fluid"
+}
 ```
 
-### Cost Allocation Report
+Group Cloud Billing export rows by the `fluid_contract` label to see cost per data product.
 
-```bash
-# Generate cost report grouped by labels
-bq query --use_legacy_sql=false '
-SELECT
-  table_name,
-  REGEXP_EXTRACT(option_value, r"team:([^,}]+)") as team,
-  REGEXP_EXTRACT(option_value, r"cost-center:([^,}]+)") as cost_center,
-  SUM(total_rows) as total_rows,
-  SUM(size_bytes) / POW(10,9) as size_gb,
-  SUM(size_bytes) * 0.02 / POW(10,9) as monthly_cost_usd
-FROM `my-project-id.crypto_data.INFORMATION_SCHEMA.TABLES` t
-LEFT JOIN `my-project-id.crypto_data.INFORMATION_SCHEMA.TABLE_OPTIONS` o
-  ON t.table_name = o.table_name
-WHERE option_name = "labels"
-GROUP BY table_name, team, cost_center
-'
-```
-
-### Set Up Budget Alerts with Label Filters
-
-```bash
-# Create budget filtered by cost-center label
-gcloud billing budgets create \
-  --billing-account=XXXXXX-XXXXXX-XXXXXX \
-  --display-name="Crypto Tracker Budget (Engineering)" \
-  --budget-amount=5USD \
-  --threshold-rule=percent=50 \
-  --threshold-rule=percent=90 \
-  --filter-labels=cost-center=engineering,team=data-platform
-```
-
-::: tip FinOps Best Practices
-**Labels enable powerful cost tracking:**
-
-✅ **Chargeback**: Allocate BigQuery costs to teams/departments via `cost-center` label  
-✅ **Showback**: Report spending by `team`, `environment`, or `project`  
-✅ **Cost Optimization**: Identify expensive tables/queries by label  
-✅ **Budget Enforcement**: Create label-based budget alerts  
-✅ **Trend Analysis**: Track cost growth by product/team over time
-
-**Storage cost calculation:**
-- Storage: $0.02/GB/month (after 90 days: $0.01/GB)
-- Queries: $5/TB processed
-- Streaming inserts: $0.01/200 MB (free tier: 1 TB/month batch loads)
-
-**This example costs:**
-- Storage: ~$0.00001/month (4 rows = 0.0004 GB)
-- Queries: ~$0.00/month (within 1 TB free tier)
-:::
-
-::: details Advanced FinOps: Automated Cost Reports
-Create a scheduled query to track daily costs:
-
-```sql
--- Save as scheduled query (runs daily)
-CREATE OR REPLACE TABLE crypto_data.cost_tracking AS
-SELECT
-  CURRENT_DATE() as report_date,
-  table_name,
-  REGEXP_EXTRACT(labels, r'team:([^,}]+)') as team,
-  REGEXP_EXTRACT(labels, r'cost-center:([^,}]+)') as cost_center,
-  total_rows,
-  size_bytes / POW(10,9) as size_gb,
-  size_bytes * 0.02 / POW(10,9) as storage_cost_usd,
-  LAG(size_bytes) OVER (PARTITION BY table_name ORDER BY report_date) as prev_size,
-  (size_bytes - LAG(size_bytes) OVER (PARTITION BY table_name ORDER BY report_date)) 
-    / POW(10,9) as daily_growth_gb
-FROM `INFORMATION_SCHEMA.TABLES`
-WHERE table_schema = 'crypto_data'
-ORDER BY storage_cost_usd DESC;
-```
-
-✅ **Used tags & labels for governance + FinOps tracking**  
-✅ **Implemented field-level sensitivity classification**  
-✅ **Configured privacy policies and encryption**  
-✅ **Set up cost allocation by team/cost-center**  
-✅ Monitored costs and performance  
-✅ Updated deployments incrementally
-
-### 🏷️ Governance & FinOps Highlights
-
-**Tags for Discovery & Categorization:**
-- Product-level: `crypto`, `bitcoin`, `real-time`, `public-data`
-- Expose-level: `raw-data`, `time-series`, `non-pii`
-- Field-level: `metric`, `price-data`, `partition-key`
-
-**Labels for Cost Tracking:**
-- `cost-center: engineering` → Chargeback to engineering budget
-- `team: data-platform` → Team-level spending reports
-- `billing-tag: crypto-analytics` → Cross-project cost grouping
-- `sla-tier: gold` → Priority and cost tracking
-
-**Privacy & Compliance:**
-- `sensitivity: none` for public data (no PII)
-- `sensitivity: internal` for operational metadata
-- `classification: Public` → No access restrictions needed
-- `authz` controls who can read/write data
-Then visualize in Looker/Data Studio with cost trend charts!
-:::
+Team or cost-centre labels that you declare in the contract (a `labels:` map) are not carried to these resources in 0.18.1, so they cannot be used for chargeback.
 
 ---
 
-## Step 12: Add More Analytics Views
+## Changing retention later
 
-Update `contract.fluid.yaml` to add price trend analysis. Add a `builds[]`
-entry for the view-definition SQL and an `exposes[]` entry it produces:
+Three changes to the contract behave differently once the table holds data:
 
-```yaml
-  # Add this to the builds array
-  - id: build_price_trends
-    pattern: embedded-logic
-    engine: sql
-    properties:
-      sql: |
-        SELECT
-          price_timestamp,
-          price_usd,
-          AVG(price_usd) OVER (
-            ORDER BY price_timestamp
-            ROWS BETWEEN 167 PRECEDING AND CURRENT ROW  -- 7 days * 24 hours
-          ) as ma_7day,
-          AVG(price_usd) OVER (
-            ORDER BY price_timestamp
-            ROWS BETWEEN 719 PRECEDING AND CURRENT ROW  -- 30 days * 24 hours
-          ) as ma_30day,
-          price_usd - AVG(price_usd) OVER (
-            ORDER BY price_timestamp
-            ROWS BETWEEN 167 PRECEDING AND CURRENT ROW
-          ) as deviation_from_7day_ma
-        FROM `my-project-id.crypto_data.bitcoin_prices`
-        ORDER BY price_timestamp DESC
-    outputs:
-      - price_trends
+| Change | What the plan does |
+| --- | --- |
+| `retention: P90D` to `P30D` | An in-place update of `expiration_ms`. Partitions older than the new period expire. |
+| Adding `lifecycle.expire: true` to a table that exists, or changing the partition column | A **replacement** of the table: BigQuery cannot partition an existing table. `fluid apply` refuses it unless you pass `--allow-data-loss`, and the next load starts from an empty table. |
+| Removing `expire: true` | Also a replacement (BigQuery cannot un-partition a table), gated the same way. |
 
-  # Add this to the exposes array
-  - exposeId: price_trends
-    kind: view
-    description: "7-day and 30-day Bitcoin price moving averages"
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-project-id
-        dataset: crypto_data
-        table: price_trends
-    
-    contract:
-      schema:
-        - name: price_timestamp
-          type: TIMESTAMP
-        - name: price_usd
-          type: FLOAT64
-        - name: ma_7day
-          type: FLOAT64
-        - name: ma_30day
-          type: FLOAT64
-        - name: deviation_from_7day_ma
-          type: FLOAT64
-```
-
-Redeploy to add the new view:
-
-```bash
-fluid apply contract.fluid.yaml --provider gcp
-
-# Only the new view is created - existing resources unchanged!
-# ⏳ Creating view 'price_trends'... ✅ Created (0.7s)
-# 
-# ✨ Deployment successful! (1 resource added)
-```
-
-Query the new view:
-
-```sql
-SELECT 
-  price_timestamp,
-  price_usd,
-  ma_7day,
-  ma_30day,
-  deviation_from_7day_ma
-FROM `crypto_data.price_trends`
-WHERE price_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
-ORDER BY price_timestamp DESC;
-```
+The replacement comes from the `terraform_data` resource that holds the partition column and type: the table's `replace_triggered_by` names it, and the period is deliberately left out of it, which is why a new period is only an update. Plan with `fluid plan` and `fluid apply --dry-run` before you change either key on a live product. The rules for `--allow-data-loss` are in the [`fluid apply`](../cli/apply.md) reference.
 
 ---
 
 ## What You've Learned
 
-✅ Deployed production Bitcoin tracker to GCP  
-✅ Integrated real-time CoinGecko API data  
-✅ Configured BigQuery with time-series partitioning  
-✅ Created analytical views for price trends  
-✅ Set up hourly automated ingestion  
-✅ Monitored costs and performance  
-✅ Updated deployments incrementally  
+- A contract's `binding.location` becomes a BigQuery dataset and table, applied through OpenTofu.
+- `lifecycle` (with `expire: true`) and `location.partitionBy` set partitioning and expiry; `binding.properties.partitioning` is not read.
+- `accessPolicy.grants` become dataset IAM members.
+- `fluid verify` compares the live table, including retention and encryption when declared.
+- Loading rows, scheduling the load, and views are outside the contract in 0.18.1.
 
 ---
 
 ## Next Steps
 
-### 🤖 Enhanced Analytics
+### More assets in the same dataset
 
-Add more crypto assets:
+Add another `exposes[]` entry with its own `binding.location.table`:
 
 ```yaml
-# Extend contract to track Ethereum, Litecoin, etc.
-exposes:
   - exposeId: ethereum_prices_table
     kind: table
     binding:
@@ -1265,33 +764,33 @@ exposes:
         project: my-project-id
         dataset: crypto_data
         table: ethereum_prices
+        region: us-central1
 ```
 
-### 📊 BI Dashboards
+Re-run `fluid plan` and `fluid apply --dry-run`: the new table is added and the existing one is untouched. Tables of one dataset must use the same region.
 
-Connect Looker, Tableau, or Google Data Studio:
+### BI Dashboards
+
+Connect Looker, Tableau, or Looker Studio:
 - Dataset: `my-project-id.crypto_data`
-- Tables: `bitcoin_prices`, views: `daily_summary`, `price_trends`
-- Credentials: Service account with BigQuery Data Viewer role
+- Table: `bitcoin_prices`, and any view you created in Step 8
+- Credentials: a service account with the BigQuery Data Viewer role
 
-### 🔔 Price Alerts
+### Price alerts
 
-Create alerts for price movements:
+Find significant price changes:
 
 ```sql
--- Find significant price changes
-SELECT 
+SELECT
   price_timestamp,
   price_usd,
   price_change_24h_percent
 FROM `crypto_data.bitcoin_prices`
-WHERE ABS(price_change_24h_percent) > 5.0  -- >5% change
+WHERE ABS(price_change_24h_percent) > 5.0  -- more than 5% change
 ORDER BY price_timestamp DESC;
 ```
 
-### 🧪 ML Predictions
-
-Use BigQuery ML for price forecasting:
+### BigQuery ML
 
 ```sql
 CREATE MODEL `crypto_data.bitcoin_price_forecast`
@@ -1300,7 +799,7 @@ OPTIONS(
   time_series_timestamp_col='price_timestamp',
   time_series_data_col='price_usd'
 ) AS
-SELECT 
+SELECT
   price_timestamp,
   price_usd
 FROM `crypto_data.bitcoin_prices`;
@@ -1312,37 +811,37 @@ FROM `crypto_data.bitcoin_prices`;
 
 ### "Permission denied" errors
 
-Grant yourself BigQuery Admin role:
+The identity you applied with needs to create datasets and tables and to set dataset IAM. For a throwaway project, grant yourself BigQuery Admin:
 ```bash
 gcloud projects add-iam-policy-binding my-project-id \
   --member="user:YOUR_EMAIL@example.com" \
   --role="roles/bigquery.admin"
 ```
 
-### "Dataset already exists"
+### `opentofu_plan_failed` before anything is created
 
-Fluid Forge is idempotent. Re-running is safe:
-```bash
-fluid apply contract.fluid.yaml --provider gcp
-# Will update only changed resources
-```
+The OpenTofu provider could not authenticate or reach the API. Run `gcloud auth application-default login`, confirm the project id, and confirm the BigQuery API is enabled. `fluid apply --dry-run` reproduces the failure without changing anything.
+
+### Re-running apply
+
+`fluid apply` is incremental against the OpenTofu state in `.fluid/iac/gcp/<contract id>/`. Re-running it with an unchanged contract plans no changes. If you delete `.fluid/` or run from another machine without a shared `--state-backend`, OpenTofu has no record of the dataset and will try to create it again.
 
 ### CoinGecko API rate limits
 
-Free tier: 10-50 calls/minute. For production:
-- Upgrade to CoinGecko Pro API
-- Implement exponential backoff
-- Cache responses locally
+The free tier allows a small number of calls a minute. For production:
+- Use a CoinGecko paid API plan
+- Retry with exponential backoff
+- Cache responses
 
 ### Slow queries
 
-Optimize with partitioning:
+Filter on the partition column so BigQuery reads only the partitions it needs:
 ```sql
--- ✅ Good: Partition filter
+-- Prunes partitions
 SELECT * FROM `crypto_data.bitcoin_prices`
 WHERE price_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY);
 
--- ❌ Bad: Full table scan
+-- Reads every partition
 SELECT * FROM `crypto_data.bitcoin_prices`
 WHERE price_usd > 40000;
 ```
@@ -1351,49 +850,30 @@ WHERE price_usd > 40000;
 
 ## Clean Up (Optional)
 
-To avoid any charges, delete everything:
+Destroy what Fluid Forge created with the module it wrote, so that the state stays consistent:
 
 ```bash
-# Delete BigQuery dataset and all tables
-bq rm -r -f -d my-project-id:crypto_data
+tofu -chdir=.fluid/iac/gcp/crypto_bitcoin_prices_gcp destroy
+```
 
+Then remove what you created by hand:
+
+```bash
 # Delete Cloud Function
 gcloud functions delete bitcoin-price-ingestion --region us-central1
 
 # Delete Cloud Scheduler job
 gcloud scheduler jobs delete bitcoin-hourly-ingest --location us-central1
 
-# Delete project (removes everything)
+# Or delete the whole project (removes everything in it)
 gcloud projects delete my-project-id
 ```
 
 ---
 
-## 🎉 Congratulations!
+## Next
 
-You've successfully deployed a **production-grade Bitcoin price tracking data product** to Google Cloud Platform using Fluid Forge!
-
-**What's different from manual BigQuery setup?**
-- ✅ Declarative YAML vs 100+ lines of Python
-- ✅ Built-in validation and schema enforcement
-- ✅ Automatic partition management
-- ✅ Drift detection
-- ✅ Version control friendly
-- ✅ Reproducible deployments
-
-**Production-ready features:**
-- ⚡ Time-series partitioning (90-day retention)
-- 📊 Real-time API integration
-- 💰 Cost-optimized storage (<$0.01/month)
-- 🔄 Hourly automated ingestion
-- 📈 Analytical views and trends
-
-**Ready for more?**
-- [CLI Reference](/forge_docs/cli/) - Master all Fluid Forge commands
-- [GCP Provider Guide](/forge_docs/providers/gcp) - Deep dive into GCP features
-- [Local Walkthrough](/forge_docs/walkthrough/local) - Test locally with DuckDB first
-- [Blueprints](/forge_docs/advanced/blueprints) - Pre-built templates
-
----
-
-*Built with ❤️ using Fluid Forge - Declarative Data Products for Modern Teams*
+- [CLI Reference](../cli/README.md) — the Fluid Forge commands
+- [GCP Provider Guide](../providers/gcp.md) — what the GCP provider supports
+- [Local Walkthrough](./local.md) — test the same contract locally with DuckDB first
+- [Declarative Airflow integration](./airflow-declarative.md) — schedule builds from a contract

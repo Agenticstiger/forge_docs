@@ -1,4 +1,4 @@
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
 kind: "DataProduct"
 id: "gold.customer.customer360_v1"
 name: "Customer 360"
@@ -63,6 +63,7 @@ exposes:
         project: "YOUR_PROJECT"
         dataset: "gold_demo"
         table: "customer360_v1"
+        region: "europe-west1"
     contract:
       schema:
         - name: "customer_id"

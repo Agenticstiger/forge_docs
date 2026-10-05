@@ -282,7 +282,7 @@ Pre-emit lint against four standards in parallel:
 
 | Standard | Implementation |
 |---|---|
-| `fluid` | Full Fluid 0.7.2 schema validator |
+| `fluid` | Full Fluid schema validator, against the latest stable schema the CLI bundles (0.7.5 in 0.18.1) |
 | `osi` | Full OSI v0.1.1 Pydantic validator |
 | `odcs_translation_readiness` | Checks the contract carries the fields a future ODCS exporter needs |
 | `dcs_translation_readiness` | Same shape, for DCS |
@@ -402,7 +402,7 @@ work unchanged.
 
 ## See also
 
-- [V1.5 architecture deep-dive](v1.5-architecture.md)
+- [Catalog integration architecture](v1.5-architecture.md)
 - [Cost tracking details](cost-tracking.md)
 - [Credential resolver](credential-resolver.md)
-- [V1.5 release notes](v1.5-release-notes.md)
+- [Catalog integration release notes](v1.5-release-notes.md)

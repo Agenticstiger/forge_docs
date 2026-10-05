@@ -7,57 +7,75 @@ The complete `Jenkinsfile.j2` template, ready to drop into your bundle's `templa
 ## What this template does
 
 - Declarative pipeline syntax (`pipeline { … }`) — works with any Jenkins ≥ 2.290.
-- One `stage('Deploy: <env>')` per environment declared in the contract.
+- One `stage('Deploy: <env>')` per entry in the contract's `targets` variable.
 - Uses Jenkins's built-in `input` block for the prod approval gate — pipeline pauses, a human clicks "Deploy to prod" before the stage runs.
 - Resolves credentials per environment via [`withCredentials`](https://www.jenkins.io/doc/pipeline/steps/credentials-binding/) — no plaintext keys in the Jenkinsfile.
 
 ## `templates/Jenkinsfile.j2`
 
 ```jinja
-// Auto-generated Jenkinsfile for {{ contract.metadata.id }}
-// Rendered from my-org-ci-bundle@{{ bundle.version }} — do not edit by hand.
+// Auto-generated Jenkinsfile for {{ product_id }}
+// Rendered from {{ bundle.name }}@{{ bundle.version }} - do not edit by hand.
 
 pipeline {
     agent any
 
     environment {
-        PRODUCT_ID    = "{{ contract.metadata.id }}"
-        PRODUCT_OWNER = "{{ contract.metadata.owner.email }}"
+        PRODUCT_ID    = "{{ product_id }}"
+        PRODUCT_OWNER = "{{ owner.email }}"
     }
 
     stages {
         stage('Validate') {
             steps {
-                sh 'python -m pip install --quiet "data-product-forge=={{ fluid_cli_version | default(\'0.15.0\') }}"'
+                sh 'python -m pip install --quiet "data-product-forge=={{ fluid_cli_version | default("0.18.1") }}"'
                 sh 'fluid validate contract.fluid.yaml --strict'
             }
         }
-
-{% for env_name, env in contract.environments.items() %}
+{% for env_name, t in targets.items() %}
         stage('Deploy: {{ env_name }}') {
             when { branch 'main' }
-            {% if env_name == "prod" -%}
+{%- if env_name == "prod" %}
             input {
-                message "Approve prod deploy of {{ contract.metadata.id }}?"
+                message "Approve prod deploy of {{ product_id }}?"
                 ok "Deploy to prod"
             }
-            {%- endif %}
+{%- endif %}
             steps {
-                {% if env.cloud.provider == "aws" -%}
+{%- if t.provider == "aws" %}
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                                 credentialsId: 'aws-{{ env_name }}-{{ env.cloud.account }}']]) {
+                                 credentialsId: 'aws-{{ env_name }}-{{ t.account }}']]) {
                     sh 'fluid apply contract.fluid.yaml --env {{ env_name }} --yes'
                 }
-                {%- elif env.cloud.provider == "gcp" -%}
-                withCredentials([file(credentialsId: 'gcp-{{ env_name }}-{{ env.cloud.project }}', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+{%- elif t.provider == "gcp" %}
+                withCredentials([file(credentialsId: 'gcp-{{ env_name }}-{{ t.project }}', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
                     sh 'fluid apply contract.fluid.yaml --env {{ env_name }} --yes'
                 }
-                {%- endif %}
+{%- endif %}
             }
         }
 {% endfor %}
     }
 }
+```
+
+## What the template reads from the contract
+
+The template uses the render-context names the engine provides (`product_id`, `owner`, `bundle`, ...) and one pattern variable, `targets`, which the product team supplies under `patterns[].variables` in their contract. The bundle manifest from [step 2](./your-own-ci.md#step-2-write-the-bundle-manifest) declares a JSON Schema for `targets`, so a missing or malformed value fails before any file is written.
+
+```yaml
+# contract.fluid.yaml (the product team's side)
+extensions:
+  customScaffold:
+    libraries:
+      - id: my-ci
+        source: { kind: path, path: ../my-org-ci-bundle }
+    patterns:
+      - use: my-ci:jenkins
+        variables:
+          targets:
+            dev:  { provider: gcp, project: order-events-dev,  region: us-central1 }
+            prod: { provider: aws, account: "333333333333",     region: eu-west-1 }
 ```
 
 ## Per-cloud credential conventions
@@ -69,7 +87,7 @@ The template assumes your Jenkins credentials are named with a per-env-per-accou
 | `aws` | AWS Credentials (CloudBees AWS Credentials plugin) | `aws-<env>-<account>` | `aws-prod-333333333333` |
 | `gcp` | Secret file (Google credentials JSON) | `gcp-<env>-<project>` | `gcp-prod-order-events-prod` |
 
-Pre-create these in **Manage Jenkins → Credentials**. The template renders the right ID per env — the platform team only needs to keep credential names in sync with the contract's `environments` block.
+Pre-create these in **Manage Jenkins → Credentials**. The template renders the right ID per env — the platform team only needs to keep credential names in sync with the `targets` the product teams declare.
 
 ## Why the `input` block for prod
 
@@ -86,14 +104,16 @@ Three reasons it's the world-class choice on Jenkins:
    ```
 3. **Timeout-aware.** Wrap with `timeout(time: 1, unit: 'HOURS')` to auto-abort a stale approval — no abandoned pipelines holding agent slots.
 
-## Jenkins-specific install-mode (pypi vs. dev-source)
+## Jenkins-specific install mode (pypi vs. dev-source)
 
-If your Jenkins doesn't have internet egress, the forge-cli has a built-in [Jenkinsfile-generator](/forge_docs/cli/scaffold-ci.html) with two install modes:
+If you would rather not hand-write the Jenkinsfile, `fluid generate ci --system jenkins` emits one, with two install modes (see [`fluid generate ci`](../../cli/generate.md#fluid-generate-ci)):
 
-- `--install-mode pypi` (production) — uses 4 build-time Jenkins parameters: `FLUID_PACKAGE_SPEC`, `FLUID_PIP_INDEX_URL`, `FLUID_PIP_EXTRA_INDEX_URL`, `FLUID_ALLOW_PRERELEASE`.
-- `--install-mode dev-source` (lab) — uses `PYTHONPATH=/forge-cli-src` and fails loud if the mount is missing.
+- `--install-mode pypi` (default) installs `data-product-forge` from a package index. The pipeline exposes the install source as build parameters: `FLUID_PACKAGE_SPEC`, `FLUID_PIP_INDEX_URL`, `FLUID_PIP_EXTRA_INDEX_URL` and `FLUID_ALLOW_PRERELEASE`.
+- `--install-mode dev-source` (contributor labs) installs from a `/forge-cli-src` bind mount and fails loudly if the mount is missing.
 
-The bundle pattern above uses pypi-mode by default (`pip install` over the public index). For dev-source mode, replace the `python -m pip install` line in the template with:
+The Jenkinsfile that `fluid generate ci` writes gives every parameter a default and reads each with the same default, so a job's first build, which runs without parameters, still works. Observed against a live Jenkins on 4-5 October 2026: Jenkins learns a pipeline's parameters from its first build, so a `buildWithParameters` call against a job that has never run is refused. Trigger one plain build first, then switch to parameterised triggers.
+
+The bundle template above installs from the package index (`pypi` behaviour). For dev-source behaviour, replace the `python -m pip install` line in the template with:
 
 ```groovy
 sh '''

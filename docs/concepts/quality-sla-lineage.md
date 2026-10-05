@@ -5,15 +5,15 @@ description: Block bad deploys before they happen. dq.rules, qos, and auto-deriv
 
 # Quality, SLAs & Lineage
 
-Three pillars of "is this data product trustworthy?" — all declarative, all enforced by `fluid validate` + `fluid test` + `fluid verify`.
+Three pillars of "is this data product trustworthy?", all declared in the contract. `fluid validate` checks their shape, `fluid test` runs the quality rules against the data, and `fluid verify` compares the deployed product with the contract. The SLA targets are declarations: they are published, not monitored.
 
 > **Why it matters**
 > Consumers — and agents — can tell whether to trust a product *before* they use it: freshness, quality, and provenance are declared, not assumed.
-> `dq.rules`, `exposes[].qos`, and `lineage` ship inside the contract and are checked by `validate` / `test` / `verify`.
+> `exposes[].contract.dq.rules`, `exposes[].qos`, and `consumes[]` / `lineage` ship inside the contract.
 
 ## Data quality rules — `dq.rules`
 
-Live at `exposes[].contract.dq.rules`. Each rule has an `id`, a `type`, a `severity`, and (usually) a `selector` + `threshold` + `operator`.
+Rules live at `exposes[].contract.dq.rules`. `fluid test` runs them against the deployed table and exits 1 when a rule at `error` or `critical` fails (`--strict` also fails on warnings).
 
 ```yaml
 exposes:
@@ -23,30 +23,35 @@ exposes:
         - name: price_usd
           type: NUMERIC
           required: true
+        - name: updated_at
+          type: TIMESTAMP
       dq:
         rules:
           - id: price_not_null
-            type: completeness          # ← one of the 8 allowed types
-            selector: price_usd
+            type: completeness
+            selector: price_usd          # the column the rule checks
             threshold: 1.0
             operator: ">="
-            severity: error             # error | warn | info
+            severity: error              # info | warn | error | critical
 
           - id: data_freshness
             type: freshness
-            window: PT1H                # ISO 8601 duration
+            selector: updated_at         # the timestamp column to age
+            window: PT1H                 # ISO-8601 duration
             severity: warn
 ```
 
-Allowed `type` values (v0.7.3 schema):
-`freshness` · `completeness` · `uniqueness` · `valid_values` · `accuracy` · `schema` · `anomaly_detection` · `drift_detection`
+Each rule needs `id`, `type` and `severity` to validate, and a `selector` to run: a rule with no `selector` fails with "missing 'selector' (column name)". A rule that fails at `error` or `critical` fails the test; `warn` is reported; `info` is recorded.
 
-Severity enum (verified against `fluid-schema-0.7.3.json`): `info` · `warn` · `error` · `critical`.
-
-Conventional behavior (confirm specifics with `fluid apply -h` / `fluid test -h` for your CLI version):
-- **`error` / `critical`** — block the deploy. Used for hard guarantees.
-- **`warn`** — deploy proceeds; warning emitted to stdout + the test report.
-- **`info`** — recorded only.
+| `type` | What `fluid test` checks |
+|---|---|
+| `completeness` | Share of non-null values in `selector`, against `threshold` and `operator` |
+| `uniqueness` | Share of distinct values in `selector`, against `threshold` and `operator` |
+| `accuracy` | Values of `selector` against `threshold` and `operator` |
+| `valid_values` | Values of `selector` are in an allowed list, written in the description as `"<column> valid values: A, B, C."` (the schema has no list field) |
+| `freshness` | The newest value of the `selector` timestamp is no older than `window` |
+| `anomaly_detection` | Row count (`selector: "*"`) against `threshold` and `operator` |
+| `schema`, `drift_detection` | Not implemented. The schema accepts them, and `fluid test` reports each as a failed rule at its declared severity, saying the gate is not enforced |
 
 ## SLAs — `qos`
 
@@ -57,20 +62,45 @@ exposes:
   - exposeId: bitcoin_prices
     qos:
       availability: "99.5%"
-      latencyP95: PT5S
+      freshnessSLO: PT1H
+      latencyP95: PT1S
+      dataLossSLO: "0 rows"
+      completenessTarget: 0.99
+      errorBudget: 0.01
 ```
 
-Currently used for catalog publish (ODCS) + Data Mesh Manager. Active monitoring against these thresholds is on the roadmap.
+| Field | Type | Example |
+|---|---|---|
+| `availability` | String ending in `%` | `"99.5%"` (a bare `99.5` fails validation) |
+| `freshnessSLO`, `latencyP95` | ISO-8601 duration: years, months, weeks, days, hours, minutes, whole seconds | `PT1H`, `PT1S`. `PT500MS` and fractional seconds fail validation |
+| `dataLossSLO` | Free-form string | `"0 rows"` |
+| `completenessTarget`, `errorBudget` | Number from 0 to 1 | `0.99`, `0.01` |
 
-## Lineage — auto-derived
+The standards exporters (ODCS, ODPS, OPDS) and Data Mesh Manager publishing read these targets. As of 0.18.1 no forge-cli command measures the product against them; schedule your own checks (see [Multi-window monitoring](#multi-window-monitoring)).
 
-You don't write lineage yourself. The schema captures upstream relationships through:
+`exposes[].observability` sits next to `qos`: `metrics`, `onBreach` targets, `defaultSLIs` and `alert.channels`. Of these, the acquisition runner reads `observability.alert.channels` (`log`, `file` or `webhook`) to send DLQ-overflow, schema-change and anomaly alerts. As of 0.18.1 nothing reads `metrics`, `onBreach` or `defaultSLIs`.
 
-1. **`consumes[]`** — explicit upstream-product references at the contract root.
-2. **`builds[].properties.sql`** — column-level lineage parsed from SQL.
-3. **`builds[].repository`** — for `hybrid-reference` builds, the dbt manifest is read for graph data.
+## Lineage — declared, then checked
 
-The exact output paths and viewer formats depend on the CLI version + provider. Run `fluid plan --html` and check the generated artifact directory; document what you see in your team's runbook rather than relying on this page.
+Lineage comes from what the contract declares:
+
+1. **`consumes[]`** — upstream data products this one reads, at the contract root. This is what composes products into higher-value products.
+2. **`lineage`** — an optional top-level block for cross-system lineage: `granularity` (`table_level` or `field_level`), `upstream[]` (each with `productId`, `exposeId`, optional `relationship` and `fieldMappings` from source to target field) and `downstream`.
+
+```yaml
+lineage:
+  granularity: field_level
+  upstream:
+    - productId: silver.crm.customers_v1
+      exposeId: customers
+      relationship: direct_consumption
+      fieldMappings:
+        - sourceField: email
+          targetField: email_hash
+          transformation: {type: calculation, expression: "sha256(email)"}
+```
+
+`fluid verify --reconcile-lineage` cross-checks the declared lineage (`consumes[]` and `exposes[]`) against local run evidence and the catalog publish payload; an undeclared read fails under `--strict`. `fluid plan --html` writes an HTML view of the plan.
 
 ## Common rule patterns
 
@@ -114,25 +144,23 @@ dq:
 
 This pattern keeps the rule schema clean and pushes the lifecycle logic into SQL where it belongs.
 
-### Drift detection on schema or distribution
+### Schema and distribution drift
+
+`schema` and `drift_detection` rules are not implemented by any engine as of 0.18.1: `fluid test` reports them as failed (an `error` rule fails the run), the dbt export emits a test name dbt reports as not found, and `--engine soda` lists them as unmapped. Use what is implemented instead:
+
+- Schema drift: `fluid verify` compares the deployed table's schema with the contract; `--strict` fails on critical drift.
+- Volume drift: an `anomaly_detection` rule on the row count.
 
 ```yaml
 dq:
   rules:
-    - id: schema_stability
-      type: schema
-      severity: critical              # block deploy on schema change without explicit version bump
-
-    - id: revenue_distribution_drift
-      type: drift_detection
-      selector: weekly_revenue
-      window: P14D                    # 14-day rolling baseline (ISO 8601 duration)
-      threshold: 0.20                 # alert if drift score exceeds threshold
-      operator: "<="
+    - id: row_count_floor
+      type: anomaly_detection
+      selector: "*"                   # row count
+      threshold: 1000
+      operator: ">="
       severity: warn
 ```
-
-`drift_detection` requires the `verify` command running on a schedule against a baseline window. Schedule `fluid verify` via your CI / orchestrator (Airflow, Dagster, GitHub Actions cron) — the `qos` block on the expose declares the *target*, but scheduling lives in the runtime layer.
 
 ### Freshness with two-tier severity
 
@@ -143,20 +171,22 @@ dq:
   rules:
     - id: freshness_hourly_warn
       type: freshness
+      selector: updated_at
       window: PT1H
       severity: warn
 
     - id: freshness_75min_critical
       type: freshness
+      selector: updated_at
       window: PT75M
       severity: critical
 ```
 
-CI runs `fluid verify`; both rules evaluate against the same deployed-table last-write timestamp; whichever crosses first fires.
+A scheduled `fluid test` evaluates both against the newest `updated_at`; past one hour the first warns, past 75 minutes the second fails the run.
 
 ### Valid values
 
-The schema's `valid_values` rule type takes a `selector` plus a `threshold` + `operator` — the actual allowed set is enforced by the build's filtering (or the schema field's `description`). Common pattern:
+The allowed set goes in the rule's `description`, in the form `<column> valid values: A, B, C.`; the schema has no list field for it. A `valid_values` rule whose description names no values fails with "declares no allowed values, so nothing was checked".
 
 ```yaml
 dq:
@@ -164,26 +194,24 @@ dq:
     - id: country_valid_iso
       type: valid_values
       selector: country
-      threshold: 1.0
-      operator: ">="
       severity: error
-      description: "country must be in ISO 3166 alpha-2 (US, CA, GB, ...)"
+      description: "country valid values: US, CA, GB, DE, FR."
 ```
 
-For richer enum enforcement, gate it in the build's `WHERE` clause (rejecting non-conforming rows to a quarantine table) or use the schema field's `description` to document the allowed set.
+The list ends at the first full stop, so values cannot contain one.
 
 ## Multi-window monitoring
 
-The schema doesn't provide a built-in scheduling block — `qos` declares targets, runtime declares schedules. Pattern:
+The schema has no scheduling block for checks: `qos` declares targets, and your CI or orchestrator runs the checks. Pattern:
 
 1. **Targets** live on `exposes[].qos`:
    ```yaml
    exposes:
      - exposeId: customer_360_table
        qos:
-         availability: 99.5
+         availability: "99.5%"
          freshnessSLO: PT1H              # ISO 8601 duration
-         latencyP95: PT500MS
+         latencyP95: PT1S                # whole seconds; no millisecond unit
          completenessTarget: 0.99
          errorBudget: 0.01
    ```
@@ -195,10 +223,10 @@ The schema doesn't provide a built-in scheduling block — `qos` declares target
      schedule:
        - cron: "*/15 * * * *"          # every 15 min
    jobs:
-     verify:
+     test:
        runs-on: ubuntu-latest
        steps:
-         - run: fluid verify contract.fluid.yaml --strict --env prod
+         - run: fluid test contract.fluid.yaml --env prod
 
    # .github/workflows/verify-weekly-audit.yml
    on:
@@ -211,19 +239,30 @@ The schema doesn't provide a built-in scheduling block — `qos` declares target
          - run: fluid verify contract.fluid.yaml --strict --env prod --out verify-report.json | tee audit.log
 ```
 
-The fast schedule catches stale-data incidents (against `freshnessSLO`); the slow audit catches creeping quality drift (against `completenessTarget`). Both invoke `fluid verify` against the same contract; the contract is the source of truth.
+The fast schedule runs the `dq.rules`, so a `freshness` rule whose `window` matches `freshnessSLO` catches stale data; the weekly run compares the deployed product with the contract and keeps the JSON report. Neither command reads the `qos` values themselves: express each target you want checked as a rule.
 
-## Lineage emission formats
+## Lineage and catalog formats
 
-`fluid generate artifacts` emits lineage in three industry-standard formats:
+`fluid generate artifacts` writes the contract in catalog standards, plus the compiled policy bindings, under `dist/artifacts/` with a `MANIFEST.json` that hashes every file. On the quickstart contract:
 
-| Format | File | Used by |
+```text
+dist/artifacts/MANIFEST.json
+dist/artifacts/odcs/product.odcs.customer_360_master.yaml
+dist/artifacts/odcs/product.odcs.high_value_customers.yaml
+dist/artifacts/odps-bitol/gold.customer.analytics_360_v1.customer_360_master.odcs.yaml
+dist/artifacts/odps-bitol/gold.customer.analytics_360_v1.high_value_customers.odcs.yaml
+dist/artifacts/odps-bitol/gold.customer.analytics_360_v1.odps.yaml
+dist/artifacts/opds/gold.customer.analytics_360_v1.opds.json
+dist/artifacts/policy/bindings.json
+```
+
+| Format | Directory | Used by |
 |---|---|---|
-| **ODPS** (Open Data Product Standard) | `artifacts/standards/product.odps.json` | Generic catalog ingest |
-| **ODCS** (Open Data Contract Standard) | `artifacts/standards/product.odcs.yaml` | Data Mesh Manager, Atlan, Collibra (when configured) |
-| **OpenLineage** | `artifacts/lineage/openlineage.json` | Marquez, DataHub, OpenLineage-compliant tools |
+| **ODCS** (Open Data Contract Standard), one per expose | `odcs/` | Data Mesh Manager and other ODCS-aware catalogs |
+| **ODPS-Bitol** (Bitol Open Data Product Standard) | `odps-bitol/` | Bitol-aware catalogs |
+| **OPDS** (Open Data Product Specification v4.1, LF/ODPI) | `opds/` | Generic catalog ingest |
 
-Pick whichever your existing catalog speaks. The contract is the source of truth; these are derived artifacts that re-emit on every `apply`.
+OpenLineage is not written to a file. Runs send OpenLineage run events over HTTP when `OPENLINEAGE_URL` (or `FLUID_OPENLINEAGE_URL`) is set: acquisition builds, and `fluid apply` through OpenTofu. Marquez and DataHub accept them. With no URL set, nothing is sent.
 
 ## Where to look next
 

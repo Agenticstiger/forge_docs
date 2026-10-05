@@ -12,18 +12,35 @@ Two related but distinct ideas:
 
 `fluid providers` lists the cloud-platform providers installed in your environment. For the spec-export formats a contract can be serialized to (ODCS / ODPS / ODPS-Bitol), use [`fluid exporters`](/forge_docs/cli/exporters.html) — exporters are not cloud providers. For the full installed-plugin roster across every role, use [`fluid plugins`](/forge_docs/cli/plugins.html).
 
-## Cloud providers shipping in `data-product-forge` 0.15.0
+## Cloud providers in `data-product-forge`
 
-These are the cloud-platform providers that implement `plan`/`apply` against a target cloud:
+`fluid providers` prints the providers installed in your environment. On 0.18.1:
 
-| Provider | Status | Install extra |
-|----------|--------|---------------|
-| `local`     | ✅ Production (DuckDB, runs anywhere) | `pip install "data-product-forge[local]"` |
-| `gcp`       | ✅ Production (BigQuery + GCS + IAM)  | `pip install "data-product-forge[gcp]"` |
-| `aws`       | ✅ Production (S3 + Glue + Athena)    | `pip install "data-product-forge[aws]"` |
-| `snowflake` | ✅ Production (Snowflake + Snowpark)  | `pip install "data-product-forge[snowflake]"` |
-| `azure`     | 🔜 Roadmap (Synapse + ADLS)           | — |
-| `databricks`| 🔜 Roadmap (Unity Catalog)            | — |
+```bash
+fluid providers
+# {
+#   "providers": [
+#     "aws",
+#     "datamesh_manager",
+#     "gcp",
+#     "local",
+#     "redshift",
+#     "snowflake"
+#   ]
+# }
+```
+
+`datamesh_manager` is a catalog publisher, not a cloud target. The cloud-platform providers:
+
+| Provider | Lands data in | Install extra |
+|----------|---------------|---------------|
+| `local`     | DuckDB and local files | `pip install "data-product-forge[local]"` |
+| `gcp`       | BigQuery, Cloud Storage, Pub/Sub | `pip install "data-product-forge[gcp]"` |
+| `aws`       | S3, Glue, Athena, Lake Formation | `pip install "data-product-forge[aws]"` |
+| `snowflake` | Snowflake | `pip install "data-product-forge[snowflake]"` |
+| `redshift`  | Amazon Redshift (ships in the `aws` provider package) | `pip install "data-product-forge[aws]"` |
+
+`azure` and `databricks` are valid `binding.platform` values with no provider behind them.
 
 How each provider materialises `apply()` — native execution vs IaC compilation — is an implementation detail; see [`fluid generate iac`](/forge_docs/cli/generate-iac.html) for the cloud-provider engine details and the `tofu` runtime requirement.
 
@@ -69,53 +86,22 @@ After `pip install my-fluid-provider`, `fluid providers` will list it automatica
 
 ## The provider lifecycle
 
-The two required methods are each called at a specific point in the canonical 11-stage pipeline:
-
 | Method | Called by | Pipeline stage | What it must do |
 |---|---|---|---|
-| `plan(contract)` | `fluid plan` | Stage 6 — *Plan* | Return a list of `Action` objects describing what would change. **Must be deterministic** — the same contract + same deployed state always emit the same actions. The CLI's plan binding (stage 6 ↔ stage 7) refuses to apply if the plan was tampered with. |
-| `apply(actions)` | `fluid apply` | Stage 7 — *Apply* | Execute the actions against the target cloud. Idempotent. Returns success/failure per action. |
+| `plan(contract)` | `fluid plan` | Stage 6 — *Plan* | Return the list of actions that would change the target. Same contract and same deployed state should give the same actions: `fluid apply` refuses a `plan.json` whose `planDigest` no longer matches its content. |
+| `apply(actions)` | `fluid apply` | Stage 7 — *Apply* | Execute the actions against the target and report success or failure per action. Re-running an apply should be safe. |
 
-`plan()` makes no network calls and has no side effects — it's pure contract-in, action-list-out. That's how the canonical pipeline runs pre-flight checks without touching production.
+For `aws`, `gcp` and `snowflake`, `fluid apply` compiles the contract into the OpenTofu module that `fluid generate iac` writes and runs `tofu` on it; the provider's planner still runs for checks such as the [sovereignty gate](./sovereignty.md#apply-re-checks-placements-on-aws-and-gcp-and-binds-the-plan-by-digest). On that path a plan that destroys a resource holding data is refused unless you pass `--allow-data-loss`; removing a grant or a policy tag is not counted as data loss.
 
 Verification and policy compilation are **engine-level pipeline stages**, not provider abstract methods — the CLI drives them around the provider's `plan`/`apply` rather than calling extra methods on `BaseProvider`.
 
-## Action semantics
+## Errors
 
-`plan()` returns `Action` objects in three categories:
+A provider raises `ProviderError` for a failure it can explain; the CLI renders it as a typed error with a suggestion and a docs link. See [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) for the catalogue.
 
-| Category | Examples | Apply behaviour |
-|---|---|---|
-| **Create** | `+ create table foo`, `+ create dataset bar`, `+ grant role/dataViewer to group:x` | Idempotent — re-applying a create that already happened is a no-op |
-| **Modify** | `~ alter table foo add column bar`, `~ update grants for table foo` | Best-effort idempotent — providers may need to detect drift and reconcile |
-| **Destructive** | `- drop table foo`, `- revoke grant from group:x` | **Gated by `--allow-destroy`**. The plan emits these but `apply` refuses unless the operator opts in explicitly. |
+## Contract versions
 
-The destructive gate is the single most important safety property of the planner. Schema migrations that would drop a column require the operator to acknowledge the loss.
-
-## Error translation
-
-Every provider translates cloud-specific errors into typed CLI errors so the operator gets a useful message rather than a stack trace. Examples from the GCP provider:
-
-| Cloud error | Translated to | Exit code |
-|---|---|---|
-| `403 Forbidden: bigquery.datasets.create` | `FluidIAMError`: "Service principal lacks BigQuery Data Editor role on project `prod`. Grant via …" | 64 (configuration) |
-| `409 Conflict: dataset already exists` | (translated to a no-op create — no error) | 0 |
-| `400 Bad Request: invalid schema` | `FluidSchemaError`: "Field `customer.id` declared as STRING in contract but BigQuery has it as INT64. Migration needed via …" | 65 (data) |
-| `Quota exceeded: query bytes` | `FluidQuotaError`: "Project `prod` exceeded daily query bytes quota. See [GCP custom cost controls](https://cloud.google.com/bigquery/docs/custom-quotas)." | 66 (resource) |
-
-See [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) for the full taxonomy.
-
-## Version compatibility
-
-Each provider declares the contract schema versions it can handle:
-
-```python
-class MyProvider(BaseProvider):
-    name = "my-cloud"
-    supported_schemas = ["0.7.1", "0.7.2", "0.7.3", "0.7.4", "0.7.5"]
-```
-
-`fluid validate` cross-checks the contract's `fluidVersion` against every installed provider's `supported_schemas`. Mismatch is a hard failure at validate time — the CLI refuses to load a contract that no installed provider can plan.
+`fluid validate` checks a contract against the bundled schema its `fluidVersion` names: 0.7.1 to 0.7.5, and 0.7.6 as an opt-in preview. Providers do not declare their own list of supported schema versions.
 
 ## Where to look next
 

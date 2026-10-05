@@ -170,10 +170,10 @@ class TestYourScaffold(CustomScaffoldTestHarness):
     sample_contracts = [LOCAL_CONTRACT]
 ```
 
-Four lines, 20 conformance tests run automatically. The harnesses available today:
+Four lines, and the harness's conformance tests run automatically (`sample_contracts` must hold at least one contract, or `test_sample_contracts_present` fails). The harnesses available today:
 
-- `PluginTestHarness` — generic; runs on any role (13 tests)
-- `CustomScaffoldTestHarness` — scaffold-specific atomic writes, sha256, traversal (7 tests, inherits the 13 above)
+- `PluginTestHarness` — generic; runs on any role
+- `CustomScaffoldTestHarness` — scaffold-specific atomic writes, sha256, traversal (inherits the generic tests)
 - `ValidatorTestHarness` — validator-specific conformance (SDK 0.10.0)
 - `InfraProviderTestHarness` — provider plan/apply shape + `op` routing (SDK 0.10.0)
 - `CatalogAdapterTestHarness` — catalog-adapter conformance (SDK 0.10.0)
@@ -295,12 +295,12 @@ For pre-releases (`rc1`, `b1`, `a1`, `.dev1`): same workflow. PyPI marks them as
 
 Semantic versioning. For SDK plugins specifically:
 
-- **`0.x.y`** — pre-1.0; minor versions can break the API. Pin upper bound (`>=0.x,<0.<x+1>`).
+- **`0.x.y`** — pre-1.0; minor versions can break the API. Pin the upper bound (`>=0.x,<0.<x+1>`).
 - **`1.x.y`** — stable. Minor versions add features; patch versions fix bugs; major versions break the API.
 
 For the SDK dependency, pin to `data-product-forge-sdk>=0.10,<1` (until the SDK ships 1.0; bump the upper bound when it does).
 
-For the CLI dependency (if your plugin needs runtime CLI features), pin to the minor line: `data-product-forge>=0.15,<0.16`.
+For the CLI dependency (if your plugin needs runtime CLI features), pin the minor line you tested against, for example `data-product-forge>=0.18.1,<0.19`, and test each new minor before widening the bound. Only the `fluid_build.api` surface carries a SemVer promise ([API stability](../../advanced/api-stability.md)); CLI behaviour has changed on purpose inside a minor line, and each release's notes list those changes (for example the [0.18.0 release notes](../../RELEASE_NOTES_0.18.0.md)).
 
 ## Changelog
 

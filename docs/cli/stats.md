@@ -1,6 +1,6 @@
 # `fluid stats`
 
-Aggregate cost across forge runs. Walks `.fluid/agents/*/cost.json` records and groups by provider, product type, engine, run, or mode.
+Add up the cost of `fluid forge` runs: tokens, dollars and wall-clock time, optionally grouped by LLM provider, product type, engine, run or mode. It reads receipts that are already on disk, so it makes no network call and sends nothing anywhere.
 
 ::: tip Where this fits
 `fluid stats` ships with the guided forge UX in `0.8.3`.
@@ -9,83 +9,165 @@ Aggregate cost across forge runs. Walks `.fluid/agents/*/cost.json` records and 
 ## Syntax
 
 ```bash
-fluid stats [options]
+fluid stats [--by {provider|type|engine|run|mode}] [--since SPEC] [--root PATH] [--json] [--judge]
 ```
+
+## Examples
+
+Total for the last 30 days:
+
+```bash
+fluid stats
+```
+
+```text
+fluid stats — 3 runs · 32,610 tokens · $0.1089 · 65.2s wall-clock
+```
+
+Break it down by LLM provider:
+
+```bash
+fluid stats --by provider
+```
+
+```text
+fluid stats — 3 runs · 32,610 tokens · $0.1089 · 65.2s wall-clock
+┏━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━━┓
+┃ Provider  ┃ Runs ┃ Tokens ┃     USD ┃
+┡━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━━┩
+│ (unknown) │    1 │      0 │ $0.0000 │
+│ anthropic │    1 │ 21,330 │ $0.1014 │
+│ gemini    │    1 │ 11,280 │ $0.0075 │
+└───────────┴──────┴────────┴─────────┘
+```
+
+Separate runs that called an LLM from deterministic runs that did not:
+
+```bash
+fluid stats --by mode
+```
+
+```text
+fluid stats — 3 runs · 32,610 tokens · $0.1089 · 65.2s wall-clock
+┏━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━━┓
+┃ Mode          ┃ Runs ┃ Tokens ┃     USD ┃
+┡━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━━┩
+│ deterministic │    1 │      0 │ $0.0000 │
+│ llm           │    2 │ 32,610 │ $0.1089 │
+└───────────────┴──────┴────────┴─────────┘
+```
+
+Restrict to runs since a date, one row per run:
+
+```bash
+fluid stats --since 2026-10-01 --by run
+```
+
+```text
+fluid stats — 2 runs · 11,280 tokens · $0.0075 · 24.0s wall-clock
+┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━┳━━━━━━━━━┓
+┃ Run                    ┃ Runs ┃ Tokens ┃     USD ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━╇━━━━━━━━━┩
+│ 20261001-124156-a1b2c3 │    1 │ 11,280 │ $0.0075 │
+│ 20261001-164156-a1b2c3 │    1 │      0 │ $0.0000 │
+└────────────────────────┴──────┴────────┴─────────┘
+```
+
+The examples read three `cost.json` receipts under `.fluid/agents/`. Without `--by`, the output is the header line only.
 
 ## Options
 
 | Option | Description |
-|---|---|
-| `--by {provider\|type\|engine\|run\|mode}` | Group results by LLM provider, productType (SDP/ADP/CDP), transformation engine, run, or mode (`mode` separates `deterministic` runs from `llm` runs). Default: total only. |
-| `--since <spec>` | Restrict to recent runs. Accepts relative (`24h`, `7d`, `30d`) or ISO date (`2026-04-01`). Default `30d`. |
-| `--root <path>` | Workspace root to scan. Default: current directory. |
-| `--json` | Emit JSON instead of the human table. |
-| `--judge` | Aggregate `judge.json` receipts (out-of-loop LLM-as-judge scores) instead of `cost.json`. Not combinable with `--by`; group manually from the `--json` output instead. |
+| --- | --- |
+| `--by {provider\|type\|engine\|run\|mode}` | Group the results. `provider` is the LLM provider recorded in each receipt, `type` the product's `metadata.productType` (SDP, ADP, CDP), `engine` the first build's engine, `run` the run directory, and `mode` splits `deterministic` runs from `llm` runs. Default: the total only. |
+| `--since SPEC` | Only runs that started on or after this point. Accepts `30d`, `24h` (days and hours back from now) or an ISO date such as `2026-04-01`. Default `30d`. Anything else exits `2` with `error: --since must look like '30d', '24h', or an ISO date`. |
+| `--root PATH` | The directory to scan. Default: the current directory. A path with no receipts gives an empty total, not an error. |
+| `--json` | Emit JSON instead of the table. |
+| `--judge` | Aggregate `judge.json` receipts (scores from an out-of-loop LLM judge) instead of `cost.json`. Not combinable with `--by`: that exits `2`, and the message says to group from the `--json` output. |
 
-## Examples
+## What gets aggregated
 
-```bash
-# Last 30 days, total only
-fluid stats
-
-# Last 7 days, broken out by LLM provider
-fluid stats --by provider --since 7d
-
-# Since a specific date, broken out by data product type
-fluid stats --by type --since 2026-04-01 --json
-
-# Per-run breakdown with full timing
-fluid stats --by run --since 24h
-```
-
-## Output (human table)
-
-```text
-fluid stats — last 30 days
-──────────────────────────────────────────────────────────────
-Provider                  Runs      Tokens (in/out)        USD
-──────────────────────────────────────────────────────────────
-anthropic/claude-sonnet     14   28,440 / 5,120        $0.273
-openai/gpt-4.1-mini          8    9,210 / 1,890        $0.043
-gemini/gemini-2.5-flash      3      820 /   240        $0.005
-ollama/gemma4:31b            5    7,230 / 1,540        $0.000
-──────────────────────────────────────────────────────────────
-Total                       30   45,700 / 8,790        $0.321
-```
-
-## Output (JSON)
+An LLM-assisted `fluid forge` run writes `.fluid/agents/<run-id>/cost.json`. `fluid stats` scans `--root` recursively for those files and reads these keys from each:
 
 ```json
 {
-  "since": "2026-03-30T00:00:00Z",
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-5",
+  "mode": "llm",
+  "input_tokens": 18210,
+  "output_tokens": 3120,
+  "total_tokens": 21330,
+  "total_usd": 0.1014,
+  "wall_clock_seconds": 41.2
+}
+```
+
+- The run ID is the directory name, in the form `YYYYMMDD-HHMMSS-<suffix>` in UTC. `--since` compares against the timestamp in that name. A directory whose name does not parse is never filtered out.
+- `--by type` and `--by engine` read the product's `contract.fluid.yaml` from the directory that holds `.fluid/`. A run with no readable contract, or a contract without that field, is grouped under `(unknown)`, as is any run whose receipt has no `provider` (the first row of the provider table above).
+- A receipt with no `mode` counts as `deterministic` when it recorded no tokens and no calls, and as `llm` otherwise.
+- A receipt with no `total_usd` adds tokens and time to the totals but no cost.
+
+For LiteLLM-backed runs (`FLUID_LLM_BACKEND=litellm`), the cost comes from LiteLLM's per-call attribution, not from the heuristic estimator. See [LiteLLM backend](../advanced/litellm-backend.md) for accuracy notes.
+
+## JSON output
+
+`--json` prints `total` and `runs_count`. With `--by`, it adds `by` (the dimension) and `groups` (one object per group, sorted by name). Each group has the same fields as `total`: `runs`, `input_tokens`, `output_tokens`, `total_tokens`, `total_usd` and `wall_clock_seconds`.
+
+```bash
+fluid stats --by provider --json
+```
+
+```json
+{
   "by": "provider",
-  "totals": {
-    "runs": 30,
-    "input_tokens": 45700,
-    "output_tokens": 8790,
-    "total_usd": 0.321,
-    "wall_clock_seconds": 145.6
-  },
   "groups": {
-    "anthropic/claude-sonnet": {
-      "runs": 14,
-      "input_tokens": 28440,
-      "output_tokens": 5120,
-      "total_usd": 0.273,
-      "wall_clock_seconds": 67.2
+    "(unknown)": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "runs": 1,
+      "total_tokens": 0,
+      "total_usd": 0.0,
+      "wall_clock_seconds": 1.4
+    },
+    "anthropic": {
+      "input_tokens": 18210,
+      "output_tokens": 3120,
+      "runs": 1,
+      "total_tokens": 21330,
+      "total_usd": 0.1014,
+      "wall_clock_seconds": 41.2
+    },
+    "gemini": {
+      "input_tokens": 9400,
+      "output_tokens": 1880,
+      "runs": 1,
+      "total_tokens": 11280,
+      "total_usd": 0.0075,
+      "wall_clock_seconds": 22.6
     }
+  },
+  "runs_count": 3,
+  "total": {
+    "input_tokens": 27610,
+    "output_tokens": 5000,
+    "runs": 3,
+    "total_tokens": 32610,
+    "total_usd": 0.1089,
+    "wall_clock_seconds": 65.2
   }
 }
 ```
 
-## What gets aggregated
+In a script, read `total.total_usd` for the cost, `runs_count` for how many runs matched, and `groups` for the breakdown:
 
-Every `fluid forge` run writes `.fluid/agents/<run-id>/cost.json` containing the per-call cost breakdown. `fluid stats` reads those files; nothing leaves the workspace.
+```bash
+fluid stats --since 7d --json | jq '.total.total_usd'
+```
 
-For LiteLLM-backed runs (`FLUID_LLM_BACKEND=litellm`), the cost field comes directly from LiteLLM's per-call attribution, not from the heuristic estimator. See [LiteLLM Backend](/forge_docs/advanced/litellm-backend.html) for accuracy notes.
+With nothing to aggregate, the same keys come back as zeros and `groups` is empty. The table output has no per-group split of input and output tokens and no total row; `--json` carries the split.
 
 ## See also
 
-- [Cost Tracking](/forge_docs/advanced/cost-tracking.html) — how the cost figures are computed
-- [LiteLLM Backend](/forge_docs/advanced/litellm-backend.html) — accurate per-call cost via LiteLLM
-- [`fluid forge`](/forge_docs/cli/forge.html) — the runs that produce these records
+- [Cost tracking](../advanced/cost-tracking.md): how the cost figures are computed
+- [LiteLLM backend](../advanced/litellm-backend.md): accurate per-call cost via LiteLLM
+- [`fluid forge`](./forge.md): the runs that produce these receipts

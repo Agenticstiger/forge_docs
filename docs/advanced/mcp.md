@@ -16,38 +16,15 @@ The first half of this page covers the authoring server. The second half is a de
 ### Start the server
 
 ```bash
-fluid mcp serve                 # full surface
-fluid mcp serve --read-only     # read-only inspection
+fluid mcp serve --read-only     # inspection only
+fluid mcp serve                 # full surface, scoped to the working directory
 ```
 
-For scoped write access:
-
-```bash
-fluid mcp serve \
-  --readable-paths ./forge-output \
-  --writable-paths ./forge-output \
-  --writable-namespaces history,audit
-```
-
-### Access controls
-
-Every `tools/call` is checked by policy before it executes.
-
-| Control | Flag | What it does |
-| --- | --- | --- |
-| Read-only mode | `--read-only` | Rejects every mutating tool |
-| Read scope | `--readable-paths PATH[,PATH...]` | Path-based read tools may only inspect files below these roots |
-| Tool allowlist | `--allow-tools TOOL[,TOOL...]` | Hides and blocks tools outside the allowlist |
-| Tool blocklist | `--deny-tools TOOL[,TOOL...]` | Blocks named tools; denial wins over allow |
-| Filesystem scope | `--writable-paths PATH[,PATH...]` | Mutating tools may only write below these roots |
-| Store scope | `--writable-namespaces NS[,NS...]` | Mutating tools may only write listed store namespaces |
-| Inline credentials | `--allow-inline-credentials` | Permit raw catalog credentials via `credentials.inline` (OFF by default) |
-
-The default readable and writable path is the current working directory. The default writable namespaces are `history,audit`.
+Every `tools/call` is checked by policy before it runs. The flags that scope it (`--read-only`, `--allow-tools`, `--deny-tools`, `--readable-paths`, `--writable-paths`, `--writable-namespaces`, `--allow-inline-credentials`) are documented once, in the [`fluid mcp` CLI reference](../cli/mcp.md#access-controls). This page covers what the tools do and how the output port enforces governance.
 
 ### Authoring tools
 
-The authoring server advertises **16 typed tools**:
+The authoring server advertises these tools. With `--read-only`, the tools marked *write* are not advertised:
 
 | Tool | Mode | What it does |
 | --- | --- | --- |
@@ -69,6 +46,26 @@ The authoring server advertises **16 typed tools**:
 | `forge_run` | write | Run a full `fluid forge` in-process — `mode` is `blank`, `diag`, or `ai` |
 
 Every advertised tool includes an MCP `inputSchema`, so clients can provide typed autocomplete and validate arguments before dispatch.
+
+#### Fragment-first contracts
+
+A contract split into fragments keeps `$ref` stubs in its root file (see [Composing a contract with `$ref`](../concepts/contract-refs.md)). `fluid validate`, `fluid plan` and `fluid mcp output-port serve` resolve those references. As of 0.18.1, the authoring tools that take a `contract_path` read the file as written and do not resolve `$ref` stubs. `validate_contract` takes `contract_path` (or `logical_path`) and no inline contract; `score_contract_quality` and `enrich_contract_suggestions` accept either `contract_path` or an inline `contract` object.
+
+On a root that holds `$ref` stubs, `validate_contract` reports errors that `fluid validate` does not:
+
+```text
+{"score": 0, "passes_schema": false, "issues": [
+  {"message": "builds[0]: Additional properties are not allowed ('$ref' was unexpected)", ...},
+  {"message": "exposes[0]: 'exposeId' is a required property", ...}, ...]}
+```
+
+`fluid validate` on the same file prints `✅ Valid FLUID contract (schema v0.7.5)`. Resolve the references first and point the tool at the result:
+
+```bash
+fluid bundle contract.fluid.yaml --out runtime/contract.bundled.yaml
+```
+
+With `contract_path: runtime/contract.bundled.yaml`, the same call returns `passes_schema: false` only for the findings the contract really has. An editor agent driving `fluid mcp serve` on a project that [`fluid forge`](../cli/forge.md) split into fragments needs this step, or it scores `$ref` stubs and not the contract.
 
 ### LLM sampling
 
@@ -165,15 +162,15 @@ exposes:
         maxTokensPerDay: 50000
         canStore: false
         auditRequired: true
-      rowFilters:                    # per-tenant row-level security
-        - { column: tenant_id, equals: "${caller.tenant_id}" }
 ```
+
+Per-tenant row filters are also read from `policy.rowFilters`, with a caveat about schema validation: see [Row-level security](#row-level-security-policy-rowfilters).
 
 ### Per-`tools/call` enforcement order
 
 Every `tools/call` runs through a fixed gauntlet. The order is deliberate: cheap, abuse-resistant gates fire first so a runaway agent can't burn audit storage hammering denied tools.
 
-1. **Identity binding.** The caller's `model_id`, `useCase`, and any extra `clientInfo` fields are read from the MCP `initialize` handshake and bound to the session on the first call. Missing identity is treated as `missing-model-identity` (fail-closed at the model gate).
+1. **Identity binding.** The caller's `model`, `useCase` and any extra attributes are read from the MCP `initialize` handshake, from the `fluid` block of the client's `capabilities.experimental` (and, on MCP SDK 1.x, from extra `clientInfo` fields), and bound to the session on the first call. Missing identity is treated as `missing-model-identity` (fail-closed at the model gate).
 2. **Rate limit.** A sliding-window deque caps calls per window (default 60 calls / 60s). Over the cap returns a `RateLimitExceeded` envelope.
 3. **agentPolicy gate.** `OutputPortPolicy.check_tool_call` evaluates first-deny-wins, in the precedence listed under [Decision precedence and reason codes](#decision-precedence-and-reason-codes-since-0-15-0). A deny returns an `AgentPolicyDenied` envelope.
 4. **Circuit breaker.** If recent driver failures tripped the breaker, the call fast-fails with a `CircuitOpen` envelope instead of queueing behind another doomed connection.
@@ -184,7 +181,19 @@ Every `tools/call` runs through a fixed gauntlet. The order is deliberate: cheap
 **Every decision — allow and deny — is written to the audit trail**, tagged with the `policySource` that produced it (`rate-limit`, `circuit-breaker`, `token-budget`, `contract`, `cli`, …) and, *(since 0.15.0)*, with the `callerJurisdiction` the decision was made under.
 
 ::: tip Self-attested vs. cryptographic identity
-Over **stdio**, the caller's `model_id` / `useCase` come from `clientInfo` — self-attested, and a buggy or malicious client can lie. The gateway prints a loud startup warning whenever a model/use-case gate is active so operators don't mistake it for cryptographic identity. Over **HTTP**, configure JWT or mTLS (below) so identity is cryptographically bound; JWT claims and the mTLS cert subject then *override* self-attestation for downstream `rowFilter` resolution.
+Over **stdio**, the caller's `model` and `useCase` are self-attested, and a buggy or malicious client can lie. A client declares them like this in its `initialize` request:
+
+```json
+{"capabilities": {"experimental": {"fluid": {"model": "claude-haiku-4-5-20251001", "useCase": "analysis", "tenant_id": "t1"}}}}
+```
+
+Any other key in that block becomes a caller attribute, which is what `${caller.<attr>}` row filters resolve against. Whenever a model or use-case gate is active, the gateway prints this notice at startup:
+
+```text
+⚠️  fluid mcp output-port: caller model_id is self-attested via MCP clientInfo. Do not expose this gateway over an untrusted network until P3 (OAuth/mTLS identity) ships. See https://agenticstiger.github.io/forge_docs/concepts/agent-policy.html
+```
+
+The notice is printed whatever the transport and auth mode. Its "until P3 ships" wording predates JWT and mTLS support: over **HTTP**, configure JWT or mTLS (below) and identity is cryptographically bound, because JWT claims and the mTLS cert subject then *override* self-attestation for `rowFilters` resolution and the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0).
 :::
 
 ### agentPolicy runtime gates
@@ -213,7 +222,7 @@ Note the scope. The check runs only for exposes that declare an `agentPolicy` wi
 
 ### Decision precedence and reason codes (since 0.15.0)
 
-Since `0.15.0` every `agentPolicy` decision comes from one function (`fluid_build/policy/decision.py::decide`) over a closed reason vocabulary of eleven codes, and precedence is **data** rather than an accident of statement order. `CHECK_ORDER`, in full:
+Since `0.15.0` every `agentPolicy` decision comes from one function (`fluid_build/policy/decision.py::decide`) over a closed vocabulary of reason codes, and precedence is **data** rather than an accident of statement order. `CHECK_ORDER`, in full:
 
 1. `tool-not-allowed` — denied outright, or absent from a declared tool allowlist.
 2. `missing-caller-jurisdiction`
@@ -231,7 +240,7 @@ plus `allowed` when nothing fires. Two principles set that order: bounded surfac
 The wire values are the existing kebab-case strings, so a caller comparing against `"tool-not-allowed"` keeps working. What is new is that an unenumerated reason now raises instead of quietly becoming a reason nobody defined.
 
 ::: warning Behavior change in 0.15.0
-**No verdict changes, but a reported reason does.** `check_tool_call` documented its precedence as tool denylist → tool allowlist → model denylist → use-case denylist → model allowlist → use-case allowlist, then evaluated the whole model stage before the use-case stage. So a caller whose model was merely *absent from* `allowedModels` and whose use case was *explicitly denied* reported `not-in-allowedModels`; it now reports `in-deniedUseCases`, as the documented precedence always promised. Exercised across 1,728 policy and request combinations, every allow and every deny is identical to `0.14.1` and 48 reported reason codes differ — all of them that one swap. **Operators routing alerts, dashboards or audit queries on those two strings should re-check their rules**, since the reason is what you route on and what an auditor reads.
+**No verdict changes, but a reported reason does.** `check_tool_call` documented its precedence as tool denylist → tool allowlist → model denylist → use-case denylist → model allowlist → use-case allowlist, then evaluated the whole model stage before the use-case stage. So a caller whose model was merely *absent from* `allowedModels` and whose use case was *explicitly denied* reported `not-in-allowedModels`; it now reports `in-deniedUseCases`, as the documented precedence always promised. The allow or deny verdict is the same as on `0.14.1`; the reported reason is what changed. **Operators routing alerts, dashboards or audit queries on those two strings should re-check their rules**, since the reason is what you route on and what an auditor reads.
 :::
 
 A decision record (`Decision.to_record()`) carries `allow`, `reasonCode`, the request identity, and *(since 0.15.0)* three new fields:
@@ -242,7 +251,7 @@ A decision record (`Decision.to_record()`) carries `allow`, `reasonCode`, the re
 | `callerJurisdiction` | The caller's jurisdiction as the gate saw it, or `null`. |
 | `callerJurisdictionSource` | Structured provenance — `"jwt:<claim>"` — rather than a bare `verified: true` boolean. |
 
-35 portable conformance vectors ship inside the wheel at `policy/data/vectors/agent-policy-vectors.json`, so a consumer can check their own gate without cloning the repo. The digest is reachable from `OutputPortPolicy.policy_digest()` and `Decision.to_record()`, and since 0.15.0 every `data_access` audit record carries it as `policyDigest`, alongside `policySource` and `callerJurisdiction`.
+Portable conformance vectors ship inside the wheel at `policy/data/vectors/agent-policy-vectors.json`, so a consumer can check their own gate without cloning the repo. The digest is reachable from `OutputPortPolicy.policy_digest()` and `Decision.to_record()`, and since 0.15.0 every `data_access` audit record carries it as `policyDigest`, alongside `policySource` and `callerJurisdiction`.
 
 ### Caller-jurisdiction enforcement (since 0.15.0)
 
@@ -311,20 +320,20 @@ There is no `--auth-token` CLI flag. Auth is configured entirely through `FLUID_
 
 ### PII / PHI value redaction
 
-Columns marked `sensitivity: pii`, `sensitivity: phi`, or `sensitivity: sensitive` in `expose.contract.schema` keep their **key** visible (the agent still sees the field exists and can write `COUNT(DISTINCT …)` aggregates) but their **values** are replaced with the constant `[REDACTED-PII]` before the row leaves the gateway.
+Columns marked `sensitivity: pii` or `sensitivity: phi` in `expose.contract.schema` keep their **key** visible (the agent still sees the field exists and can write `COUNT(DISTINCT …)` aggregates) but their **values** are replaced with the constant `[REDACTED-PII]` before the row leaves the gateway.
 
 This happens at the **driver boundary** — `EngineDriver.project()` masks every row from `sample`, `query`, and `query_sql` alike. It is distinct from `columnRestrictions`, which drops a column *wholesale*:
 
 | Layer | Source | Effect |
 | --- | --- | --- |
-| **PII redaction** | `contract.schema[].sensitivity` ∈ `{pii, phi, sensitive}` | Column stays in the schema; values become `[REDACTED-PII]`. |
+| **PII redaction** | `contract.schema[].sensitivity` ∈ `{pii, phi}` | Column stays in the schema; values become `[REDACTED-PII]`. |
 | **Column restriction** | `policy.authz.columnRestrictions` (`access: deny`) or `policy.privacy.masking` | Column is removed entirely from the projection. |
 
 Both are **alias-proof on the free-form path.** Masking matches by output column *name*, so `SELECT email AS x` would otherwise sneak a PII value past it. The `query_sql` compiler closes that hole by rejecting any reference to a restricted *or* PII column at compile time (string literals are stripped first, so `WHERE label = 'email'` doesn't false-positive). The agent cannot alias the column away.
 
 ### Row-level security — `policy.rowFilters`
 
-For per-tenant isolation, declare `policy.rowFilters[]` on the expose. Each filter compiles to a parameterised `WHERE` clause appended to `sample` / `query` reads, bound to the caller's identity:
+For per-tenant isolation, the gateway reads `policy.rowFilters[]` from the expose. Each filter compiles to a parameterised `WHERE` clause appended to `sample` / `query` reads, bound to the caller's identity:
 
 ```yaml
 policy:
@@ -333,9 +342,26 @@ policy:
     - { column: region,    in:     "${caller.regions}" }
 ```
 
-`${caller.<attr>}` placeholders resolve from `caller_attributes` — populated from the MCP `clientInfo` extras over stdio, or from JWT claims / the mTLS cert over HTTP. The supported operators are `equals` (scalar) and `in` (non-empty list); values are always **bound as parameters**, never interpolated.
+::: warning `rowFilters` is not in any schema version
+As of 0.18.1, no bundled contract schema (`0.7.1` through `0.7.6`) declares `rowFilters`: `exposePolicy` accepts `authn`, `authz`, `privacy`, `classification`, `agentPolicy`, `tags` and `labels` and nothing else. A contract that declares it fails `fluid validate`, and so `fluid plan` and `fluid apply`, at every `fluidVersion`:
 
-**Missing identity fails closed.** If a filter references `${caller.tenant_id}` and the caller never supplied it, the read raises `RowFilterIdentityMissing` and serves **no rows** — the gateway prefers no rows to wrong rows.
+```text
+ 1. exposes[0].policy: Additional properties are not allowed ('rowFilters' was
+unexpected)
+```
+
+The output-port gateway loads the contract without schema validation, so the filter works there. Serving the contract above with a caller that declares `tenant_id: t1` returns only that tenant's rows, with the PII column redacted:
+
+```json
+{"rows": [{"customer_id": 1, "email": "[REDACTED-PII]", "segment": "gold", "tenant_id": "t1"}], "rowCount": 1}
+```
+
+So a contract that uses `rowFilters` can be served but cannot go through the validate, plan and apply path. Until the schema accepts it, use the cloud-native row policies from the [IAM compilers](#cloud-iam-compilers-defending-the-bypass-path) for warehouse-side enforcement on a contract you apply.
+:::
+
+`${caller.<attr>}` placeholders resolve from `caller_attributes`: the `fluid` block of the client's declared capabilities over stdio, or JWT claims and the mTLS cert over HTTP. The supported operators are `equals` (scalar) and `in` (non-empty list); values are always **bound as parameters**, never interpolated.
+
+**Missing identity fails closed.** If a filter references `${caller.tenant_id}` and the caller never supplied it, the read raises `RowFilterIdentityMissing` and serves **no rows**. The gateway prefers no rows to wrong rows.
 
 ### The five engine drivers
 
@@ -343,7 +369,7 @@ Drivers are keyed on `(binding.platform, binding.format)` and built lazily, so `
 
 | Driver | Binds on | Notes |
 | --- | --- | --- |
-| **DuckDB** | `local` / `{csv, parquet, json, other}` | Reference driver — no credentials. Opens the file read-only (or `:memory:`), auto-creates a view over `read_csv_auto` / `read_parquet` / `read_json_auto`. The same engine the `local` provider uses, so a locally-developed contract serves over MCP unchanged. |
+| **DuckDB** | `local` / `{csv, parquet, json, other}` | Reference driver — no credentials. Opens the file read-only (or `:memory:`), auto-creates a view over `read_csv_auto` / `read_parquet` / `read_json_auto`. The same engine the `local` provider uses, so a locally-developed contract serves over MCP unchanged. Since 0.18.0 the connection runs in the [DuckDB sandbox](./duckdb-sandbox.md#what-each-kind-of-sql-can-reach) and can read only the bound file; two DuckDB drivers bound to the same `.duckdb` file in one process conflict. |
 | **BigQuery** | `gcp` / `bigquery_table` | `@p_<index>` parameters; honours `--query-timeout-seconds`. |
 | **Snowflake** | `snowflake` / `snowflake_table` | `%(p_<index>)s` (DB-API `pyformat`) parameters; honours `--query-timeout-seconds`. |
 | **PostgreSQL** | `postgres` / `{postgres_table, table}` | psycopg v3; **read-only session enforced at connect**; per-statement timeout via `SET LOCAL statement_timeout`; `%(p_<index>)s` parameter rewrite. |
@@ -379,6 +405,31 @@ On graceful shutdown (SIGTERM / SIGINT) the gateway drains in-flight calls (up t
 ### Audit trail, rotation, and the webhook forwarder
 
 Every gateway decision writes a `data_access` audit event to `~/.fluid/store/audit/` (override the root with `FLUID_AUDIT_ROOT`). Writes are atomic (stage-to-temp then rename) and use a microsecond + pid + process-tag + monotonic-counter suffix so concurrent decisions — even across a gateway fleet sharing a network volume — never overwrite each other. The local-disk copy is always the **source of truth**.
+
+The record is written for every decision, whether or not `agentPolicy.auditRequired` is set; `auditRequired` only makes the gateway announce the audit location at startup. This is a real `allow` record (the file is `<timestamp>_<suffix>_data_access.json`):
+
+```json
+{
+  "event": "data_access",
+  "payload": {
+    "argumentSummary": { "limit": 5 },
+    "callerJurisdiction": null,
+    "contractPath": "/work/customers/contract.fluid.yaml",
+    "decision": "allow",
+    "exposeId": "customer_segments",
+    "modelId": "claude-haiku-4-5-20251001",
+    "policyDigest": "jcs-sha256:1cbcc442095182120ff06255dcded1185fc5f824a8cfc195ddeef807b8b2c6e3",
+    "policySource": "contract",
+    "reason": null,
+    "runId": "e230144051ba",
+    "tool": "sample",
+    "useCase": "analysis"
+  },
+  "timestamp_utc": "2026-10-05T01:08:05.577382+00:00"
+}
+```
+
+A denial by the policy gate has the same keys, with `decision: "deny"` and a `reason`. A denial by the rate limit, the circuit breaker or the token budget carries a shorter set (`tool`, `exposeId`, `modelId`, `useCase`, `decision`, `reason`, `policySource`, `argumentSummary`, `runId`): no `contractPath`, `callerJurisdiction` or `policyDigest`, and a `policySource` of `rate-limit`, `circuit-breaker` or `token-budget`.
 
 **Rotation** runs automatically at gateway startup, bounded by two independent knobs:
 
@@ -444,5 +495,5 @@ This is **defence-in-depth** — every layer stops a different failure:
 
 - [`fluid mcp` CLI reference](../cli/mcp.md) — every flag, copy-paste examples, the four agent tools.
 - [Walkthrough: MCP output port](../walkthrough/mcp-output-port.md) — serve the example DuckDB product end-to-end; watch PII masking and an agentPolicy deny.
-- [Governance](./governance.md) — contract-level policy authoring.
+- [Governance](./governance.md) — contract-level policy authoring, including sovereignty.
 - [Environment variables](./environment-variables.md) — the full forge-cli env-var index.

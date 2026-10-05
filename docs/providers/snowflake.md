@@ -1,14 +1,14 @@
 # Snowflake Provider
 
-Deploy data products to Snowflake Data Cloud — databases, schemas, tables, RBAC grants — using the same contract and CLI commands as every other provider.
+Deploy data products to Snowflake Data Cloud (databases, schemas and tables) using the same contract format and CLI commands as the other providers.
 
 **Status:** ✅ Production  
 **Docs Baseline:** CLI `0.18.1`<br>
-**Tested Services:** Databases, Schemas, Tables, Warehouses, RBAC Grants
+**Tested Services:** Databases, Schemas, Tables
 
 > **Why it matters**
 > Target Snowflake with the same contract your other teams run elsewhere — no Snowflake-specific rewrite.
-> Set `binding.platform: snowflake` and Forge compiles to Snowflake DDL, roles / grants, and OpenTofu from the same file.
+> Set `binding.platform: snowflake` and `fluid apply` compiles the contract to an OpenTofu module for the `snowflakedb/snowflake` provider and runs it.
 
 ::: warning Compatibility note
 Examples on this page use the current `fluidVersion: 0.7.5` shape. New orchestration examples should prefer `fluid generate schedule --scheduler airflow` over the older `fluid generate-airflow`.
@@ -20,13 +20,12 @@ Examples on this page use the current `fluidVersion: 0.7.5` shape. New orchestra
 
 The Snowflake provider turns a FLUID contract into real Snowflake infrastructure:
 
-- ✅ **Plan & Apply** — Databases, schemas, tables, warehouses
-- ✅ **RBAC Compilation** — `fluid policy-compile` generates Snowflake `GRANT` statements from `accessPolicy`
-- ✅ **Sovereignty Validation** — Region constraints enforced before deployment
-- ✅ **Orchestration Generation** — prefer `fluid generate schedule --scheduler airflow` for current docs
-- ✅ **RBAC Grants** — `accessPolicy.grants` compiled to Snowflake `GRANT` statements
-- 🧪 **Masking / Row-Access policies (Beta)** — policy objects are created but not yet attached on the default OpenTofu apply path (see [Governance Features](#governance-features))
-- ✅ **Universal Pipeline** — Same Jenkinsfile as GCP and AWS — zero provider logic
+- ✅ **Plan & Apply**: databases, schemas and tables (with `cluster_by`) through OpenTofu
+- ✅ **Sovereignty validation**: region constraints checked before deployment
+- ✅ **Orchestration generation**: `fluid generate schedule --scheduler airflow`
+- ⚠️ **Access grants**: `fluid policy-compile` turns `accessPolicy.grants` into Snowflake grant bindings, but as of 0.18.1 nothing applies them (see [Snowflake-Native Security](#snowflake-native-security))
+- ❌ **Masking, row access and column restrictions**: the contract's `policy.privacy` and `policy.authz.columnRestrictions` fields are not read on Snowflake (see [Governance Features](#governance-features))
+- ✅ **Universal Pipeline**: the same Jenkinsfile as GCP and AWS
 
 ## Choose Your Starting Path
 
@@ -56,24 +55,22 @@ If no explicit credentials are present, browser SSO is only attempted in an inte
 
 ## Working Example: Bitcoin Price Tracker
 
-This is a production-tested example that runs end-to-end in Jenkins CI.
+The contract below provisions a Snowflake table and runs a Python ingestion build. It validates on 0.18.1, and `fluid generate iac` emits a database, a schema and a clustered table from it.
 
 ### Contract
 
 ```yaml
-fluidVersion: "0.7.4"
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: crypto.bitcoin_prices_snowflake_governed
-name: Bitcoin Price Index (FLUID 0.7.4 + Snowflake + Governance)
+name: Bitcoin Price Index (Snowflake)
 description: >
-  Real-time Bitcoin price data with comprehensive governance policies
-  on Snowflake Data Cloud
+  Bitcoin price data on Snowflake
 domain: finance
 
 tags:
   - cryptocurrency
   - real-time
-  - governed
   - gdpr-compliant
   - snowflake
 
@@ -145,40 +142,16 @@ exposes:
         table: "BITCOIN_PRICES"
       properties:
         cluster_by: ["price_timestamp"]
-        table_type: "STANDARD"
-        data_retention_time_in_days: 7
-        change_tracking: true
 
-    # Governance policies
     policy:
       classification: Internal
       authn: custom
-      authz:
-        readers:
-          - role:DATA_ANALYST
-          - role:FINANCE_ANALYST
-          - role:TRADER
-        writers:
-          - role:DATA_ENGINEER
-        columnRestrictions:
-          - principal: "role:JUNIOR_ANALYST"
-            columns: [market_cap_usd, volume_24h_usd]
-            access: deny
-      privacy:
-        masking:
-          - column: "ingestion_timestamp"
-            strategy: "hash"
-            params:
-              algorithm: "SHA256"
-        rowLevelPolicy:
-          expression: >
-            price_timestamp >= DATEADD(day, -30, CURRENT_TIMESTAMP())
 
     # Schema contract
     contract:
       schema:
         - name: price_timestamp
-          type: TIMESTAMP_NTZ
+          type: TIMESTAMP
           required: true
           description: UTC timestamp when price was recorded
           sensitivity: cleartext
@@ -219,12 +192,12 @@ exposes:
           description: 24-hour price change percentage
 
         - name: last_updated
-          type: TIMESTAMP_NTZ
+          type: TIMESTAMP
           required: false
           description: Timestamp from CoinGecko API
 
         - name: ingestion_timestamp
-          type: TIMESTAMP_NTZ
+          type: TIMESTAMP
           required: true
           description: When data was ingested into our system
 
@@ -266,6 +239,22 @@ The binding schema uses three fields to identify platform resources:
 
 This is identical to GCP (`platform: gcp`, `format: bigquery_table`) and AWS (`platform: aws`, `format: parquet`).
 
+### Column types
+
+| Contract type | Snowflake type |
+|---|---|
+| `string`, `text`, `varchar`, `char` | `VARCHAR` |
+| `integer`, `int`, `bigint`, `long` | `NUMBER(38,0)` |
+| `number(p,s)`, `decimal(p,s)`, `numeric(p,s)` | `NUMBER(p,s)` |
+| `float`, `double`, `real` | `FLOAT` |
+| `boolean` | `BOOLEAN` |
+| `timestamp`, `datetime` | `TIMESTAMP_NTZ` |
+| `date`, `time`, `variant`, `object`, `array`, `binary` | `DATE`, `TIME`, `VARIANT`, `OBJECT`, `ARRAY`, `BINARY` |
+
+::: warning Other type names become `VARCHAR`
+As of 0.18.1 the Snowflake module writes any type name outside this table as `VARCHAR`, without a warning. A column declared `TIMESTAMP_NTZ`, `TIMESTAMP_TZ` or `TIMESTAMP_LTZ` is created as `VARCHAR`. Declare `timestamp` for `TIMESTAMP_NTZ`. Because the module pins `lifecycle.ignore_changes = ["column"]`, a later corrected type does not change an existing table; `fluid verify --strict` reports the mismatch.
+:::
+
 ## CLI Commands
 
 Every normal Snowflake provider command is autodetected from `binding.platform`, so `--provider snowflake` is not required for `plan`, `apply`, `verify`, or `test`.
@@ -296,12 +285,8 @@ fluid test contract.fluid.yaml
 # Validate governance declarations
 fluid policy-check contract.fluid.yaml
 
-# Compile RBAC / access bindings from accessPolicy grants
+# Compile access bindings from accessPolicy grants (see the caveat below)
 fluid policy-compile contract.fluid.yaml --env dev --out runtime/policy/bindings.json
-
-# Apply RBAC bindings (dry-run or enforce)
-fluid policy-apply runtime/policy/bindings.json --mode check
-fluid policy-apply runtime/policy/bindings.json --mode enforce
 
 # Generate Airflow DAG
 fluid generate-airflow contract.fluid.yaml --output airflow-dags/bitcoin_snowflake.py
@@ -312,60 +297,68 @@ Recommended deployment gate for enterprise teams:
 1. `fluid validate`
 2. `fluid plan`
 3. `fluid policy-check`
-4. `fluid policy-compile`
-5. `fluid apply`
-6. `fluid verify --strict`
-7. optional `fluid test`
+4. `fluid apply`
+5. `fluid verify --strict`
+6. optional `fluid test`
+
+Grant the contract's roles with your own Snowflake tooling until the grants are applied (see [Snowflake-Native Security](#snowflake-native-security)).
 
 Every Snowflake session opened through the provider carries a `QUERY_TAG` so statements can be attributed in Snowflake `QUERY_HISTORY`. In practice this means plan/apply/verify traffic can be traced back to the contract and environment that issued it.
 
 ## RBAC Policy Compilation
 
-`fluid policy-compile` reads `accessPolicy.grants` and generates Snowflake `GRANT` statements:
+`fluid policy-compile` reads `accessPolicy.grants` and writes one binding per grant and expose:
 
 ```json
 {
-  "provider": "snowflake",
   "bindings": [
     {
-      "role": "role:DATA_ANALYST",
-      "resource": "bitcoin_prices_table",
-      "permissions": [
-        "SELECT on CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES",
-        "USAGE on DATABASE CRYPTO_DATA",
-        "USAGE on SCHEMA CRYPTO_DATA.MARKET_DATA"
+      "provider": "snowflake",
+      "resource_type": "snowflake.table",
+      "resource_id": "CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES",
+      "database": "CRYPTO_DATA",
+      "schema": "MARKET_DATA",
+      "table": "BITCOIN_PRICES",
+      "principal": "role:DATA_ANALYST",
+      "grants": [
+        "SELECT"
       ]
     },
+    ...
     {
-      "role": "role:DATA_ENGINEER",
-      "resource": "bitcoin_prices_table",
-      "permissions": [
-        "INSERT on CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES",
-        "UPDATE on CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES",
-        "DELETE on CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES"
+      ...
+      "principal": "role:DATA_ENGINEER",
+      "grants": [
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "SELECT"
       ]
-    }
-  ]
-}
+    },
+    ...
 ```
 
 The permission mapping:
 
-| Contract Permission | Snowflake GRANT |
+| Contract permissions | Snowflake privileges |
 |--------------------|-----------------|
-| `read`, `select`, `query` | `SELECT` on table, `USAGE` on database + schema |
-| `write`, `insert` | `INSERT` on table |
-| `update` | `UPDATE` on table |
-| `delete` | `DELETE` on table |
+| any of `write`, `insert`, `update`, `delete` | `INSERT`, `UPDATE`, `DELETE`, `SELECT` on the table |
+| otherwise (`read`, `select`, `query`) | `SELECT` on the table |
+
+No `USAGE` on the database or schema is compiled.
+
+::: warning As of 0.18.1, Snowflake grants are compiled but not applied
+`fluid policy-apply` on these bindings exits 0 and prints that the Snowflake provider has no standalone policy applier and that grants are applied during `fluid apply`. The Snowflake module `fluid apply` runs emits no grant from `accessPolicy`: its only grant source is a top-level `security.access_control` block, which the schema rejects. So `accessPolicy.grants` reaches no Snowflake role, and `fluid validate` does not warn. Grant the roles with your own tooling (for example a Terraform module or a SQL migration that runs `GRANT SELECT ON TABLE ... TO ROLE ...`), using the compiled bindings as the list.
+:::
 
 ## Governance Scope
 
 Use the governance commands this way:
 
 - `fluid policy-check` validates governance declarations in the contract.
-- `fluid policy-compile` and `fluid policy-apply` manage Snowflake RBAC and access-policy bindings.
-- Snowflake governance during `apply` handles object-level controls such as tags and descriptions. Masking and row-access **policy objects are created** on the OpenTofu apply path, but are **not yet attached** to columns/tables there — see the Beta caveat under [Governance Features](#governance-features).
-- `fluid verify` checks deployed schema and drift. It does not perform a full RBAC or entitlement audit.
+- `fluid policy-compile` lists the grants `accessPolicy` asks for; as of 0.18.1 neither `fluid policy-apply` nor `fluid apply` applies them on Snowflake.
+- `fluid apply` writes the table's COMMENT: the contract description, a `FLUID classification` section (`fluid_layer`, `fluid_product_type`, `fluid_domain`, `fluid_version`) and the contract YAML.
+- `fluid verify` checks deployed schema and drift. It does not audit grants.
 
 ## Credentials Setup
 
@@ -497,33 +490,14 @@ This keeps runtime behavior aligned with the contract and credential settings ac
 
 ## Infrastructure Created
 
-When you run `fluid apply` on a Snowflake contract, the provider creates:
+When you run `fluid apply` on the contract above, the OpenTofu module creates three resources (`fluid generate iac` shows the same module). The warehouse named in `execution.runtime.resources` must already exist; it is used, not created.
 
 | Resource | Details |
 |----------|---------|
 | **Database** | `CRYPTO_DATA` |
 | **Schema** | `CRYPTO_DATA.MARKET_DATA` |
 | **Table** | `CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES` — clustered by `price_timestamp` |
-| **Warehouse** | `COMPUTE_WH` (X-SMALL) — used for queries and ingestion |
 
-### What the Pipeline Produces
-
-After a successful run, the pipeline inserts real data:
-
-```sql
-SELECT price_timestamp, price_usd, price_eur, market_cap_usd
-FROM CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES
-ORDER BY price_timestamp DESC
-LIMIT 5;
-```
-
-```
-┌──────────────────────┬───────────┬───────────┬────────────────┐
-│ PRICE_TIMESTAMP      │ PRICE_USD │ PRICE_EUR │ MARKET_CAP_USD │
-├──────────────────────┼───────────┼───────────┼────────────────┤
-│ 2025-01-30 14:30:52  │ 104809.00 │  96543.00 │ 2075000000.00  │
-└──────────────────────┴───────────┴───────────┴────────────────┘
-```
 
 ## Governance Features
 
@@ -556,60 +530,31 @@ rather than `EU`. Modes, carve-outs and the full region story:
 [Sovereignty enforcement modes](/forge_docs/advanced/governance.html#sovereignty-enforcement-modes-since-0-15-0).
 :::
 
-### Column-Level Security
+### Column restrictions, masking and row filters are not read
 
-Restrict specific columns from specific roles:
+These fields validate on a Snowflake expose and produce nothing on Snowflake as of 0.18.1:
 
-```yaml
-authz:
-  columnRestrictions:
-    - principal: "role:JUNIOR_ANALYST"
-      columns: [market_cap_usd, volume_24h_usd]
-      access: deny
-```
+- `policy.authz.columnRestrictions`
+- `policy.privacy.masking`
+- `policy.privacy.rowLevelPolicy`
+- `sensitivity: pii` on a column
 
-### Privacy Masking
-
-Hash sensitive fields and enforce retention policies:
-
-```yaml
-privacy:
-  masking:
-    - column: "ingestion_timestamp"
-      strategy: "hash"
-      params:
-        algorithm: "SHA256"
-  rowLevelPolicy:
-    expression: "price_timestamp >= DATEADD(day, -30, CURRENT_TIMESTAMP())"
-```
-
-Row-level security expressions are intentionally validated against a narrow SQL-expression allowlist before Forge generates a Snowflake row access policy object. Keep these expressions to predicate-style logic such as comparisons, boolean operators, function calls, and string literals. (As noted under [Snowflake-Native Security](#snowflake-native-security), policy *attach* on the default apply path is still Beta.)
-
-Forge rejects or skips unsafe expressions that contain statement separators, SQL comments, or statement-level keywords such as `SELECT`, `USE`, `GRANT`, `DROP`, or `INSERT`. When that happens, planning continues and the CLI emits a warning so you can fix the contract instead of applying unsafe SQL.
+Neither the Snowflake OpenTofu module nor the Snowflake provider reads them, so no masking policy, row access policy or grant comes from them. Do not rely on them to protect a Snowflake column. On GCP, `columnRestrictions` becomes [policy tags](./gcp.md#column-restrictions-policy-tags); masking at landing is applied by the DuckDB acquisition runner when it writes a local file, an S3 object or a BigQuery load file.
 
 ### Snowflake-Native Security
 
-The contract's governance maps to Snowflake's built-in features:
+What 0.18.1 does with each governance field on a Snowflake binding:
 
-| Contract Feature | Snowflake Implementation | Status |
-|-----------------|-------------------------|--------|
-| `accessPolicy.grants` | `GRANT SELECT/INSERT/UPDATE ON TABLE ... TO ROLE ...` | ✅ Supported |
-| `columnRestrictions` | Dynamic Data Masking policies | 🧪 Beta — policy created, not attached |
-| `rowLevelPolicy` | Row Access Policies | 🧪 Beta — policy created, not attached |
-| `sovereignty.allowedRegions` | Account region validation | ✅ Supported |
-| `classification` | Object tagging via `TAG` | ✅ Supported |
+| Contract field | On Snowflake |
+|-----------------|-------------------------|
+| `accessPolicy.grants` | compiled by `fluid policy-compile`; not applied by `fluid policy-apply` or `fluid apply` |
+| `policy.authz.columnRestrictions` | not read |
+| `policy.privacy.masking` | not read |
+| `policy.privacy.rowLevelPolicy` | not read |
+| `sovereignty` | checked against the binding's region before deployment |
+| `metadata.layer`, `productType`, `domain`, `fluidVersion` | written into the table COMMENT |
 
-::: warning Masking / Row-Access policies are Beta
-On the default OpenTofu apply path, Forge emits `snowflake_masking_policy` and
-`snowflake_row_access_policy` *objects* but does **not yet attach** them to columns/tables
-(no `ALTER TABLE ... SET MASKING POLICY` / `ADD ROW ACCESS POLICY` is run on that path). The
-attach DDL exists only in the legacy native engine, which is off the default path. Separately,
-the top-level `security:` block these emitters read is **not in the v0.7.5 schema** (the contract
-root is closed), so a contract carrying a `security:` block fails `fluid validate`. Treat
-Snowflake masking / RLS as experimental until the policy-attach and a schema-recognized
-governance field land. RBAC grants (`accessPolicy.grants` / `security.access_control.grants`)
-do ship.
-:::
+The Snowflake module can emit `snowflake_masking_policy`, `snowflake_row_access_policy` and `snowflake_grant_privileges_to_account_role` objects, but only from a top-level `security:` block (`security.policies`, `security.access_control.grants`). The contract schema rejects that block, so a contract carrying it fails `fluid validate`, and even then the policies are created without being attached to a column or table.
 
 ## CI/CD Pipeline
 
@@ -619,16 +564,16 @@ The Snowflake example uses the exact same Jenkinsfile as GCP and AWS — the [Un
 |-------|---------|-------------|
 | Validate | `fluid validate` | Contract checked against the bundled schema |
 | Export | `fluid odps export` / `fluid odcs export` | Standards files generated |
-| Compile RBAC | `fluid policy-compile` | `accessPolicy` → Snowflake GRANT bindings |
+| Compile RBAC | `fluid policy-compile` | `accessPolicy` → Snowflake grant bindings |
 | Plan | `fluid plan` | Execution plan generated |
 | Apply | `fluid apply` | Database + schema + table created |
-| Apply RBAC | `fluid policy-apply` | RBAC grants enforced |
-| Execute | `fluid apply --mode amend-and-build` | `ingest.py` runs, inserts rows to Snowflake |
+| Apply RBAC | `fluid policy-apply` | No-op on Snowflake as of 0.18.1 (see above) |
+| Execute | `fluid apply --mode amend-and-build` | Runs the contract's build (`ingest` in `./runtime`) after provisioning |
 | Airflow DAG | `fluid generate-airflow` | Production DAG generated |
 
 ## Snowflake Table Properties
 
-The `binding.properties` block supports Snowflake-specific table features:
+The Snowflake module reads one table property from `binding.properties`:
 
 ```yaml
 binding:
@@ -639,11 +584,10 @@ binding:
     schema: "MARTS"
     table: "CUSTOMER_METRICS"
   properties:
-    cluster_by: ["customer_id", "order_date"]
-    table_type: "STANDARD"              # STANDARD or TRANSIENT
-    data_retention_time_in_days: 7      # Time Travel retention
-    change_tracking: true               # Enable CDC streams
+    cluster_by: ["customer_id", "order_date"]   # must be a list of columns
 ```
+
+Other keys under `binding.properties` (`table_type`, `data_retention_time_in_days`, `change_tracking`) pass validation and are not emitted. Set them on the table with your own tooling.
 
 ## Iceberg Tables via dbt (since 0.13.1)
 

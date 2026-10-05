@@ -1,7 +1,11 @@
 # Fluid Forge Docs Baseline: CLI `0.15.0`
 
 **Release Date:** September 14, 2026
-**Status:** Current stable docs baseline (supersedes [`0.14.0`](./RELEASE_NOTES_0.14.0.md))
+**Status:** Superseded by [`0.16.0`](./RELEASE_NOTES_0.16.0.md); the current baseline is
+[`0.18.1`](./RELEASE_NOTES_0.18.0.md). Supersedes [`0.14.0`](./RELEASE_NOTES_0.14.0.md).
+Since `0.16.0`, the federation digest gate described in checklist step 11, in the git-backed
+digest items and under Fixed logs `apply_consumes_drift` and applies instead of exiting 1.
+The [upgrade guide](./upgrading.md) has a checklist for each version after this page.
 
 This baseline covers **two CLI releases**: `0.14.1` (August 3) and `0.15.0` (September 14). `0.14.1`
 did not receive its own docs pass, so both change sets are documented here.

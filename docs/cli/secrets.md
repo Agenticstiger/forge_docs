@@ -6,13 +6,21 @@ Manage secrets used by acquisition pipelines — Postgres passwords, Snowflake k
 `fluid secrets` ships with the source-aligned acquisition stack in `0.8.3` (schema `0.7.3`). Earlier releases don't include it.
 :::
 
+::: warning Contracts do not read this keychain
+`fluid secrets` stores a value under the service name `fluid-forge` in the OS keychain. As of 0.18.1, no other command reads that entry: not `fluid apply`, and not the acquisition runners. A secret stored with `fluid secrets login` is not what a contract's `secretRef` resolves. See [How contracts consume secrets](#how-contracts-consume-secrets).
+:::
+
+::: tip Got `copilot_missing_llm_api_key`?
+That error links to this page, but LLM credentials are not managed here. Run `fluid ai setup` to store a provider key. See [`fluid ai`](./ai.md).
+:::
+
 ## Syntax
 
 ```bash
 fluid secrets <subcommand> <secretRef> [options]
 ```
 
-The `secretRef` is a dotted path that the contract refers to via `${SECRETREF}` placeholders — e.g. `postgres.prod.password`, `airbyte.token`, `snowflake.keypair_path`.
+The `secretRef` here is a name you choose for the keychain entry, for example `postgres.prod.password`, `airbyte.token` or `snowflake.keypair_path`. It is not the `secretRef` URI a contract uses (`env://PGPASSWORD`, `vault://...`).
 
 ## Subcommands
 
@@ -33,7 +41,7 @@ cat /etc/keys/sf.p8 | fluid secrets login snowflake.keypair_path --expires-at 20
 | Option | Description |
 |---|---|
 | `<secretRef>` | Required. The reference name. |
-| `--expires-at <iso8601>` | Optional. When the secret expires (informational; the rotator uses this hint). |
+| `--expires-at <iso8601>` | Optional. Echoed in the result as `expires_at`. The keychain backend does not store it. |
 | `--json` | Emit a JSON result object instead of the human line. |
 
 ### `fluid secrets verify`
@@ -82,38 +90,56 @@ All three subcommands share one result shape under `--json`:
 }
 ```
 
-- `success` — `true` when the operation completed; the process exit code mirrors this.
-- `backend` — `keychain` (default) or `memory` (when `FLUID_SECRETS_INMEMORY=1`).
-- `detail` — short human note (`present` / `not found in backend` / `rotated` / `stored (no prior secret)` etc.).
-- `expires_at` — echoes `--expires-at` when one was passed; otherwise `null`.
+That is the shape `verify` returns for a stored secret.
+
+- `success`: `true` when the operation completed; the process exit code mirrors this.
+- `backend`: `keychain` (default) or `memory` (when `FLUID_SECRETS_INMEMORY=1`).
+- `detail`: a short note. `login` leaves it `null`; `verify` says `present` or `not found in backend`; `rotate` says `rotated` or `stored (no prior secret)`.
+- `expires_at`: echoes `--expires-at` when one was passed; otherwise `null`.
 
 ## Backends
 
 | Backend | When it's used |
 |---|---|
-| **OS keychain** *(default)* | macOS Keychain / Linux Secret Service / Windows Credential Manager. Same backend `fluid ai setup` uses for LLM keys. |
+| **OS keychain** *(default)* | macOS Keychain / Linux Secret Service / Windows Credential Manager, through the `keyring` package. Entries use the service name `fluid-forge` and the secret reference as the account. |
 | **In-memory** | Tests and CI. Enable with `FLUID_SECRETS_INMEMORY=1`. Lost when the process exits. |
 
 You don't pick the backend on the command line; it's process-global per the env var.
 
-## How contracts reference secrets
+## How contracts consume secrets
 
-Acquisition contract fields read `${env.VAR}` placeholders that are resolved at apply time:
+A contract names a secret with a `secretRef` URI, `<scheme>://<identifier>`, on the field that needs it. For an acquisition source it sits in `connection`:
 
 ```yaml
-properties:
-  source:
-    connection:
-      host: "{{ env.PGHOST }}"
-      password: "{{ env.PGPASSWORD }}"
+builds:
+- id: ingest_orders
+  pattern: acquisition
+  properties:
+    source:
+      kind: postgres
+      connection:
+        host: "{{ env.PGHOST }}"
+        database: orders
+        user: ingest
+        secretRef: env://PGPASSWORD
+      mode: full_refresh
+      streams: [public.orders]
 ```
 
-`fluid secrets login pg.password` doesn't change that — it stores into the backend so the next `fluid apply` can resolve `${SECRET:pg.password}` references when the contract uses that pattern. The two reference styles coexist:
+The runner resolves the URI when the build runs. The schemes are:
 
-- `{{ env.X }}` — read environment variable `X` at apply time
-- `${SECRET:pg.password}` — read from the secrets backend at apply time
+| Scheme | Reads from |
+|---|---|
+| `env://VAR` | The environment variable `VAR`. An unset variable is an error. |
+| `vault://path` | HashiCorp Vault |
+| `aws://name` | AWS Secrets Manager |
+| `gcp://name` | GCP Secret Manager |
+| `azure://name` | Azure Key Vault |
+| `file://name` | The local secrets directory `~/.fluid/secrets/`: `name` is a single file name in that directory, not a path. Absolute paths, `/`, `\` and `..` are refused |
 
-Use `${SECRET:...}` for credentials that shouldn't sit in environment variables (CI logs, parent processes); use `{{ env.X }}` for fixtures or local dev.
+Any other scheme fails with the list of supported ones. `{{ env.VAR }}` is a different mechanism: it substitutes an environment variable into a string field of the contract. When `fluid apply` or `fluid publish` resolves a contract, a placeholder whose name looks like a credential (`..._PASSWORD`, `..._TOKEN`, `..._SECRET`, `..._API_KEY`) is left unresolved, so use `secretRef` for credentials. No `${SECRET:...}` placeholder exists.
+
+Use `env://` in CI, where the variable comes from your CI system's secret store, and `vault://`, `aws://`, `gcp://` or `azure://` where a secrets manager holds the value. The keychain is not among the schemes, so `fluid secrets login` does not feed a build. Its entries are for the CLI's own `fluid secrets verify` and `rotate`.
 
 ## Exit codes
 
@@ -125,5 +151,5 @@ Use `${SECRET:...}` for credentials that shouldn't sit in environment variables 
 ## See also
 
 - [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — why pipelines need secrets
-- [Credential Resolver](/forge_docs/advanced/credential-resolver.html) — how Forge resolves `${SECRET:...}` placeholders at runtime
-- [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html) — `SecretResolutionError`
+- [Credential Resolver](/forge_docs/advanced/credential-resolver.html): how the CLI stores and reads catalog credentials
+- [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html): `SecretResolutionError`

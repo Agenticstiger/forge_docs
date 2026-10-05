@@ -1,14 +1,12 @@
 ---
 title: Playground
-description: Edit a real FLUID contract in your browser. No install required.
+description: Edit a starter FLUID contract in your browser, then validate it locally with the CLI.
 sidebar: false
 ---
 
-# 🎛 Playground
+# Playground
 
-Pick a starter, edit the YAML, copy it. When you're ready, paste into a local file and run `fluid validate`.
-
-In-browser validation via Pyodide is on the roadmap — for now the editor focuses on **fast iteration on the schema** without round-tripping through `pip install`.
+Pick a starter, edit the YAML, copy it. Paste it into a local file and run `fluid validate`. The editor works on the YAML only: it does not run the CLI or the schema, so nothing in the editor tells you whether a contract is valid.
 
 <ClientOnly>
   <Playground />
@@ -16,12 +14,28 @@ In-browser validation via Pyodide is on the roadmap — for now the editor focus
 
 ## What's in each template?
 
-- **Local · DuckDB** — runs on your laptop with `platform: local` + `format: parquet`. The fastest path from "never installed FLUID" to "deployed data product."
-- **GCP · BigQuery** — production-grade with schema, IAM grants in `accessPolicy.grants[]`, AI/agent boundaries via `agentPolicy`, and column-level PII tagging.
-- **AWS · Athena** — S3-backed external table with the canonical bucket/prefix layout the AWS provider produces.
-- **Snowflake** — three-part-name binding with role-based access control.
+- **Local · DuckDB** uses `platform: local` with `format: parquet` and a build step that reads a source table.
+- **GCP · BigQuery** has a schema, a BigQuery binding, IAM grants in `accessPolicy.grants[]`, an AI/agent boundary and a PII-tagged column.
+- **AWS · Athena** has an S3-backed table with a bucket and a prefix.
+- **Snowflake** has a three-part-name binding and a role grant.
 
-All four validate cleanly; they declare `fluidVersion: 0.7.2`, which the current CLI still accepts. The latest bundled stable schema is `0.7.5`.
+## What the starters do on CLI 0.18.1
+
+Checked with `fluid validate` against CLI 0.18.1. The starters declare `fluidVersion: "0.7.2"`, which the CLI still accepts; the latest stable contract schema is `0.7.5`, which is what `fluid init --quickstart` writes.
+
+| Starter | `fluid validate` |
+|---|---|
+| Local · DuckDB | Valid |
+| Snowflake | Valid |
+| GCP · BigQuery | Fails: `root: Additional properties are not allowed ('agentPolicy' was unexpected)` |
+| AWS · Athena | Fails: `exposes[0].binding.location: Additional properties are not allowed ('prefix' was unexpected)` |
+
+Both failures also occur with `fluidVersion: "0.7.5"`. To fix them by hand:
+
+- **GCP:** `agentPolicy` is not a root key. Put it under the expose, as `exposes[].policy.agentPolicy`, with the same `allowedModels` and `allowedUseCases` keys.
+- **AWS:** the `s3_file` location takes `path`, not `prefix`. Write `path: events/web_clickstream/`.
+
+With those two edits and `fluidVersion: "0.7.5"`, all four starters validate. A starter that validates is not necessarily one that applies: the Local starter's build SQL reads a table named `raw_btc_feed` that the contract does not create, so `fluid apply` stops on the first action with `Catalog Error: Table with name raw_btc_feed does not exist!`. For a contract that applies from a clean directory, use `fluid init my-project --quickstart`; with the local extra installed it writes two Parquet files under `output/`.
 
 ## Next steps
 
@@ -34,9 +48,10 @@ $ pbpaste > contract.fluid.yaml      # macOS — pulls from clipboard
 # 2. Validate it (requires `pipx install data-product-forge` — see Getting Started)
 $ fluid validate contract.fluid.yaml
 
-# 3. Plan and apply against the local provider (no cloud account needed)
+# 3. Preview what apply would do
 $ fluid plan contract.fluid.yaml
-$ fluid apply contract.fluid.yaml --yes
 ```
+
+Applying against the local provider also needs DuckDB: `pip install "data-product-forge[local]"`. Then `fluid apply contract.fluid.yaml --yes` runs the contract, provided its build steps read tables that exist.
 
 [Full quickstart →](/forge_docs/getting-started/) · [CLI reference →](/forge_docs/cli/)

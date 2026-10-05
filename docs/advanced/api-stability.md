@@ -42,66 +42,78 @@ The package is organized by extension point. Each module exports a Protocol (PEP
 | `fluid_build.api.catalog` | `CatalogRegistrar`, `RegistrationResult` | Register datasets with a non-built-in catalog |
 | `fluid_build.api.schema` | `SchemaPolicy`, `SchemaFingerprint`, `SchemaEvolutionDecision` | Customize schema-evolution decisioning |
 | `fluid_build.api.security` | `ImageSignatureVerifier`, `SovereigntyChecker` | Add custom image-signing / sovereignty checks |
+| `fluid_build.api.contract` | `load_contract`, `load_contract_from_text`, `load_contract_from_dict`, `LoadedContract`, `ContractOrigin`, `ContractLoadError` | Read a contract from Python exactly as `fluid plan` sees it (API 1.1) |
 | `fluid_build.api.conformance` | `RunnerConformance` (test suite) | Verify your runner conforms to the Protocol |
 
-## Quickstart — adding a new runner
+## Writing a runner
+
+A runner is a class that satisfies the `Runner` protocol. It declares what it can do and implements four methods, each taking one `RunContext`:
 
 ```python
 # my_runner/runner.py
-from fluid_build.api.runner import Runner, RunnerCapability, RunResult, RunContext
+from typing import ClassVar, FrozenSet
+
+from fluid_build.api.runner import (
+    RunContext, RunnerCapability, RunPlan, RunResult,
+)
+from fluid_build.api.schema import SchemaFingerprint
+
 
 class MyRunner:
-    name = "my-engine"
-    capabilities = frozenset({
+    name: ClassVar[str] = "my-engine"
+    declared_capabilities: ClassVar[FrozenSet[RunnerCapability]] = frozenset({
         RunnerCapability.FULL_REFRESH,
         RunnerCapability.SCHEMA_DISCOVERY,
         RunnerCapability.AT_LEAST_ONCE,
     })
+    declared_modes: ClassVar[FrozenSet[str]] = frozenset({"embedded"})
 
-    def validate(self, contract, build, *, ctx: RunContext) -> None:
-        ...
-
-    def plan(self, contract, build, *, ctx: RunContext) -> dict:
-        ...
-
-    def apply(self, contract, build, *, ctx: RunContext) -> RunResult:
-        ...
+    def plan(self, ctx: RunContext) -> RunPlan: ...
+    def run(self, ctx: RunContext) -> RunResult: ...
+    def replay(self, ctx: RunContext, run_id: str) -> RunResult: ...
+    def fingerprint(self, ctx: RunContext) -> SchemaFingerprint: ...
 ```
 
-Register it via entry-point:
+`declared_modes` is a subset of `embedded`, `bring-your-own` and `managed`. `plan` previews what `run` would do, `replay` re-runs a prior run id, and `fingerprint` snapshots the source schema for drift detection.
 
-```toml
-# pyproject.toml
-[project.entry-points."fluid_build.runners"]
-my-engine = "my_runner.runner:MyRunner"
-```
-
-Run the conformance suite:
+Test it with the conformance suite. Set `runner` to an instance:
 
 ```python
 # tests/test_my_runner.py
 from fluid_build.api.conformance import RunnerConformance
 from my_runner.runner import MyRunner
 
+
 class TestMyRunner(RunnerConformance):
-    runner_class = MyRunner
+    runner = MyRunner()
+    fixtures = "fluid_build.api.conformance.fixtures.minimal"
 ```
 
-The conformance suite asserts every Protocol method is implemented, signatures match, the run-record JSON shape is uniform, and the exit-code contract is honored. Pass that and your runner behaves identically to the built-in six (DuckDB, dlt, Meltano, Airbyte, Kafka Connect, Debezium) under day-2 ops.
+The suite checks that the class variables are present and that the runner declares at least one capability. It also checks that `plan` is idempotent, `run` returns the context's run id in a terminal state, `fingerprint` is stable, and the lineage events a run emits fit the OpenLineage shape. Pass it and your runner behaves like the built-in engines under `fluid runs`.
 
-## Quickstart — adding a catalog registrar
+::: warning The CLI does not discover third-party runners
+As of 0.18.1, `fluid apply` dispatches the `engine` values `duckdb`, `dlt`, `meltano`, `airbyte`, `kafka-connect` and `debezium` from a fixed table in `fluid_build/build_runners/base.py`. No entry-point group registers a runner, so a runner you write is used from your own code and tests, and not through `engine:` in a contract. The plug-in roles `fluid plugins` knows are `provider`, `validator`, `catalog`, `iac_provider` and `custom_scaffold`, plus `command`, `apply_hook`, `extension_schema`, `extension_validator`, `modeling_technique`, `source_adapter` and `llm_provider`; none of them is a runner or a registrar.
+:::
+
+## Writing a catalog registrar
+
+A registrar satisfies the `CatalogRegistrar` protocol: a `target` name, `register_payload` as the canonical publish method, and `unregister`.
 
 ```python
 from fluid_build.api.catalog import CatalogRegistrar, RegistrationResult
 
-class MyCatalogRegistrar:
-    name = "my-catalog"
 
-    def register(self, contract, dataset, *, ctx) -> RegistrationResult:
-        ...
+class MyCatalogRegistrar:
+    target = "my-catalog"
+
+    def register_payload(self, payload) -> RegistrationResult: ...
+    def unregister(self, product_id: str, expose_id: str) -> RegistrationResult: ...
+    def register(self, product_id, expose_id, contract, classifications) -> RegistrationResult: ...
 ```
 
-Out-of-tree registrars work via the same entry-point pattern (`[project.entry-points."fluid_build.catalog_registrars"]`). The five built-in registrars (DataHub, OpenMetadata, Unity, Glue, Snowflake Horizon) implement the same Protocol — they're not special-cased.
+`register_payload` receives a `CatalogPublicationPayload` that already carries the rendered specs and normalised metadata. `register` is the older per-expose entry point, kept so existing backends keep working. Each call publishes the whole product.
+
+The built-in targets are `datahub`, `openmetadata`, `datamesh_manager`, `unity`, `glue` and `snowflake_horizon`; the CLI treats them through the same protocol, with no special case. As with runners, the CLI does not load a registrar from an entry point: a registrar is registered in code with `register_registrar` from `fluid_build.build_runners._catalog`, which is internal.
 
 ## Internal vs. public boundary
 
@@ -118,6 +130,7 @@ The rule of thumb: anything imported from `fluid_build.api.*` is governed by the
 
 ## See also
 
-- [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) — the framework the public API supports
-- [Custom Providers](/forge_docs/providers/custom-providers.html) — the same pattern for `Provider` extensions
-- [Forge Tools](/forge_docs/advanced/forge-tools.html) — the `@forge_tool` decorator for in-process tool extensions (separate from the public API; lives in the copilot stack)
+- [Source-Aligned Acquisition](./source-aligned-acquisition.md): the framework the public API supports
+- [Contract-loading API](./contract-loading-api.md): `load_contract` and its siblings
+- [Custom Providers](../providers/custom-providers.md): the same pattern for `Provider` extensions
+- [Forge Tools](./forge-tools.md): the `@forge_tool` decorator for in-process tool extensions (separate from the public API; lives in the copilot stack)

@@ -16,7 +16,7 @@ Suggested name:
 
 Suggested description:
 
-`Drafts and reviews FLUID 0.7.3 contracts for Forge, asks provider-specific follow-up questions, and requires validation before anything is treated as final.`
+`Drafts and reviews FLUID 0.7.5 contracts for Forge, asks provider-specific follow-up questions, and requires validation before anything is treated as final.`
 
 Instructions:
 
@@ -69,8 +69,8 @@ Do not publish to the GPT Store for this version.
 
 Run these in Preview before sharing:
 
-1. `Generate a FLUID 0.7.3 contract for a local CSV cleanup pipeline from these fields: order_id, customer_id, amount, order_date.`
-2. `Generate a FLUID 0.7.3 contract for a GCP customer metrics table with GDPR residency and AI restrictions.`
+1. `Generate a FLUID 0.7.5 contract for a local CSV cleanup pipeline from these fields: order_id, customer_id, amount, order_date.`
+2. `Generate a FLUID 0.7.5 contract for a GCP customer metrics table with GDPR residency and AI restrictions.` The GPT should ask which region before it drafts.
 3. `Review this contract and tell me what will fail validation:` then paste an intentionally broken contract
 4. Upload a small schema-like CSV or JSON artifact and ask the GPT to map it to `exposes[].contract.schema`
 
@@ -82,5 +82,7 @@ The GPT should never treat output as final until someone runs:
 fluid validate contract.fluid.yaml --strict
 fluid plan contract.fluid.yaml --provider <provider> --out plan.json
 ```
+
+Add `--check-sovereignty` to the plan when the contract has a `sovereignty` block.
 
 If validation has not been run yet, the GPT should label the result `Draft`.

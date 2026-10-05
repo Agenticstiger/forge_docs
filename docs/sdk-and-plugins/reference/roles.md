@@ -4,8 +4,8 @@ Four built-in roles, all subclasses of `BasePlugin`. Pick by what you're produci
 
 | Role | Role tag | What it produces | Default `apply()` does |
 |---|---|---|---|
-| [`CustomScaffold`](#customscaffold) | `"scaffold"` | Files on disk | Atomically writes each `write_file` action with sha256 verification + path-traversal guards |
-| [`Validator`](#validator) | `"validator"` | `Finding` records | Summarizes findings by severity, sets the CLI exit code |
+| [`CustomScaffold`](#customscaffold) | `"custom_scaffold"` | Files on disk | Atomically writes each `write_file` action with sha256 verification + path-traversal guards |
+| [`Validator`](#validator) | `"validator"` | `Finding` records | Summarizes findings by severity. `fluid validate` reads the findings from `plan()` and does not call `apply()` |
 | [`InfraProvider`](#infraprovider) | `"provider"` | Cloud resources | **Abstract on purpose** — you implement it (provisions per `op` in your action list); a plugin that forgets to fails loud, never a silent no-op |
 | [`CatalogAdapter`](#catalogadapter) | `"catalog"` | Catalog entries | **Abstract on purpose** — you implement it (pushes to your catalog of choice); forgetting fails loud, never a silent no-op |
 
@@ -58,7 +58,7 @@ from fluid_sdk import CustomScaffold, ContractHelper, write_file_action
 
 class MyScaffold(CustomScaffold):
     name = "my-scaffold"
-    # role = "scaffold" is inherited.
+    # role = "custom_scaffold" is inherited.
 
     def plan(self, contract):
         c = ContractHelper(contract)
@@ -83,11 +83,11 @@ class MyScaffold(CustomScaffold):
 
 - **Inherited `apply(actions)`** — writes files atomically (`temp file + os.replace`) with sha256 verification, path-traversal protection (rejects absolute paths and `..` segments), and idempotency (re-running with the same bytes is a no-op).
 - **`write_file_action(...)`** helper — builds a canonical action dict with sha256, base64-encoded bytes, file mode, optional description, optional `depends_on` for ordering. Returning the result of `.to_dict()` from `plan()` is the entire interface.
-- **`CustomScaffoldTestHarness`** — ~20 conformance tests run against any `plugin_class` you set, no extra code needed.
+- **`CustomScaffoldTestHarness`** — conformance tests that run against any `plugin_class` you set, no extra code needed.
 
 ### Hooks into the CLI
 
-`fluid generate <scaffold-name>` (or `fluid generate-custom-scaffold` for the canonical engine).
+`fluid custom-scaffold`, the command the `data-product-forge-custom-scaffold` engine registers. The engine looks a `CustomScaffold` plugin up by its entry-point name (a contract's `source: { kind: entrypoint, name: <key> }`). The CLI itself does not walk the `fluid_build.custom_scaffolds` group, which is why `fluid plugins` labels it `NOT DISPATCHED`.
 
 ### Examples
 
@@ -109,27 +109,27 @@ class MyValidator(Validator):
     def plan(self, contract):
         c = ContractHelper(contract)
         findings = []
-        if not c.metadata.get("labels", {}).get("cost-center"):
+        if not c.labels.get("cost-center"):
             findings.append(Finding(
                 severity="error",
                 code="COST_CENTER_MISSING",
                 message=f"Contract {c.id!r} missing cost-center label.",
-                path='metadata.labels["cost-center"]',
-                remediation="Add metadata.labels['cost-center'] with your team's code.",
+                path='labels["cost-center"]',
+                remediation="Add labels['cost-center'] with your team's code.",
             ))
         return [f.to_action() for f in findings]
 ```
 
 ### What you get from `Validator`
 
-- **`Finding` dataclass** — structured `severity` + `code` + `message` + `path` + `remediation`. The `severity` field accepts the [`Severity`](#typed-value-domains) str-enum (`info` / `warn` / `error` / `critical`); the CLI formats these uniformly.
-- **Inherited `apply(actions)`** — summarizes findings by severity, writes to the validation report, sets the CLI exit code based on the maximum severity emitted.
-- **`ValidatorTestHarness`** (SDK 0.10.0) — subclass it (`class TestMyValidator(ValidatorTestHarness): plugin_class = MyValidator`) for the 13 generic invariants plus validator-specific conformance. Add your fixture-driven good/bad-contract assertions as additional `test_*` methods.
-- **Auto-discovery at `fluid validate`** — every validator registered via `fluid_build.validators` entry-point runs on every contract, no opt-in needed.
+- **`Finding` dataclass** — structured `severity` + `code` + `message` + `path` + `remediation`. The `severity` field accepts the [`Severity`](#typed-value-domains) str-enum (`info` / `warn` / `error` / `critical`). In `fluid validate` (0.18.1), `error` and `critical` findings fail the validation, `warn` findings are listed as warnings, and `info` findings go to the debug log only. `fluid validate` prints `code`, `message` and `path`, and does not print `remediation`.
+- **Inherited `apply(actions)`** — summarizes findings by severity. `fluid validate` builds its report from `plan()`'s `emit_finding` actions and does not call `apply()`.
+- **`ValidatorTestHarness`** (SDK 0.10.0) — subclass it (`class TestMyValidator(ValidatorTestHarness): plugin_class = MyValidator; sample_contracts = [LOCAL_CONTRACT]`) for the generic plugin invariants plus validator-specific conformance. Add your fixture-driven good/bad-contract assertions as additional `test_*` methods, and use `self.get_plugin()` for a fresh instance.
+- **Auto-discovery at `fluid validate`** — a validator registered via the `fluid_build.validators` entry point runs on the contracts `fluid validate` checks, with no opt-in in the contract (subject to `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`).
 
 ### Hooks into the CLI
 
-`fluid validate <contract>` runs all validators automatically.
+`fluid validate <contract>` runs the installed, allowed validators.
 
 ### Examples
 
@@ -141,7 +141,7 @@ class MyValidator(Validator):
 For cloud-platform plugins: you're adding support for a new cloud (or warehouse, or query engine) that forge doesn't have a built-in provider for.
 
 ```python
-from fluid_sdk import InfraProvider, PluginAction, ExecutionResult
+from fluid_sdk import ContractHelper, InfraProvider, PluginAction, ExecutionResult
 
 
 class MyCloudProvider(InfraProvider):
@@ -149,13 +149,14 @@ class MyCloudProvider(InfraProvider):
     # role = "provider" is inherited.
 
     def plan(self, contract):
+        c = ContractHelper(contract)
         # Translate the contract into native cloud ops.
         return [
             PluginAction(
                 op="provision_dataset",
                 resource_type="dataset",
-                resource_id=contract["metadata"]["id"],
-                params={"region": "us-east-1", ...},
+                resource_id=c.id,
+                params={"region": "us-east-1"},
             ).to_dict(),
             # ... more actions
         ]
@@ -170,7 +171,7 @@ class MyCloudProvider(InfraProvider):
             except Exception as e:
                 results.append({"op": action["op"], "status": "failed", "error": str(e)})
         return ExecutionResult(
-            provider=self.name,
+            plugin=self.name,
             applied=sum(1 for r in results if r["status"] == "ok"),
             failed=sum(1 for r in results if r["status"] == "failed"),
             duration_sec=0.0,
@@ -192,7 +193,7 @@ Most of it: `apply()` is *your* code talking to *your* cloud's API. The SDK prov
 
 ### Hooks into the CLI
 
-`fluid apply` walks the action list and dispatches each action to the registered provider via the `op` field.
+An `InfraProvider` registered under `fluid_build.providers` joins the provider registry that `fluid providers` lists and `--provider <name>` selects. Observed on CLI 0.18.1: a plugin registered with the entry-point key `my-cloud` is listed by `fluid providers` as `my_cloud`, with the dash turned into an underscore, while `fluid plugins` shows the entry-point key as written.
 
 ### Examples
 
@@ -239,7 +240,7 @@ class MyCatalog(CatalogAdapter):
 
 ### Hooks into the CLI
 
-`fluid publish --target <name>` invokes the matching `CatalogAdapter`.
+`fluid publish` runs the installed, allowed `CatalogAdapter` plugins in addition to the catalogs named with `--target`: `plan()` and `apply()` per adapter, or `plan()` only with `--dry-run`. The adapter is not selected by `--target`; every installed adapter runs on each publish.
 
 ### Examples
 
@@ -249,7 +250,7 @@ class MyCatalog(CatalogAdapter):
 
 ### `ContractHelper`
 
-Read-only parser over fluid contract dicts. Tolerant of every `fluidVersion` from `0.4` through `0.7.5`. Use this instead of raw dict-walking:
+Read-only parser over fluid contract dicts. Use it instead of raw dict-walking; a missing field returns `None`, `{}` or `[]`:
 
 ```python
 from fluid_sdk import ContractHelper
@@ -261,6 +262,7 @@ c.description          # str | None
 c.owner                # dict (e.g. {"email": "..."})
 c.domain               # str | None
 c.metadata             # full metadata dict
+c.labels               # the contract's root-level `labels` map
 c.environments         # full environments dict
 c.environment_names()  # list[str]
 c.exposes              # list[ExposeSpec]
@@ -286,7 +288,7 @@ Each role ships its own action builder (the `InfraProvider` / `CatalogAdapter` b
 
 ### `ExecutionResult`
 
-What `apply()` returns. Carries `provider`, `applied` / `failed` counts, `duration_sec`, `timestamp`, and per-action `results` for the CLI to format.
+What `apply()` returns. Carries `plugin` (the plugin's name), `role`, `applied` / `failed` counts, `duration_sec`, `timestamp`, and per-action `results`, plus `artifacts` and `warnings` lists. There is no `provider` field; `ExecutionResult(provider=...)` raises `TypeError`.
 
 ### Typed value domains
 
@@ -345,8 +347,8 @@ Every role has a matching `*TestHarness` in `fluid_sdk.testing`:
 
 ```python
 from fluid_sdk.testing import (
-    PluginTestHarness,          # base — 13 generic invariants (any role)
-    CustomScaffoldTestHarness,  # adds 7 scaffold-specific tests (atomic write, sha256, traversal)
+    PluginTestHarness,          # base: generic invariants for any role
+    CustomScaffoldTestHarness,  # adds scaffold-specific tests (atomic write, sha256, traversal)
     ValidatorTestHarness,       # validator-specific conformance
     InfraProviderTestHarness,   # provider plan/apply shape + op routing
     CatalogAdapterTestHarness,  # catalog-adapter conformance
@@ -355,10 +357,11 @@ from fluid_sdk.testing import (
 
 class TestMyScaffold(CustomScaffoldTestHarness):
     plugin_class = MyScaffold
+    sample_contracts = [LOCAL_CONTRACT]   # required: at least one contract
     # Inherits all the tests. Add your own scenarios below if needed.
 ```
 
-Four lines, 20 tests free (13 from `PluginTestHarness` + 7 role-specific in `CustomScaffoldTestHarness`).
+The harness's tests come with the subclass; your own scenarios are extra `test_*` methods.
 
 As of SDK 0.10.0, each of the four roles has a matching `*TestHarness` — subclass the role-specific one directly (`ValidatorTestHarness`, `InfraProviderTestHarness`, `CatalogAdapterTestHarness`) and add your fixture-driven scenarios as additional `test_*` methods.
 

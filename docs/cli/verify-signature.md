@@ -22,6 +22,10 @@ fluid verify-signature BUNDLE_TGZ [options]
 | `--oidc-issuer-regexp PATTERN` | Regexp matching the acceptable OIDC issuer. Default `.*`; tighten to pin the CI system (e.g. `https://token.actions.githubusercontent.com`). |
 | `--timeout SECONDS` | Per-subprocess cosign timeout. Default 120. |
 
+::: tip Got `SupplyChainViolationError` instead?
+That error is not raised by this command. It comes from an Airbyte acquisition build whose connector image failed its Cosign check. The check is configured on the build, under `builds[].properties.airbyte.image_signature` (`verifier: cosign`, `publicKey`, `slsaProvenance`), and the failing image is named in the error. Its fix text also mentions `sovereignty.allowedSigners`; as of 0.18.1 no bundled contract schema defines that field, so pin the signer with `publicKey`. See [typed CLI errors](../advanced/typed-cli-errors.md) and [Source-Aligned Acquisition](../advanced/source-aligned-acquisition.md). `fluid verify-signature` checks a `fluid bundle` tarball, not a container image.
+:::
+
 ## Exit codes
 
 | Code | Meaning |
@@ -85,8 +89,11 @@ fluid bundle contract.fluid.yaml --format tgz --out runtime/bundle.tgz --sign --
 fluid schedule-sync --scheduler airflow \
   --dags-dir dist/artifacts/schedule/ \
   --destination s3://my-airflow-dags/team-x/ \
-  --verify-signature
+  --verify-signature \
+  --bundle runtime/bundle.tgz
 ```
+
+`--verify-signature` requires `--bundle`. Without it, `schedule-sync` aborts with `schedule_sync_verify_signature_missing_bundle` (exit `2`).
 
 For manual verification in a CI step, just chain `verify-signature` before the destructive / publish actions:
 
@@ -100,6 +107,6 @@ fluid publish ... --target ...
 
 ## Notes
 
-- Cosign must be on `PATH`. Install from https://docs.sigstore.dev/cosign/installation/ or via `brew install cosign`. `fluid doctor` verifies.
-- The `--sig` / `--pem` files must be next to the tgz (or passed explicitly via `--signature` / `--certificate`). `fluid bundle --sign` writes them next to the tgz by default.
+- Cosign must be on `PATH`. Install from https://docs.sigstore.dev/cosign/installation/ or via `brew install cosign`. `fluid doctor --scope infra` checks that it is on `PATH`.
+- The `.sig` and `.pem` files must be next to the tgz, or passed explicitly with `--signature` and `--certificate`. `fluid bundle --sign` writes them next to the tgz by default.
 - The SLSA attestation (`<bundle>.tgz.intoto.jsonl` from `fluid bundle --attest`) is **not** verified by `verify-signature` — it's a separate predicate that stakeholders read offline. A future release may add an `--attest` verification mode.

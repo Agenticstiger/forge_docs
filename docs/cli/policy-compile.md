@@ -2,7 +2,7 @@
 
 Compile a contract's `accessPolicy` into provider-specific IAM / GRANT bindings. Pure-function shape: contract in, JSON out. No cloud calls.
 
-`0.8.0` promotes the unified `fluid policy {check,compile,apply}` subcommand group. The legacy `fluid policy-compile` form stays registered as a deprecation alias for one release. Both surfaces share the same argument set.
+`0.8.0` added the unified `fluid policy {check,compile,apply}` subcommand group. The older `fluid policy-compile` form is still registered in 0.18.1, prints no deprecation notice, and takes the same arguments.
 
 This command runs as part of stage 3 (`fluid generate artifacts`) but is also available standalone.
 
@@ -12,7 +12,7 @@ This command runs as part of stage 3 (`fluid generate artifacts`) but is also av
 # New idiomatic form
 fluid policy compile CONTRACT [--env ENV] [--out PATH]
 
-# Legacy alias (same behaviour)
+# Older form (same behaviour)
 fluid policy-compile CONTRACT [--env ENV] [--out PATH]
 ```
 
@@ -32,7 +32,7 @@ fluid policy compile contract.fluid.yaml
 fluid policy compile contract.fluid.yaml --env prod
 fluid policy compile contract.fluid.yaml --out build/bindings.json
 
-# Legacy hyphenated form (still works)
+# Hyphenated form (still registered)
 fluid policy-compile contract.fluid.yaml --env prod
 ```
 

@@ -1,706 +1,312 @@
 # Generating Orchestration Code from Contracts
 
-**Docs Baseline:** CLI `0.18.1`<br>
-**Status:** ✅ Production Ready
+**Docs baseline:** CLI `0.18.1`
 
-::: warning Compatibility note
-This walkthrough preserves older `0.7.1` orchestration snippets for historical context. For current docs and new automation, prefer `fluid generate schedule --scheduler airflow`. `fluid generate-airflow` remains available as a compatibility shortcut.
+`fluid export` reads the tasks you declare under `orchestration` in a contract and writes orchestration code for Airflow, Dagster or Prefect. This page exports the same kind of contract for AWS, GCP and Snowflake, shows what comes out, and lists what the generated code does not do. Everything here was run on 0.18.1; paths are shortened to `...`.
+
+::: tip Running a build on a schedule is a different job
+To run a contract's own build on a cron schedule, declare the schedule on the build and let FLUID generate a DAG that runs `fluid apply`: see [Declarative Airflow](./airflow-declarative.md). `fluid export` is for contracts that describe cloud steps as `orchestration.tasks`, and what it writes is a skeleton you review and extend.
 :::
 
----
+## 1. Write the contract
 
-## Overview
-
-Fluid Forge transforms your declarative contracts into production-ready orchestration code for **three engines**: Airflow, Dagster, and Prefect.
-
-### Why Generate DAGs?
-
-- **🚀 Fast Deployment** - Generate 100+ lines of orchestration code in <3ms
-- **☁️ Multi-Cloud** - Support for AWS, GCP, and Snowflake
-- **✅ Validated** - Contract validation with circular dependency detection
-- **📦 Production-Ready** - Error handling, retries, logging built-in
-- **🔄 Multi-Engine** - Airflow, Dagster, and Prefect all available via CLI
-
----
-
-## Quick Start
-
-### 1. Create a Contract
+The exporters read two keys under `orchestration`: `schedule` and `tasks`. The schema also requires `engine` (`airflow`, `dagster`, `prefect`, `kubeflow`, `custom` or `none`), and the contract needs at least one expose. This one declares three AWS steps:
 
 ```yaml
-# crypto-analytics.fluid.yaml
-fluidVersion: "0.7.1"
+fluidVersion: "0.7.5"
 kind: DataProduct
-id: crypto.bitcoin_analytics
-name: bitcoin-analytics
-
+id: aws.sales_analytics_v1
+name: Sales Analytics
+domain: Sales
 metadata:
-  owner: data-engineering
-  description: Bitcoin price tracking and analytics
-
+  layer: Gold
+  owner:
+    team: sales-data
+    email: sales-data@example.com
+exposes:
+  - exposeId: transactions
+    kind: table
+    binding:
+      platform: aws
+      format: parquet
+      location:
+        bucket: sales-analytics-data
+        path: transactions/
+        region: us-east-1
+    contract:
+      schema:
+        - {name: transaction_id, type: STRING}
+        - {name: amount, type: DECIMAL}
 orchestration:
-  schedule: "@hourly"
+  engine: dagster
+  schedule: "0 */6 * * *"
   tasks:
-    - taskId: fetch_prices
-      action: bigquery_query
-      config:
-        query: "SELECT * FROM crypto.raw_prices WHERE timestamp > CURRENT_TIMESTAMP() - INTERVAL 1 HOUR"
-    
-    - taskId: calculate_metrics
-      action: bigquery_query
-      dependsOn: [fetch_prices]
-      config:
-        query: "INSERT INTO crypto.hourly_metrics SELECT price_timestamp, AVG(price_usd) as avg_price..."
+    - taskId: create_bucket
+      type: provider_action
+      action: aws.s3.ensure_bucket
+      params:
+        bucket: sales-analytics-data
+    - taskId: create_database
+      type: provider_action
+      action: aws.glue.ensure_database
+      dependsOn: [create_bucket]
+      params:
+        database: sales
+    - taskId: refresh_summary
+      type: provider_action
+      action: aws.athena.execute_query
+      dependsOn: [create_database]
+      params:
+        database: sales
+        query: SELECT count(*) FROM transactions
 ```
 
-### 2. Generate Airflow DAG
+A task is `taskId`, `type: provider_action`, an `action`, `params`, and `dependsOn` for ordering. Only `provider_action` tasks become code. Write the action as `<provider>.<service>.<operation>`, for example `aws.s3.ensure_bucket`. With two parts (`s3.ensure_bucket`) the AWS Dagster exporter produces an op that logs the action and does nothing else, because it takes the service from the second part.
+
+## 2. Export
 
 ```bash
-# Generate Airflow DAG
-fluid generate-airflow crypto-analytics.fluid.yaml -o dags/crypto_bitcoin_analytics.py
-
-# With verbose output
-fluid generate-airflow crypto-analytics.fluid.yaml -o dags/pipeline.py --verbose
+fluid --project 123456789012 --region us-east-1 export aws-sales.fluid.yaml --engine dagster -o pipelines/
 ```
 
-### 3. Deploy to Airflow
-
-```bash
-# Copy to Airflow DAGs folder
-cp dags/crypto_bitcoin_analytics.py $AIRFLOW_HOME/dags/
-
-# Or for Cloud Composer (GCP)
-gsutil cp dags/crypto_bitcoin_analytics.py gs://your-composer-bucket/dags/
-
-# Or for MWAA (AWS)
-aws s3 cp dags/crypto_bitcoin_analytics.py s3://your-mwaa-bucket/dags/
+```text
+{"event": "provider_initialized", "provider": "aws", "account_id": "123456789012", "region": "us-east-1"}
+{"event": "export_started", "contract_id": "aws.sales_analytics_v1", "engine": "dagster", "output_dir": "pipelines"}
+{"event": "export_completed", "contract_id": "aws.sales_analytics_v1", "engine": "dagster", "output_file": "pipelines/aws.sales_analytics_v1_pipeline.py", "code_lines": 180}
 ```
 
----
+- `--engine` is `airflow` (the default), `mwaa`, `dagster` or `prefect`. `-o` is the output directory.
+- The AWS exporter takes the account and region from the global `--project` and `--region`, not from the binding. Without them it reads `AWS_ACCOUNT_ID`, then asks STS who you are with your credentials, and uses `FLUID_REGION` or `europe-west3` as the region. In 0.18.1 that default is written into the generated file even for an AWS contract.
+- The contract has no provider field, so `--provider` defaults to `aws`. Pass `--provider gcp` or `--provider snowflake` for those contracts. Without it, a GCP contract exported with the AWS provider writes a DAG of Amazon operators and exits 0.
 
-## Provider Examples
+## 3. AWS and Dagster
 
-### GCP + BigQuery
+The generated file declares one resource per AWS service and one op per task, ordered so each op comes after the ops it depends on:
 
-**Contract:**
+```python
+# Task Ops
+
+@op(
+    required_resource_keys={"aws_s3_resource"},
+)
+def create_bucket(context):
+    """Execute aws.s3.ensure_bucket."""
+    logger.info('Executing: aws.s3.ensure_bucket')
+    params = json.loads('{"bucket": "sales-analytics-data"}')
+
+    # Execute provider action
+    s3_client = context.resources.aws_s3_resource
+    bucket = params.get("bucket")
+    if bucket:
+        s3_client.create_bucket(Bucket=bucket)
+        logger.info(f"Created S3 bucket: {bucket}")
+
+    return {"status": "success", "task_id": 'create_bucket'}
+
+@op(
+    ins={"dep_create_bucket": In(Nothing)},
+    required_resource_keys={"aws_glue_resource"},
+)
+def create_database(context):
+    """Execute aws.glue.ensure_database."""
+    logger.info('Executing: aws.glue.ensure_database')
+    params = json.loads('{"database": "sales"}')
+
+    # Execute provider action
+    glue_client = context.resources.aws_glue_resource
+    database = params.get("database")
+    if database:
+        try:
+            glue_client.create_database(DatabaseInput={'Name': database})
+            logger.info(f"Created Glue database: {database}")
+        except glue_client.exceptions.AlreadyExistsException:
+            logger.info(f"Database already exists: {database}")
+
+    return {"status": "success", "task_id": 'create_database'}
+
+# ... the refresh_summary op follows the same pattern, with ins={"dep_create_database": In(Nothing)}
+```
+
+```python
+@job(
+    resource_defs={
+        "aws_s3_resource": aws_s3_resource,
+        "aws_glue_resource": aws_glue_resource,
+        "aws_athena_resource": aws_athena_resource,
+        "aws_lambda_resource": aws_lambda_resource,
+    },
+    description='Sales Analytics',
+)
+def aws_sales_analytics_v1_job():
+    """Sales Analytics workflow."""
+    create_bucket_result = create_bucket()
+    create_database_result = create_database(dep_create_bucket=create_bucket_result)
+    refresh_summary_result = refresh_summary(dep_create_database=create_database_result)
+```
+
+- A dependency is `ins={"dep_<task>": In(Nothing)}` on the op and a keyword argument at the call site.
+- Task ids that collide after being made into Python names get `_2`, `_3` suffixes, and contract values reach the file through string-literal escaping.
+- Ops for `aws.s3.*`, `aws.glue.*`, `aws.athena.*` and `aws.lambda.*` actions call boto3 with the task's `params`. Any other action logs `Action: ...` and `Params: ...` and returns success. Read the ops before you schedule them. The Glue op creates the database and treats an existing one as success.
+
+The file ends with a `ScheduleDefinition` from the contract's `schedule` and a `@repository`.
+
+## 4. GCP and Airflow
+
 ```yaml
-fluidVersion: "0.7.1"
-kind: DataProduct
-id: gcp.customer_analytics
-name: customer-analytics
-
-platform:
-  provider: gcp
-  project: my-project-id
-  region: us-central1
-
 orchestration:
+  engine: airflow
   schedule: "@daily"
   tasks:
     - taskId: create_dataset
-      action: create_bigquery_dataset
-      config:
-        dataset: analytics
+      type: provider_action
+      action: gcp.bigquery.create_dataset
+      params:
+        dataset_id: analytics
         location: US
-    
     - taskId: create_table
-      action: create_bigquery_table
+      type: provider_action
+      action: gcp.bigquery.create_table
       dependsOn: [create_dataset]
-      config:
-        dataset: analytics
-        table: customers
+      params:
+        dataset_id: analytics
+        table_id: customers
         schema:
-          - name: customer_id
-            type: INTEGER
-          - name: name
-            type: STRING
-    
+          - {name: customer_id, type: INTEGER}
+          - {name: name, type: STRING}
     - taskId: load_data
-      action: bigquery_query
+      type: provider_action
+      action: gcp.bigquery.query
       dependsOn: [create_table]
-      config:
-        query: |
-          INSERT INTO analytics.customers
-          SELECT * FROM raw.customer_data
-          WHERE date = CURRENT_DATE()
+      params:
+        query: INSERT INTO analytics.customers SELECT * FROM raw.customer_data WHERE date = CURRENT_DATE()
 ```
 
-**Generate Airflow DAG:**
 ```bash
-fluid generate-airflow gcp-analytics.yaml -o dags/gcp_customer_analytics.py
+fluid --project my-project-id --region us-central1 export gcp-analytics.fluid.yaml --provider gcp --engine airflow -o dags/
 ```
 
-**Generated Airflow DAG:**
 ```python
-from airflow import DAG
-from airflow.providers.google.cloud.operators.bigquery import (
-    BigQueryCreateEmptyDatasetOperator,
-    BigQueryCreateEmptyTableOperator,
-    BigQueryInsertJobOperator
+# Task definitions
+create_dataset = BigQueryCreateEmptyDatasetOperator(
+    task_id='create_dataset',
+    dataset_id='analytics',
+    project_id='my-project-id',
+    location='US',
+    dag=dag,
 )
-from datetime import datetime, timedelta
 
-default_args = {
-    'owner': 'data-engineering',
-    'retries': 3,
-    'retry_delay': timedelta(minutes=5),
-}
+create_table = BigQueryCreateEmptyTableOperator(
+    task_id='create_table',
+    dataset_id='analytics',
+    table_id='customers',
+    project_id='my-project-id',
+    schema_fields=[{'name': 'customer_id', 'type': 'INTEGER'}, {'name': 'name', 'type': 'STRING'}],
+    dag=dag,
+)
 
-with DAG(
-    dag_id='gcp_customer_analytics',
-    default_args=default_args,
-    description='Customer analytics pipeline',
-    schedule_interval='@daily',
-    start_date=datetime(2026, 1, 1),
-    catchup=False,
-    tags=['analytics', 'customers']
-) as dag:
-    
-    create_dataset = BigQueryCreateEmptyDatasetOperator(
-        task_id='create_dataset',
-        dataset_id='analytics',
-        location='US',
-        project_id='my-project-id'
-    )
-    
-    create_table = BigQueryCreateEmptyTableOperator(
-        task_id='create_table',
-        dataset_id='analytics',
-        table_id='customers',
-        schema_fields=[
-            {'name': 'customer_id', 'type': 'INTEGER', 'mode': 'NULLABLE'},
-            {'name': 'name', 'type': 'STRING', 'mode': 'NULLABLE'}
-        ],
-        project_id='my-project-id'
-    )
-    
-    load_data = BigQueryInsertJobOperator(
-        task_id='load_data',
-        configuration={
-            'query': {
-                'query': """
-                    INSERT INTO analytics.customers
-                    SELECT * FROM raw.customer_data
-                    WHERE date = CURRENT_DATE()
-                """,
-                'useLegacySql': False
-            }
-        },
-        project_id='my-project-id'
-    )
-    
-    create_dataset >> create_table >> load_data
+load_data = BigQueryInsertJobOperator(
+    task_id='load_data',
+    configuration={'query': {'query': 'INSERT INTO analytics.customers SELECT * FROM raw.customer_data WHERE date = CURRENT_DATE()', 'useLegacySql': False}},
+    project_id='my-project-id',
+    location='us-central1',
+    dag=dag,
+)
+
+# Task dependencies
+create_dataset >> create_table
+create_table >> load_data
 ```
 
----
+The GCP exporter reads `dataset_id` and `table_id` from `params` (not `dataset` and `table`); a missing key falls back to `unknown_dataset` or `unknown_table`. It maps `gcp.bigquery.create_dataset`, `create_table` and `query`, plus the Cloud Storage, Pub/Sub and Dataflow services; other actions become `PythonOperator` tasks. The imports are the `apache-airflow-providers-google` operators.
 
-### AWS + S3 + Glue (Dagster Example)
+## 5. Snowflake and Prefect
 
-**Contract:**
-```yaml
-fluidVersion: "0.7.1"
-kind: DataProduct
-id: aws.sales_analytics
-name: sales-analytics
-
-platform:
-  provider: aws
-  account_id: "123456789012"
-  region: us-east-1
-
-orchestration:
-  schedule: "0 */6 * * *"  # Every 6 hours
-  tasks:
-    - taskId: create_bucket
-      action: create_s3_bucket
-      config:
-        bucket: sales-analytics-data
-        region: us-east-1
-    
-    - taskId: create_database
-      action: create_glue_database
-      dependsOn: [create_bucket]
-      config:
-        database: sales
-    
-    - taskId: create_table
-      action: create_glue_table
-      dependsOn: [create_database]
-      config:
-        database: sales
-        table: transactions
-        location: s3://sales-analytics-data/transactions/
-        format: PARQUET
-```
-
-**Generate Dagster Pipeline:**
 ```bash
-fluid export aws-sales.yaml --engine dagster -o pipelines/
+fluid export sf-inventory.fluid.yaml --provider snowflake --engine prefect -o flows/
 ```
 
-**Generated Dagster Code:**
 ```python
-from dagster import op, job, resource, In, Out
-import boto3
-
-@resource
-def aws_s3_client(context):
-    return boto3.client('s3', region_name='us-east-1')
-
-@resource
-def aws_glue_client(context):
-    return boto3.client('glue', region_name='us-east-1')
-
-@op(required_resource_keys={'s3_client'})
-def create_bucket(context):
-    s3 = context.resources.s3_client
-    bucket_name = 'sales-analytics-data'
-    
-    try:
-        s3.create_bucket(Bucket=bucket_name)
-        context.log.info(f"Created S3 bucket: {bucket_name}")
-        return bucket_name
-    except Exception as e:
-        context.log.error(f"Error creating bucket: {e}")
-        raise
-
-@op(required_resource_keys={'glue_client'}, ins={'bucket': In()})
-def create_database(context, bucket):
-    glue = context.resources.glue_client
-    
-    try:
-        glue.create_database(
-            DatabaseInput={
-                'Name': 'sales',
-                'Description': 'Sales analytics database'
-            }
-        )
-        context.log.info("Created Glue database: sales")
-        return 'sales'
-    except Exception as e:
-        context.log.error(f"Error creating database: {e}")
-        raise
-
-@op(required_resource_keys={'glue_client'}, ins={'database': In()})
-def create_table(context, database):
-    glue = context.resources.glue_client
-    
-    try:
-        glue.create_table(
-            DatabaseName=database,
-            TableInput={
-                'Name': 'transactions',
-                'StorageDescriptor': {
-                    'Location': 's3://sales-analytics-data/transactions/',
-                    'InputFormat': 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat',
-                    'OutputFormat': 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat'
-                }
-            }
-        )
-        context.log.info("Created Glue table: transactions")
-        return 'transactions'
-    except Exception as e:
-        context.log.error(f"Error creating table: {e}")
-        raise
-
-@job(resource_defs={
-    's3_client': aws_s3_client,
-    'glue_client': aws_glue_client
-})
-def aws_sales_analytics():
-    database = create_database(create_bucket())
-    create_table(database)
-```
-
----
-
-### Snowflake + Data Warehousing (Prefect Example)
-
-**Contract:**
-```yaml
-fluidVersion: "0.7.1"
-kind: DataProduct
-id: snowflake.inventory_analytics
-name: inventory-analytics
-
-platform:
-  provider: snowflake
-  account: xy12345.us-east-1
-  warehouse: COMPUTE_WH
-  database: ANALYTICS
-
-orchestration:
-  schedule: "@hourly"
-  tasks:
-    - taskId: create_database
-      action: create_database
-      config:
-        database: ANALYTICS
-    
-    - taskId: create_schema
-      action: create_schema
-      dependsOn: [create_database]
-      config:
-        schema: INVENTORY
-    
-    - taskId: create_table
-      action: create_table
-      dependsOn: [create_schema]
-      config:
-        table: INVENTORY.STOCK_LEVELS
-        columns:
-          - product_id: NUMBER
-          - quantity: NUMBER
-          - last_updated: TIMESTAMP
-    
-    - taskId: load_data
-      action: run_query
-      dependsOn: [create_table]
-      config:
-        query: |
-          INSERT INTO INVENTORY.STOCK_LEVELS
-          SELECT product_id, SUM(quantity), CURRENT_TIMESTAMP()
-          FROM RAW.INVENTORY_UPDATES
-          WHERE update_time > DATEADD(hour, -1, CURRENT_TIMESTAMP())
-          GROUP BY product_id
-```
-
-**Generate Prefect Flow:**
-```bash
-fluid export snowflake-inventory.yaml --engine prefect -o flows/
-```
-
-**Generated Prefect Code:**
-```python
-from prefect import flow, task
-from prefect.deployments import Deployment
-from prefect.server.schemas.schedules import CronSchedule
-import snowflake.connector
-
-def get_snowflake_connection():
-    return snowflake.connector.connect(
-        account='xy12345.us-east-1',
-        user='...',
-        password='...',
-        warehouse='COMPUTE_WH',
-        database='ANALYTICS'
-    )
-
-@task(retries=3, retry_delay_seconds=300)
-def create_database():
-    conn = get_snowflake_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute('CREATE DATABASE IF NOT EXISTS ANALYTICS')
-        print("Created database: ANALYTICS")
-    finally:
-        cursor.close()
-        conn.close()
-
-@task(retries=3, retry_delay_seconds=300)
+# Prefect Tasks
+@task(retries=3, retry_delay_seconds=30, timeout_seconds=1800)
 def create_schema():
+    """Execute Snowflake query"""
     conn = get_snowflake_connection()
     cursor = conn.cursor()
-    
     try:
         cursor.execute('CREATE SCHEMA IF NOT EXISTS INVENTORY')
-        print("Created schema: INVENTORY")
+        results = cursor.fetchall()
+        logger.info(f"Query executed: {{len(results)}} rows")
+        return len(results)
     finally:
         cursor.close()
         conn.close()
 
-@task(retries=3, retry_delay_seconds=300)
-def create_table():
-    conn = get_snowflake_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS INVENTORY.STOCK_LEVELS (
-                product_id NUMBER,
-                quantity NUMBER,
-                last_updated TIMESTAMP
-            )
-        """)
-        print("Created table: INVENTORY.STOCK_LEVELS")
-    finally:
-        cursor.close()
-        conn.close()
-
-@task(retries=3, retry_delay_seconds=300)
-def load_data():
-    conn = get_snowflake_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("""
-            INSERT INTO INVENTORY.STOCK_LEVELS
-            SELECT product_id, SUM(quantity), CURRENT_TIMESTAMP()
-            FROM RAW.INVENTORY_UPDATES
-            WHERE update_time > DATEADD(hour, -1, CURRENT_TIMESTAMP())
-            GROUP BY product_id
-        """)
-        print(f"Loaded {cursor.rowcount} rows")
-    finally:
-        cursor.close()
-        conn.close()
-
-@flow(name='snowflake_inventory_analytics')
-def main():
-    create_database()
-    create_schema()
-    create_table()
-    load_data()
-
-# Create deployment
-if __name__ == '__main__':
-    deployment = Deployment.build_from_flow(
-        flow=main,
-        name='inventory-analytics-deployment',
-        schedule=CronSchedule(cron='0 * * * *'),  # @hourly
-        work_queue_name='default'
-    )
-    deployment.apply()
 ```
-
----
-
-## Engine Comparison
-
-::: tip All Engines Available
-- **Airflow**: `fluid generate-airflow` or `fluid export --engine airflow`
-- **Dagster**: `fluid export --engine dagster`
-- **Prefect**: `fluid export --engine prefect`
-:::
-
-| Feature | Airflow | Dagster | Prefect |
-|---------|---------|---------|---------|
-| **CLI Availability** | ✅ Available | ✅ Available | ✅ Available |
-| **Ease of Use** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Type Safety** | ❌ | ✅ | ✅ |
-| **Resource Management** | Manual | Built-in | Built-in |
-| **Testing** | Limited | Excellent | Good |
-| **UI Quality** | Good | Excellent | Excellent |
-| **Community** | Largest | Growing | Growing |
-| **Cloud Hosting** | Cloud Composer (GCP) | Dagster Cloud | Prefect Cloud |
-| **Best For** | Traditional ETL | Data engineering teams | Modern data workflows |
-
-### Generation Performance (Benchmarked)
-
-All three engines are available in the CLI.
-
-| Provider | Airflow | Dagster | Prefect |
-|----------|---------------|------------------|------------------|
-| **AWS** | 2.05ms | 0.38ms | 0.32ms |
-| **GCP** | 1.83ms | 0.34ms | 1.91ms |
-| **Snowflake** | 2.08ms | 0.35ms | 0.33ms |
-
-### Output Size (Small Contract)
-
-| Provider | Airflow | Dagster | Prefect |
-|----------|---------|---------|---------|
-| **AWS** | 1.91KB | 3.98KB | 3.84KB |
-| **GCP** | 2.10KB | 2.43KB | 2.29KB |
-| **Snowflake** | 1.83KB | 1.72KB | 2.52KB |
-
----
-
-## Advanced Features
-
-### Contract Validation
-
-All exports include automatic validation:
-
-```bash
-# Invalid contract (circular dependency)
-fluid export bad-contract.yaml --engine airflow
-
-# Output:
-# ❌ Export failed: Circular dependencies detected in tasks: task_a, task_b
-```
-
-**Validation Checks:**
-- ✅ Orchestration section present
-- ✅ Non-empty task list
-- ✅ Unique task IDs
-- ✅ Valid task dependencies
-- ✅ No circular dependencies
-
-### Schedule Conversion
-
-Fluid Forge automatically converts schedule expressions:
-
-| Fluid Schedule | Airflow | Dagster | Prefect |
-|----------------|---------|---------|---------|
-| `@hourly` | `@hourly` | `"0 * * * *"` | `CronSchedule(cron="0 * * * *")` |
-| `@daily` | `@daily` | `"0 0 * * *"` | `CronSchedule(cron="0 0 * * *")` |
-| `0 */6 * * *` | `0 */6 * * *` | `"0 */6 * * *"` | `CronSchedule(cron="0 */6 * * *")` |
-
-### Custom Configuration
-
-Inject custom settings into generated code:
-
-```yaml
-orchestration:
-  schedule: "@daily"
-  config:
-    # Airflow-specific
-    airflow:
-      retries: 5
-      retry_delay_minutes: 10
-      email_on_failure: true
-      email: ["ops@company.com"]
-    
-    # Dagster-specific
-    dagster:
-      max_runtime_seconds: 3600
-      
-    # Prefect-specific
-    prefect:
-      timeout_seconds: 7200
-      tags: ["production", "critical"]
-```
-
----
-
-## Best Practices
-
-### 1. Version Control Your Contracts
-
-```bash
-git add contracts/
-git commit -m "Add customer analytics contract"
-
-# Regenerate when contract changes
-fluid export contracts/customer-analytics.yaml --engine airflow -o dags/
-```
-
-### 2. Test Generated Code
-
-```bash
-# Python syntax check
-python -m py_compile dags/customer_analytics.py
-
-# Airflow validation
-airflow dags test customer_analytics 2026-01-30
-
-# Dagster validation
-dagster pipeline execute -f pipelines/customer_analytics.py
-```
-
-### 3. Use CI/CD
-
-```yaml
-# .github/workflows/generate-dags.yml
-name: Generate Orchestration Code
-
-on:
-  push:
-    paths:
-      - 'contracts/**'
-
-jobs:
-  generate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Install Fluid Forge
-        run: pip install data-product-forge
-      
-      - name: Generate Airflow DAGs
-        run: |
-          fluid export contracts/*.yaml --engine airflow -o dags/
-      
-      - name: Commit generated code
-        run: |
-          git add dags/
-          git commit -m "Regenerate DAGs from contracts"
-          git push
-```
-
-### 4. Monitor Generated Pipelines
-
-All generated code includes logging:
 
 ```python
-# Airflow
-context.log.info("Processing task...")
+# Flow definition
+@flow(
+    name='snowflake_inventory_analytics_v1',
+    description='Inventory Analytics',
+    retries=1,
+    retry_delay_seconds=60,
+)
+def snowflake_inventory_analytics_v1_flow():
+    """Inventory Analytics flow on Snowflake."""
+    create_schema_result = create_schema()
+    create_table_result = create_table()
+    load_data_result = load_data()
 
-# Dagster
-context.log.info("Processing op...")
-
-# Prefect
-print("Processing task...")  # Captured by Prefect
+    logger.info("Flow completed successfully")
+    return True
 ```
 
----
+The Snowflake exporter generates a real task only for `query` and `run_query` actions, reading `params.query` (or `sql`). It takes credentials from the Prefect `Secret` blocks `snowflake-user` and `snowflake-password`.
 
-## Troubleshooting
+## What the exports do not do (0.18.1)
 
-### Export Fails
+- **Dependencies.** The Snowflake Prefect flow calls the tasks in the order the contract lists them and does not use `dependsOn`: the flow body above has no `wait_for`. The AWS exports for all three engines and the GCP Airflow export wire dependencies.
+- **Prefect deployment block.** The `if __name__ == "__main__":` block of the AWS and Snowflake Prefect flows calls `cprint`, and the Snowflake one also `success`; the files import neither, so running the file raises `NameError` after `deployment.apply()`.
+- **Schedule presets in the AWS Prefect exporter.** It does not know the `@`-prefixed presets, so `@hourly` becomes `0 2 * * *`. Write a cron expression.
+- **Airflow tasks it cannot map.** The AWS Airflow export defines `_execute_provider_action`, which raises: provider-action tasks are retired in favour of provisioning with `fluid apply`.
+- **Parameter names.** Each provider reads its own `params` keys, as sections 3 to 5 show; the GCP exporter falls back to `unknown_dataset` and `unknown_table` instead of failing.
 
-**Error:** `ProviderError: Invalid contract: Contract missing 'orchestration'`
+## Schedules
 
-**Solution:** Add orchestration section:
-```yaml
-orchestration:
-  schedule: "@daily"
-  tasks: []
+The AWS exporter wrote these schedules for the same contract on 0.18.1:
+
+| `orchestration.schedule` | Airflow | Dagster | Prefect |
+| --- | --- | --- | --- |
+| `@hourly` | `@hourly` | `0 * * * *` | `0 2 * * *` |
+| `@daily` | `@daily` | `0 0 * * *` | `0 2 * * *` |
+| `@weekly` | `@weekly` | `0 0 * * 0` | `0 2 * * *` |
+| `0 6 * * 1` | `0 6 * * 1` | `0 6 * * 1` | `0 6 * * 1` |
+
+## Validation
+
+The export stops on a contract it cannot export, with exit 1:
+
+```text
+{"time": "2026-10-05T01:17:56Z", "level": "ERROR", "name": "fluid.cli", "message": "\u274c missing_orchestration: {'message': 'Contract missing orchestration section - cannot export DAG', 'hint': 'Add orchestration.tasks to your contract'}"}
 ```
 
----
-
-**Error:** `Circular dependencies detected in tasks: task_a, task_b`
-
-**Solution:** Fix dependency graph:
-```yaml
-# Bad (circular)
-tasks:
-  - taskId: task_a
-    dependsOn: [task_b]
-  - taskId: task_b
-    dependsOn: [task_a]
-
-# Good (linear)
-tasks:
-  - taskId: task_a
-  - taskId: task_b
-    dependsOn: [task_a]
+```text
+{"time": "2026-10-05T01:17:58Z", "level": "ERROR", "name": "fluid.cli", "message": "\u274c Error exporting orchestration code: Circular dependencies detected in tasks: task_a, task_b"}
 ```
 
----
+## Keep the files current
 
-### Generated Code Errors
+Generate in CI and check the result compiles. `fluid export` takes one contract per call.
 
-**Error:** `SyntaxError in generated DAG`
-
-**Solution:** Update to latest Fluid Forge version:
 ```bash
-pip install --upgrade data-product-forge
+fluid export contracts/sales.fluid.yaml --engine airflow -o dags/
+python -m py_compile dags/*.py
 ```
 
----
+With `--verbose`, `fluid export` prints the packages the generated code needs: `apache-airflow-providers-amazon` for Airflow on AWS, `dagster` and `dagster-aws` for Dagster, `prefect` and `prefect-aws` for Prefect. An `ImportError` for an `airflow.providers` module means the matching provider package is not installed on the Airflow image; the GCP DAG needs `apache-airflow-providers-google`.
 
-**Error:** `ImportError: No module named 'airflow.providers...'`
+## Related
 
-**Solution:** Install required provider packages:
-```bash
-pip install apache-airflow-providers-google
-pip install apache-airflow-providers-amazon
-pip install apache-airflow-providers-snowflake
-```
-
----
-
-## Next Steps
-
-- [Airflow DAG Deployment Guide](/forge_docs/walkthrough/airflow-declarative.html)
-- [GCP Integration](/forge_docs/walkthrough/gcp.html)
-- [CI/CD Setup](/forge_docs/walkthrough/jenkins-cicd.html)
-- [Provider Roadmap](/forge_docs/providers/roadmap.html)
-
----
-
-**Questions?** Open an issue on [GitHub](https://github.com/Agenticstiger/forge-cli/issues)
+- [Declarative Airflow](./airflow-declarative.md): DAGs that run `fluid apply` on a schedule
+- [`fluid export`](../cli/export.md)
+- [GCP walkthrough](./gcp.md) and [Jenkins CI/CD](./jenkins-cicd.md)

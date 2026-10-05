@@ -100,12 +100,12 @@ pip install -e .
 #       libraries: [{id: hi, source: {kind: entrypoint, name: hello}}]
 #       patterns: [{use: hi:main}]
 
-fluid generate-custom-scaffold
-# ✓ 1 file written, 0 failed
-#   README.md
+fluid custom-scaffold
+# ✓ 1 files written, 0 failed
+#   <cwd>/README.md
 ```
 
-That's it. ~15 lines of Python, two TOML stanzas, one CLI command. Read the [quickstart](./quickstart.md) for the same thing with each step explained, plus what to check when something doesn't work.
+That's it: about 15 lines of Python, two TOML stanzas, one CLI command. The [quickstart](./quickstart.md) has the same thing with each step explained, a contract that passes `fluid validate`, and what to check when something doesn't work. The command is `fluid custom-scaffold`, registered by `data-product-forge-custom-scaffold`.
 
 ## Which role do I subclass?
 
@@ -113,7 +113,7 @@ Four roles, one mental model. Each role is a thin subclass of `BasePlugin` that 
 
 | You want to… | Role | Hook it into | Example |
 |---|---|---|---|
-| Generate files from a contract (CI configs, app code, IaC stacks, docs) | **`CustomScaffold`** | `fluid generate-custom-scaffold` | [hello-scaffold](./examples/hello-scaffold.md), [gitlab-ci-scaffold](./examples/gitlab-ci-scaffold.md) |
+| Generate files from a contract (CI configs, app code, IaC stacks, docs) | **`CustomScaffold`** | `fluid custom-scaffold` (from the scaffold engine package) | [hello-scaffold](./examples/hello-scaffold.md), [gitlab-ci-scaffold](./examples/gitlab-ci-scaffold.md) |
 | Enforce governance / compliance / cost rules at author-time | **`Validator`** | `fluid validate` | [steward-validator](./examples/steward-validator.md) |
 | Add support for a new cloud platform or data warehouse | **`InfraProvider`** | `fluid apply` | — |
 | Sync product metadata into your catalog (DataHub, Atlan, Collibra…) | **`CatalogAdapter`** | `fluid publish` | — |
@@ -135,11 +135,11 @@ Each guide opens with the real problem you might have, then walks you to a worki
 
 | Package | Version | What it does | Install |
 |---|---|---|---|
-| [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.15.0 | The CLI (this docs set) | `pip install data-product-forge` |
+| [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.18.1 | The CLI (this docs set) | `pip install data-product-forge` |
 | [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) | 0.10.0 | Plugin SDK — zero-dependency ABCs for the four roles (`CustomScaffold` / `Validator` / `InfraProvider` / `CatalogAdapter`) + per-role conformance harnesses | `pip install data-product-forge-sdk` (import: `from fluid_sdk import …`) |
 | [`data-product-forge-custom-scaffold`](https://pypi.org/project/data-product-forge-custom-scaffold/) | 0.4.1 | Reference custom-scaffold engine (Jinja+YAML or Python plugins); 0.4.0 adds reproducible builds — `fluid-scaffold.lock` + `--pin` / `--update` | `pip install data-product-forge-custom-scaffold` |
 
-The SDK and scaffold ship as version-pinned standalone packages. A first stable cut (`1.0.0` / `0.2.0`) is planned after a validation window — feel free to consume them today, just pin the upper bound. See [Companion Packages](./reference/companion-packages.md) for the dual-naming details (PyPI: `data-product-forge-sdk`, import path: `fluid_sdk`).
+The SDK and scaffold ship as standalone packages on their own version lines, both pre-1.0 as of this writing (SDK 0.10.0, scaffold engine 0.4.1). Pin the upper bound, as the examples do. See [Companion Packages](./reference/companion-packages.md) for the dual-naming details (PyPI: `data-product-forge-sdk`, import path: `fluid_sdk`).
 
 ## What about security?
 
@@ -147,8 +147,8 @@ Plugins are uncontained Python loaded into the CLI process. **Trust in a plugin 
 
 What the CLI *does* defend against, automatically:
 
-- **Operator allow/block gate** (CLI 0.10.0) — `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` gate every code-executing entry-point group **before** load; a blocked plugin's code never runs. `fluid plugins` shows each plugin's allow/block status.
-- **Crash containment** — a plugin that raises an exception cannot crash the CLI.
+- **Operator allow/block gate** (CLI 0.10.0) — `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` gate the governed entry-point groups (listed in the [trust model](./reference/trust-model.md)) **before** load; a blocked plugin's code never runs. `fluid plugins` shows each plugin's allow/block status.
+- **Crash containment** — the CLI catches an exception a plugin raises and reports it as an error.
 - **Contract mutation** — apply hooks get a `copy.deepcopy()` of the contract, not the live reference.
 - **Credential leak in error messages** — plugin exception text is scrubbed before reaching logs.
 
@@ -157,7 +157,7 @@ Full statement: [Trust model](./reference/trust-model.md). Read it before instal
 ## Reference
 
 - **[Roles](./reference/roles.md)** — what each role gives you, what you override (all four roles ship a conformance harness as of SDK 0.10.0)
-- **[Entry points](./reference/entry-points.md)** — the entry-point groups (CLI hooks + role-level, all wired in 0.10.0) with signatures and failure model
+- **[Entry points](./reference/entry-points.md)** — the entry-point groups (CLI hooks + role-level), which code walks each, with signatures and failure model
 - **[Trust model](./reference/trust-model.md)** — what we defend against, what we don't
 - **[Packaging](./reference/packaging.md)** — `pyproject.toml` template, `py.typed`, conformance harness, publishing checklist
 - **[Companion packages](./reference/companion-packages.md)** — what's on PyPI, dual-naming, version pinning

@@ -28,12 +28,19 @@ fluid validate-artifacts ARTIFACTS_DIR
 
 | Check | Detail |
 | --- | --- |
-| **MANIFEST SHA-256 re-verify** | Every file listed in `MANIFEST.json` is re-hashed and compared byte-for-byte. Tamper detection: flipping one byte in any artifact surfaces as a hard-fail. |
-| **ODCS schema validation** | All files under `odcs/` are validated against the vendored ODCS v3.1.0 schema from `bitol-io/open-data-contract-standard`. *(since 0.15.0)* Validated with the dialect that schema declares (2019-09), not with Draft 7 — see [Schema dialect](#schema-dialect-since-0-15-0). |
-| **ODPS-Bitol schema validation** | All files under `odps-bitol/` are validated against the vendored ODPS-Bitol v1.0.0 schema from `bitol-io/open-data-product-standard`. |
-| **Schedule DAG syntax** | `.py` files under `schedule/` are compiled with `python -m py_compile`. |
+| **MANIFEST SHA-256 re-verify** | Every file listed in `MANIFEST.json` is re-hashed and compared byte-for-byte, and the MANIFEST's own digest is recomputed. Tamper detection: flipping one byte in any artifact surfaces as a hard-fail. While a MANIFEST error stands, no per-format check runs. |
+| **ODCS schema validation** | Files under `odcs/` are validated against the vendored ODCS v3.1.0 schema from `bitol-io/open-data-contract-standard`. *(since 0.15.0)* Validated with the dialect that schema declares (2019-09), not with Draft 7 — see [Schema dialect](#schema-dialect-since-0-15-0). |
+| **ODPS-Bitol schema validation** | Files under `odps-bitol/` are validated against the vendored ODPS-Bitol v1.0.0 schema from `bitol-io/open-data-product-standard`. Sibling `*.odcs.yaml`, `*.odcs.yml` and `*.odcs.json` files in that directory are validated as ODCS instead. |
+| **OPDS schema validation** | Files under `opds/` (and the older `odps/` prefix) are validated against the vendored OPDS v4.1 schema. |
+| **Schedule DAG syntax** | `.py` files under `schedule/` are compiled with `python -m py_compile`. Stage 3 writes them to `schedule/<product-id>/`, with an `__<env>` suffix on the directory when you generate with `--env`. |
 | **Policy bindings key-check** | `policy/bindings.json` is loaded and a shallow `provider` / `bindings` key-check runs. |
 | **OPA conftest (optional)** | If `tests/policies/*.rego` exists next to the contract, `conftest test dist/artifacts/policy/bindings.json --policy tests/policies/` runs. Soft-import — no Rego rules → silent skip. |
+| **dbt parse (optional)** | If `<ARTIFACTS_DIR>/dbt/dbt_project.yml` exists, `dbt parse --no-partial-parse` runs on it. When `dbt` is not on `PATH` the check is skipped with an INFO note, or fails with `--strict`. |
+
+Two situations produce a warning, and `--strict` turns each into a failure:
+
+- A file on disk that `MANIFEST.json` does not declare: `MANIFEST-UNDECLARED-FILE`.
+- A file the MANIFEST declares that has no validator for its path: `ARTIFACT-UNEXPECTED`. Only the prefixes in the table above have one.
 
 ## Examples
 
@@ -53,13 +60,60 @@ fluid validate-artifacts dist/artifacts/ \
   --strict
 ```
 
+### Pass: a clean tree
+
+```bash
+fluid generate artifacts contract.fluid.yaml --out dist/artifacts
+fluid validate-artifacts dist/artifacts
+```
+
+```text
+✅ Artifacts pass: dist/artifacts
+   digest:
+sha256:d7c7871b28c2397ae2fa45436b606a203337becb778454d0b7567d943e779e52
+   issues: 0 total (0 error, 0 warning, 0 info)
+```
+
 ### Tamper-detection spot-check
 
 ```bash
-fluid generate artifacts contract.fluid.yaml --out dist/artifacts/
-echo " extra" >> dist/artifacts/odcs/product.odcs.foo.yaml   # simulate tamper
-fluid validate-artifacts dist/artifacts/
-# ❌ exit 1: MANIFEST SHA-256 mismatch on odcs/product.odcs.foo.yaml
+cp -r dist/artifacts dist/t
+echo " extra" >> dist/t/odcs/product.odcs.customer_360_master.yaml   # simulate tamper
+fluid validate-artifacts dist/t -v
+```
+
+```text
+❌ Artifacts fail: dist/t
+   digest:
+sha256:d7c7871b28c2397ae2fa45436b606a203337becb778454d0b7567d943e779e52
+   issues: 2 total (2 error, 0 warning, 0 info)
+    manifest: odcs/product.odcs.customer_360_master.yaml: SHA-256 mismatch:
+expected
+sha256:ad75a7231f58e8fa87064dc25d386e9dea8b259b39ac8d4ae29f28a9f66129b3, got
+sha256:c6862511134460f1f059265195abc5eb6e4150f5fa3e7a7bd783bc01450aa255
+    manifest: dist/t/MANIFEST.json: merkle root mismatch: expected
+sha256:d7c7871b28c2397ae2fa45436b606a203337becb778454d0b7567d943e779e52, got
+sha256:cd7224f6c254ce0920d05ba266269668d5a134246906e559cf4829f2a887a432
+```
+
+The command exits `1`. The second line is the MANIFEST's own digest no longer matching its file list.
+
+### A stray file
+
+A file dropped into the tree after generation is not in the MANIFEST:
+
+```bash
+echo hi > dist/artifacts/stray.txt
+fluid validate-artifacts dist/artifacts -v        # exit 0, one warning
+fluid validate-artifacts dist/artifacts --strict  # exit 1
+```
+
+```text
+✅ Artifacts pass: dist/artifacts
+   digest:
+sha256:d7c7871b28c2397ae2fa45436b606a203337becb778454d0b7567d943e779e52
+   issues: 1 total (0 error, 1 warning, 0 info)
+    manifest: stray.txt: present in dist/artifacts but not declared in MANIFEST
 ```
 
 ## Schema dialect (since 0.15.0)

@@ -13,11 +13,11 @@ Short answer: it unifies the four contracts (schema + infra + orchestration + po
 
 ## Why do I see `pip install fluid-forge` in some old docs and `pip install data-product-forge` in new docs?
 
-The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge`** (the older `fluid-forge` listing is frozen at 0.7.9 and won't receive new releases). [Getting Started](/forge_docs/getting-started/) has the up-to-date install instructions for the current `0.15.0` release.
+The PyPI package was renamed. Canonical name as of v0.8.0: **`data-product-forge`** (the older `fluid-forge` listing is frozen at 0.7.9 and won't receive new releases). [Getting Started](/forge_docs/getting-started/) has the up-to-date install instructions for the current `0.18.1` release.
 
 ## What's the difference between `fluidVersion` and the CLI version?
 
-`fluidVersion` is the **contract schema version** declared inside each YAML file (current: `"0.7.5"`). The CLI version is the version of the `data-product-forge` package itself (current: `0.15.0`). The CLI accepts contracts with `fluidVersion` `0.7.1`, `0.7.2`, `0.7.3`, `0.7.4` or `0.7.5`, plus `0.7.6` as a preview. `0.4.0` and `0.5.7` are not accepted and fail with `ERR_CONTRACT_VERSION_UNSUPPORTED`. Run `fluid version` for the authoritative compatibility list.
+`fluidVersion` is the **contract schema version** declared inside each YAML file (current: `"0.7.5"`). The CLI version is the version of the `data-product-forge` package itself (current: `0.18.1`). The CLI accepts contracts with `fluidVersion` `0.7.1`, `0.7.2`, `0.7.3`, `0.7.4` or `0.7.5`, plus `0.7.6` as a preview. `0.4.0` and `0.5.7` are not accepted and fail with `ERR_CONTRACT_VERSION_UNSUPPORTED`. Run `fluid version` for the authoritative compatibility list.
 
 ## Can I extend the CLI with my own scaffolding, validators, or governance rules?
 
@@ -42,11 +42,13 @@ Or for an isolated CLI install: `pipx install "data-product-forge[local]"`.
 ## How do I upgrade?
 
 ```bash
-pip install --upgrade data-product-forge
-fluid doctor                    # verifies the new install
+pip install --upgrade "data-product-forge[local]"
+fluid version
 ```
 
-Schema migrations are backward-compatible by default — the latest CLI reads older `fluidVersion` contracts.
+Then follow the [upgrade guide](../upgrading.md). It has a checklist for each version you cross, because some upgrades need action: `0.17.0`, for example, moves remote state to a per-provider key for a contract that uses a per-contract state key, and needs one `fluid schedule-sync` to retire old Airflow DAGs if you sync Airflow DAGs, and `0.16.3` changed some results on purpose. Pin an exact version in CI (`data-product-forge==0.18.1`), not a range.
+
+Your contracts do not need a new `fluidVersion`: `0.18.1` reads `0.7.1` to `0.7.5`, and `0.7.6` as a preview.
 
 ## Where's the playground?
 

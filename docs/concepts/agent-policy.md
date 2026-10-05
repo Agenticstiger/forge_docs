@@ -9,14 +9,14 @@ Declared per-expose at `exposes[].policy.agentPolicy` — a block that declares 
 
 > **Why it matters**
 > AI agents are often your largest data consumer — `agentPolicy` makes their access boundaries declarative, the same way `accessPolicy` governs people.
-> Forge enforces those rules at the MCP output port on every agent call, so an agent reads a governed product, not raw tables.
+> Forge applies those rules at the MCP output port when an agent reads through it. An agent that queries the warehouse directly with its own credentials is governed by cloud IAM, not by `agentPolicy`.
 
 <CliCast
   src="/forge_docs/demos/agent-policy.svg"
   title="agentPolicy — declare, validate, gate (validate → policy-check → audit)"
   caption="Watch agentPolicy enforce: the YAML block with allowedModels / deniedUseCases / canStore / auditRequired, schema validation, the policy-check enforcement summary, and a replay of agent reads — gpt-4 + analysis allowed, claude-3 + training denied, an unlisted model denied, gemini summarization allowed."
   width="920"
-  insight="Declared in YAML. Enforced at read-time. Audited natively. | Models, use-cases, storage, token limits — every dimension checked per request. | auditRequired=true means every allow + every deny lands in your platform's audit log (BigQuery audit log / Snowflake ACCESS_HISTORY / CloudTrail)."
+  insight="Declared in YAML. Enforced at read-time by the MCP output port. | Model and use case are checked before each call; the token caps apply to what is returned. | The output port writes a local data_access audit record for each allow and deny."
 />
 
 ## Why declarative?
@@ -71,7 +71,7 @@ exposes:
 
 ## Combining with column-level `sensitivity`
 
-`agentPolicy` doesn't have a `piiHandling` field; instead, mark PII at the column level and let the governance pipeline mask it for any agent reader:
+`agentPolicy` has no `piiHandling` field. Tag PII at the column level instead:
 
 ```yaml
 exposes:
@@ -82,23 +82,22 @@ exposes:
           type: STRING
         - name: email
           type: STRING
-          sensitivity: pii         # masked downstream
+          sensitivity: pii         # value replaced with a redaction token by the MCP output port
 ```
 
-The exact masking behavior depends on the target platform's capabilities (BigQuery dynamic data masking, Snowflake masking policies). Verify with `fluid policy-check` before relying on it for compliance.
+The MCP output port replaces the values of `pii` and `phi` columns with a redaction token in the results of the query tools it serves. To change what is stored, declare `policy.privacy.masking` on the expose; it is applied when the DuckDB acquisition runner lands the data. No warehouse masking policy is emitted from either field. See [Governance & Policy → Masking](./governance-policy.md#masking-policy-privacy-masking).
 
 ## Where it's enforced
 
 | Surface | How `agentPolicy` is honored |
 |---------|-------------------------------|
-| **`fluid policy-check`** | Validates the contract surface against the agentPolicy block. Catches malformed enums, missing `auditRequired` on regulated products, contradictions between allowed/denied lists. |
-| **`fluid policy-apply`** | Maps `allowedModels` / `deniedModels` to provider-specific row-level security where supported. Emits an audit-trail subscription for the platform's native audit log. |
+| **`fluid validate`** | Checks the block for consistency: a model in both `allowedModels` and `deniedModels` is an error, for example. |
 | **`fluid mcp output-port serve`** | Read-time enforcement when agents speak MCP. This is the consumer-side data-access gate: every read passes through the agentPolicy gate (model / use-case checked pre-dispatch; the per-request token cap applied after). See "Enforcement modes" below. (`fluid mcp serve` is the producer/authoring tool server — it does **not** gate data reads.) |
-| **Native audit trail** | When `auditRequired: true`, every read is logged through BigQuery audit log / Snowflake `ACCESS_HISTORY` / CloudTrail with the agent identity, model, use-case. |
+| **Audit record** | The output port writes a local `data_access` record for each allow and deny decision it reaches, whether or not `auditRequired` is set. A failed audit write is logged at debug level and does not stop the call. See [Audit event schema](#audit-event-schema). |
 
 ## Enforcement modes
 
-`agentPolicy` is just a declaration; enforcement happens in one of three modes depending on how your agents read the data product.
+`agentPolicy` is a declaration. The MCP output port is where forge-cli applies it to reads; the other two modes below are what you do when agents do not read through it.
 
 ### 1. MCP server (preferred for agentic workflows)
 
@@ -114,49 +113,83 @@ agent (claude-sonnet-4-6)  ──read──►  fluid mcp output-port serve
                                           └─ DENY  ─►  TextContent JSON envelope + audit (with reason)
 ```
 
-A denied read does not return an HTTP 403 — the stdio gateway returns a `TextContent` JSON envelope `{error: "AgentPolicyDenied" | "TokenBudgetExceeded", reason, message}`. The server reads `agentPolicy` from the expose at startup and re-validates per request. Audit records ship to the platform's audit log automatically. (`fluid mcp serve` is the producer/authoring tool server — catalog reads, contract regeneration — and does not enforce agentPolicy on data reads.)
+A denied read does not return an HTTP 403 — the stdio gateway returns a `TextContent` JSON envelope `{error: "AgentPolicyDenied" | "TokenBudgetExceeded", reason, message}`. The server reads `agentPolicy` from the expose at startup and checks it on each request that reaches the policy check. Each decision is written to the local audit directory (see [Audit event schema](#audit-event-schema)). (`fluid mcp serve` is the producer/authoring tool server — catalog reads, contract regeneration — and does not enforce agentPolicy on data reads.)
 
-### 2. Side-car interceptor
+### 2. Platform-side controls
 
-When agents read directly via SQL/HTTP (not via MCP), the side-car pattern intercepts at the platform layer:
+When agents query the warehouse directly over SQL or HTTP, the gateway is not in the path, and no forge-cli command turns `agentPolicy` into a platform policy as of 0.18.1. `fluid policy-compile` reads only `accessPolicy.grants`, and `fluid policy-apply` provisions nothing. Govern those reads with the cloud's own IAM, which the contract does drive:
 
-- **BigQuery**: not yet emitted. `agentPolicy` is not read by the policy compiler at all — `fluid policy-compile` turns `accessPolicy.grants` into BigQuery dataset/table IAM bindings and nothing else, and `fluid policy-apply` applies nothing on GCP: it reports the compiled bindings and leaves provisioning to `fluid apply`. BigQuery row access policies, column policy tags and dynamic data masking are roadmap, not shipped — see [GCP provider → Security & Governance](/forge_docs/providers/gcp.html#security-governance). Apply row access policies with `gcloud` until this is wired in.
-- **Snowflake**: a masking policy that consults a Snowflake function checking `agent_id` and `model_id` against the contract's `agentPolicy`. Forge emits the policy DDL.
-- **AWS Glue / Athena**: Lake Formation cell-level filters keyed on the same identity claims.
+- **GCP:** `accessPolicy.grants` become dataset IAM members, and `policy.authz.columnRestrictions` become Data Catalog policy tags with fine-grained readers, both at `fluid apply`. Give each agent its own service account and grant or restrict it like any other principal. BigQuery row access policies are not emitted.
+- **AWS:** `binding.governance.lakeFormation` grants, excluded columns and data cells filters, at `fluid apply`.
+- **Snowflake:** nothing from contract fields (see the [per-cloud table](./governance-policy.md#what-gets-emitted-per-cloud)).
 
-Side-cars are platform-specific; the agentPolicy contract stays the same. Forge handles the translation in `policy-apply`.
+`fluid_build.output_ports.iam_compiler` is a Python module that compiles `agentPolicy` and `rowFilters` into Snowflake and PostgreSQL row access SQL; BigQuery and Lake Formation are stubs. As of 0.18.1 no command calls it, so you run its output yourself; see "Cloud-IAM compilers" on [Advanced → MCP output port](../advanced/mcp.md).
 
-### 3. Application-level (when neither MCP nor side-car is feasible)
+### 3. Application-level (when neither MCP nor platform IAM fits)
 
-For agents that read directly via SQL/HTTP and *can't* migrate to MCP or use platform-level enforcement, the application owns the gate. The pattern: load the contract via the FLUID Python SDK (`from fluid_build.contract import load_contract`), inspect the target expose's `expose.policy.agentPolicy` (the gate reads it as `(expose.get("policy") or {}).get("agentPolicy")`), and decide allow/deny in your own code path before issuing the read.
+For agents that read directly via SQL/HTTP and *can't* migrate to MCP or use platform-level enforcement, the application owns the gate. The pattern: load the contract with the public loading API, inspect the target expose's `policy.agentPolicy`, and decide allow or deny in your own code before issuing the read:
+
+```python
+from fluid_build.api import load_contract
+
+loaded = load_contract("contract.fluid.yaml")
+expose = next(e for e in loaded.contract["exposes"] if e["exposeId"] == "customers")
+agent_policy = (expose.get("policy") or {}).get("agentPolicy") or {}
+```
+
+`load_contract` resolves `$ref` fragments and overlays the way `fluid plan` does; see [Contract loading API](../advanced/contract-loading-api.md).
 
 This is the weakest mode (the application is the trust boundary) but useful when migrating legacy agent code incrementally.
 
 ## Audit event schema
 
-When `auditRequired: true`, every check (allow OR deny) emits a record:
+`fluid mcp output-port serve` writes one JSON file per decision, allow or deny, whether or not `auditRequired` is set. A deny, as written by 0.18.1:
 
 ```json
 {
-  "ts": "2026-04-12T14:23:01Z",
-  "audit_id": "aud_8f2c4...",
-  "decision": "ALLOW",
-  "product": "gold.finance.customer_360_v1",
-  "expose": "customer_360_table",
-  "agent_id": "svc:bi-dashboard",
-  "model": "claude-sonnet-4-6",
-  "use_case": "analysis",
-  "tokens_requested": 312,
-  "tokens_remaining_today": 98800,
-  "rows_returned": 412
+  "event": "data_access",
+  "payload": {
+    "argumentSummary": {},
+    "callerJurisdiction": null,
+    "contractPath": "/work/crm/contract.fluid.yaml",
+    "decision": "deny",
+    "exposeId": "customers",
+    "modelId": "claude-sonnet-4-6",
+    "policyDigest": "jcs-sha256:0dbebed8540b9627faafe992ad6b575c463d2e22d4d891398dc050edb4a30ed3",
+    "policySource": "contract",
+    "reason": "in-deniedUseCases",
+    "runId": "a481cf8fa607",
+    "tool": "describe",
+    "useCase": "training"
+  },
+  "timestamp_utc": "2026-10-05T00:18:04.213845+00:00"
 }
 ```
 
-Deny records carry a `reason` field drawn from a closed vocabulary of eleven codes — `tool-not-allowed`, `missing-caller-jurisdiction`, `in-denied-jurisdiction`, `not-in-allowed-jurisdictions`, `missing-model-identity`, `in-deniedModels`, `in-deniedUseCases`, `not-in-allowedModels`, `missing-use-case-with-allowlist`, `not-in-allowedUseCases`, plus `allowed` when nothing fires. The full precedence order is on [Advanced → MCP](/forge_docs/advanced/mcp.html#decision-precedence-and-reason-codes-since-0-15-0). Rate limits and token budgets deny outside that vocabulary and say so in the record: `policySource: rate-limit` or `policySource: token-budget`, with a descriptive `reason` such as `token-budget-exceeded (…)`. `canStore` is advisory and denies nothing at the gateway. Records ship through the platform's native audit channel — no separate audit infrastructure to maintain.
+- **Where:** `~/.fluid/store/audit/<timestamp>_<suffix>_data_access.json`, or under `FLUID_AUDIT_ROOT`. With `FLUID_STORE_BACKEND` set to a non-file store, each record is also written through the Store. `FLUID_MCP_AUDIT_WEBHOOK_URL` forwards each one to a SIEM; see [Advanced → MCP output port](../advanced/mcp.md#audit-trail-rotation-and-the-webhook-forwarder). Nothing is written to BigQuery audit logs, CloudTrail or Snowflake `ACCESS_HISTORY`.
+- **`decision`:** `allow`, `deny`, or `tool_error` when an allowed call then failed (that record carries `annotatedMessage`, and `reason` holds the error class).
+- **`policyDigest`:** `jcs-sha256:` over the effective rule set, so a decision can be tied to the rules that made it after the contract changes. Policy-gate records carry it.
+- **`auditRequired: true`:** changes no record. At startup, when `FLUID_AUDIT_ROOT` is unset, the server prints where it is writing.
+
+Policy-gate denials carry a `reason` drawn from a closed vocabulary: `tool-not-allowed`, `missing-caller-jurisdiction`, `in-denied-jurisdiction`, `not-in-allowed-jurisdictions`, `missing-model-identity`, `in-deniedModels`, `in-deniedUseCases`, `not-in-allowedModels`, `missing-use-case-with-allowlist`, `not-in-allowedUseCases`, plus `allowed` when nothing fires. The precedence order is on [Advanced → MCP](../advanced/mcp.md#decision-precedence-and-reason-codes-since-0-15-0). Rate limits, the circuit breaker and token budgets deny outside that vocabulary with a reduced key set, and say so in `policySource` (`rate-limit`, `token-budget`) with a descriptive `reason` such as `token-budget-exceeded (…)`. `canStore` is advisory and denies nothing at the gateway.
+
+## Is the caller who it says it is?
+
+When a model or use-case gate is active, the server prints this at startup:
+
+```text
+⚠️  fluid mcp output-port: caller model_id is self-attested via MCP clientInfo. Do not expose this gateway over an untrusted network until P3 (OAuth/mTLS identity) ships. See https://agenticstiger.github.io/forge_docs/concepts/agent-policy.html
+```
+
+Over stdio, and over HTTP with no authentication configured, the model id and use case are whatever the client sends in its MCP handshake. A client can claim `claude-sonnet-4-6` and `analysis` and pass the gate. Treat the gate as a guard against mistakes, not against an adversary, in that setup.
+
+To bind identity, serve over HTTP with `FLUID_MCP_AUTH_MODE=jwt` (or behind a proxy that terminates mTLS). The verified claims then replace the self-attested ones: the model and use case come from the token, and a client cannot re-attest them. See [Advanced → MCP → Authentication modes](../advanced/mcp.md#authentication-modes). As of 0.18.1 the warning is printed whenever a model or use-case gate is active, including when JWT authentication is configured; its "until P3 ships" wording predates the shipped JWT mode.
 
 See the [agent-policy demo](/forge_docs/see-it-run.html) for a frame-perfect cast of the enforcement flow: contract → validate → policy-check → 4 simulated agent reads (2 allow, 2 deny with reasons).
 
 ## Common patterns
+
+Each fragment goes under `exposes[].policy` in the contract.
 
 ### "No training, ever" (most regulated data)
 
@@ -189,12 +222,12 @@ agentPolicy:
   deniedUseCases: ["training"]
   maxTokensPerDay: 100000
   canStore: false
-  auditRequired: false                   # public-grade data; no audit overhead
+  auditRequired: false                   # the gateway still writes a record per decision
 ```
 
 ## Where to look next
 
 - [Governance & Policy](./governance-policy.md) — `accessPolicy` for human/service principals (the complementary gate)
 - [`fluid mcp output-port serve`](/forge_docs/cli/mcp) — the consumer-side MCP server that enforces agentPolicy at read-time (`fluid mcp serve` is the separate producer/authoring tool server)
-- [`fluid policy-apply`](/forge_docs/cli/policy-apply) — emit + apply the side-car interceptors
+- [Advanced → MCP output port](../advanced/mcp.md) — transports, authentication, row filters and the audit sink
 - [agent-policy demo](/forge_docs/see-it-run.html) — frame-perfect cast of the full enforcement flow

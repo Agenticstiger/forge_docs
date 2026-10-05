@@ -1,157 +1,180 @@
-# Declarative Airflow DAG Generation - The FLUID Way
+# Declarative Airflow DAG Generation
 
-**Learn how FLUID transforms your data product contract into production-ready Airflow DAGs without writing orchestration code.**
+Generate Airflow DAGs from a data product contract instead of writing them. FLUID produces two kinds of DAG, and they do different jobs:
 
-::: warning Compatibility note
-The contract snippets on this page use `fluidVersion: "0.7.1"`, and the generated DAG example uses `fluid generate-airflow`. The CLI validates each contract against its own declared version, so these examples remain valid. For new contracts the current stable schema is `0.7.5` — `fluid forge` scaffolds a contract on it; `fluid init my-project --quickstart` copies a bundled template pinned at `0.7.2`, which the CLI still validates. For the current orchestration path prefer [`fluid generate schedule --scheduler airflow`](/forge_docs/cli/generate.html#fluid-generate-schedule).
-:::
+- A **scheduled-build DAG** runs `fluid apply` for one build on a cron schedule. You declare the schedule on the build, and the DAG is what Airflow runs. This is the DAG that stage 3 of the [11-stage pipeline](./11-stage-pipeline.md) writes and stage 11 delivers.
+- A **provider-action DAG** is made from a contract's `exposes[]` and `builds[]` (or its `orchestration.tasks`) with `fluid generate schedule` or `fluid generate-airflow`. Its tasks are shell or log steps.
 
----
+This page generates both with CLI `0.18.1` and shows what each file contains, so you can decide which one fits. Output is real; absolute paths are shortened to `...`.
 
-## Overview
+## Scheduled builds: a DAG that runs `fluid apply`
 
-Apache Airflow is the industry-standard tool for orchestrating data pipelines, but creating DAGs typically requires writing hundreds of lines of Python code for each workflow. FLUID changes this by **automatically generating production-ready Airflow DAGs from your data product contract**.
+### Declare the schedule on the build
 
-This walkthrough shows you how to go from a YAML contract to a fully functional Airflow DAG with a single command—reducing 300+ lines of imperative Python to just one declarative statement.
-
-**What you'll learn:**
-- Why manual DAG development is time-consuming and error-prone
-- How FLUID's declarative approach works
-- Step-by-step tutorial using the Bitcoin tracker example
-- Advanced patterns like multi-provider deployments
-- Customization options for schedules, environments, and DAG IDs
-
----
-
-## 🎯 The Problem: Manual Airflow DAG Development
-
-### Traditional Approach (Imperative)
-
-When building data pipelines with Airflow, you typically write **300+ lines of Python code** like this:
-
-```python
-# bitcoin_tracker_manual.py - THE OLD WAY
-from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
-from airflow.providers.google.cloud.operators.bigquery import BigQueryCheckOperator
-from datetime import datetime, timedelta
-import sys
-import os
-
-# Add project to path
-sys.path.insert(0, os.path.dirname(__file__))
-from ingest_bitcoin_prices import fetch_bitcoin_price, insert_to_bigquery
-
-# Default arguments
-default_args = {
-    "owner": "data-engineering",
-    "depends_on_past": False,
-    "email": ["alerts@example.com"],
-    "email_on_failure": True,
-    "email_on_retry": False,
-    "retries": 3,
-    "retry_delay": timedelta(minutes=5),
-    "retry_exponential_backoff": True,
-}
-
-# DAG definition
-dag = DAG(
-    dag_id="bitcoin_tracker_manual",
-    default_args=default_args,
-    description="Hourly Bitcoin price ingestion",
-    schedule_interval="0 * * * *",
-    start_date=datetime(2024, 1, 1),
-    catchup=False,
-    tags=["crypto", "bitcoin", "manual"],
-)
-
-# Task 1: Validate contract
-validate = BashOperator(
-    task_id="validate_contract",
-    bash_command="cd /path/to/project && python3 -m fluid_build.cli validate contract.fluid.yaml",
-    dag=dag,
-)
-
-# Task 2: Fetch price
-def fetch_btc_task(**context):
-    price_data = fetch_bitcoin_price()
-    context["ti"].xcom_push(key="price_usd", value=price_data["price_usd"])
-    return price_data
-
-fetch_price = PythonOperator(
-    task_id="fetch_bitcoin_price",
-    python_callable=fetch_btc_task,
-    provide_context=True,
-    dag=dag,
-)
-
-# Task 3: Insert to BigQuery
-def insert_task(**context):
-    price_data = context["ti"].xcom_pull(task_ids="fetch_bitcoin_price")
-    success = insert_to_bigquery(
-        price_data,
-        "your-project-id",
-        "crypto_data",
-        "bitcoin_prices"
-    )
-    if not success:
-        raise Exception("Insert failed")
-
-insert_price = PythonOperator(
-    task_id="insert_to_bigquery",
-    python_callable=insert_task,
-    provide_context=True,
-    dag=dag,
-)
-
-# Task 4: Run dbt
-run_dbt = BashOperator(
-    task_id="run_dbt_models",
-    bash_command="cd /path/to/project/dbt && dbt run --profiles-dir .",
-    dag=dag,
-)
-
-# Task 5: Quality check
-check_quality = BigQueryCheckOperator(
-    task_id="check_data_quality",
-    sql="""
-        SELECT COUNT(*) > 0
-        FROM `your-project.crypto_data.bitcoin_prices`
-        WHERE DATE(timestamp) = CURRENT_DATE()
-    """,
-    use_legacy_sql=False,
-    dag=dag,
-)
-
-# Define dependencies
-validate >> fetch_price >> insert_price >> run_dbt >> check_quality
-```
-
-**Problems with this approach:**
-- ❌ **300+ lines of boilerplate code**
-- ❌ **Hardcoded project paths and IDs**
-- ❌ **Manual dependency management**
-- ❌ **No single source of truth** (contract vs DAG can drift)
-- ❌ **Copy-paste errors across similar DAGs**
-- ❌ **Hard to maintain** (change contract, must manually update DAG)
-- ❌ **Not portable** (GCP-specific, can't easily switch providers)
-
----
-
-## ✨ The FLUID Solution: Declarative DAG Generation
-
-### What You Declare (One Source of Truth)
-
-Your **data product contract** (`contract.fluid.yaml`) already contains everything needed:
+Take the product from the [local walkthrough](./local.md) and add an `execution` block to its build:
 
 ```yaml
-fluidVersion: "0.7.1"
+builds:
+  - id: build_genre_preferences
+    pattern: embedded-logic
+    engine: sql
+    properties:
+      sql: |
+        ...
+    execution:
+      trigger:
+        type: schedule
+        schedule: "0 2 * * *"
+        timezone: Europe/Paris
+      retries:
+        maxAttempts: 3
+    outputs:
+      - genre_preferences
+```
+
+| Field | Meaning |
+| --- | --- |
+| `trigger.type` | `schedule`, or leave it out |
+| `trigger.schedule` | an Airflow preset (`@once`, `@hourly`, `@daily`, `@weekly`, `@monthly`, `@yearly`, `@annually`, `@midnight`) or a five-field cron; `cron:` is accepted as a synonym |
+| `trigger.timezone` | the schedule's time zone; default `UTC` |
+| `retries.maxAttempts` | Airflow retries are `maxAttempts - 1`; with no `retries` block the DAG uses 3 retries, and 10 is the maximum |
+
+The schedule is checked against the grammar Airflow parses it with (croniter), so a schedule Airflow would refuse fails when you generate, not when Airflow imports the DAG. A six-field cron is refused, because croniter reads the sixth field as seconds while Quartz puts seconds first:
+
+```text
+{"time": "2026-10-05T06:21:28Z", "level": "ERROR", "name": "fluid.cli", "message": "generate_schedule_invalid_schedule: {'error': \"build 'build_genre_preferences': trigger schedule '0 0 2 * * *' is not a five-field cron expression (minute hour day-of-month month day-of-week) or an Airflow preset such as @daily\"}"}
+```
+
+`fluid generate schedule` exits 2. `fluid generate artifacts` (stage 3) exits 1 on the same contract.
+
+### Generate the DAG
+
+```bash
+fluid generate schedule contract.fluid.yaml --scheduler airflow --env dev \
+  --contract-path genre-preferences/contract.fluid.yaml -o dags/
+```
+
+```text
+overlay_base_env: --env 'dev' has no overlay for .../contract.fluid.yaml; using the base contract (dev is the base by convention)
+
+Generated 1 files (airflow scheduler):
+
+  dags/build_genre_preferences_dag.py
+
+Tip: To regenerate after editing the contract: fluid generate schedule
+```
+
+`--env` names the overlay every scheduled run passes to `fluid apply`; it defaults to `$FLUID_ENV`. `--contract-path` is where the contract sits relative to `$FLUID_PROJECT_DIR` on the Airflow worker; it defaults to the path you gave on the command line, relative to the current directory. `dev` has no overlay here, which the first line says, and the DAG still carries `dev`.
+
+In the pipeline, stage 3 writes the same DAG with `fluid generate artifacts`, into one directory per product and environment: `dist/artifacts/schedule/<product id>__<env>/<build id>_dag.py`.
+
+### Read the DAG
+
+```python
+PRODUCT_ID = 'entertainment.genre_preferences_v1'
+BUILD_ID = 'build_genre_preferences'
+CONTRACT_PATH = 'genre-preferences/contract.fluid.yaml'
+FLUID_ENV_NAME = 'dev'
+CONTRACT_ENV_NAMES = ''
+SCHEDULE = '0 2 * * *'
+TIMEZONE = 'Europe/Paris'
+RETRIES = 2
+```
+
+```python
+with DAG(
+    dag_id='entertainment.genre_preferences_v1__dev__build_genre_preferences',
+    description='fluid apply entertainment.genre_preferences_v1 --build-id build_genre_preferences',
+    schedule=SCHEDULE,
+    start_date=pendulum.datetime(2026, 1, 1, tz=TIMEZONE),
+    catchup=False,
+    max_active_runs=1,
+    default_args={
+        "owner": "fluid",
+        "retries": RETRIES,
+        "retry_delay": timedelta(minutes=5),
+        "execution_timeout": timedelta(hours=3),
+    },
+    tags=["fluid", PRODUCT_ID[:100]],
+    doc_md=__doc__,
+) as dag:
+    BashOperator(
+        task_id="fluid_apply",
+        bash_command=BASH_COMMAND,
+        env={
+            "FLUID_DAG_CONTRACT": CONTRACT_PATH,
+            "FLUID_DAG_ENV": FLUID_ENV_NAME,
+            "FLUID_DAG_BUILD_ID": BUILD_ID,
+            "FLUID_DAG_CONTRACT_ENV": CONTRACT_ENV_NAMES,
+        },
+        append_env=True,
+        skip_on_exit_code=None,
+    )
+```
+
+The DAG has one task, a `BashOperator` that runs, on the worker:
+
+```bash
+cd "$FLUID_PROJECT_DIR"
+fluid apply "$FLUID_PROJECT_DIR/$CONTRACT_PATH" --env "$FLUID_ENV_NAME" \
+    --mode amend-and-build --build-id "$BUILD_ID" --yes
+```
+
+This is the same apply that stage 7 runs, so a cloud target uses the same OpenTofu state as CI when the worker has the same state-backend settings (`FLUID_STATE_BACKEND`). `--env` is left out when `FLUID_ENV_NAME` is empty.
+
+The DAG is written for Airflow 3 (`airflow.sdk.DAG`, `BashOperator` from `apache-airflow-providers-standard`) with guarded imports that fall back to `airflow.DAG` and `airflow.operators.bash` on Airflow 2.6 and later. It sets `catchup=False` and `max_active_runs=1`, so two applies of one build never overlap, a three-hour execution timeout, and `skip_on_exit_code=None`, so a `fluid` exit code of 99 fails the task instead of skipping it.
+
+### What the Airflow worker needs
+
+| On the worker | Meaning |
+| --- | --- |
+| `FLUID_PROJECT_DIR` | required: the directory that holds the product checkout, the one CI ran the pipeline from. The run fails if it is unset or the contract is not under it |
+| `fluid` on `PATH`, or `FLUID_BIN` | the executable to run |
+| the credentials the apply needs | in the worker's environment; nothing secret is written into the DAG file |
+| `FLUID_DAG_ENV_PASSTHROUGH` | extra variable names, space separated, to pass on to `fluid` |
+
+`fluid` is started through `env -i`, with only the variables the DAG's docstring lists: `PATH`, `HOME`, the locale and proxy variables, each name matching `FLUID_*`, `AWS_*`, `GOOGLE_*`, `GCP_*`, `SNOWFLAKE_*` and the other provider prefixes it names, the variables the contract reads through `{{ env.NAME }}`, `${NAME}` or `secretRef: env://NAME`, and the names in `FLUID_DAG_ENV_PASSTHROUGH`. A name starting `AIRFLOW` never passes, so the worker's own configuration, connections and Fernet key never reach the apply. A dbt project's own `env_var()` calls and dlt's `SOURCES__*` settings are not known to `fluid`: name them in `FLUID_DAG_ENV_PASSTHROUGH`.
+
+### Which builds get a DAG
+
+Stage 3 (`fluid generate artifacts`) writes schedule artifacts when the contract sets `orchestration.engine` to anything but `none`, or when it sets no engine and a build declares `execution.trigger.schedule` (or `cron`) with `type: schedule` or no type. Airflow renders the second case.
+
+Within that, a build gets the `fluid apply` DAG unless its own `execution.orchestration.engine` is `none` or not Airflow, or its trigger is `event`, `dataset`, `schedule_and_dataset` or `timetable`, which a cron DAG cannot express. A contract that hand-declares `orchestration.tasks` keeps those operators instead.
+
+### The DAG id and the environment
+
+The DAG id is `<product id>__<env>__<build id>`:
+
+```text
+dag_id='entertainment.genre_preferences_v1__dev__build_genre_preferences',
+```
+
+With no environment (`--env ""` and no `$FLUID_ENV`) it is `<product id>__<build id>`. Because the environment is in the id, you do not need to pass your own `--dag-id` to tell `dev` and `prod` apart: generate each with its own `--env`.
+
+Airflow keys run history on the DAG id, so a DAG that gains an environment starts a new history. DAGs from forge-cli 0.16.7 and earlier were rendered into `<product id>/` with the id `<product id>__<build id>`. `fluid schedule-sync` retires those when the destination is a local path or `git+ssh` and the scheduler is `airflow`; elsewhere it prints a note telling you to delete them once, because Airflow would otherwise run both. [Stage 11](./11-stage-pipeline.md#stage-11-schedule-sync) shows the report.
+
+### Deliver it
+
+```bash
+fluid schedule-sync --scheduler airflow --dags-dir dist/artifacts/schedule/ \
+  --destination /opt/airflow/dags/ --env dev
+```
+
+`--env` on `schedule-sync` is a tag for the log and the report; the overlay was fixed when the DAG was generated. `--delete-scope product` (the default) mirrors each top-level directory of `--dags-dir` into the same-named directory of the destination and deletes only there; `destination` mirrors onto the whole destination; `none` copies without deleting. See [`fluid schedule-sync`](../cli/schedule-sync.md).
+
+---
+
+## Provider-action DAGs
+
+A contract with no schedule trigger can still produce a DAG from its builds and exposes, with `fluid generate-airflow` or `fluid generate schedule`. This section generates one from a Bitcoin price tracker contract on BigQuery with a Python ingest and two dbt models.
+
+```yaml
+fluidVersion: "0.7.5"
 kind: DataProduct
 id: crypto.bitcoin_prices_gcp
 name: bitcoin-prices-gcp
 
-# 1️⃣ Metadata drives DAG configuration
+# Metadata drives DAG configuration
 metadata:
   layer: Gold
   owner:
@@ -162,7 +185,7 @@ tags:
   - crypto
   - bitcoin
 
-# 2️⃣ Builds define the workflow
+# Builds define the workflow
 builds:
   - id: ingest_bitcoin_prices
     description: Fetch Bitcoin prices from CoinGecko API
@@ -171,7 +194,7 @@ builds:
     repository: ./runtime
     properties:
       model: ingest_bitcoin_prices
-    
+
     execution:
       trigger:
         type: manual
@@ -182,7 +205,7 @@ builds:
       retries:
         maxAttempts: 3
         backoffStrategy: exponential
-    
+
     outputs:
       - bitcoin_prices_table
 
@@ -206,18 +229,18 @@ builds:
     outputs:
       - price_trends
 
-# 3️⃣ Exposes define datasets and bindings
+# Exposes define datasets and bindings
 exposes:
   - exposeId: bitcoin_prices_table
     kind: table
     title: Bitcoin Prices Table
     description: "Real-time Bitcoin prices from CoinGecko API"
-    
+
     binding:
       platform: gcp
       format: bigquery_table
       location:
-        project: <<YOUR_PROJECT_HERE>>
+        project: my-project-id
         dataset: crypto_data
         table: bitcoin_prices
         region: us-central1
@@ -250,442 +273,131 @@ exposes:
           required: true
 ```
 
-### What FLUID Generates (Automatically)
+It validates against schema `0.7.5`. The parts that matter here are the three `builds[]` (one Python, two dbt, each with `outputs`) and the BigQuery `binding` on `bitcoin_prices_table`.
 
-**One command:**
+### `fluid generate-airflow`
+
 ```bash
-fluid generate-airflow contract.fluid.yaml \
-  -o dags/bitcoin_tracker.py \
-  --dag-id bitcoin_tracker \
-  --schedule "0 * * * *"
+fluid generate-airflow contract.fluid.yaml -o dags/bitcoin_tracker.py \
+  --dag-id bitcoin_tracker --schedule "0 * * * *"
 ```
 
-**Output: Production-ready Airflow DAG**
+As of 0.18.1 the command logs `Note: 'generate-airflow' is deprecated. Use 'fluid generate schedule --scheduler airflow' instead.` and still writes the file:
+
 ```python
-"""
-Airflow DAG for FLUID Data Product: bitcoin-prices-gcp
-
-Auto-generated from FLUID contract v0.7.1
-Generated at: 2026-01-21T12:00:00
-
-Domain: crypto
-Description: Bitcoin price tracking data product
-"""
-from airflow import DAG
-from airflow.operators.bash import BashOperator
-from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
-from datetime import datetime, timedelta
-
-# DAG configuration (from contract metadata)
-default_args = {
-    'owner': 'fluid',
-    'depends_on_past': False,
-    'email_on_failure': True,
-    'email_on_retry': False,
-    'retries': 3,  # ← From contract.builds[].execution.retries
-    'retry_delay': timedelta(minutes=5),
-}
-
 # DAG definition
 dag = DAG(
-    dag_id="bitcoin_tracker",
-    description="""Bitcoin price tracking data product""",
-    schedule_interval="0 * * * *",  # ← From --schedule argument
+    dag_id='bitcoin_tracker',
+    description='FLUID data product: bitcoin-prices-gcp',
+    schedule_interval='0 * * * *',
     start_date=days_ago(1),
     catchup=False,
-    tags=["fluid", "crypto", "bitcoin"],  # ← From contract.tags
+    tags=["fluid", "data-product", 'dataproduct', 'unknown'],
     default_args=default_args
 )
 
-# Provision dataset: bitcoin_prices_table (from exposes[0])
+
+# Provision dataset: bitcoin_prices_table
 provision_bitcoin_prices_table = BashOperator(
-    task_id="provision_bitcoin_prices_table",
-    bash_command="bq mk --project_id=<<YOUR_PROJECT_HERE>> --dataset crypto_data || true",
+    task_id='provision_bitcoin_prices_table',
+    bash_command='bq mk --project_id=my-project-id --dataset crypto_data || true',
     dag=dag
 )
 
-# Schedule task: ingest_bitcoin_prices (from builds[0])
+
+# Schedule task: ingest_bitcoin_prices
 schedule_ingest_bitcoin_prices = BashOperator(
-    task_id="schedule_ingest_bitcoin_prices",
-    bash_command="python3 runtime/ingest_bitcoin_prices.py",
+    task_id='schedule_ingest_bitcoin_prices',
+    bash_command="echo 'Run ingest_bitcoin_prices'",
     dag=dag
 )
 
-# Schedule task: calculate_daily_summary (from builds[1])
+
+# Schedule task: calculate_daily_summary
 schedule_calculate_daily_summary = BashOperator(
-    task_id="schedule_calculate_daily_summary",
-    bash_command="dbt run --models daily_price_summary",
+    task_id='schedule_calculate_daily_summary',
+    bash_command='dbt run --select calculate_daily_summary',
     dag=dag
 )
 
-# Schedule task: calculate_price_trends (from builds[2])
+
+# Schedule task: calculate_price_trends
 schedule_calculate_price_trends = BashOperator(
-    task_id="schedule_calculate_price_trends",
-    bash_command="dbt run --models price_trends",
+    task_id='schedule_calculate_price_trends',
+    bash_command='dbt run --select calculate_price_trends',
     dag=dag
 )
 
-# Task dependencies (inferred from builds.outputs)
-provision_bitcoin_prices_table >> schedule_ingest_bitcoin_prices
-schedule_ingest_bitcoin_prices >> schedule_calculate_daily_summary
-schedule_ingest_bitcoin_prices >> schedule_calculate_price_trends
+# Task dependencies
+# No dependencies specified
 ```
+
+What this file does and does not do:
+
+- Contract values that land in `bash_command` are shell-quoted, and task ids are sanitised and de-duplicated.
+- A dbt build becomes `dbt run --select <build id>`. The Python build became `echo 'Run ingest_bitcoin_prices'`: the script is not run.
+- The BigQuery expose becomes a `bq mk` task. Its `|| true` means a failure to create the dataset does not fail the task.
+- Dependencies are not inferred from `outputs`: this contract produced `# No dependencies specified`, so the three tasks run in parallel. Declare ordering with `orchestration.tasks` and `dependsOn` if you need it.
+- It imports Airflow 2 modules (`airflow.operators.bash`, `airflow.utils.dates.days_ago`).
+- `--dag-id`, `--schedule` and `--env` override the DAG id, the schedule and the overlay. Without `--schedule` the schedule comes from `orchestration.schedule`, else `@daily`.
+
+### `fluid generate schedule`
+
+```bash
+fluid generate schedule contract.fluid.yaml --scheduler airflow -o dags/
+```
+
+On the same contract, which has `trigger: type: manual` and no `orchestration` block, this writes a differently shaped file with one task per build and a schedule of `0 2 * * *`:
+
+```python
+# Task definitions
+ingest_bitcoin_prices = PythonOperator(
+    task_id='ingest_bitcoin_prices',
+    python_callable=lambda: logger.info(
+        'Action: ' + 'generic.python.run' + ', Params: ' + '{"model": "ingest_bitcoin_prices"}'
+    ),
+    dag=dag,
+)
+
+calculate_daily_summary = PythonOperator(
+    task_id='calculate_daily_summary',
+    python_callable=lambda: logger.info(
+        'Action: ' + 'generic.dbt.run' + ', Params: ' + '{"model": "daily_price_summary"}'
+    ),
+    dag=dag,
+)
+
+calculate_price_trends = PythonOperator(
+    task_id='calculate_price_trends',
+    python_callable=lambda: logger.info(
+        'Action: ' + 'generic.dbt.run' + ', Params: ' + '{"model": "price_trends"}'
+    ),
+    dag=dag,
+)
+
+# Task dependencies
+ingest_bitcoin_prices >> calculate_daily_summary
+calculate_daily_summary >> calculate_price_trends
+```
+
+The tasks only log `Action: generic.dbt.run, Params: ...`. They run nothing. For a build that must run, put a schedule trigger on it and use the scheduled-build DAG above.
 
 ---
 
-## 📊 Side-by-Side Comparison
-
-Here's how the traditional manual approach compares to FLUID's declarative generation across key development aspects:
-
-| Aspect | Manual Approach | FLUID Declarative |
-|--------|----------------|-------------------|
-| **Lines of Code** | 300+ lines Python | **1 command** |
-| **Maintenance** | Update DAG + Contract | **Update contract only** |
-| **Portability** | GCP-specific code | **Provider-agnostic contract** |
-| **Consistency** | Can drift from contract | **Contract IS source of truth** |
-| **Testing** | Test Python code | **Test YAML contract** |
-| **Onboarding** | Learn Airflow + Python | **Learn FLUID contracts** |
-| **Multi-env** | Copy-paste DAG | **Same contract, diff env** |
-| **Provider switch** | Rewrite operators | **Change binding.platform** |
-
----
-
-## 🚀 Step-by-Step: Bitcoin Tracker with Declarative Airflow
-
-Now let's put this into practice. We'll use the Bitcoin price tracker example to demonstrate how FLUID generates Airflow DAGs from contracts. This tutorial takes about 10-15 minutes and assumes you have a working FLUID installation.
-
-::: tip What We'll Build
-We'll generate an Airflow DAG that:
-- Provisions BigQuery datasets and tables
-- Runs Bitcoin price ingestion (Python)
-- Executes dbt transformations
-- Manages task dependencies automatically
-- Includes retry logic and scheduling
-:::
-
-### Prerequisites
-
-```bash
-# 1. Ensure FLUID CLI is available
-fluid --version  # Should show v0.7.1 or higher
-
-# 2. Navigate to example
-cd examples/bitcoin-tracker
-
-# 3. Validate contract
-fluid validate contract.fluid.yaml
-```
-
-### Step 1: Generate Airflow DAG (Declarative Way)
-
-```bash
-# Generate production-ready DAG from contract
-fluid generate-airflow contract.fluid.yaml \
-  -o airflow/dags/bitcoin_tracker_declarative.py \
-  --dag-id bitcoin_tracker_declarative \
-  --schedule "0 * * * *" \
-  --verbose
-```
-
-**Output:**
-```
-✓ Loading contract from contract.fluid.yaml
-✓ Generating Airflow DAG...
-✓ DAG written to: airflow/dags/bitcoin_tracker_declarative.py
-  Contract ID: crypto.bitcoin_prices_gcp
-  DAG ID: bitcoin_tracker_declarative
-  Schedule: 0 * * * *
-```
-
-**What just happened?**
-1. ✅ FLUID read your contract
-2. ✅ Parsed `builds`, `exposes`, and `execution` config
-3. ✅ Generated provider-specific commands (GCP BigQuery)
-4. ✅ Created task dependencies from `outputs`
-5. ✅ Applied retry/schedule configuration
-6. ✅ Wrote production-ready Python DAG
-
-### Step 2: Review Generated DAG
-
-```bash
-# View the generated DAG
-cat airflow/dags/bitcoin_tracker_declarative.py
-```
-
-Notice:
-- ✅ Tasks match your `builds` array
-- ✅ Dataset provisioning from `exposes` bindings
-- ✅ Retry config from `execution.retries`
-- ✅ Schedule from command argument
-- ✅ Tags from contract metadata
-
-### Step 3: Test DAG Syntax
-
-```bash
-# Validate DAG syntax without running
-python3 airflow/dags/bitcoin_tracker_declarative.py
-echo $?  # Should be 0 (success)
-```
-
-### Step 4: Deploy to Airflow
-
-#### Option A: Local Airflow
-
-```bash
-# Set Airflow home
-export AIRFLOW_HOME=$PWD/airflow
-
-# Initialize Airflow
-airflow db init
-
-# Create admin user
-airflow users create \
-  --username admin \
-  --password admin \
-  --firstname Admin \
-  --lastname User \
-  --role Admin \
-  --email admin@example.com
-
-# Start webserver (terminal 1)
-airflow webserver --port 8080
-
-# Start scheduler (terminal 2)
-airflow scheduler
-```
-
-Access UI: http://localhost:8080 (admin/admin)
-
-#### Option B: Cloud Composer (GCP)
-
-```bash
-# Create Composer environment
-gcloud composer environments create bitcoin-tracker \
-  --location us-central1 \
-  --image-version composer-2.6.0-airflow-2.6.3
-
-# Upload DAG
-BUCKET=$(gcloud composer environments describe bitcoin-tracker \
-  --location us-central1 \
-  --format="get(config.dagGcsPrefix)")
-
-gsutil cp airflow/dags/bitcoin_tracker_declarative.py $BUCKET/dags/
-```
-
----
-
-## 🔄 The Declarative Workflow
-
-The real power of FLUID's declarative approach becomes clear when you need to make changes. Instead of manually editing DAG code, you simply update your contract and regenerate. Here's the three-step workflow:
-
-### 1. Define Once (Contract)
-
-```yaml
-# contract.fluid.yaml
-builds:
-  - id: new_transformation
-    engine: dbt
-    repository: ./dbt
-    properties:
-      model: price_volatility
-    outputs:
-      - price_volatility_view
-```
-
-### 2. Regenerate DAG
-
-```bash
-# Regenerate from updated contract
-fluid generate-airflow contract.fluid.yaml \
-  -o airflow/dags/bitcoin_tracker_declarative.py \
-  --schedule "0 * * * *"
-```
-
-### 3. Deploy
-
-```bash
-# DAG automatically includes new task!
-# No manual code changes needed
-```
-
----
-
-## 🎨 Advanced: Multi-Provider Example
-
-One of FLUID's most powerful features is **provider portability**. The same contract can deploy to different cloud platforms by simply changing the `binding.platform` field. This makes migrations and multi-cloud strategies straightforward.
-
-Let's look at migrating our Bitcoin tracker from GCP to Snowflake:
-
-### GCP → Snowflake Migration
-
-**Before (GCP):**
-```yaml
-exposes:
-  - exposeId: bitcoin_prices
-    binding:
-      platform: gcp
-      format: bigquery_table
-      location:
-        project: my-gcp-project
-        dataset: crypto_data
-```
-
-**After (Snowflake):**
-```yaml
-exposes:
-  - exposeId: bitcoin_prices
-    binding:
-      platform: snowflake
-      format: snowflake_table
-      location:
-        account: xy12345.us-east-1
-        database: CRYPTO_DB
-        schema: PROD
-```
-
-**Regenerate:**
-```bash
-fluid generate-airflow contract.fluid.yaml -o dags/bitcoin_tracker.py
-```
-
-**Result:** DAG automatically uses Snowflake operators instead of BigQuery! 🎉
-
----
-
-## ✅ Why Use Declarative DAG Generation?
-
-FLUID's declarative approach offers several compelling advantages over manual DAG development:
-
-### 1. Single Source of Truth
-- Your contract defines **both** infrastructure **and** orchestration
-- No drift between documentation, DAGs, and actual deployments
-- Version control one file instead of many
-
-### 2. Drastically Improved Maintainability
-- Update contract → regenerate DAG
-- No manual synchronization
-- Version control the contract, not generated code
-
-### 3. Testability
-```bash
-# Test contract before generating DAG
-fluid validate contract.fluid.yaml
-
-# Generate and test DAG
-fluid generate-airflow contract.fluid.yaml -o test_dag.py
-python3 test_dag.py  # Syntax check
-```
-
-### 4. Portability
-- Same contract works on GCP, AWS, Snowflake
-- Just change `binding.platform`
-- Regenerate DAG with provider-specific operators
-
-### 5. Consistency
-- All data products follow same DAG structure
-- Standardized retry/schedule patterns
-- Centralized configuration management
-
-### 6. Developer Experience
-```bash
-# Before: Write 300 lines of Python
-# After: Run 1 command
-fluid generate-airflow contract.yaml -o dag.py
-```
-
----
-
-## 🔧 Customization Options
-
-While FLUID generates DAGs declaratively from your contract, you can customize the output for different environments and use cases using command-line flags:
-
-### Override Schedule
-
-```bash
-# Different schedules for different environments
-fluid generate-airflow contract.yaml -o dag.py --schedule "*/15 * * * *"  # Every 15 min
-fluid generate-airflow contract.yaml -o dag.py --schedule "0 2 * * *"      # Daily at 2 AM
-```
-
-### Override DAG ID
-
-```bash
-# Environment-specific DAG IDs
-fluid generate-airflow contract.yaml \
-  -o dags/bitcoin_prod.py \
-  --dag-id bitcoin_tracker_prod
-
-fluid generate-airflow contract.yaml \
-  -o dags/bitcoin_dev.py \
-  --dag-id bitcoin_tracker_dev
-```
-
-### Use Environment Overlays
-
-```bash
-# Generate from dev environment
-fluid generate-airflow contract.yaml \
-  -o dags/bitcoin_dev.py \
-  --env dev
-
-# Generate from prod environment
-fluid generate-airflow contract.yaml \
-  -o dags/bitcoin_prod.py \
-  --env prod
-```
-
----
-
-## 📚 Additional Resources
-
-### FLUID Documentation
-- [CLI Reference](../cli/README.md) - Complete command reference
-- [GCP Deployment Guide](gcp.md) - Deploy to Google Cloud Platform
-- [Local Development Guide](local.md) - Test with DuckDB locally
-- [Advanced Topics](../advanced/airflow.md) - Airflow integration details
-
-### Airflow Resources
-- [Apache Airflow Docs](https://airflow.apache.org/docs/)
-- [GCP Cloud Composer](https://cloud.google.com/composer/docs)
-
-### Examples
-- [Bitcoin Tracker Example](https://github.com/Agenticstiger/forge_docs/tree/main/examples/bitcoin-tracker) - Working code with this walkthrough
-- [Netflix Preferences Example](https://github.com/Agenticstiger/forge_docs/tree/main/examples/netflix-preferences-local) - Local development example
-
----
-
-## 🎓 Summary
-
-You've learned how FLUID's declarative approach transforms Airflow DAG development from a manual, code-heavy process into a simple, contract-driven workflow.
-
-**Traditional Airflow Development (The Old Way):**
-1. Write data product contract
-2. Write Python DAG manually (300+ lines)
-3. Test DAG syntax and logic
-4. Deploy DAG to Airflow
-5. Maintain both contract **and** DAG in sync
-
-**FLUID Declarative Approach (The New Way):**
-1. Write data product contract ✅
-2. Run `fluid generate-airflow contract.yaml -o dag.py` ✅
-3. Deploy generated DAG ✅
-4. Maintain **only** the contract ✅
-
-**Key Takeaways:**
-- **90% less code** - One command replaces 300+ lines of Python
-- **100% consistency** - Contract is the single source of truth
-- **Infinite portability** - Same contract works on GCP, AWS, Snowflake
-- **Zero drift** - DAG always matches contract when regenerated
-- **Faster development** - Minutes instead of hours per pipeline
-
----
-
-**🚀 Ready to go declarative?**
-
-```bash
-cd examples/bitcoin-tracker
-fluid generate-airflow contract.fluid.yaml -o airflow/dags/my_dag.py --schedule "0 * * * *"
-```
-
-**Welcome to the declarative future of data orchestration!** 🎉
+## Choose a DAG
+
+| You want | Use |
+| --- | --- |
+| Airflow to run a build on a schedule, through the same apply CI uses | a `schedule` trigger on the build, then stage 3 or `fluid generate schedule` |
+| One DAG per environment | the same, with `--env <name>` for each |
+| DAGs delivered by CI | stage 11: [`fluid schedule-sync`](../cli/schedule-sync.md) |
+| A DAG skeleton from `orchestration.tasks` for AWS, GCP or Snowflake provider actions | [`fluid export`](./export-orchestration.md) |
+
+Edit the contract, not the DAG: the file says so in its docstring, and the next generation replaces it.
+
+## Related
+
+- [The 11-stage pipeline](./11-stage-pipeline.md): stages 3 and 11 in context
+- [Airflow integration](../advanced/airflow.md)
+- [`fluid generate`](../cli/generate.md) and [`fluid schedule-sync`](../cli/schedule-sync.md)
+- [Local walkthrough](./local.md): the product this page adds a schedule to
