@@ -163,7 +163,7 @@ fluid generate iac contract.fluid.yaml --provider aws --out ./review
 Wrote OpenTofu module: ./review/main.tf.json  (provider: aws, 7 resources)
 ```
 
-`fluid validate` keeps `{{ env.* }}` placeholders literal. `fluid generate iac` and `fluid apply` resolve them before they write the module, so they need both variables set.
+`fluid validate` keeps `{{ env.* }}` placeholders literal. `fluid generate iac` and `fluid apply` resolve them before they write the module, A variable that is unset is not an error: the placeholder is written into the module as literal text, so set both before you generate or apply.
 
 ### Infrastructure created
 
@@ -334,7 +334,7 @@ fluid odcs export contract.fluid.yaml --output standards/product.odcs.yaml
 
 ## Where a build lands data
 
-A `pattern: acquisition` build with `engine: duckdb` writes where the expose its `outputs` names says. The first rule that matches decides:
+A `pattern: acquisition` build with `engine: duckdb` that reads one stream (`source.streams` lists one stream or none) writes to the destination of the expose its `outputs` list names. The first rule that matches decides. For a file format the build writes a file under the prefix; a table-format sink keeps the URI unchanged:
 
 | The expose's binding | The build writes |
 |----------------------|------------------|
@@ -529,8 +529,9 @@ The emitter refuses these, with the error kind `lakeformation-grant-columns`:
 | Excludes every column | The grant would give nothing to read. |
 | Limits columns on a binding with no `location.table` | The grant would be on the database and the limit would be dropped. |
 | Asks for `ALTER`, `DROP`, `DELETE`, `INSERT` or `ALL` beside a column limit, or has no `SELECT` | Lake Formation takes only `SELECT` on a column-limited grant and refuses the others beside a partial `SELECT`. `DESCRIBE` is dropped, because Lake Formation implies it with the `SELECT`. |
-| Gives the same principal a second grant on the table | Lake Formation refuses `DESCRIBE`, `ALTER`, `DROP`, `DELETE` and `INSERT` to a principal holding a partial `SELECT`, and a table-level `SELECT` would read the withheld columns. |
+| Gives the principal a second grant on the table beside a column-limited grant | Lake Formation refuses `DESCRIBE`, `ALTER`, `DROP`, `DELETE` and `INSERT` to a principal holding a partial `SELECT`, and a table-level `SELECT` would read the withheld columns. |
 | Puts `SELECT` in `permissionsWithGrantOption` beside `excludedColumns` | Lake Formation takes the grant option on a column-limited `SELECT` only with an allow-list. |
+| Puts `DESCRIBE` in `permissionsWithGrantOption` beside a column limit | Lake Formation will not grant `DESCRIBE` to a principal holding a partial `SELECT`, so no grant can carry its grant option. |
 
 These refusals come from `fluid generate iac` and `fluid apply`. As of 0.18.1, `fluid validate` does not run them, so a contract with a misspelt `excludedColumns` entry passes `fluid validate --strict` and fails when the module is emitted:
 
@@ -721,7 +722,7 @@ Removing `expire`, or the key, removes a resource that holds policy. `fluid appl
 
 ### accessPolicy on AWS
 
-`accessPolicy.grants` is the cloud-neutral statement of who may read. The AWS emitter does not write it: on AWS, access is the binding's `governance.lakeFormation.grants`. A contract with `accessPolicy.grants` and an aws binding that has no Lake Formation grants gets a validate warning, and `--strict` turns it into exit 1:
+`accessPolicy.grants` is the cloud-neutral statement of who may read. It is a top-level block of the contract, not a field of an expose; under `exposes[]` it is a schema error. The AWS emitter does not write it: on AWS, access is the binding's `governance.lakeFormation.grants`. A contract with `accessPolicy.grants` and an aws binding that has no Lake Formation grants gets a validate warning, and `--strict` turns it into exit 1:
 
 ```text
 ⚠️  1 warning(s)
@@ -932,7 +933,7 @@ The flag wins over the variable. A workgroup that enforces its own output locati
 - **`0.16.2`:** a Parquet Glue table gets Athena's storage classes on re-apply. The module pins the binding's region, and `fluid apply` refuses a move between regions; see [Region](#region).
 - **`0.16.3`:** the default `bucketPolicy` no longer gives same-account grantees a direct S3 read; see [Bucket policy](#bucket-policy). `governance.lakeFormation.admins` was always authoritative, and the bundled schemas now say so.
 - **`0.16.5`:** DuckDB builds treat masked columns at landing, and `fluid verify` fails a cleartext one. `AWS_ENDPOINT_URL[_S3]` reaches DuckDB.
-- **`0.17.0`:** a column restriction on an aws binding with no Lake Formation grants is refused, and `accessPolicy` with no grants warns; see [Column restrictions](#column-restrictions) and [accessPolicy on AWS](#accesspolicy-on-aws).
+- **`0.17.0`:** a column restriction on an aws binding with no Lake Formation grants is refused, and `accessPolicy.grants` on an aws binding with no Lake Formation grants warns; see [Column restrictions](#column-restrictions) and [accessPolicy on AWS](#accesspolicy-on-aws).
 - **`0.18.0`:** contract SQL runs in a DuckDB sandbox and `$ref` stays inside the contract's directory tree; see [Where a build lands data](#where-a-build-lands-data).
 
 ## How far this has been exercised
