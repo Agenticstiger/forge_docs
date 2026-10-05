@@ -10,7 +10,7 @@
 
 A GCP binding goes through three stages, each driven by the contract:
 
-1. **Provision.** `fluid apply` emits an OpenTofu module (`fluid generate iac` writes the same module for review) and runs `tofu`. Datasets, tables, buckets, grants, policy tags, keys and partition expiry all come from that module.
+1. **Provision.** `fluid apply` emits an OpenTofu module (`fluid generate iac` writes the same module for review) and runs `tofu`. These come from that module: datasets, tables, buckets, grants, policy tags, keys and partition expiry.
 2. **Land.** In `--mode amend-and-build`, a build whose output is a BigQuery table stages its result as Parquet and loads it with one BigQuery load job.
 3. **Check.** `fluid verify` reads the live table and compares it with the contract: schema, location, row count, masking, and the governance the module emitted.
 
@@ -106,7 +106,7 @@ The three resources are the dataset (`location: europe-west3`, `project: my-proj
 
 ## Authentication
 
-fluid's BigQuery and Data Catalog clients and OpenTofu's `hashicorp/google` provider authenticate with Application Default Credentials. Any credential ADC can resolve works, with no key handling in fluid:
+fluid's BigQuery and Data Catalog clients and OpenTofu's `hashicorp/google` provider authenticate with Application Default Credentials. ADC sources such as `gcloud auth application-default login`, a service-account key file, an attached service account or workload identity federation work, with no key handling in fluid:
 
 | Where you run | What ADC finds |
 |---|---|

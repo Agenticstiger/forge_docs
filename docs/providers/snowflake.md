@@ -55,7 +55,7 @@ If no explicit credentials are present, browser SSO is only attempted in an inte
 
 ## Working Example: Bitcoin Price Tracker
 
-The contract below provisions a governed Snowflake table and runs a Python ingestion build. It validates on 0.18.1, and `fluid generate iac` emits a database, a schema and a clustered table from it.
+The contract below provisions a Snowflake table and runs a Python ingestion build. It validates on 0.18.1, and `fluid generate iac` emits a database, a schema and a clustered table from it.
 
 ### Contract
 
@@ -63,16 +63,14 @@ The contract below provisions a governed Snowflake table and runs a Python inges
 fluidVersion: "0.7.5"
 kind: DataProduct
 id: crypto.bitcoin_prices_snowflake_governed
-name: Bitcoin Price Index (Snowflake + Governance)
+name: Bitcoin Price Index (Snowflake)
 description: >
-  Real-time Bitcoin price data with comprehensive governance policies
-  on Snowflake Data Cloud
+  Bitcoin price data on Snowflake
 domain: finance
 
 tags:
   - cryptocurrency
   - real-time
-  - governed
   - gdpr-compliant
   - snowflake
 
@@ -500,24 +498,6 @@ When you run `fluid apply` on the contract above, the OpenTofu module creates th
 | **Schema** | `CRYPTO_DATA.MARKET_DATA` |
 | **Table** | `CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES` — clustered by `price_timestamp` |
 
-### What the Pipeline Produces
-
-After a successful run, the pipeline inserts real data:
-
-```sql
-SELECT price_timestamp, price_usd, price_eur, market_cap_usd
-FROM CRYPTO_DATA.MARKET_DATA.BITCOIN_PRICES
-ORDER BY price_timestamp DESC
-LIMIT 5;
-```
-
-```
-┌──────────────────────┬───────────┬───────────┬────────────────┐
-│ PRICE_TIMESTAMP      │ PRICE_USD │ PRICE_EUR │ MARKET_CAP_USD │
-├──────────────────────┼───────────┼───────────┼────────────────┤
-│ 2025-01-30 14:30:52  │ 104809.00 │  96543.00 │ 2075000000.00  │
-└──────────────────────┴───────────┴───────────┴────────────────┘
-```
 
 ## Governance Features
 
@@ -563,8 +543,6 @@ Neither the Snowflake OpenTofu module nor the Snowflake provider reads them, so 
 
 ### Snowflake-Native Security
 
-The contract's governance maps to Snowflake's built-in features:
-
 What 0.18.1 does with each governance field on a Snowflake binding:
 
 | Contract field | On Snowflake |
@@ -590,7 +568,7 @@ The Snowflake example uses the exact same Jenkinsfile as GCP and AWS — the [Un
 | Plan | `fluid plan` | Execution plan generated |
 | Apply | `fluid apply` | Database + schema + table created |
 | Apply RBAC | `fluid policy-apply` | No-op on Snowflake as of 0.18.1 (see above) |
-| Execute | `fluid apply --mode amend-and-build` | `ingest.py` runs, inserts rows to Snowflake |
+| Execute | `fluid apply --mode amend-and-build` | Runs the contract's build (`ingest` in `./runtime`) after provisioning |
 | Airflow DAG | `fluid generate-airflow` | Production DAG generated |
 
 ## Snowflake Table Properties

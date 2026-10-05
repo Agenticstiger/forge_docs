@@ -35,10 +35,10 @@ The [GCP](./gcp.md#security-governance), [AWS](./aws.md) and [Snowflake](./snowf
 
 ## Not built yet
 
-These have no emitter in 0.18.1:
+Not emitted as of 0.18.1 (checked against the GCP and Snowflake emitters):
 
 - **GCP:** BigQuery row-level security, BigQuery dynamic data masking, VPC Service Controls, partitioning and clustering from `binding.properties`.
-- **Snowflake:** grants from `accessPolicy`, masking and row access policies from the contract's `policy` fields, Snowpipe, Snowpark and data sharing.
+- **Snowflake:** grants from `accessPolicy`, masking and row access policies from the contract's `policy` fields.
 - **Azure and Databricks** as `fluid apply` targets.
 
 ## Orchestration code
@@ -53,7 +53,7 @@ fluid generate schedule contract.fluid.yaml --scheduler prefect
 
 ## One contract, several clouds
 
-An expose's `binding` is the only part that names a cloud. Keep one base contract and put each cloud's binding in an overlay ([per-environment overlays](../recipes/per-environment-overlays.md)), then apply with `--env`:
+Keep one base contract and put each cloud's `binding` in an overlay ([per-environment overlays](../recipes/per-environment-overlays.md)), then apply with `--env`:
 
 ```bash
 fluid apply contract.fluid.yaml --env aws --yes
