@@ -27,6 +27,16 @@ Check whether memory is enabled and where the store lives:
 fluid memory status
 ```
 
+```json
+{
+  "backend": "FileBackend",
+  "namespaces": {},
+  "root": ".../.fluid/store"
+}
+```
+
+`namespaces` lists the store's record namespaces; it is empty on a fresh install. `show project`, `show team` and `show personal` load the named scope from disk; `show episodic`, `show semantic` and `show history` list records in the store.
+
 Review project-scoped preferences:
 
 ```bash

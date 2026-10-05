@@ -78,6 +78,31 @@ fluid mission run gdpr-clean                         # autonomous loop until the
 fluid mission run gdpr-clean --resume                # re-enter a paused run
 ```
 
+`fluid mission list` shows what is available and whether each spec is trusted:
+
+```text
+NAME                 TRUST        DESCRIPTION
+gdpr-clean           builtin      Make a data product GDPR-compliant end to end.
+quality-coverage     builtin      Reach data-quality rule coverage on every output port.
+```
+
+`fluid mission check` against the `customer-360` contract that `fluid init --quickstart` writes, which has two exposes and a data-quality rule on only one of them:
+
+```text
+Mission: quality-coverage — Reach data-quality rule coverage on every output port.
+Goal: Every exposed output port carries at least one data-quality rule and the contract validates against its declared fluidVersion schema.
+Contract: .../contract.fluid.yaml
+Contract sha256: 9c7bf098eef3d8c3…
+
+  PASS  validate   contract validates (schema v0.7.5)
+  FAIL  predicate  exposes[*].contract.dq.rules exists — 1 present, 1 absent
+        - exposes[1].contract.dq: path not found
+
+Scorecard: 1/2 non-advisory checks passing — FAIL
+```
+
+The command exits `1`. With `--json` the same scorecard is one object with `mission`, `passed`, `gating_passed`, `gating_total`, `contract_sha256` and a `results` list; each result has `name`, `passed`, `advisory`, `detail` and `diagnostics`.
+
 ## Built-in missions
 
 Two flagship missions ship with the CLI.

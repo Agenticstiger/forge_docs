@@ -36,15 +36,15 @@ Each `WHAT` maps to a different part of the contract:
 
 ```bash
 # source -> a consumes[] upstream reference
-fluid product-add contract.fluid.json source \
+fluid product-add contract.fluid.yaml source \
   --id sales.orders_v1 --location orders_curated --description "Curated orders feed"
 
 # exposure -> an exposes[] interface (binding.platform + location)
-fluid product-add contract.fluid.json exposure \
+fluid product-add contract.fluid.yaml exposure \
   --id customer_360 --type table --platform snowflake --location analytics.customer_360
 
 # dq -> a rule under the target expose's contract.dq.rules[]
-fluid product-add contract.fluid.json dq \
+fluid product-add contract.fluid.yaml dq \
   --id orders_freshness --type freshness --severity error --expose customer_360
 ```
 
@@ -52,7 +52,8 @@ fluid product-add contract.fluid.json dq \
 
 - Each item is written to its canonical home (`consumes[]`, `exposes[]`, or the target expose's `contract.dq.rules[]`) and deduplicated — `exposes[]` by `exposeId`, `consumes[]` by `(productId, exposeId)`, and dq rules by `id` within the expose — keeping the last occurrence.
 - `product-add` emits no version-specific optional keys, so the result validates against the contract's own `fluidVersion` (e.g. a `0.7.2` contract stays `0.7.2`-valid).
-- The contract is rewritten atomically. YAML inputs are written back as JSON (`.yaml`/`.yml` → `.json`); convert back manually if you prefer YAML on disk.
+- The contract is rewritten atomically, in place, in its own format: YAML stays YAML and JSON stays JSON. YAML comments are not preserved (the file is re-serialised from parsed data); the command prints `YAML comments in <file> were not preserved` when it rewrites a YAML file.
+- `product-add` reads only the file you name. On a fragment-layout contract (see [`fluid split`](./split.md)) it cannot see exposes that live in `fragments/`: `--expose <id>` fails with `product_add_expose_not_found` (exit `2`), and `dq` without `--expose` attaches the rule next to the first `$ref` entry, which leaves a contract that fails `fluid validate`. `source` and `exposure` append inline entries to the root and work. For the other cases, run `product-add` on the bundled contract (`fluid bundle`) or edit the fragment.
 - To create a brand-new product first, see [`fluid product-new`](./product-new.md). To validate or apply the result, see [`fluid validate`](./validate.md) and [`fluid apply`](./apply.md).
 
 ## Canonical contract shape

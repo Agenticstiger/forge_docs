@@ -1,6 +1,6 @@
 # `fluid agents`
 
-Inspect and clean up the `.fluid/agents/<run-id>/` artifact stack that every `fluid forge` run writes — stage records, cost, judge score, transcript, and reasoning receipts.
+Inspect and clean up the `.fluid/agents/<run-id>/` artifact stack that AI-copilot `fluid forge` runs write — stage records, cost, judge score, transcript, and reasoning receipts. The same directory also holds [custom domain agent specs](#custom-domain-agents).
 
 ## Syntax
 
@@ -59,6 +59,48 @@ fluid agents prune --older-than 90d --delete -y  # permanent, no prompt
 
 ## Notes
 
-- A run-id is minted by every `fluid forge` invocation. Resume a paused run with [`fluid forge --resume <run-id>`](/forge_docs/cli/forge.html) — there is no `fluid agents resume`.
+- A run-id is minted by each AI-copilot `fluid forge` run. Resume a paused run with [`fluid forge --resume <run-id>`](/forge_docs/cli/forge.html), fork it with `--fork`, or re-run from one stage with `--from-stage` (see [Resume, fork and time-travel](./forge.md#resume-fork-and-time-travel)). There is no `fluid agents resume`.
 - `show` surfaces the same receipts the [pre-write preview panel](/forge_docs/advanced/guided-forge-ux.html) persisted (`cost.json`, `reasoning.md`, `transcript.json`), so nothing is lost if you Ctrl-C at the prompt.
 - Aggregate cost and judge scores across many runs with [`fluid stats`](/forge_docs/cli/stats.html).
+
+## Custom domain agents
+
+`fluid forge --domain <name>` loads a domain agent: a YAML spec with the interview questions, defaults and tips for one industry or team. Built in: `ai_ready`, `education`, `energy`, `finance`, `government`, `healthcare`, `insurance`, `logistics`, `manufacturing`, `media`, `pharma`, `retail`, `telco`. A spec you add yourself sits in the same directory as the run records above, as a file rather than a run directory:
+
+```text
+.fluid/agents/
+├── widgets.yaml                 # your spec: fluid forge --domain widgets
+└── 1a2b3c.../                   # a forge run
+```
+
+A spec named `<name>.yaml` in `.fluid/agents/` of the working directory applies to that project. One in `~/.fluid/agents/` applies everywhere, and a workspace spec shadows a global one, which shadows a built-in one of the same name.
+
+The smallest spec that loads has these keys:
+
+```yaml
+name: widgets
+domain: Widget Manufacturing
+description: Data products for widget production lines and quality control
+keywords:                        # optional: mentioning two of these selects the agent
+  - widget
+  - production line
+questions:                       # at least one
+  - key: line_type
+    question: Which production line does this product describe?
+    type: choice                 # choice or text
+    required: true
+    choices:
+      - label: Assembly
+        value: assembly
+      - label: Packaging
+        value: packaging
+resolver_defaults:
+  line_type: assembly
+suggestion_defaults:             # both keys are required
+  recommended_template: starter
+  recommended_provider: local
+```
+
+`name`, `domain`, `description`, `questions` and `suggestion_defaults.recommended_template` / `recommended_provider` are required; a spec that lacks one fails to load, and discovery skips it with a warning. The other keys the loader reads (`keywords`, `rules`, `next_step_tips`, `conditional_next_step_tips`, `supported_data_product_types`, `resolver_defaults`) are optional. Use the built-in specs in the CLI's `fluid_build/cli/agent_specs/` directory as examples.
+
+`fluid init --agent widgets` is meant to write a starter spec for you. As of 0.18.1 it fails with `No such file or directory: '.../fluid_build/cli/agent_specs/custom.yaml.template'`, because the template is missing from the installed package. Write the file by hand from the example above.
