@@ -28,7 +28,7 @@ fluid scaffold-ci contract.fluid.yaml --system jenkins --out Jenkinsfile
 
 ## What the pipeline runs
 
-The generated file installs `data-product-forge` from PyPI (`pip install --quiet data-product-forge`, unpinned) and runs `fluid` commands, in this order:
+The generated file installs `data-product-forge` from PyPI (`pip install --quiet data-product-forge`, unpinned; the Jenkins file runs `python3 -m pip install --user --quiet data-product-forge`) and runs `fluid` commands, in this order:
 
 | Stage | Command |
 | --- | --- |

@@ -154,6 +154,8 @@ The resource name ends in a hash of the role and the member, so principals that 
 | `delete` | `roles/bigquery.dataEditor` | `roles/storage.objectAdmin` |
 | `admin`, `owner` | `roles/bigquery.dataOwner` | `roles/storage.admin` |
 
+On a bucket only `read`, `view`, `list`, `write`, `create`, `delete`, `admin` and `owner` map to a role; `select`, `query`, `insert` and `update` apply to BigQuery only.
+
 What changed against an authoritative `access` list:
 
 - BigQuery's default entries on a dataset (the project's owners, writers and readers, and the creator) stay.
