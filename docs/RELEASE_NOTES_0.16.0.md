@@ -12,7 +12,7 @@ and `0.16.2` on September 23, 2026.
 
 This baseline covers six CLI releases. None of `0.15.1` to `0.16.2` had a docs pass of its own,
 so they are documented together here. To move a project from `0.15.x` to today's release, use
-the [upgrade guide](./upgrading.md), which walks every version in order.
+the [upgrade guide](./upgrading.md), which has a checklist for each version after this one.
 
 ## Headline
 
@@ -28,7 +28,7 @@ scheduler code it emits.
   a behaviour change: see the checklist.
 - **One contract applied to AWS and to Google Cloud lands where it says (`0.16.2`).** The AWS
   region comes from the binding, not the shell. A BigQuery binding loads its rows into the
-  table. `binding.location.project` is honoured. Athena can read the Glue tables FLUID creates.
+  table. `binding.location.project` is honoured. Athena can read the Glue Parquet tables FLUID creates.
 - **The CLI's own links go to real pages (`0.15.1`–`0.15.3`).** Typed errors, scaffolded
   contracts and the validator pointed at documentation domains that did not exist, or at one
   owned by an unrelated company; `fluid --help` pointed at the schema repository instead of
@@ -151,7 +151,7 @@ published since `0.15.3`. Its PyPI wheel has the same content as `0.16.0`'s.
 
 ### Security
 
-- **Generated files stay inside `--out`.** `fluid generate transformation` built each path
+- **Generated files stay inside `--output`.** `fluid generate transformation` built each path
   from contract fields such as `stages[].name`, which the schema does not constrain. Every
   path is now checked against the output root before anything is written; an escape raises
   `generated_path_outside_output_dir`, and two names that land on one file raise

@@ -235,7 +235,7 @@ expected-environments:
 ```
 
 The refusal is skipped for `dev` and for an env the base contract already binds to. The
-CLI wraps the message at the terminal width; this was run at 80 columns:
+CLI wraps the message at the terminal width; this was run at 100 columns:
 
 ```console
 $ fluid validate orders/contract.fluid.yaml --env gcp

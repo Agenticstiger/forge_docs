@@ -80,7 +80,7 @@ fluid apply contract.fluid.yaml --yes
 
 This docs site currently tracks:
 
-- CLI release `0.18.1` ([release notes](./RELEASE_NOTES_0.18.0.md), [upgrading](./upgrading.md))
+- CLI release `0.18.1`
 - Contract schema `0.7.5` as the stable default, with `0.7.6` open as an opt-in preview
 
 Which `fluidVersion` a fresh scaffold actually writes depends on which scaffold path you took, and the quickstart is not the same as the factory. The rule, with the per-path numbers, lives in one place: [Understand the version numbers](/forge_docs/getting-started/#understand-the-version-numbers). Run `fluid version` for the authoritative list of accepted schema versions on the CLI you have installed.
@@ -130,7 +130,7 @@ These are the groups `fluid --help` prints on `0.15.0`. Run it yourself to confi
 **Since `0.15.0`:**
 
 - **`0.15.1`–`0.16.2`** ([notes](./RELEASE_NOTES_0.16.0.md)) — a stage name such as `../../ESCAPED` can
-  no longer make `fluid generate transformation` write outside `--out`, and contract values
+  no longer make `fluid generate transformation` write outside `--output`, and contract values
   are escaped in generated Airflow, Prefect and Dagster code. Generated SQL
   now creates views, which drops grants on Snowflake and Databricks. AWS resources go to the
   binding's region, and BigQuery bindings load their rows.

@@ -622,8 +622,7 @@ export default defineUserConfig({
           children: [
             '/concepts/contract-refs.md',
             '/advanced/duckdb-sandbox.md',
-            '/advanced/contract-loading-api.md',
-            '/RELEASE_NOTES_0.18.0.md'
+            '/advanced/contract-loading-api.md'
           ]
         },
         {

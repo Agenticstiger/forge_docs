@@ -22,7 +22,7 @@ governed the same on both.
   encryption at rest with a per-product key, column restrictions, masking and grants reach AWS
   (`0.16.5`–`0.16.7`) and Google Cloud (`0.17.0`), instead of being declared and dropped.
   [`fluid verify`](./cli/verify.md) checks retention, encryption and column restrictions, and
-  checks masking on Glue, Athena and BigQuery tables. Grants are applied and not yet verified.
+  checks masking on Glue, Athena and BigQuery tables. On Google Cloud, `fluid verify` does not read dataset-level grants back; on AWS it checks the Lake Formation column grants of an expose that declares column restrictions.
 - **The two clouds keep two states.** A product applied with `--env aws` and `--env gcp` used
   to share one OpenTofu state, so each cloud's plan read the other's resources as orphans to
   destroy.
@@ -36,7 +36,7 @@ governed the same on both.
 
 The forge-cli changelog for `0.17.0` measured the GCP work against moto and a BigQuery
 emulator, and left the real-cloud run open. On 4 October 2026, one deployment applied eleven
-products to real BigQuery from the same base contracts through `--env gcp` overlays,. In that run:
+products to real BigQuery from the same base contracts through `--env gcp` overlays. In that run:
 
 - each build passed `fluid verify` against the live tables, including retention (daily
   partitions that expire), encryption (a Cloud KMS key ring and key per dataset) and column
@@ -178,10 +178,10 @@ No credential, environment value or OpenTofu output is sent. Reporting is best e
 Command Center that is down costs a warning line, never the apply's exit code. Set
 `FLUID_COMMAND_CENTER_ENABLED=false` to turn it off.
 
-A Command Center keeps one product per contract id, so publishing one contract from
-`--env aws` and from `--env gcp` leaves the platform and location of whichever published last.
-`fluid generate ci --no-publish-stage-default` generates a pipeline whose publish stage is off
-by default, for the env that should not publish.
+`fluid publish` upserts one Command Center product per contract id, so publishing from
+`--env aws` and from `--env gcp` leaves the platform and location of whichever ran last.
+A generated Jenkinsfile has its publish stage off by default. Pass `--publish-stage-default`
+to turn it on for the env that should publish. Only the Jenkins template reads this flag.
 
 ### Fixed in `0.17.0`
 
