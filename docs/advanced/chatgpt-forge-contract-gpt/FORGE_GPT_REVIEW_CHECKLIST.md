@@ -4,7 +4,7 @@ Use this checklist when reviewing or self-checking a draft. Report each item as 
 
 ## 1. Schema And Version
 
-- `fluidVersion` is `0.7.3` unless the user explicitly requested another version
+- `fluidVersion` is `0.7.5` unless the user explicitly requested another version
 - Top-level `kind`, `id`, `name`, `metadata`, and `exposes` are present
 - Each tabular expose includes `binding` and `contract.schema`
 - `contract.schema` is an array of columns, not an ad hoc object
@@ -15,7 +15,7 @@ Use this checklist when reviewing or self-checking a draft. Report each item as 
 - `binding.format` matches the provider target
 - Provider-specific location fields are complete:
   - `local`: `path`
-  - `gcp`: `project`, `dataset`, `table`
+  - `gcp`: `project`, `dataset`, `table`, `region`
   - `aws`: `database`, `table`, `bucket`, `path`, `region`
   - `snowflake`: `account`, `database`, `schema`, `table`
 - The draft does not mix provider shapes inside one expose
@@ -26,6 +26,8 @@ Use this checklist when reviewing or self-checking a draft. Report each item as 
 - If the user stated governance requirements, they appear in the correct block
 - `policy.agentPolicy` appears only when AI usage rules were provided
 - `sovereignty` appears only when jurisdiction or region constraints were provided
+- When `sovereignty` is present, every `aws`, `gcp` and `azure` binding names `location.region`, and each region is allowed by the policy
+- No placeholder principals (`.example`, `.test`, `.invalid`, `.localhost`) appear on a `gcp` binding
 
 ## 4. Missing Assumptions
 
@@ -38,7 +40,7 @@ Use this checklist when reviewing or self-checking a draft. Report each item as 
 - The response is labeled `Draft` if validation has not been run
 - The YAML appears before commentary
 - `Assumptions`, `Open questions`, and `Validation next steps` are present
-- Validation commands include both `fluid validate --strict` and `fluid plan --out plan.json`
+- Validation commands include both `fluid validate --strict` and `fluid plan --out plan.json`, with `--check-sovereignty` on the plan when a `sovereignty` block is present
 
 ## 6. Review Behavior
 

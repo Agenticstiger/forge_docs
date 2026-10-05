@@ -17,7 +17,7 @@ The contract can express:
 - governance and access rules
 - provider-specific bindings
 - optional sovereignty and AI governance
-- optional semantic truth modeling in FLUID `0.7.3`
+- optional semantic truth modeling in FLUID `0.7.5`
 
 For this GPT packet, the important behavior is:
 

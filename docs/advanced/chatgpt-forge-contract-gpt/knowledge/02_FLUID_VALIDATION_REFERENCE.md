@@ -25,6 +25,8 @@ fluid validate contract.fluid.yaml --strict --format json > validation-report.js
 - Incomplete or malformed data contract definitions
 - SQL or dependency issues where supported
 - Security and access policy issues where supported
+- Sovereignty violations: with a `sovereignty` block, a cloud binding that names no `location.region`, or a region outside the policy, fails validation under `enforcementMode: strict`
+- Placeholder principals on a `gcp` binding (a reserved domain such as `.example`)
 
 ## How To Interpret Results
 

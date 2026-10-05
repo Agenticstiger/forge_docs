@@ -14,15 +14,20 @@ Cost summary
 ```
 
 This page documents the price table, the per-org override path,
-the missing-usage warning footer, and the variant-lint surfacing
-— all V2 polish items shipped with V1.5.
+the cost ceilings, the missing-usage warning footer, and the
+variant-lint surfacing. It covers the cost of the LLM calls an AI-assisted
+`fluid forge` makes.
+
+::: tip Looking for the acquisition cost budget?
+`BudgetExceededError` and the `cost.budget` block of an acquisition build are a different feature. Its message links here, but the budget is described under [Cost tracking and budget gates](./source-aligned-acquisition.md#cost-tracking-and-budget-gates) on the acquisition page, including the fact that no engine enforces it yet.
+:::
 
 ## Embedded price table
 
 Prices live in `fluid_build/copilot/cost.py::MODEL_PRICES_USD` —
 USD per 1M tokens, `(input_price, output_price)` tuples. Source:
 each provider's public pricing page. Snapshot date is in the
-module docstring.
+module docstring. The excerpt below shows the shape; the table has more models.
 
 The table is a frozen Python dict, not a pulled-at-runtime
 catalog. Stale entries fail loud-but-safe — unknown models
@@ -57,6 +62,27 @@ Cost summary
 
 Total is `$?` whenever any row is unknown — defends against
 partial sums that look authoritative.
+
+## Cost ceilings
+
+Two environment variables stop a forge run that spends more than you intend:
+
+| Env var | Ceiling |
+|---|---|
+| `FLUID_COST_LIMIT_USD` | The total for one invocation, in USD |
+| `FLUID_COST_LIMIT_USD_PER_PRODUCT` | One product, when an invocation forges several (`--from-product-list`) |
+
+```bash
+FLUID_COST_LIMIT_USD=5 fluid forge data-model from-intent intent.yaml -o out.fluid.yaml
+```
+
+The check runs before each LLM call, against the projected cost, and again after each call is recorded. A run over its ceiling stops with:
+
+```text
+Cost ceiling exceeded: running $5.2301 > limit $5.0000. Set FLUID_COST_LIMIT_USD or behavior.cost_limit_usd_per_run in ~/.fluid/config.yaml to a higher value, or run with --no-cost-limit to disable.
+```
+
+A value that is not a positive number means no ceiling. The ceiling is not enforced while any row in the summary has an unknown price (`$?`), because the total cannot be measured. As of 0.18.1 the message's last suggestion is wrong: there is no `--no-cost-limit` flag. Unset the variable instead.
 
 ## Per-org price override
 
@@ -102,7 +128,7 @@ streaming-cancellation paths, or on certain Azure deployments).
 Without a counter, the user would see a misleading "$0.0042"
 total with no hint that the figure is under-reported.
 
-V1.5+V2 polish wires a missing-usage counter:
+Forge counts calls that report no usage:
 
 ```
 Cost summary
@@ -125,19 +151,9 @@ The counter increments on two paths:
 Ollama is special-cased: its `(0, 0)` baseline is legitimate
 (local compute, no token counts) so 0/0 calls there don't flag.
 
-::: tip Streaming runs now report accurate usage
-Pre-fix, every SSE-streamed call landed on path #2 above because
-the iterator discarded the terminal `usage` event. The footer was
-the *default* state for any user with `FLUID_LLM_STREAMING=1`.
-
-The provider classes now extract token usage from the SSE wire on
-all four supported providers (OpenAI's terminal usage chunk,
-Anthropic's `message_start` + `message_delta` accumulation,
-Gemini's `usageMetadata`, Ollama's OpenAI-compatible final chunk
-on Ollama 0.3.x+) and stash it in a thread-local that
-`BaseStageAgent._call_once` reads after the streaming context
-exits. Cost summaries on streamed runs now match the blocking-path
-numbers.
+::: tip Streaming runs report usage
+Streamed calls report token usage the same way blocking calls do, so
+the footer does not appear just because a call was streamed.
 :::
 
 The counter resets per run. `fluid forge data-model` calls
@@ -147,8 +163,8 @@ current invocation.
 ## Variant-lint warning footer
 
 When the dimensional variant validator runs (per-Kimball-flavor
-lint), warnings flow into the validation report. V1.5+V2 polish
-also surfaces them in the cost summary footer so operators
+lint), warnings flow into the validation report. Forge also
+surfaces them in the cost summary footer so operators
 piping stdout to a log see the lint score next to the cost:
 
 ```
@@ -219,10 +235,11 @@ def test_price_table_entries_well_formed():
 ```
 
 Override semantics, missing-usage flags, and variant-lint
-surfacing are all covered by `tests/copilot/test_cost_tracking.py`
-(39 tests).
+surfacing are covered by `tests/copilot/test_cost_tracking.py` in
+the `forge-cli` repository.
 
 ## See also
 
 - [Cost summary in `fluid forge data-model`](../cli/forge.md)
-- [V1.5 architecture](v1.5-architecture.md)
+- [Catalog integration architecture](v1.5-architecture.md)
+- [Cost tracking and budget gates for acquisition builds](./source-aligned-acquisition.md#cost-tracking-and-budget-gates)

@@ -1,209 +1,334 @@
 # Governance & Compliance
 
-FLUID embeds governance directly into your data product contracts — access policies, data classification, and compliance checks all defined as code alongside your schema.
+FLUID puts governance in the data product contract: who can read a product, which columns are sensitive, where the data may live, and what checks it must pass. This page covers the commands that check and apply those declarations, the contract shapes they read, and how sovereignty is enforced. The concepts behind them are in [Governance policy](../concepts/governance-policy.md) and [Sovereignty](../concepts/sovereignty.md).
 
-## Governance Commands
+## Example: a governed product
+
+```yaml
+fluidVersion: "0.7.5"
+kind: DataProduct
+id: gold.customer_profiles
+name: Customer Profiles
+domain: customer
+metadata:
+  layer: Gold
+  owner:
+    team: data-platform
+    email: data-platform@acme.com
+
+sovereignty:                       # where the data may live
+  jurisdiction: EU
+  allowedRegions: [europe-west1]
+  enforcementMode: strict
+
+accessPolicy:                      # who may read and write, at the top level
+  grants:
+    - principal: group:analysts@acme.com
+      permissions: [read]
+    - principal: serviceAccount:etl@acme-prod.iam.gserviceaccount.com
+      permissions: [write]
+
+builds:
+  - id: load_profiles
+    pattern: embedded-logic
+    engine: sql
+    properties:
+      sql: SELECT 1 AS customer_id, 'a@example.com' AS email, 'DE' AS country
+    outputs: [customer_table]
+
+exposes:
+  - exposeId: customer_table
+    kind: table
+    binding:
+      platform: gcp
+      format: bigquery_table
+      location:
+        project: acme-prod
+        dataset: customers
+        table: customer_profiles
+        region: europe-west1       # required once a sovereignty block exists
+    lifecycle:
+      retention: P90D
+    policy:
+      privacy:
+        masking:
+          - column: email
+            strategy: hash
+    contract:
+      schema:                      # an array of columns
+        - { name: customer_id, type: INTEGER, required: true, sensitivity: internal }
+        - { name: email, type: STRING, sensitivity: pii }
+        - { name: country, type: STRING, sensitivity: none }
+      quality:                     # each rule needs rule, expression and severity
+        - rule: email_not_null
+          expression: email IS NOT NULL
+          severity: error
+```
+
+The shapes that trip people up:
+
+| Declaration | Where it goes | What fails |
+|---|---|---|
+| Who can access | `accessPolicy.grants[]` at the top level of the contract, each with `principal` and `permissions` | `accessPolicy` under an expose, or `role` and `members` keys, fail validation |
+| Columns | `exposes[].contract.schema`, an array of `{name, type, ...}` | A `schema.fields` object fails validation |
+| Sensitivity | `sensitivity` on a column, one of `none`, `internal`, `confidential`, `restricted`, `pii`, `phi`, `cleartext`, `treated`, `anonymized`, `pseudonymized`, `tokenized`, `encrypted` | Capitalised values such as `PII` or `Financial` fail validation |
+| Quality rules | `exposes[].contract.quality[]` with `rule`, `expression`, `severity` (`error`, `warning`, `info`) | An item with `field` and `rule: not_null` is missing `expression` |
+| Retention | `retention` under an expose's `lifecycle` | |
+| Masking | `policy.privacy.masking[]` on the expose | |
+
+## Governance commands
 
 ### `fluid policy-check`
 
-Validate a contract against schema-driven governance policies.
+Checks a contract against the schema-driven policy engine. It reads only the contract; nothing is deployed.
 
 ```bash
-fluid policy-check contract.fluid.yaml
+fluid policy-check contract.fluid.yaml --format text
 ```
+
+For the contract above without the `masking` and `lifecycle` blocks, the report is:
+
+```text
+❌ Sensitivity (1 issues)
+  CRITICAL: Field marked as pii but no privacy protection configured
+    💡 Add masking strategy for 'email' in policy.privacy.masking
+
+✅ Access Control
+
+✅ Data Quality
+
+❌ Lifecycle (1 issues)
+  WARNING: Sensitive data should have explicit retention policy
+    💡 Add lifecycle.retention (e.g., 'P90D' for 90 days)
+
+✅ Schema Evolution
+
+============================================================
+Checks Passed: 2
+Checks Failed: 1
+Advisory Issues: 1
+Total Violations: 2
+Blocking Issues: 1
+Policy Score: 75/100
+
+❌ Contract has policy violations
+Policy compliance check FAILED
+```
+
+With both blocks present, all five categories pass and the score is `100/100`. The command exits 1 when a violation is blocking (`CRITICAL` or `ERROR`). Warnings and info lower the score and do not fail the command, unless you pass `--strict`.
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--env <name>` | Environment overlay (`dev`, `staging`, `prod`) | — |
-| `--strict` | Treat warnings as errors | `false` |
-| `--category <name>` | Filter checks: `sensitivity`, `access_control`, `data_quality`, `lifecycle`, `schema_evolution` | All |
-| `--output`, `-o` | Output report to file | Console |
-| `--format` | `rich`, `text`, or `json` | `rich` |
-| `--show-passed` | Include passed checks in output | `false` |
+| `--env <name>` | Environment overlay (`dev`, `staging`, `prod`) | none |
+| `--strict` | Fail on any violation, warnings included | `false` |
+| `--category <name>` | Check one category: `sensitivity`, `access_control`, `data_quality`, `lifecycle`, `schema_evolution` | all |
+| `--output`, `-o` | Also write the report as JSON to this file | none |
+| `--format` | `rich`, `text` or `json` | `rich` |
+| `--show-passed` | List the checks that passed | `false` |
 
-**Example output:**
-```
-┌─ Policy Check Results ─────────────────────┐
-│ ✅ sensitivity     3/3 passed              │
-│ ✅ access_control  2/2 passed              │
-│ ⚠️  data_quality   1 warning               │
-│ ✅ lifecycle       1/1 passed              │
-└─────────────────────────────────────────────┘
-```
+`fluid policy check`, `fluid policy compile` and `fluid policy apply` are the same commands under one `fluid policy` entry point.
+
+| Category | What it checks, with the rule that fires |
+|----------|------------------------------------------|
+| `sensitivity` | A `pii` column with no entry in `policy.privacy.masking`; a column marked `encrypted` whose binding has no encryption; a sensitive column left at `cleartext` |
+| `access_control` | A column restriction that names a column that does not exist; a `Public` classification over sensitive columns; a `Restricted` classification with no readers; an unknown masking strategy |
+| `data_quality` | A critical `dq` rule with monitoring off; a freshness rule with no threshold; a completeness threshold outside 0 to 1 |
+| `lifecycle` | A deprecated product with no replacement or notice period; sensitive data with no `lifecycle.retention` on the expose |
+| `schema_evolution` | A breaking-change policy with no approvers or no approval requirement; a very short change window |
 
 ### `fluid policy-compile`
 
-Compile `accessPolicy` declarations from a FLUID contract into provider-native IAM bindings.
+Compiles the top-level `accessPolicy.grants` into provider IAM bindings. The provider and project come from each expose's `binding`.
 
 ```bash
 fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json
 ```
 
+```json
+{
+  "bindings": [
+    {
+      "provider": "gcp",
+      "resource_type": "bigquery.dataset",
+      "resource_id": "acme-prod.customers",
+      "project": "acme-prod",
+      "dataset": "customers",
+      "principal": "group:analysts@acme.com",
+      "roles": ["roles/bigquery.dataViewer"]
+    },
+    {
+      "provider": "gcp",
+      "resource_type": "bigquery.dataset",
+      "resource_id": "acme-prod.customers",
+      "project": "acme-prod",
+      "dataset": "customers",
+      "principal": "serviceAccount:etl@acme-prod.iam.gserviceaccount.com",
+      "roles": ["roles/bigquery.dataOwner"]
+    }
+  ],
+  "warnings": []
+}
+```
+
+`read`-style permissions map to a viewer role and `write`, `insert`, `update` or `delete` to an owner role. A contract with no grants compiles to an empty list and a `No grants found in accessPolicy` warning.
+
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--env <name>` | Environment overlay | — |
-| `--out <path>` | Output path for compiled bindings | `runtime/policy/bindings.json` |
+| `--env <name>` | Environment overlay | none |
+| `--out <path>` | Where to write the bindings | `runtime/policy/bindings.json` |
 
 ### `fluid policy-apply`
 
-Apply compiled IAM bindings to the target cloud provider.
+Applies compiled bindings. It takes the provider and project from the bindings file, so it needs no provider flag.
 
 ```bash
-# Dry-run (default)
-fluid policy-apply runtime/policy/bindings.json --mode check
-
-# Actually enforce
-fluid policy-apply runtime/policy/bindings.json --mode enforce
+fluid policy-apply runtime/policy/bindings.json --mode check     # the default
+fluid policy-apply runtime/policy/bindings.json --mode enforce   # change IAM
 ```
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--mode` | `check` (dry-run) or `enforce` (apply changes) | `check` |
+| `--mode` | `check` or `enforce` | `check` |
 
-## Defining Policies in Contracts
+An empty bindings file is a no-op that exits 0. When a provider has no standalone policy applier, the command prints that no bindings were enforced and exits 0, because that provider applies its IAM during `fluid apply`.
 
-### Access Policies
-
-Define who can access each data asset:
-
-```yaml
-exposes:
-  - exposeId: customer_table
-    kind: table
-    accessPolicy:
-      - role: READER
-        members:
-          - user:analyst@company.com
-          - group:data-team@company.com
-      - role: WRITER
-        members:
-          - serviceAccount:etl@project.iam.gserviceaccount.com
-```
-
-### Data Classification
-
-Tag sensitive columns for automatic masking and access control:
-
-```yaml
-contract:
-  schema:
-    fields:
-      - name: email
-        type: STRING
-        sensitivity: PII
-      - name: credit_card
-        type: STRING
-        sensitivity: Financial
-      - name: country
-        type: STRING
-        # No sensitivity tag = publicly accessible
-```
-
-### Data Quality Rules
-
-```yaml
-contract:
-  quality:
-    - field: email
-      rule: not_null
-    - field: price
-      rule: positive
-    - field: created_at
-      rule: not_future
-```
-
-## Governance Workflow
+## Governance workflow
 
 ```bash
-# 1. Write your contract with access policies
-# 2. Check governance compliance
+# 1. Check the contract
 fluid policy-check contract.fluid.yaml --strict
 
-# 3. Compile to provider-native IAM
+# 2. Compile grants to provider IAM
 fluid policy-compile contract.fluid.yaml
 
-# 4. Preview what would change
+# 3. See what would change
 fluid policy-apply runtime/policy/bindings.json --mode check
 
-# 5. Enforce in production
+# 4. Enforce
 fluid policy-apply runtime/policy/bindings.json --mode enforce
 ```
 
-## Policy Categories
+In CI, fail the pipeline on any finding and keep the report:
 
-| Category | What It Checks |
-|----------|---------------|
-| `sensitivity` | PII tags, data classification completeness |
-| `access_control` | IAM policies, least-privilege, role definitions |
-| `data_quality` | NOT NULL constraints, type validation, range checks |
-| `lifecycle` | Retention policies, expiration, archival rules |
-| `schema_evolution` | Breaking change detection, backward compatibility |
+```bash
+fluid policy-check contract.fluid.yaml --strict --format json --output report.json
+```
 
 ## Sovereignty enforcement modes (since 0.15.0)
 
-A contract's `sovereignty` block declares where its data may live. `enforcementMode` decides what a violation *does*, and since `0.15.0` one function maps the mode onto a severity, applied consistently to every mode-sensitive check:
+A contract's `sovereignty` block declares where its data may live. `enforcementMode` decides what a violation does. One function maps the mode onto a severity, applied to every mode-sensitive check:
 
 | `enforcementMode` | Severity | Effect |
 |---|---|---|
 | `strict` *(the schema default)* | ❌ error | [`fluid validate`](../cli/validate.md) exits 1; [`fluid plan --check-sovereignty`](../cli/plan.md#sovereignty-gate-since-0-15-0) blocks. |
-| `advisory` | ⚠️ warning | Reported, does not block — though `fluid validate --strict` still promotes warnings to errors. |
+| `advisory` | ⚠️ warning | Reported, does not block, though `fluid validate --strict` promotes warnings to errors. |
 | `audit` | ℹ️ info | Logged only. |
 
-Three defaults also moved, in the stricter direction: the engine now reads the schema's own `enforcementMode: strict`, `dataResidency: true` and `crossBorderTransfer: false`. On `0.14.1` it defaulted to the permissive inverse of all three (advisory / false / true), so a contract that declared a policy and relied on the documented defaults was evaluated under the weakest possible settings — a strict GDPR contract with exposes in `eu-west-1` and `us-east-1` printed `PASS`, because `dataResidency` silently became false and the cross-border check was never entered. Declaring those keys explicitly restores the old evaluation.
+The engine reads the schema's own defaults: `enforcementMode: strict`, `dataResidency: true` and `crossBorderTransfer: false`. A contract that declares a policy and relies on those defaults is evaluated under the strict settings.
 
-Two carve-outs are deliberate rather than oversights:
+Two carve-outs are deliberate:
 
-- **`deniedRegions` is an error in every mode.** An operator naming a specific prohibition outranks a mode default, and `fluid validate` and `fluid plan` must block on the same contract or a product passes one stage and fails the next.
-- **An unmappable region stays a warning even under `strict`.** "Unknown" is an inability to evaluate, not a violation, so a gap in the region table below cannot fail an otherwise valid deployment.
+- **`deniedRegions` is an error in every mode.** An operator naming a specific prohibition outranks a mode default, and `fluid validate` and `fluid plan` must block on the same contract, or a product passes one stage and fails the next.
+- **A region with no known jurisdiction** is handled by mode (see [An unrecognised region](#an-unrecognised-region)).
 
-::: warning Behavior change in 0.15.0
-`enforcementMode` had failed in **both** directions at once, and correcting it moves contracts both ways.
+### Every cloud binding names its region
 
-- The jurisdiction check — the only check that reads `jurisdiction`, the field whose stated purpose is validating `binding.location` against sovereignty intent — hardcoded warning severity, so it could not block in any mode. A `strict`, EU-declared contract with every expose on `us-east-1` validated clean on `0.14.1` and **now exits 1**.
-- The cross-border mismatch hardcoded error severity, so it failed the build under `advisory`. `fluid validate` routes messages by their rendered ❌ / ⚠️ / ℹ️ prefix, which the returned boolean could not override. That contract **now warns** instead of failing.
+Under a `sovereignty` block, an `aws`, `gcp` or `azure` binding with no `location.region` cannot be checked, because the platform would choose where the data goes. The check follows the mode: `strict` refuses, `advisory` warns, `audit` logs.
 
-`jurisdiction: Multi-Region` needs no action. It is a catch-all alongside `Global`, and check 3 skips both: no region resolves to `Multi-Region`, because it is not a place. Both are skipped at provision time and at query time alike.
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+ 1. ❌  Binding declares no region, so where its data lives cannot be checked
+against the sovereignty policy (the platform would choose)
+   💡 Set binding.location.region to one of: europe-west1
+```
+
+A GCP binding with no sovereignty block still validates without a region, and BigQuery then places the dataset in the `US` multi-region. Add `sovereignty` and the missing region is an error.
+
+BigQuery and Cloud Storage multi-regions are regions too. Write `region: EU` or `region: US`; each resolves to the EU or US jurisdiction. Because `allowedRegions` is compared by name, a product that lives in the `EU` multi-region lists `EU` there, next to or instead of `europe-west1`.
+
+### An unrecognised region
+
+A region the table below cannot place is `Unknown`. Under `strict`, a cloud binding whose region is `Unknown` is refused against a declared `jurisdiction`, unless the region is named in `allowedRegions`, which is the explicit opt-in:
+
+```text
+ 1. ❌  Region 'mars-north1' not in allowed regions list
+   💡 Allowed regions: europe-west1
+ 2. ❌  Region 'mars-north1' (jurisdiction: Unknown) does not match required 
+jurisdiction: EU
+   💡 Use a region in the EU jurisdiction; if 'mars-north1' is one, name it in 
+sovereignty.allowedRegions
+```
+
+That output is for the governed product above with its region changed to `mars-north1`. With `allowedRegions: [mars-north1]` the contract validates with two warnings. Under `advisory` and `audit` an unrecognised region warns or logs. The separate cross-border finding, `Region 'x' has no known jurisdiction`, is a warning in every mode. This strict-mode refusal is new in 0.17.0; before it, an unmappable region stayed a warning even under `strict`.
+
+::: warning Behavior changes
+**0.15.0.** `enforcementMode` had failed in both directions at once. The jurisdiction check hardcoded warning severity, so a `strict` EU contract with every expose on `us-east-1` validated clean and now exits 1. The cross-border check hardcoded error severity, so it failed the build under `advisory`; it now warns. `jurisdiction: Multi-Region` needs no action: like `Global`, it is skipped, because no region resolves to it.
+
+**0.17.0.** A GCP binding with no region, and a region that resolves to `Unknown`, are refused under `strict` where they used to pass. The GCP provider now enforces the policy at `fluid apply` and `fluid generate iac` (see below).
 :::
 
 ### The region → jurisdiction table is derived *(since 0.15.0)*
 
-Verdicts change on contracts nobody edited, because the table those verdicts are computed from changed. 31 hand-written regions became 121 resolved, with none left resolving to `Global` or `Unknown`:
+Verdicts can change on a contract nobody edited, because the table they are computed from comes from vendor data:
 
-- **AWS** resolves through botocore's shipped `endpoints.json` — the vendor's own table, all eight partitions, GovCloud and the EU Sovereign Cloud included. New AWS regions now arrive by upgrading `boto3`, not by waiting for a FLUID release.
-- **GCP and Azure** resolve through CSVs vendored from `dgl/cloud-regions` (ODbL-1.0, recorded in `NOTICE`), with a corrections map filling the rows upstream ships empty, so the table is complete whether or not the optional `boto3` is installed.
+- **AWS** regions resolve through botocore's shipped `endpoints.json`, the vendor's own table, including GovCloud and the EU Sovereign Cloud. New AWS regions arrive by upgrading `boto3`, not by waiting for a FLUID release.
+- **GCP and Azure** regions resolve through CSVs vendored from `dgl/cloud-regions` (ODbL-1.0, recorded in `NOTICE`), with a corrections map for rows upstream ships empty.
 
-Two classes of false verdict go away:
+This is identity, not adequacy. London is not in the EU: a product declaring EU-only residency and deploying to `eu-west-2` or `europe-west2` fails. The UK and Switzerland hold GDPR adequacy decisions, but a contract asking for `jurisdiction: EU` has not asked for the UK. Adequacy belongs in `transferMechanisms`, which the schema already carries.
 
-- The hand-written table put **London in the EU**. A product declaring EU-only residency and deploying to `eu-west-2` or `europe-west2` reported clean; the UK left the EU in 2020, and those now fail. A `UK`-pinned contract bound to `eu-west-2` stops being a false positive.
-- The jurisdiction check **skips any region whose jurisdiction is `Global`**, and `ap-southeast-1` (Singapore), `ap-northeast-2` (Seoul) and `asia-southeast1` were all typed `Global` — pass-anything wildcards against every declared jurisdiction. They no longer are.
+Since 0.17.0 the table also covers:
 
-This is **identity, not adequacy**: the UK and Switzerland hold GDPR adequacy decisions, but a contract asking for `jurisdiction: EU` has not asked for the UK. Adequacy belongs in `transferMechanisms`, which the schema already carries.
+| Location | Resolves to |
+|---|---|
+| `US`, `EU` (BigQuery and Cloud Storage multi-regions) | `US`, `EU` |
+| Dual-regions `EUR4`, `NAM4`, `ASIA1` | `EU`, `US`, `JP` |
+| GCP regions newer than the vendored CSV, for example `europe-west10`, `me-central2` | `EU`, `SA` |
+| Dual-regions `EUR5`, `EUR7`, `EUR8` and the `ASIA` multi-region | `Unknown` |
 
-The AWS provider also kept a second table that had drifted from the canonical one on 16 regions — `eu-west-2` was `EU` there and `UK` in the engine, and every `ap-*` collapsed to one `APAC` — so `fluid validate` and the AWS provider could reach opposite verdicts on the same contract. It now delegates to the one table.
+A Cloud KMS key ring and a Data Catalog taxonomy are placed at their dataset's multi-region (`europe` and `eu` for an `EU` dataset), and a Pub/Sub topic's region becomes `message_storage_policy.allowed_persistence_regions`. Each is checked against the policy as a placement of its own.
 
 ### Where sovereignty is enforced
 
 | Stage | What it does |
 |---|---|
 | [`fluid validate`](../cli/validate.md) | Runs the policy engine on every contract; severity follows `enforcementMode`. |
-| [`fluid plan --check-sovereignty`](../cli/plan.md#sovereignty-gate-since-0-15-0) | Opt-in and off by default. Provider hook, then the same policy engine; *(since 0.15.0)* **exits 1 on failure** instead of printing `PASS` for a check that never ran. |
-| [`fluid generate iac`](../cli/generate-iac.md) / [`fluid apply`](../cli/apply.md) | The AWS provider refuses a binding outside the contract's `allowedRegions` or its declared jurisdiction. *(since 0.15.0)* That refusal is no longer swallowed by a best-effort handler, so the run exits 1 and **no module is written**; `deniedRegions` is honoured at all for the first time. |
-| [`fluid mcp output-port serve`](mcp.md#caller-jurisdiction-enforcement-since-0-15-0) | *(since 0.15.0)* A pinned `jurisdiction` becomes a query-time gate on the **verified** caller jurisdiction — enforced by default, with the escape hatches in the contract rather than in a flag. |
+| [`fluid plan --check-sovereignty`](../cli/plan.md#sovereignty-gate-since-0-15-0) | Opt-in when you run `plan` yourself. Since 0.17.0 every pipeline that `fluid generate ci` emits runs stage 6 as `fluid plan ... --out runtime/plan.json --check-sovereignty`, so a strict violation fails before any stage reaches a cloud. A contract with no `sovereignty` block prints `NOT CHECKED` and passes. |
+| [`fluid generate iac`](../cli/generate-iac.md) / [`fluid apply`](../cli/apply.md) | The AWS provider, and since 0.17.0 the GCP provider, refuse a placement outside the policy and exit 1, and **no module is written**. GCP checks every location the plan emits, including one a resource inherits by default. |
+| Embedded-SQL builds on BigQuery | The read and the landing are checked against the policy too (`EmbeddedSqlSovereigntyError`). |
+| [`fluid mcp output-port serve`](mcp.md#caller-jurisdiction-enforcement-since-0-15-0) | A pinned `jurisdiction` becomes a query-time gate on the **verified** caller jurisdiction, enforced by default, with the escape hatches in the contract and not in a flag. |
 
-## CI/CD Integration
+A GCP contract bound to `us-central1` under an EU policy is refused at the IaC step:
 
-Run governance checks as a gate in your deployment pipeline:
-
-```bash
-# Fail the pipeline if any governance check is violated
-fluid policy-check contract.fluid.yaml --strict --format json --output report.json
+```text
+  error: GCP placement refused by the sovereignty policy: dataset_customers:
+Region 'us-central1' not in allowed regions list; dataset_customers: Region
+'us-central1' (jurisdiction: US) does not match required jurisdiction: EU; ...
 ```
 
-## See Also
+## What the platform enforces
 
-- [GCP Provider](/forge_docs/providers/gcp) — GCP-specific IAM, policy tags, data masking
-- [AWS Provider](/forge_docs/providers/aws) — AWS IAM policies, sovereignty, EventBridge
-- [Snowflake Provider](/forge_docs/providers/snowflake) — Snowflake RBAC, warehouse grants
-- [apply command](/forge_docs/cli/apply) — deploy with governance enforcement
-- [CLI Reference](/forge_docs/cli/) — all available commands
-- [Contributing](/forge_docs/contributing) — help improve governance features
+Besides sovereignty, `fluid apply` emits, and `fluid verify` checks on the live platform, four governance fields on AWS and GCP:
+
+| Field | AWS | GCP | Schema |
+|---|---|---|---|
+| `exposes[].lifecycle {retention, expire: true}` | An S3 lifecycle rule for the binding's prefix | Daily partitions with an expiration, never a table expiration | `0.7.6` (preview) |
+| `binding.encryption.kms` | A KMS key per bucket, or the key you name | A Cloud KMS key ring and key per dataset, or the key you name | `0.7.6` (preview) |
+| `exposes[].policy.authz.columnRestrictions` | Lake Formation grants that exclude the restricted columns | Data Catalog policy tags with fine-grained readers | `0.7.5` |
+| `binding.principals` | Maps logical principals to IAM identities | Maps logical principals to IAM identities | `0.7.6` (preview) |
+
+The `0.7.6` fields validate only with `fluidVersion: "0.7.6"`. `columnRestrictions` is in `0.7.5` and is enforced there.
+
+On GCP, a principal on a `gcp` binding that is a placeholder is refused at `fluid validate`: a reserved top-level domain (`.example`, `.test`, `.invalid`, `.localhost`) or something that is not an IAM member at all. BigQuery and Cloud Storage refuse them at apply, so none was ever a working grant.
+
+Platform-native dynamic masking is not emitted from `policy.privacy.masking`. For a DuckDB acquisition build, the values are treated before they land; see [Masking at landing](./source-aligned-acquisition.md#masking-at-landing).
+
+## See also
+
+- [Governance policy](../concepts/governance-policy.md): the concepts behind these declarations
+- [Sovereignty](../concepts/sovereignty.md): jurisdiction, regions and the enforcement points
+- [MCP output port](./mcp.md): runtime `agentPolicy` and caller-jurisdiction enforcement
+- [GCP provider](../providers/gcp.md): IAM, policy tags, KMS
+- [AWS provider](../providers/aws.md): IAM, Lake Formation, sovereignty
+- [Snowflake provider](../providers/snowflake.md): RBAC and warehouse grants
+- [`fluid apply`](../cli/apply.md): deploy with governance enforcement
+- [CLI reference](../cli/README.md): all commands

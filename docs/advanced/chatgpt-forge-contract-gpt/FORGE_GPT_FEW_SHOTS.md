@@ -6,7 +6,7 @@ These examples teach the GPT how to ask, draft, and review without inventing gov
 
 User:
 
-`Generate a FLUID 0.7.3 contract for a local pipeline that reads examples/orders.csv, keeps order_id, customer_id, order_date, and amount, filters out null customer_id values, and writes runtime/out/orders-clean-v1.csv.`
+`Generate a FLUID 0.7.5 contract for a local pipeline that reads examples/orders.csv, keeps order_id, customer_id, order_date, and amount, filters out null customer_id values, and writes runtime/out/orders-clean-v1.csv.`
 
 Assistant:
 
@@ -15,7 +15,7 @@ Draft status: Draft
 ```
 
 ```yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
 kind: "DataProduct"
 id: "bronze.sales.orders_clean_v1"
 name: "Orders Clean"
@@ -79,7 +79,7 @@ Validation next steps:
 
 User:
 
-`Generate a GCP FLUID 0.7.3 contract for a customer metrics table in project customer-prod, dataset gold_customer, table customer_metrics_v1. Keep data in EU only, classify it Confidential, allow AI only for analysis and qa, never for training, and add semantic definitions for customer_count and monthly_revenue.`
+`Generate a GCP FLUID 0.7.5 contract for a customer metrics table in project customer-prod, dataset gold_customer, table customer_metrics_v1, in europe-west1. Keep data in EU only, classify it Confidential, allow AI only for analysis and qa, never for training, and add semantic definitions for customer_count and monthly_revenue.`
 
 Assistant:
 
@@ -88,7 +88,7 @@ Draft status: Draft
 ```
 
 ```yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
 kind: "DataProduct"
 id: "gold.customer.customer_metrics_v1"
 name: "Customer Metrics"
@@ -120,6 +120,7 @@ exposes:
         project: "customer-prod"
         dataset: "gold_customer"
         table: "customer_metrics_v1"
+        region: "europe-west1"
     contract:
       schema:
         - name: "customer_id"
@@ -188,16 +189,40 @@ exposes:
 
 Assumptions:
 
-- EU residency implies BigQuery resources should resolve to EU-approved regions
+- `europe-west1`, which the user named, is also in `sovereignty.allowedRegions`
+- `europe-west4` is allowed as a second EU region; remove it if only one region is acceptable
 
 Open questions:
 
-- Which exact BigQuery region should be used for deployment
+- Which principals or teams should receive access, since no `accessPolicy` was provided
 
 Validation next steps:
 
 - `fluid validate contract.fluid.yaml --strict`
-- `fluid plan contract.fluid.yaml --provider gcp --out plan.json`
+- `fluid plan contract.fluid.yaml --provider gcp --out plan.json --check-sovereignty`
+
+## Strong Example 2b: Ask For The Region First
+
+A `sovereignty` block makes `binding.location.region` mandatory on every cloud binding. `fluid validate` refuses a draft that leaves it out, so the GPT asks before it drafts.
+
+User:
+
+`Generate a GCP FLUID 0.7.5 contract for a customer metrics table in project customer-prod, dataset gold_customer, table customer_metrics_v1. Keep data in EU only.`
+
+Assistant:
+
+```text
+Draft status: not drafted yet
+
+I need one detail before I can write a contract that passes validation. Under an EU residency rule, the BigQuery binding has to name its region, and the platform would otherwise choose for you.
+
+Which region should the dataset live in?
+- europe-west1 (Belgium)
+- europe-west4 (Netherlands)
+- EU (the BigQuery EU multi-region)
+```
+
+After the user answers, the draft carries `region` in the binding and the same value in `sovereignty.allowedRegions`.
 
 ## Strong Example 3: Review Before Rewrite
 
@@ -218,7 +243,7 @@ Assistant:
 Corrected minimal pattern:
 
 ```yaml
-fluidVersion: "0.7.3"
+fluidVersion: "0.7.5"
 kind: "DataProduct"
 id: "gold.customer.sample_v1"
 name: "Customer Sample"
@@ -297,3 +322,69 @@ Open questions
 - Should this expose include privacy controls or AI usage restrictions
 - Which principals or teams should receive access
 ```
+
+## Bad Draft To Corrected Draft Pair 3
+
+Bad draft:
+
+```yaml
+sovereignty:
+  jurisdiction: EU
+  allowedRegions: [europe-west1]
+  enforcementMode: strict
+exposes:
+  - exposeId: orders
+    kind: table
+    binding:
+      platform: gcp
+      format: bigquery_table
+      location:
+        project: REPLACE_ME
+        dataset: REPLACE_ME
+        table: orders
+```
+
+Corrected draft:
+
+```yaml
+sovereignty:
+  jurisdiction: EU
+  allowedRegions: [europe-west1]
+  enforcementMode: strict
+exposes:
+  - exposeId: orders
+    kind: table
+    binding:
+      platform: gcp
+      format: bigquery_table
+      location:
+        project: REPLACE_ME
+        dataset: REPLACE_ME
+        table: orders
+        region: europe-west1
+```
+
+Reason:
+
+- With a `sovereignty` block, every `aws`, `gcp` or `azure` binding must name `location.region`
+- `fluid validate` fails the bad draft with `Binding declares no region, so where its data lives cannot be checked against the sovereignty policy`
+- The region must be one the policy allows: listed in `allowedRegions`, or in the declared jurisdiction
+
+## Bad Draft To Corrected Draft Pair 4
+
+Bad draft behavior:
+
+- Wrote `accessPolicy` grants for `group:analysts@acme.example` on a GCP binding, to look complete
+
+Corrected behavior:
+
+- A principal in a reserved domain (`.example`, `.test`, `.invalid`, `.localhost`) is a placeholder, and `fluid validate` refuses it on a `gcp` binding
+- Ask which real identities should receive access, and leave `accessPolicy` out until the user answers
+
+Example correction:
+
+```text
+Open questions
+- Which groups or service accounts should be able to read this table, as real IAM members such as group:analysts@acme.com
+```
+

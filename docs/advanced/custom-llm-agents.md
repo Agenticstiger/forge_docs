@@ -14,12 +14,7 @@ fluid forge --domain retail
 fluid forge --domain telco
 ```
 
-Built-in LLM providers include:
-
-- OpenAI
-- Anthropic
-- Gemini
-- Ollama
+`--llm-provider` accepts `openai`, `anthropic`, `gemini` and `ollama`, plus the keyless `mcp-sampling`, `claude-code`, `codex`, `cursor` and `kiro`. See [LLM Providers](./llm-providers.md).
 
 ## Key Forge flags
 
@@ -41,6 +36,7 @@ Useful flags:
 - `--context`
 - `--memory` / `--no-memory`
 - `--save-memory`
+- `--prompt-profile` and `--prompt-overlay`
 - `--non-interactive`
 
 ## What changed
@@ -54,14 +50,9 @@ Those are no longer the public, primary docs path. Current docs lead with `fluid
 
 ## Built-in domain guidance
 
-The built-in domains are still backed by declarative specs inside `forge-cli`, but users interact with them through `--domain`.
+The built-in domains are backed by declarative specs inside `forge-cli`, and users interact with them through `--domain`. The CLI's own help names `finance`, `healthcare`, `retail` and `telco`. The 0.18.1 package also ships specs named `education`, `energy`, `government`, `insurance`, `logistics`, `manufacturing`, `media` and `pharma`.
 
-Current built-in domains:
-
-- `finance`
-- `healthcare`
-- `retail`
-- `telco`
+Two prompt profiles ship as well, `ai-lab-permissive` and `eu-gdpr-strict`, and two overlays, `pii-lockdown` and `strict-json-reinforce`. Select them with `--prompt-profile` and `--prompt-overlay`. A profile replaces the default agent-policy guidance the model is given. `eu-gdpr-strict`, for example, tells it to attach a restrictive `policy.agentPolicy` to every expose that may carry personal data.
 
 ## When custom agent work still matters
 
