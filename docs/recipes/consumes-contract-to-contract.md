@@ -240,7 +240,7 @@ Each of the first three also tells you the way out: check the `productId`, keep 
 An entry names a logical address only. Whether anything is generated from it depends on the engine:
 
 - **dbt** (`engine: dbt`): `fluid generate transformation` emits the entries as `models/sources.yml`.
-- **sql, spark, glue, dataform, dataflow and other engines**: `fluid generate transformation` logs a `consumes_not_wired` warning, because those generators never read `consumes[]`. Point the build at the upstream yourself.
+- **sql, spark, glue, dataform, dataflow and other engines**: `fluid generate transformation` logs a `consumes_not_wired` warning, and does not wire `consumes[]` into the build for them. Point the build at the upstream yourself.
 - **Embedded-SQL on DuckDB**: read at apply time, as above.
 
 ## The same chain on S3 and BigQuery
