@@ -1,6 +1,6 @@
 # Error codes
 
-Every failure that the CLI raises as a catalogued error prints an event name and a stable `ERR_` code, then suggestions and a link to this site. This page explains the parts of that output and lists the events that carry curated suggestions.
+A failure the CLI raises as a catalogued error prints an event name and a stable `ERR_` code, then suggestions and a link to this site. This page explains the parts of that output and lists the events that carry curated suggestions.
 
 ```bash
 fluid verify missing.fluid.yaml
@@ -42,7 +42,7 @@ The route table sends an event to one of these pages, and the entries below name
 | [`fluid verify-signature`](../cli/verify-signature.md) | The signing events |
 | [Getting started](../getting-started/README.md) | `opentofu_engine_install_failed` |
 | [Typed CLI errors](./typed-cli-errors.md) | The schema-version events and the connectivity events |
-| [Production troubleshooting](./production-troubleshooting.md) | Every other event |
+| [Production troubleshooting](./production-troubleshooting.md) | Events not listed above |
 
 ## The catalogued events
 
