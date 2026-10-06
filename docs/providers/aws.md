@@ -215,7 +215,7 @@ The binding schema uses three fields to identify platform resources:
 | Field | Purpose | AWS Values |
 |-------|---------|-----------|
 | `binding.platform` | Cloud provider | `aws` |
-| `binding.format` | Storage format | `parquet`, `csv`, `json`, `avro`, `orc`, `delta` and `iceberg` get a Glue table |
+| `binding.format` | Storage format | `parquet`, `csv`, `json`, `avro`, `orc`, `delta` and `iceberg` get a Glue table. An `iceberg` expose whose `location.catalog` names another catalog does not *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)*; see [Iceberg catalogs](../advanced/source-aligned-acquisition.md#on-aws-a-table-in-another-catalog) |
 | `binding.location` | Resource coordinates | `bucket`, `path`, `region`, `database`, `table` |
 
 GCP uses `platform: gcp` with `format: bigquery_table`, and Snowflake `platform: snowflake` with `format: snowflake_table`. Retargeting a contract changes `platform`, `format` and `location` together; see [Switch clouds](../recipes/switch-clouds.md).
@@ -457,7 +457,7 @@ For DuckDB builds:
 
 Forge emits no platform-native dynamic data masking on AWS. `policy.privacy.rowLevelPolicy` is a declaration the AWS emitter does not read; use `lakeFormation.rowFilter` for row-level filtering.
 
-A policy the binding cannot apply is refused rather than dropped: `fluid validate`, `fluid generate iac` and `fluid apply` refuse a column restriction on an aws binding that has no Lake Formation grants or no Glue table.
+A policy the binding cannot apply is refused rather than dropped: `fluid validate`, `fluid generate iac` and `fluid apply` refuse a column restriction on an aws binding that has no Lake Formation grants or no Glue table. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* An Iceberg expose whose table lives in a catalog other than Glue (`location.catalog: lakekeeper`, say) has its `governance.lakeFormation`, column restrictions and row filters refused by catalog name, because Lake Formation governs only Glue tables; see [On AWS: a table in another catalog](../advanced/source-aligned-acquisition.md#on-aws-a-table-in-another-catalog).
 
 ### Lake Formation
 
@@ -743,6 +743,15 @@ them to the aws overlay's binding (column restrictions then narrow them).
 
 A pipeline that runs `fluid validate --strict` fails on it; stage 2 of the [11-stage pipeline](../walkthrough/11-stage-pipeline.md) does. Without `--strict` it is a warning. Add `lakeFormation` grants to the aws binding, for example in the aws overlay of a contract that also targets GCP (see [per-environment overlays](../recipes/per-environment-overlays.md)). The warning is raised only when no grant exists; a binding with Lake Formation grants does not trigger it.
 
+*(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* An Iceberg expose in a catalog other than Glue cannot take Lake Formation grants, so its warning asks you to grant access in that catalog instead:
+
+```text
+ 1. accessPolicy.grants are not enforced on aws binding(s) orders (lakekeeper):
+their Iceberg tables live in a catalog other than Glue, and the AWS emitter
+writes access only as Lake Formation grants on a Glue table. Grant access in
+that catalog.
+```
+
 `fluid policy-compile` still reads `accessPolicy.grants` and writes IAM bindings, which you can use as a starting point for IAM policies. Nothing applies them:
 
 ```bash
@@ -782,7 +791,7 @@ fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json
 }
 ```
 
-Each principal gets one entry for the bucket and one for the Glue table. The permissions map to two action sets: any of `write`, `insert`, `update` or `delete` selects the write set (`s3:PutObject`, `s3:DeleteObject`, `s3:GetObject`, `s3:ListBucket`, and `glue:CreateTable`, `glue:UpdateTable`, `glue:DeleteTable`); every other permission selects the read set shown above. Placeholders in the bucket stay literal, and the principals are written as the contract names them.
+Each principal gets one entry for the bucket and one for the Glue table. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* An Iceberg expose in a catalog other than Glue gets the bucket entry only, and a warning (`Iceberg expose 'orders' is cataloged in 'lakekeeper', not AWS Glue, so no table grant was compiled ...`). The permissions map to two action sets: any of `write`, `insert`, `update` or `delete` selects the write set (`s3:PutObject`, `s3:DeleteObject`, `s3:GetObject`, `s3:ListBucket`, and `glue:CreateTable`, `glue:UpdateTable`, `glue:DeleteTable`); every other permission selects the read set shown above. Placeholders in the bucket stay literal, and the principals are written as the contract names them.
 
 `fluid policy-apply` enforces nothing on AWS. As of 0.18.1 the aws provider has no standalone policy applier, and the command exits 0:
 
@@ -943,6 +952,7 @@ The release notes for [`0.16.0`](../RELEASE_NOTES_0.16.0.md) and [`0.17.0`](../R
 - **`0.16.5`:** DuckDB builds treat masked columns at landing, and `fluid verify` fails a cleartext one. `AWS_ENDPOINT_URL[_S3]` reaches DuckDB.
 - **`0.17.0`:** a column restriction on an aws binding with no Lake Formation grants is refused, and `accessPolicy.grants` on an aws binding with no Lake Formation grants warns; see [Column restrictions](#column-restrictions) and [accessPolicy on AWS](#accesspolicy-on-aws).
 - **`0.18.0`:** contract SQL runs in a DuckDB sandbox and `$ref` stays inside the contract's directory tree; see [Where a build lands data](#where-a-build-lands-data).
+- **Unreleased, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707):** an Iceberg expose whose `location.catalog` is not `glue` keeps its S3 bucket and loses its Glue database and table. On a contract an earlier release applied, `fluid apply` stops with `iceberg_catalog_move_blocked` and prints the `tofu state rm` commands that release them; see [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog). A Kafka Connect sink on Glue starts, where it failed at startup before.
 
 ## How far this has been exercised
 

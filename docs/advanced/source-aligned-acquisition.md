@@ -197,7 +197,7 @@ With this binding the build writes `s3://acme-lake/bronze/orders/orders.parquet`
 
 A binding that names no bucket stays on local disk. The build does not invent the `{account}-fluid-data` bucket that the IaC path falls back to, because moving data off the machine on the strength of a default would be a decision the CLI should not make for you.
 
-`sink.format` takes `iceberg`, `delta`, `parquet`, `csv`, `json`, `snowflake_table`, `bigquery_table`, `redshift_table` or `duckdb_table`, with optional `catalog` and `partitionBy`. The DuckDB runner writes `parquet`, `csv` and `json` files.
+`sink.format` takes `iceberg`, `delta`, `parquet`, `csv`, `json`, `snowflake_table`, `bigquery_table`, `redshift_table` or `duckdb_table`, with optional `catalog` and `partitionBy`. The DuckDB runner writes `parquet`, `csv` and `json` files. A streaming build's `sink.catalog` must name the same Iceberg catalog as the expose it writes *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)*; see [Iceberg catalogs](#iceberg-catalogs-location-catalog).
 
 ### What the DuckDB sandbox allows
 
@@ -214,6 +214,275 @@ For the DuckDB engine, each connection runs in DuckDB's own sandbox ([DuckDB san
 
 - Name a file or a glob as the source `uri`. As of 0.18.1, a `uri` that names a directory outside the contract's directory is refused even when `FLUID_DUCKDB_ALLOWED_DIRS` lists it; `<dir>/orders.csv` or `<dir>/*.csv` works.
 - A `source.kind: http` source is read from the URL you declare, and a declared `s3://` location is reachable. These are acquisition builds; SQL written inside a contract cannot read an `http(s)` URL.
+
+## Iceberg catalogs (`location.catalog`)
+
+::: warning Not in a release yet
+This section describes forge-cli [PR #707](https://github.com/Agenticstiger/forge-cli/pull/707). No release includes it yet. forge-cli 0.19.0 and earlier behave as described in [On 0.19.0 and earlier](#on-0-19-0-and-earlier), at the end of this section.
+:::
+
+An Iceberg expose names the catalog that owns its table in `binding.location.catalog`. The streaming sinks (Kafka Connect and Debezium Server), dbt's `catalogs.yml`, the AWS, Snowflake and Confluent modules, `fluid policy compile`, `fluid diff`, `fluid test` and `fluid validate` read the value through one table in forge-cli (`fluid_build/providers/_iceberg_catalog.py`), so they agree on which catalog holds the table.
+
+### Example: stream into Lakekeeper
+
+A Kafka Connect build streams Postgres changes into an Iceberg table that Lakekeeper catalogs, stored in S3:
+
+```yaml
+fluidVersion: 0.7.5
+kind: DataProduct
+id: bronze.orders_stream
+name: Orders stream
+domain: sales
+metadata:
+  layer: Bronze
+  owner:
+    team: data-platform
+exposes:
+  - exposeId: orders
+    kind: table
+    binding:
+      platform: aws
+      format: iceberg
+      location:
+        catalog: lakekeeper
+        uri: http://lakekeeper:8181/catalog   # Lakekeeper's Iceberg REST endpoint
+        warehouse: analytics                  # a Lakekeeper warehouse NAME, not s3://
+        database: streaming                   # the Iceberg namespace
+        table: orders
+        bucket: acme-lake                     # the S3 bucket behind the warehouse
+        region: eu-west-1
+    contract:
+      schema:
+        - name: order_id
+          type: integer
+          required: true
+        - name: amount_cents
+          type: integer
+builds:
+  - id: stream_orders
+    pattern: acquisition
+    engine: kafka-connect
+    outputs: [orders]
+    properties:
+      source:
+        kind: postgres
+        mode: incremental_append
+        streams: [public.orders]
+      sink:
+        format: iceberg
+      kafka-connect:
+        streamingSink:
+          autoCreate: true
+          commitIntervalMs: 5000
+```
+
+The contract validates as written. `fluid validate` requires `uri` and `warehouse` for a REST catalog such as Lakekeeper; without `uri` it fails:
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+Validation completed in 0.001s
+
+Validation Errors:
+==================
+ 1. iceberg sink (build 'stream_orders'): lakekeeper catalog requires
+binding.location.uri
+```
+
+These are the table and catalog keys of the sink config the Kafka Connect runner derives from it:
+
+```json
+{
+  "iceberg.tables": "streaming.orders",
+  "iceberg.catalog.type": "rest",
+  "iceberg.catalog.warehouse": "analytics",
+  "iceberg.catalog.client.region": "eu-west-1",
+  "iceberg.catalog.uri": "http://lakekeeper:8181/catalog"
+}
+```
+
+There is no `iceberg.catalog.io-impl` and no storage credential. forge-cli picks a FileIO only for a warehouse with an object-store scheme (`s3://`, `gs://`, `abfss://`); a catalog addressed by warehouse name returns the table's storage settings with its metadata. With `autoCreate: true`, the Apache Iceberg sink creates the table and its namespace itself, as it has since Iceberg 1.6.0 ([apache/iceberg#10186](https://github.com/apache/iceberg/pull/10186)). It ignores a refusal to create the namespace, so if the catalog principal the sink uses may not create namespaces, create the `streaming` namespace for it first.
+
+On AWS, the module holds the bucket and nothing in Glue, because the table lives in Lakekeeper:
+
+```bash
+fluid generate iac contract.fluid.yaml --out infra
+```
+
+```text
+Wrote OpenTofu module: infra/main.tf.json  (provider: aws, 1 resources)
+```
+
+The one resource is `aws_s3_bucket.bronze_orders_stream_acme_lake`. Without `bucket` the module would hold nothing, and `fluid generate iac` fails with `generate_iac_empty_module` (pass `--allow-empty` if that is what you want).
+
+### How a value is read
+
+- **Spelling.** Case, surrounding whitespace, and `-` against `_` are folded, so `Lakekeeper` is `lakekeeper` and `SNOWFLAKE_MANAGED` is `snowflake-managed`. Two spellings are aliases: `iceberg-rest` (or `iceberg_rest`) is `rest`, and `snowflake` is `snowflake-managed`.
+- **No value.** An Iceberg expose with no `location.catalog` gets its platform's default: `glue` on `platform: aws`, `snowflake-managed` on `platform: snowflake`, and `rest` on any other platform. On `platform: gcp` the default means two things: a streaming sink writes through a REST catalog, while dbt-bigquery and the GCP module create a BigLake table. Name the catalog on GCP so the sink and dbt agree.
+- **`sink.catalog`.** A streaming build may set `properties.sink.catalog`, but it must name the expose's catalog, because dbt and the modules read only the expose. Spellings are compared after folding. Leave it unset and the sink uses the expose's catalog.
+- **Any other value** is refused by `fluid validate` on every Iceberg expose, with the accepted spellings. A `platform: confluent` expose has its own rule, [below](#other-commands). `fluid apply` on AWS refuses the value too, as `unknown-iceberg-catalog`, because whether a Glue table exists depends on it.
+
+```text
+❌ Invalid FLUID contract (2 error(s)) (schema v0.7.5)
+Validation completed in 0.001s
+
+Validation Errors:
+==================
+ 1. iceberg sink (build 'stream_orders'): unknown Iceberg catalog 'lakekeper' in
+binding.location.catalog; use one of: bigquery, dynamodb, glue, hadoop, hive,
+jdbc, lakekeeper, nessie, polaris, rest, snowflake-managed, unity, iceberg-rest,
+snowflake
+ 2. expose 'orders': binding.location.catalog 'lakekeper' is not a catalog kind
+FLUID knows. Use one of: bigquery, dynamodb, glue, hadoop, hive, jdbc,
+lakekeeper, nessie, polaris, rest, snowflake-managed, unity, iceberg-rest,
+snowflake. Each emitter guesses differently for an unknown value (the streaming
+sink writes over Iceberg REST, dbt and the Snowflake IaC treat it as
+Snowflake-managed), so the table would be written to two different catalogs.
+```
+
+A `sink.catalog` that names another catalog than the expose:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): sink.catalog 'glue' disagrees with the
+expose's catalog 'lakekeeper' (binding.location.catalog); the sink would write
+through glue while dbt and the IaC read lakekeeper. Set
+binding.location.catalog: glue and drop sink.catalog
+```
+
+### What each kind produces
+
+| `location.catalog` | Sink catalog selector | dbt `catalogs.yml` on Snowflake | Snowflake module | AWS module | A streaming sink needs |
+|---|---|---|---|---|---|
+| `glue` | `catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog` | `iceberg_rest` | Glue `CATALOG INTEGRATION` | the bucket, a Glue database and a Glue table | nothing (warns without `region`) |
+| `rest` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
+| `lakekeeper` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
+| `polaris` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
+| `unity` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
+| `nessie` | `type=nessie` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
+| `bigquery` | `type=bigquery` | `iceberg_rest` | nothing; validate warns | the bucket only | nothing |
+| `hive` | `type=hive` | left out, with a warning | nothing; validate errors | the bucket only | nothing |
+| `jdbc` | `type=jdbc` | left out, with a warning | nothing; validate errors | the bucket only | `uri` |
+| `hadoop` | `type=hadoop` | left out, with a warning | nothing; validate errors | the bucket only | `warehouse` |
+| `dynamodb` | `catalog-impl=org.apache.iceberg.aws.dynamodb.DynamoDbCatalog` | left out, with a warning | nothing; validate errors | the bucket only | nothing |
+| `snowflake-managed` | `type=rest` | `built_in` | `EXTERNAL VOLUME` | the bucket only | `uri`, `warehouse` |
+
+How to read the columns:
+
+- **Sink catalog selector.** Kafka Connect takes the key with the `iceberg.catalog.` prefix (`iceberg.catalog.type`, `iceberg.catalog.catalog-impl`), and Debezium Server with `debezium.sink.iceberg.`. The `type` values are catalog types Apache Iceberg defines. Iceberg has no `lakekeeper`, `polaris` or `unity` type, so those catalogs are reached over Iceberg REST, and no `dynamodb` type, so DynamoDB is selected by class. `type=bigquery` needs an Iceberg runtime of 1.10 or later. For `nessie` the sink uses Iceberg's Nessie client, which the stock Apache Iceberg Kafka Connect runtime does not bundle, so `fluid validate` warns on a `kafka-connect` build.
+- **dbt `catalogs.yml` on Snowflake** and **Snowflake module** apply to `platform: snowflake`. Apart from `glue`, Snowflake reaches the `iceberg_rest` kinds through a catalog integration that authenticates with a secret. The module is credential-free, so it creates none, and `fluid validate` warns (an error under `--strict`). Snowflake has no catalog integration for `hive`, `jdbc`, `hadoop` or `dynamodb`, so an expose naming one fails `fluid validate`. The prerequisites each emitted object needs are in [Iceberg tables via dbt](../providers/snowflake.md#iceberg-tables-via-dbt-since-0-13-1).
+- **AWS module** applies to `platform: aws`: the bucket is the one the binding names. See [On AWS](#on-aws-a-table-in-another-catalog).
+- **A streaming sink needs** the listed `binding.location` keys when a Kafka Connect build, or a Debezium Server build in `embedded` mode, writes the expose. Debezium in `bring-your-own` or `managed` mode creates only the source connector, so these checks do not apply to it. The Kafka Connect runner and the embedded Debezium Server runner run the same checks before they create anything, so a contract `fluid validate` refuses also fails its run.
+
+### Kafka Connect: `catalog-impl` or `type`, never both
+
+Apache Iceberg refuses a catalog configured with both `type` and `catalog-impl`. On 0.19.0 and earlier the Kafka Connect sink config for a Glue table carried both, and the sink failed at startup with:
+
+```text
+java.lang.IllegalArgumentException: Cannot create catalog iceberg, both type and catalog-impl are set
+```
+
+The derived config now carries one selector, as the Debezium Server config already did. The table and catalog keys for a Glue expose (`bucket: acme-lake`, `path: bronze/orders`, `database: bronze`, `table: orders`, `region: eu-west-1`, no `location.catalog`):
+
+```json
+{
+  "iceberg.tables": "bronze.orders",
+  "iceberg.catalog.catalog-impl": "org.apache.iceberg.aws.glue.GlueCatalog",
+  "iceberg.catalog.warehouse": "s3://acme-lake/bronze/orders",
+  "iceberg.catalog.io-impl": "org.apache.iceberg.aws.s3.S3FileIO",
+  "iceberg.catalog.client.region": "eu-west-1"
+}
+```
+
+`iceberg_catalog_overrides` and a hand-written `sink_connector_config` are merged over the derived config, so an override that sets the other selector key would bring the failure back. `fluid validate` refuses it:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): the sink config would carry both
+iceberg.catalog.type (from iceberg_catalog_overrides) and
+iceberg.catalog.catalog-impl (from the derived glue catalog config); Iceberg's
+CatalogUtil refuses a catalog with both type and catalog-impl set, so the sink
+never starts. Keep one, and change catalogs with binding.location.catalog rather
+than an override
+```
+
+To move a sink to another catalog, change `binding.location.catalog`, not the selector keys.
+
+### On AWS: a table in another catalog
+
+An Iceberg expose on `platform: aws` whose `location.catalog` is anything other than `glue`:
+
+- **Gets its S3 bucket and nothing in Glue.** The module creates no Glue database, Glue table or Lake Formation resource for it, and does not import a Glue table of the same name into state. `fluid policy compile` writes the bucket entry with no `glue.table` entry. An expose with no `location.catalog`, or `catalog: glue`, emits exactly what it did before.
+- **Is not looked up in Glue.** `fluid diff` reports it `not_checked` (`table lives in Iceberg catalog lakekeeper; Glue is not inspected`), and `fluid test` reports `Table not checked` instead of failing on a Glue table that does not exist.
+- **Cannot carry Lake Formation governance.** `governance.lakeFormation`, `policy.authz.columnRestrictions` and `policy.authz.rowFilters` are refused by catalog name at `fluid validate` and at apply (`lake-formation-needs-glue-catalog`, `column-restriction-unenforceable`, `row-filter-unenforceable`), instead of being written against a Glue table that does not exist:
+
+  ```text
+   1. exposes declares governance.lakeFormation, but its Iceberg table lives in
+  the 'lakekeeper' catalog (location.catalog), not in AWS Glue. Lake Formation
+  governs only Glue Data Catalog tables, so its grants, LF-tags and filters would
+  have no table to name and would not be applied. Govern access in the lakekeeper
+  catalog itself and remove governance.lakeFormation from this binding. Remove
+  location.catalog (or set it to 'glue') to keep the table in the Glue catalog
+  under Lake Formation.
+  ```
+
+- **Has `accessPolicy.grants` reported as unenforced**, with a warning that points at the catalog rather than at Lake Formation grants:
+
+  ```text
+   1. accessPolicy.grants are not enforced on aws binding(s) orders (lakekeeper):
+  their Iceberg tables live in a catalog other than Glue, and the AWS emitter
+  writes access only as Lake Formation grants on a Glue table. Grant access in
+  that catalog.
+  ```
+
+Grant access in the catalog itself; forge-cli writes no grant there.
+
+### Upgrading an AWS contract that names another catalog
+
+0.19.0 and earlier created a Glue database and table for every AWS Iceberg expose that names `location.database` and `location.table`, whatever its `location.catalog`. After the upgrade, the OpenTofu state of such a contract still holds them while the module no longer declares them, so the next `tofu plan` would destroy them, and destroying a Glue database deletes every table in it, including tables created outside FLUID. `fluid apply` stops before it plans (abridged):
+
+```text
+❌ iceberg_catalog_move_blocked  [ERR_ICEBERG_CATALOG_MOVE_BLOCKED]
+  kind: iceberg-catalog-move
+  error: iceberg catalog move blocked — this contract's OpenTofu state holds 2
+Glue catalog resource(s) for Iceberg table(s) that now live in another catalog:
+...
+  aws_glue_catalog_database.bronze_orders_stream_streaming
+  aws_glue_catalog_table.bronze_orders_stream_streaming_orders
+...
+Drop each from this contract's state, then re-run apply:
+...
+```
+
+1. Run the `tofu state rm` commands it prints, one per Glue resource, in the form `tofu -chdir=<module directory> state rm <address>` (each argument shell-quoted when it needs to be). For the example contract:
+
+   ```bash
+   tofu -chdir=.fluid/iac/aws/bronze_orders_stream state rm aws_glue_catalog_database.bronze_orders_stream_streaming
+   tofu -chdir=.fluid/iac/aws/bronze_orders_stream state rm aws_glue_catalog_table.bronze_orders_stream_streaming_orders
+   ```
+
+   `tofu state rm` changes nothing in AWS. It releases this contract's claim on the resources, which stay where they are.
+2. Run `fluid apply` again.
+3. Delete the Glue table by hand once nothing reads it, and the Glue database only once it holds nothing else.
+
+If the table belongs in Glue after all, remove `location.catalog` (or set it to `glue`) instead. There is no flag that skips the guard. Before it raises, the apply logs a structured `iceberg_catalog_move_blocked` event with the addresses, the exposes and the commands. The guard runs only on AWS, and only for an Iceberg expose that names a `location.database` and a catalog other than Glue. If the state cannot be listed, or the check itself fails, the apply continues without it (the failure is logged at debug level), and the [OpenTofu data-loss gate](../cli/apply.md#opentofu-data-loss-gate) still stops a plan that would destroy the resources. The same pattern guards [packaging ownership transitions](../cli/generate-iac.md#ownership-transitions).
+
+### Other commands
+
+- **dbt-bigquery.** An expose that names a catalog other than `bigquery` is left out of `catalogs.yml`, with a warning, instead of becoming a BigLake table. On `platform: gcp`, `fluid validate` accepts such a catalog's warehouse name and refuses a warehouse in another object store (`s3://`, `abfss://`).
+- **Confluent Tableflow.** A `platform: confluent` expose publishes only to AWS Glue. A `location.catalog` other than `glue` is a `fluid validate` error, and the module creates no catalog integration for it.
+- **`fluid policy compile`.** A Snowflake-managed Iceberg table compiles to Snowflake grants. A table in another catalog gets no Glue grant, and a warning to enforce access in that catalog.
+- **`fluid validate`.** A crash inside the Iceberg sink, Confluent or Iceberg prerequisite check is an error ("the contract was NOT checked for ..."), not a note printed only with `--verbose`. Two `catalog: snowflake` exposes that derive one EXTERNAL VOLUME on different storage are refused at validate instead of failing `fluid apply` mid-emit. The full list is in [Iceberg catalog checks](../cli/validate.md#iceberg-catalog-checks).
+
+### On 0.19.0 and earlier
+
+Each emitter classified `location.catalog` by hand, and they disagreed:
+
+- `catalog: lakekeeper` streamed over REST, while dbt's `catalogs.yml` wrote a Snowflake-managed (`built_in`) table and the AWS module created a Glue database and table of the same name.
+- The streaming-sink check required `uri` and `warehouse` only for the literal `rest`.
+- On Snowflake, `hive`, `jdbc`, `hadoop` and `dynamodb` became Snowflake-managed tables, and `fluid validate` asked a `lakekeeper` expose for an `s3://` or `gs://` warehouse.
+- A Confluent binding published to Glue whatever catalog it named, and dbt-bigquery made a BigLake table for any catalog.
+- A Kafka Connect sink on Glue failed at startup, as shown above.
+- An unknown value fell back differently in each emitter, so a typo split one table across catalogs.
+- `fluid policy compile` compiled every Iceberg expose off GCP to AWS S3 and Glue grants, whatever its platform.
+- A crash inside an Iceberg or Confluent check of `fluid validate` was printed only with `--verbose`, and the contract passed unchecked.
 
 ## Masking at landing
 

@@ -285,6 +285,30 @@ The emitters themselves are unchanged — the validator is the loud half. See th
 A Snowflake Iceberg catalog that authenticates with a secret — `polaris`, `unity`, `rest` / `iceberg_rest`, `nessie` — is *understood but not emitted*: its `CATALOG INTEGRATION` needs an OAuth secret or bearer token, and the emitted OpenTofu module is credential-free. `fluid validate` now surfaces that as a warning, and because `--strict` promotes warnings to errors, **CI pipelines running `fluid validate --strict` on such contracts start failing on `0.14.0`**. Either run those contracts without `--strict`, or create the catalog integration out of band and take the secret-authenticated catalog out of the contract binding.
 :::
 
+With [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707) (unreleased), the warning also covers `lakekeeper` and `bigquery`, and a `hive`, `jdbc`, `hadoop` or `dynamodb` catalog on Snowflake is an error. See [Iceberg catalog checks](#iceberg-catalog-checks).
+
+## Iceberg catalog checks
+
+::: warning Not in a release yet
+These checks come with [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707), which no release includes yet.
+:::
+
+`binding.location.catalog` names the Iceberg catalog that owns an expose's table, and every emitter now reads it through one table. [Iceberg catalogs](../advanced/source-aligned-acquisition.md#iceberg-catalogs-location-catalog) has that table, how spellings fold, and a worked Lakekeeper example. `fluid validate` refuses a contract whose catalog the emitters would disagree about:
+
+- **An unknown catalog.** A `location.catalog` outside the table, on an Iceberg expose, is an error that lists the accepted spellings. On `platform: confluent` every value other than `glue` is an error instead, because the Tableflow module publishes only to AWS Glue.
+- **A streaming sink that cannot reach its catalog.** For a Kafka Connect build, or an embedded Debezium Server build, that writes an Iceberg expose:
+  - every REST catalog (`rest`, `lakekeeper`, `polaris`, `unity`), `nessie` and `snowflake-managed` needs `location.uri` and `location.warehouse`; `jdbc` needs `uri`, and `hadoop` needs `warehouse`. On 0.19.0 and earlier only the literal `rest` was checked.
+  - a `sink.catalog` that names another catalog than the expose is an error, because dbt and the modules read only the expose.
+  - an `iceberg_catalog_overrides` entry or a hand-written sink config that would leave the connector with both `type` and `catalog-impl` is an error, because Apache Iceberg refuses that catalog and the sink never starts.
+  - `nessie` on a `kafka-connect` build is a warning: the stock Apache Iceberg Kafka Connect runtime has no Nessie client.
+- **Snowflake.** On `platform: snowflake`, a catalog that Snowflake reaches over Iceberg REST (`rest`, `lakekeeper`, `polaris`, `unity`, `nessie`, `bigquery`) draws the warning described above, which `--strict` turns into an error. `hive`, `jdbc`, `hadoop` and `dynamodb` are an error, because Snowflake has no catalog integration for them. A `lakekeeper` expose is no longer asked for an `s3://` or `gs://` warehouse, and two `catalog: snowflake` exposes that derive one EXTERNAL VOLUME on different storage are caught here rather than failing `fluid apply` mid-emit.
+- **AWS.** An Iceberg expose in a catalog other than Glue cannot carry `governance.lakeFormation`, `policy.authz.columnRestrictions` or `policy.authz.rowFilters`: each is refused by catalog name. `accessPolicy.grants` on it draws a warning to grant access in that catalog. See [On AWS](../advanced/source-aligned-acquisition.md#on-aws-a-table-in-another-catalog).
+- **GCP.** A `platform: gcp` expose in a catalog other than `bigquery` may give the catalog's warehouse name; a warehouse in another object store (`s3://`, `abfss://`) is an error.
+
+A crash inside the Iceberg sink, Confluent or Iceberg prerequisite check now fails validation, with an error such as `Iceberg sink check could not run (...); the contract was NOT checked for streaming-sink defects`. On 0.19.0 and earlier the crash was printed only with `--verbose`, and the contract passed unchecked.
+
+The Kafka Connect runner and the embedded Debezium Server runner run the same streaming-sink checks before they create anything, so a contract that skipped `fluid validate` still fails before any Connect REST call or `application.properties` write.
+
 ## GCP binding checks (since 0.15.0)
 
 The GCP IaC emitter is *emit-when-derivable*, so a `platform: gcp` expose it cannot resolve to a BigQuery / Cloud Storage / Pub-Sub target emits nothing and says nothing. Since `0.15.0`, `fluid validate` reports those exposes — resolved through the **emitter's own** dispatch, so the gate can neither block a contract that would have emitted nor wave through one that emits nothing.
