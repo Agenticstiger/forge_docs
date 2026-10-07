@@ -263,6 +263,20 @@ Before it plans, an OpenTofu apply reads the regions recorded in the contract's 
 
 Without the guard `tofu` would find nothing in the new region, create the resources again there and leave the originals behind with no destroy planned, so the data-loss gate could not fire. To keep the resources, set `location.region` back to the old region. To move them, run `tofu destroy` in the state directory with `AWS_REGION=<old-region>` set, then apply again.
 
+### Iceberg catalog-move guard
+
+*([forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* An AWS Iceberg expose whose `location.catalog` names a catalog other than Glue no longer gets a Glue database and table. When the contract's state still holds the ones an earlier release created, an OpenTofu apply stops before it plans, because the plan would destroy them, and destroying a Glue database deletes every table in it:
+
+```text
+❌ iceberg_catalog_move_blocked  [ERR_ICEBERG_CATALOG_MOVE_BLOCKED]
+  kind: iceberg-catalog-move
+  error: iceberg catalog move blocked — this contract's OpenTofu state holds 2
+Glue catalog resource(s) for Iceberg table(s) that now live in another catalog:
+...
+```
+
+The message lists the addresses and a `tofu -chdir=.fluid/iac/aws/<safe-id> state rm <address>` command for each. Run them, which changes nothing in AWS, then apply again. No flag skips the guard. The steps, and what to delete by hand afterwards, are in [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog).
+
 ## Remote state
 
 [OpenTofu state](../concepts/state.md) explains the state key, the backends and which commands read state.
@@ -480,6 +494,7 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. |
 | `opentofu_region_moved` | State holds the contract's resources in another region than its bindings name. |
 | `packaging_transition_blocked` | A container's ownership flips under existing state. See [Packaging modes](#packaging-modes). |
+| `iceberg_catalog_move_blocked` | *(unreleased, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707))* State holds Glue resources an earlier release created for an AWS Iceberg table that now lives in another catalog. See [Iceberg catalog-move guard](#iceberg-catalog-move-guard). |
 | `opentofu_dataset_access_unreconciled` | State holds a BigQuery dataset an older forge-cli applied with an authoritative access list, and every entry of it is a grant the contract no longer makes. Revoke those entries on the dataset by hand, or keep one of them in `accessPolicy` for one apply. |
 | `apply_state_backend_invalid`, `state_shared_with_another_provider`, `state_migration_*` | See [Remote state](#remote-state). |
 | `generate_iac_provider_mismatch` | `--provider` contradicts the contract's binding. |

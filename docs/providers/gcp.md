@@ -319,6 +319,8 @@ exposes:
 
 Retention, keys and column restrictions are refused on an Iceberg binding: they apply only to a BigQuery table.
 
+**A table in another catalog.** *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* BigLake metastore is the catalog this section describes, and the one an Iceberg expose gets with no `location.catalog` or with `catalog: bigquery`. An expose that names another catalog (`lakekeeper`, `rest`, `nessie`, ...) is not a BigLake table: `catalogs.yml` leaves it out, with a warning, instead of having dbt write a second table under the name that catalog owns. `fluid validate` accepts that catalog's warehouse name (`warehouse: analytics`), and refuses a warehouse in another object store (`s3://`, `abfss://`), since a `platform: gcp` table cannot live there. A streaming sink with no `location.catalog` on GCP writes through a REST catalog, not BigLake, so name the catalog when a sink and dbt share the table. See [Iceberg catalogs](../advanced/source-aligned-acquisition.md#iceberg-catalogs-location-catalog). On 0.19.0 and earlier, an expose naming another catalog became a BigLake table, and a warehouse name failed validation.
+
 ---
 
 ## Loading data

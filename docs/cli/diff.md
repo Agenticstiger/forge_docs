@@ -105,7 +105,7 @@ For each expose, `diff` reads the target the way `apply` writes it and compares 
 - AWS Glue tables;
 - BigQuery tables.
 
-An expose bound to anything else, such as Snowflake, is reported `not_checked`, and so is an expose whose contract declares no schema. Each expose ends in exactly one status:
+An expose bound to anything else, such as Snowflake, is reported `not_checked`, and so is an expose whose contract declares no schema. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* So is an AWS Iceberg expose whose `location.catalog` names a catalog other than Glue, with the detail `table lives in Iceberg catalog <kind>; Glue is not inspected`: `fluid apply` creates no Glue table for it, and a Glue table of the same name would belong to someone else. On 0.19.0 and earlier, `diff` looked such a table up in Glue. Each expose ends in exactly one status:
 
 | Status | Meaning | Counts as drift |
 | --- | --- | --- |
