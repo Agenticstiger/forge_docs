@@ -322,7 +322,13 @@ The one resource is `aws_s3_bucket.bronze_orders_stream_acme_lake`. Without `buc
    1. iceberg sink (build 'stream_events'): the GCP Iceberg expose sets no binding.location.catalog, so it is read two ways: the sink would write through a REST catalog (the 'gcp' platform default) while dbt-bigquery and the GCP IaC, which read only binding.location.catalog, create a BigLake metastore table. Set binding.location.catalog: bigquery, or the REST kind your catalog is (e.g. rest, lakekeeper)
   ```
 
-  Without `uri` and `warehouse`, the same build also draws the `rest` errors for them. When a `sink.catalog` or a hand-written sink config sets the catalog, the parentheses name it instead of the platform default.
+  Without `uri` and `warehouse`, the same build also draws the `rest` errors for them. When `sink.catalog`, `iceberg_catalog_overrides` or a hand-written sink config sets the catalog, the parentheses name it instead of the platform default. The check reads the catalog that reaches the worker, whether a `type` or a `catalog-impl` class selects it, and refuses every catalog but BigLake (`type=bigquery`, or `catalog-impl=org.apache.iceberg.gcp.bigquery.BigQueryMetastoreCatalog`). A Glue catalog is refused too, from `sink.catalog: glue` or from a hand-written `iceberg.catalog.catalog-impl: org.apache.iceberg.aws.glue.GlueCatalog`. For `sink.catalog: glue`:
+
+  ```text
+   1. iceberg sink (build 'stream_events'): the GCP Iceberg expose sets no binding.location.catalog, so it is read two ways: the sink would write through a glue catalog (sink.catalog 'glue') while dbt-bigquery and the GCP IaC, which read only binding.location.catalog, create a BigLake metastore table. Set binding.location.catalog: bigquery, or the REST kind your catalog is (e.g. rest, lakekeeper)
+  ```
+
+  Once the expose names its catalog, a hand-written sink config must select that same catalog (below).
 - **`sink.catalog`.** A streaming build may set `properties.sink.catalog`, but it must name the expose's catalog, because dbt and the modules read only the expose. Spellings are compared after folding. Leave it unset and the sink uses the expose's catalog.
 - **Any other value** is refused by `fluid validate` on every Iceberg expose, with the accepted spellings. A `platform: confluent` expose has its own rule, [below](#other-commands). `fluid apply` on AWS refuses the value too, as `unknown-iceberg-catalog`, because whether a Glue table exists depends on it. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* So does the native AWS planner that [`fluid diff`](../cli/diff.md) runs; on #707 alone it planned the S3 buckets and no Glue table. A typo on an expose that also declares `governance.lakeFormation` draws only the two errors below, not a Lake Formation refusal that names the typo as a catalog.
 
@@ -341,6 +347,14 @@ A `sink.catalog` that names another catalog than the expose:
 ```text
  1. iceberg sink (build 'stream_orders'): sink.catalog 'glue' disagrees with the expose's catalog 'lakekeeper' (binding.location.catalog); the sink would write through glue while dbt and the IaC read lakekeeper. Set binding.location.catalog: glue and drop sink.catalog
 ```
+
+*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* A hand-written sink config or an override must select the expose's catalog too. A `sink_connector_config` or `iceberg_catalog_overrides` on a Kafka Connect build, or a `server.sink.config` on an embedded Debezium Server build, whose `type` or `catalog-impl` selects another catalog than the expose's is an error on every platform: the sink would write one catalog while dbt and the modules read the other. They are compared as the catalog the worker builds, so `type=rest` matches `rest`, `lakekeeper`, `polaris`, `unity` and `snowflake-managed`, and `glue` matches `type=glue` or `catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog`. #707 alone accepted such a config. A hand-written `iceberg.catalog.type: rest` for an AWS expose with no `location.catalog`, whose catalog is Glue:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): sink_connector_config sets iceberg.catalog.type='rest', so the sink would write through a REST catalog while dbt and the IaC read the expose's catalog 'glue' (the 'aws' platform default). Declare the catalog the sink writes to in binding.location.catalog; a REST endpoint that fronts Glue (Glue's Iceberg REST endpoint) is catalog: rest
+```
+
+Declare the catalog the sink writes to in `binding.location.catalog`. A REST endpoint that fronts Glue, such as Glue's Iceberg REST endpoint, is `catalog: rest`, with its `uri` and `warehouse`. On `platform: aws` the expose is then [a table in another catalog](#on-aws-a-table-in-another-catalog): the module creates its bucket and nothing in Glue, and Lake Formation governance on it is refused.
 
 ### What each kind produces
 
@@ -367,7 +381,7 @@ How to read the columns:
    1. iceberg sink (build 'stream_events'): the sink config sets iceberg.catalog.type=bigquery, which the published Apache Iceberg Kafka Connect sink (1.9.2 on Confluent Hub) cannot load: Iceberg's CatalogUtil gains the bigquery type in 1.10. Run a sink built from Iceberg >= 1.10, or the connector fails at start
   ```
 
-  Both warnings follow the catalog type that reaches the worker, after `iceberg_catalog_overrides` and a hand-written `sink_connector_config` are merged in. A hand-written config that sets `iceberg.catalog.type: rest` for a `bigquery` or `nessie` expose draws neither.
+  Both warnings follow the catalog that reaches the worker, selected by `type` or by a `catalog-impl` class (`org.apache.iceberg.nessie.NessieCatalog`, `org.apache.iceberg.gcp.bigquery.BigQueryMetastoreCatalog`), after `iceberg_catalog_overrides` and a hand-written `sink_connector_config` are merged in. A hand-written config that sets `iceberg.catalog.type: rest` for a `bigquery` or `nessie` expose draws neither, and is an error instead, because it selects another catalog than the expose's ([How a value is read](#how-a-value-is-read)).
 - **dbt `catalogs.yml` on Snowflake** and **Snowflake module** apply to `platform: snowflake`. The **Snowflake module** column lists the Iceberg prerequisite the module creates; for every kind it also emits the database, schema and `snowflake_table` the binding's `location` names. Apart from `glue`, Snowflake reaches the `iceberg_rest` kinds through a catalog integration that authenticates with a secret. The module is credential-free, so it creates none, and `fluid validate` warns (an error under `--strict`). Snowflake has no catalog integration for `hive`, `jdbc`, `hadoop` or `dynamodb`, so an expose naming one fails `fluid validate`. The prerequisites each emitted object needs are in [Iceberg tables via dbt](../providers/snowflake.md#iceberg-tables-via-dbt-since-0-13-1).
 - **AWS module** applies to `platform: aws`: the bucket is the one the binding names. See [On AWS](#on-aws-a-table-in-another-catalog).
 - **A streaming sink needs** the listed `binding.location` keys when a Kafka Connect build, or a Debezium Server build in `embedded` mode, writes the expose. Debezium in `bring-your-own` or `managed` mode creates only the source connector, so these checks do not apply to it. The Kafka Connect runner and the embedded Debezium Server runner run the same checks before they create anything, so a contract `fluid validate` refuses also fails its run, for these builds:
@@ -464,7 +478,7 @@ Drop each from this contract's state, then re-run apply:
 
 If the table belongs in Glue after all, remove `location.catalog` (or set it to `glue`) instead. There is no flag that skips the guard. Before it raises, the apply logs a structured `iceberg_catalog_move_blocked` event with the addresses, the exposes and the commands. On AWS the guard concerns an Iceberg expose that names a `location.database` and a catalog other than Glue. The same guard covers [Snowflake](#upgrading-a-snowflake-contract-that-names-another-catalog).
 
-*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* A moved expose's Glue resources are flagged only when its own Glue table is in state, which shows that an earlier release created them for this expose. A Glue database that only a since-removed expose created, a parquet expose say, is not a catalog move: the plan's destroy of it is left to the [OpenTofu data-loss gate](../cli/apply.md#opentofu-data-loss-gate). On #707 alone the guard flagged such a database, and the apply could not get past it.
+*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* A moved expose's Glue resources are flagged when its own Glue table is in state, which shows that an earlier release created them for this expose. A Glue database that only a since-removed expose created, a parquet expose say, is not a catalog move: the plan's destroy of it is left to the [OpenTofu data-loss gate](../cli/apply.md#opentofu-data-loss-gate). On #707 alone the guard flagged such a database, and the apply could not get past it. An expose that names a `location.database` and no `location.table` has no Glue table to show this: an earlier release created only its Glue database, so that database is flagged when state holds it and the module no longer declares it.
 
 *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* When the guard cannot read the state, or its check fails, the apply continues without it and logs an `iceberg_catalog_move_probe_skipped` WARNING that names the reason and the exposes, for example:
 
@@ -501,7 +515,7 @@ Drop each from this contract's state, then re-run apply:
 2. Run `fluid apply` again.
 3. Drop the volume by hand (`DROP EXTERNAL VOLUME`) only once no Iceberg table uses it. A Snowflake-managed table an earlier dbt run wrote onto it still does.
 
-If the table belongs in Snowflake's own catalog, remove `location.catalog` (or set it to `snowflake`) instead. The volume is named per contract (`FLUID_<PRODUCT_ID>_VOL`), not per expose, so the Snowflake guard has no per-expose resource to check: the volume is flagged when it is in state and a moved expose would have derived it.
+If the table belongs in Snowflake's own catalog, remove `location.catalog` (or set it to `snowflake`) instead. The volume is named per contract (`FLUID_<PRODUCT_ID>_VOL`), not per expose, so the Snowflake guard has no per-expose resource to check: the volume is flagged when it is in state, an expose moved, and the module no longer declares it. The guard finds the volume by the name derived from the contract id, not from the expose's `location`, so it also stops an upgrade whose edit changed `location.warehouse` to the catalog's warehouse name (`warehouse: analytics`) or removed `location.iam_role_arn`.
 
 ### Other commands
 

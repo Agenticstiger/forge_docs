@@ -640,7 +640,7 @@ Drop each from this contract's state, then re-run apply:
 2. Run `fluid apply` again.
 3. Drop the volume by hand (`DROP EXTERNAL VOLUME`) only once no Iceberg table uses it. A Snowflake-managed table an earlier dbt run wrote onto it still does.
 
-If the table belongs in Snowflake's own catalog, remove `location.catalog` (or set it to `snowflake`) instead. A volume you name in `binding.icebergConfig.properties.external_volume` is never flagged, because no release created it. The same guard covers Glue resources on AWS; see [Iceberg catalog-move guard](../cli/apply.md#iceberg-catalog-move-guard).
+If the table belongs in Snowflake's own catalog, remove `location.catalog` (or set it to `snowflake`) instead. A volume you name in `binding.icebergConfig.properties.external_volume` is never flagged, because no release created it. The guard finds the volume by the name derived from the contract id, so it also stops an upgrade whose edit changed `location.warehouse` to the catalog's warehouse name or removed `location.iam_role_arn`. The same guard covers Glue resources on AWS; see [Iceberg catalog-move guard](../cli/apply.md#iceberg-catalog-move-guard).
 
 ## See Also
 
