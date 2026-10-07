@@ -105,7 +105,14 @@ For each expose, `diff` reads the target the way `apply` writes it and compares 
 - AWS Glue tables;
 - BigQuery tables.
 
-An expose bound to anything else, such as Snowflake, is reported `not_checked`, and so is an expose whose contract declares no schema. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* So is an AWS Iceberg expose whose `location.catalog` names a catalog other than Glue, with the detail `table lives in Iceberg catalog <kind>; Glue is not inspected`: `fluid apply` creates no Glue table for it, and a Glue table of the same name would belong to someone else. On 0.19.0 and earlier, `diff` looked such a table up in Glue. Each expose ends in exactly one status:
+An expose bound to anything else, such as Snowflake, is reported `not_checked`, and so is an expose whose contract declares no schema. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* So is an AWS Iceberg expose whose `location.catalog` names a catalog other than Glue, with the detail `table lives in Iceberg catalog <kind>; Glue is not inspected`: `fluid apply` creates no Glue table for it, and a Glue table of the same name would belong to someone else. On 0.19.0 and earlier, `diff` looked such a table up in Glue. *(forge-cli fix/iceberg-catalog-followups, unreleased)* On AWS, a `location.catalog` value FLUID does not know is refused before anything is compared, because the AWS planner `diff` runs cannot tell whether the table is in Glue:
+
+```text
+❌ diff_failed  [ERR_DIFF_FAILED]
+  error: exposes[orders] names Iceberg catalog 'lakekeper' (location.catalog), which FLUID does not know, so it cannot tell whether the table belongs in AWS Glue, and planning it would provision no Glue database or table. Use one of: bigquery, dynamodb, glue, hadoop, hive, jdbc, lakekeeper, nessie, polaris, rest, snowflake-managed, unity, iceberg-rest, snowflake. Or remove location.catalog to keep the table in the Glue catalog.
+```
+
+Each expose ends in exactly one status:
 
 | Status | Meaning | Counts as drift |
 | --- | --- | --- |

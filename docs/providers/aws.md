@@ -746,10 +746,7 @@ A pipeline that runs `fluid validate --strict` fails on it; stage 2 of the [11-s
 *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* An Iceberg expose in a catalog other than Glue cannot take Lake Formation grants, so its warning asks you to grant access in that catalog instead:
 
 ```text
- 1. accessPolicy.grants are not enforced on aws binding(s) orders (lakekeeper):
-their Iceberg tables live in a catalog other than Glue, and the AWS emitter
-writes access only as Lake Formation grants on a Glue table. Grant access in
-that catalog.
+ 1. accessPolicy.grants are not enforced on aws binding(s) orders (lakekeeper): their Iceberg tables live in a catalog other than Glue, and the AWS emitter writes access only as Lake Formation grants on a Glue table. Grant access in that catalog.
 ```
 
 `fluid policy-compile` still reads `accessPolicy.grants` and writes IAM bindings, which you can use as a starting point for IAM policies. Nothing applies them:
@@ -953,6 +950,7 @@ The release notes for [`0.16.0`](../RELEASE_NOTES_0.16.0.md) and [`0.17.0`](../R
 - **`0.17.0`:** a column restriction on an aws binding with no Lake Formation grants is refused, and `accessPolicy.grants` on an aws binding with no Lake Formation grants warns; see [Column restrictions](#column-restrictions) and [accessPolicy on AWS](#accesspolicy-on-aws).
 - **`0.18.0`:** contract SQL runs in a DuckDB sandbox and `$ref` stays inside the contract's directory tree; see [Where a build lands data](#where-a-build-lands-data).
 - **Unreleased, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707):** an Iceberg expose whose `location.catalog` is not `glue` keeps its S3 bucket and loses its Glue database and table. On a contract an earlier release applied, `fluid apply` stops with `iceberg_catalog_move_blocked` and prints the `tofu state rm` commands that release them; see [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog). A Kafka Connect sink on Glue starts, where it failed at startup before.
+- **Unreleased, forge-cli fix/iceberg-catalog-followups:** the `iceberg_catalog_move_blocked` guard flags an expose's Glue database and table only when that expose's own Glue table is in state, so a Glue database left by a removed expose no longer blocks the apply. When the guard cannot read the state, it logs an `iceberg_catalog_move_probe_skipped` WARNING. `fluid diff` refuses an Iceberg `location.catalog` value FLUID does not know, as `fluid validate` and `fluid apply` do, and a typo no longer also draws a Lake Formation refusal. See [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog).
 
 ## How far this has been exercised
 

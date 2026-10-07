@@ -270,12 +270,37 @@ Without the guard `tofu` would find nothing in the new region, create the resour
 ```text
 ❌ iceberg_catalog_move_blocked  [ERR_ICEBERG_CATALOG_MOVE_BLOCKED]
   kind: iceberg-catalog-move
-  error: iceberg catalog move blocked — this contract's OpenTofu state holds 2
-Glue catalog resource(s) for Iceberg table(s) that now live in another catalog:
+  error: iceberg catalog move blocked — this contract's OpenTofu state holds 2 Glue catalog resource(s) for Iceberg table(s) that now live in another catalog:
+
+  exposes[orders]: location.catalog lakekeeper
+
+  aws_glue_catalog_database.bronze_orders_stream_streaming
+  aws_glue_catalog_table.bronze_orders_stream_streaming_orders
 ...
 ```
 
-The message lists the addresses and a `tofu -chdir=.fluid/iac/aws/<safe-id> state rm <address>` command for each. Run them, which changes nothing in AWS, then apply again. No flag skips the guard. The steps, and what to delete by hand afterwards, are in [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog).
+The message lists the addresses and a `tofu -chdir=.fluid/iac/aws/<safe-id> state rm <address>` command for each. Run them, which changes nothing in AWS, then apply again. No flag skips the guard. The steps, and what to delete by hand afterwards, are in [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog). *(forge-cli fix/iceberg-catalog-followups, unreleased)* The expose's resources are flagged only when its own Glue table is in state, so a Glue database that a since-removed expose created is left to the [data-loss gate](#opentofu-data-loss-gate) instead of blocking the apply.
+
+*(forge-cli fix/iceberg-catalog-followups, unreleased)* The guard covers Snowflake too. 0.19.0 and earlier created a Snowflake EXTERNAL VOLUME for a `platform: snowflake` Iceberg expose whose `location.catalog` is `lakekeeper` or `bigquery`, or is spelled `iceberg-rest` (and for `hive`, `jdbc`, `hadoop` and `dynamodb`, which `fluid validate` now refuses). The module no longer creates one for those catalogs, so when state still holds the volume, the apply stops instead of dropping it:
+
+```text
+❌ iceberg_catalog_move_blocked  [ERR_ICEBERG_CATALOG_MOVE_BLOCKED]
+  kind: iceberg-catalog-move
+  error: iceberg catalog move blocked — this contract's OpenTofu state holds 1 Snowflake EXTERNAL VOLUME(s) for Iceberg table(s) that now live in another catalog:
+
+  exposes[orders_iceberg]: location.catalog lakekeeper
+
+  snowflake_external_volume.sales_orders_lake_vol_FLUID_SALES_ORDERS_LAKE_VOL
+...
+Drop each from this contract's state, then re-run apply:
+
+  tofu -chdir=.fluid/iac/snowflake/sales_orders_lake state rm snowflake_external_volume.sales_orders_lake_vol_FLUID_SALES_ORDERS_LAKE_VOL
+...
+```
+
+Run the printed `tofu -chdir=.fluid/iac/snowflake/<safe-id> state rm snowflake_external_volume.<name>`, which changes nothing in Snowflake, then apply again. Drop the volume by hand (`DROP EXTERNAL VOLUME`) only once no Iceberg table uses it: a Snowflake-managed table an earlier dbt run wrote onto it still does. See [Upgrading a Snowflake contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-a-snowflake-contract-that-names-another-catalog).
+
+*(forge-cli fix/iceberg-catalog-followups, unreleased)* When the guard cannot read the state, or its check fails, the apply goes on to plan, and logs an `iceberg_catalog_move_probe_skipped` WARNING with the reason and the exposes. The data-loss gate still stops a plan that destroys the resources; release them with `tofu state rm` rather than passing `--allow-data-loss`. On #707 alone a failed check was logged at debug level.
 
 ## Remote state
 
@@ -494,7 +519,7 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. |
 | `opentofu_region_moved` | State holds the contract's resources in another region than its bindings name. |
 | `packaging_transition_blocked` | A container's ownership flips under existing state. See [Packaging modes](#packaging-modes). |
-| `iceberg_catalog_move_blocked` | *(unreleased, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707))* State holds Glue resources an earlier release created for an AWS Iceberg table that now lives in another catalog. See [Iceberg catalog-move guard](#iceberg-catalog-move-guard). |
+| `iceberg_catalog_move_blocked` | *(unreleased, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707))* State holds Glue resources an earlier release created for an AWS Iceberg table that now lives in another catalog. *(forge-cli fix/iceberg-catalog-followups, unreleased)* Or it holds the Snowflake EXTERNAL VOLUME an earlier release created for a Snowflake Iceberg table in an external catalog. See [Iceberg catalog-move guard](#iceberg-catalog-move-guard). |
 | `opentofu_dataset_access_unreconciled` | State holds a BigQuery dataset an older forge-cli applied with an authoritative access list, and every entry of it is a grant the contract no longer makes. Revoke those entries on the dataset by hand, or keep one of them in `accessPolicy` for one apply. |
 | `apply_state_backend_invalid`, `state_shared_with_another_provider`, `state_migration_*` | See [Remote state](#remote-state). |
 | `generate_iac_provider_mismatch` | `--provider` contradicts the contract's binding. |
