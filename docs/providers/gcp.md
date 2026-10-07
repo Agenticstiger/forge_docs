@@ -321,7 +321,7 @@ Retention, keys and column restrictions are refused on an Iceberg binding: they 
 
 **A table in another catalog.** *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* BigLake metastore is the catalog this section describes, and the one an Iceberg expose gets with no `location.catalog` or with `catalog: bigquery`. An expose that names another catalog (`lakekeeper`, `rest`, `nessie`, ...) is not a BigLake table: `catalogs.yml` leaves it out, with a warning, instead of having dbt write a second table under the name that catalog owns. `fluid validate` accepts that catalog's warehouse name (`warehouse: analytics`), and refuses a warehouse in another object store (`s3://`, `abfss://`), since a `platform: gcp` table cannot live there. A streaming sink with no `location.catalog` on GCP writes through a REST catalog, not BigLake. See [Iceberg catalogs](../advanced/source-aligned-acquisition.md#iceberg-catalogs-location-catalog). On 0.19.0 and earlier, an expose naming another catalog became a BigLake table, and a warehouse name failed validation.
 
-**A streaming sink must name the catalog.** *(forge-cli fix/iceberg-catalog-followups, unreleased)* An Iceberg expose that a Kafka Connect build or an embedded Debezium Server build writes must set `location.catalog`: `bigquery` for BigLake metastore, or the REST kind your catalog is. Without it, `fluid validate` fails, and so does the run, before it creates anything:
+**A streaming sink must name the catalog.** *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* An Iceberg expose that a Kafka Connect build or an embedded Debezium Server build writes must set `location.catalog`: `bigquery` for BigLake metastore, or the REST kind your catalog is. Without it, `fluid validate` fails, and so does the run, before it creates anything:
 
 ```text
  1. iceberg sink (build 'stream_events'): the GCP Iceberg expose sets no binding.location.catalog, so it is read two ways: the sink would write through a REST catalog (the 'gcp' platform default) while dbt-bigquery and the GCP IaC, which read only binding.location.catalog, create a BigLake metastore table. Set binding.location.catalog: bigquery, or the REST kind your catalog is (e.g. rest, lakekeeper)
@@ -519,7 +519,7 @@ On GCP, a principal in a reserved top-level domain (`.example`, `.test`, `.inval
  1. exposes[orders] accessPolicy: principal 'group:data-analysts@company.example' resolves to 'group:data-analysts@company.example', a placeholder: .example is a reserved top-level domain (RFC 2606), so no real identity has it, and BigQuery refuses an access entry for an identity that does not exist. ...
 ```
 
-*(forge-cli fix/iceberg-catalog-followups, unreleased)* The message names the expose, `exposes[orders]`. 0.19.0 and earlier print `exposes accessPolicy: ...`, without it.
+*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* The message names the expose, `exposes[orders]`. 0.19.0 and earlier print `exposes accessPolicy: ...`, without it.
 
 Map such a logical principal to a real identity in [`binding.principals`](#logical-principals-binding-principals-0-7-6), or to `[]` when it has no identity on GCP.
 

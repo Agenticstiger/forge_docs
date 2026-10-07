@@ -105,7 +105,7 @@ For each expose, `diff` reads the target the way `apply` writes it and compares 
 - AWS Glue tables;
 - BigQuery tables.
 
-An expose bound to anything else, such as Snowflake, is reported `not_checked`, and so is an expose whose contract declares no schema. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* So is an AWS Iceberg expose whose `location.catalog` names a catalog other than Glue, with the detail `table lives in Iceberg catalog <kind>; Glue is not inspected`: `fluid apply` creates no Glue table for it, and a Glue table of the same name would belong to someone else. On 0.19.0 and earlier, `diff` looked such a table up in Glue. *(forge-cli fix/iceberg-catalog-followups, unreleased)* On AWS, a `location.catalog` value FLUID does not know is refused before anything is compared, because the AWS planner `diff` runs cannot tell whether the table is in Glue:
+An expose bound to anything else, such as Snowflake, is reported `not_checked`, and so is an expose whose contract declares no schema. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* So is an AWS Iceberg expose whose `location.catalog` names a catalog other than Glue, with the detail `table lives in Iceberg catalog <kind>; Glue is not inspected`: `fluid apply` creates no Glue table for it, and a Glue table of the same name would belong to someone else. On 0.19.0 and earlier, `diff` looked such a table up in Glue. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* On AWS, a `location.catalog` value FLUID does not know is refused before anything is compared, because the AWS planner `diff` runs cannot tell whether the table is in Glue:
 
 ```text
 ❌ diff_failed  [ERR_DIFF_FAILED]
