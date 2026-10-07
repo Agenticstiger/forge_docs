@@ -27,13 +27,15 @@ A contract that breaks a rule prints each finding and exits `1`:
 
 ```text
 ❌ Invalid FLUID contract (2 error(s)) (schema v0.7.6)
-Validation completed in 0.020s
+Validation completed in 0.001s
 
 Validation Errors:
 ==================
- 1. exposes accessPolicy: principal 'group:analysts@northwind.example' resolves to 'group:analysts@northwind.example', a placeholder: ...
- 2. exposes is a GCP gcs_bucket binding and declares lifecycle.expire, which the GCP emitter applies only to BigQuery tables. It would not be enforced. Move the policy to a BigQuery table expose, or remove it from this one.
+ 1. exposes[customers] accessPolicy: principal 'group:analysts@northwind.example' resolves to 'group:analysts@northwind.example', a placeholder: ...
+ 2. exposes[exports] is a GCP gcs_bucket binding and declares lifecycle.expire, which the GCP emitter applies only to BigQuery tables. It would not be enforced. Move the policy to a BigQuery table expose, or remove it from this one.
 ```
+
+*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* A finding prints its square brackets, so each one names its expose: `exposes[customers]`. forge-cli 0.19.0 and earlier read bracketed text as console markup and dropped it, so the same findings print as `exposes accessPolicy: ...` and `exposes is a GCP gcs_bucket binding ...`, and a [bundle finding](#validating-a-bundle-tgz) loses its `[error]` or `[warning]` severity. `--format json` was not affected. Since the fix, a finding is printed on one line and the terminal wraps it.
 
 More invocations:
 
@@ -219,7 +221,7 @@ fluid validate runtime/bundle.tgz
 
 ```text
 ✅ Bundle pass: /path/to/proj/runtime/bundle.tgz
-   digest: sha256:20a68c3100200465659a4394e0deefec0231665168a3162736d2f080d8b21812
+   digest: sha256:c86cb86ccfd50fc12f934c329db845b4248d1ed6a9074aab5195b6879ebecae0
    issues: 0 total (0 error, 0 warning, 0 info)
 ```
 
@@ -238,19 +240,19 @@ fluid validate runtime/bundle.tgz --env prod
 
 ```text
 ❌ Bundle fail: /path/to/proj/runtime/bundle.tgz
-   digest: sha256:20a68c3100200465659a4394e0deefec0231665168a3162736d2f080d8b21812
+   digest: sha256:c86cb86ccfd50fc12f934c329db845b4248d1ed6a9074aab5195b6879ebecae0
    issues: 1 total (1 error, 0 warning, 0 info)
-    bundle-env: MANIFEST.json: the bundle was built for env 'dev' but this stage was asked for env 'prod'. A bundle is never re-overlaid; rebuild it with `fluid bundle <contract> --env prod --format tgz`, or pass the env it was built for.
+   [error] bundle-env: MANIFEST.json: the bundle was built for env 'dev' but this stage was asked for env 'prod'. A bundle is never re-overlaid; rebuild it with `fluid bundle <contract> --env prod --format tgz`, or pass the env it was built for.
 ```
 
 A bundle built from the governance example above fails on its contract rules, the same two errors as validating the file:
 
 ```text
-❌ Bundle fail: gov.tgz
-   digest: sha256:a094ac5263cada6f6462b08ae57acec818abd8f6afa0e228a2f9b2ef41090cbc
+❌ Bundle fail: /path/to/gov.tgz
+   digest: sha256:f90911539a301cc3e358ce272e57836d80bac2c93aeb52e85851787bce58f2f3
    issues: 2 total (2 error, 0 warning, 0 info)
-    contract: contract.resolved.yaml: exposes accessPolicy: principal 'group:analysts@northwind.example' resolves to ...
-    contract: contract.resolved.yaml: exposes is a GCP gcs_bucket binding and declares lifecycle.expire, ...
+   [error] contract: contract.resolved.yaml: exposes[customers] accessPolicy: principal 'group:analysts@northwind.example' resolves to ...
+   [error] contract: contract.resolved.yaml: exposes[exports] is a GCP gcs_bucket binding and declares lifecycle.expire, ...
 ```
 
 `--report PATH` writes the full structured report as JSON, on pass and on fail, so a CI job can upload it as an artifact. The report has `bundleDigest`, `input`, `strict`, `status`, `summary` and `issues[]`; each issue carries `file`, `validator`, `severity`, `message` and a `code`. The `BUNDLE-ENV-MISMATCH` finding is written to the report like any other. `--report` has an effect only for a `.tgz` bundle: `fluid validate contract.fluid.yaml --report out.json` writes no file as of 0.18.1.
@@ -290,7 +292,7 @@ With [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707) (unre
 ## Iceberg catalog checks
 
 ::: warning Not in a release yet
-These checks come with [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707), which no release includes yet.
+These checks come with [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707), which no release includes yet, and with the follow-up fixes in [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), marked *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)*.
 :::
 
 `binding.location.catalog` names the Iceberg catalog that owns an expose's table, and every emitter now reads it through one table. [Iceberg catalogs](../advanced/source-aligned-acquisition.md#iceberg-catalogs-location-catalog) has that table, how spellings fold, and a worked Lakekeeper example. `fluid validate` refuses a contract whose catalog the emitters would disagree about:
@@ -301,13 +303,15 @@ These checks come with [forge-cli #707](https://github.com/Agenticstiger/forge-c
   - a `sink.catalog` that names another catalog than the expose is an error, because dbt and the modules read only the expose.
   - an `iceberg_catalog_overrides` entry or a hand-written sink config that would leave the connector with both `type` and `catalog-impl` is an error, because Apache Iceberg refuses that catalog and the sink never starts.
   - `nessie` on a `kafka-connect` build is a warning: the stock Apache Iceberg Kafka Connect runtime has no Nessie client.
+  - *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* `bigquery` on a `kafka-connect` build is a warning: the sink config sets `iceberg.catalog.type=bigquery`, which the published Apache Iceberg Kafka Connect sink (1.9.2) cannot load; Iceberg adds the type in 1.10. This warning and the Nessie one follow the catalog type that reaches the worker, so a hand-written `sink_connector_config` that sets `iceberg.catalog.type: rest` draws neither.
+  - *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* on `platform: gcp`, an Iceberg expose the build writes must name its `location.catalog`, or it is an error: the sink would write through a REST catalog while dbt-bigquery and the GCP module create a BigLake table. See [How a value is read](../advanced/source-aligned-acquisition.md#how-a-value-is-read).
 - **Snowflake.** On `platform: snowflake`, a catalog that Snowflake reaches over Iceberg REST (`rest`, `lakekeeper`, `polaris`, `unity`, `nessie`, `bigquery`) draws the warning described above, which `--strict` turns into an error. `hive`, `jdbc`, `hadoop` and `dynamodb` are an error, because Snowflake has no catalog integration for them. A `lakekeeper` expose is no longer asked for an `s3://` or `gs://` warehouse, and two `catalog: snowflake` exposes that derive one EXTERNAL VOLUME on different storage are caught here rather than failing `fluid apply` mid-emit.
-- **AWS.** An Iceberg expose in a catalog other than Glue cannot carry `governance.lakeFormation`, `policy.authz.columnRestrictions` or `policy.authz.rowFilters`: each is refused by catalog name. `accessPolicy.grants` on it draws a warning to grant access in that catalog. See [On AWS](../advanced/source-aligned-acquisition.md#on-aws-a-table-in-another-catalog).
+- **AWS.** An Iceberg expose in a catalog other than Glue cannot carry `governance.lakeFormation`, `policy.authz.columnRestrictions` or `policy.authz.rowFilters`: each is refused by catalog name. `accessPolicy.grants` on it draws a warning to grant access in that catalog. See [On AWS](../advanced/source-aligned-acquisition.md#on-aws-a-table-in-another-catalog). *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* An unknown catalog value draws only the unknown-catalog error, not these refusals as well.
 - **GCP.** A `platform: gcp` expose in a catalog other than `bigquery` may give the catalog's warehouse name; a warehouse in another object store (`s3://`, `abfss://`) is an error.
 
 A crash inside the Iceberg sink, Confluent or Iceberg prerequisite check now fails validation, with an error such as `Iceberg sink check could not run (...); the contract was NOT checked for streaming-sink defects`. On 0.19.0 and earlier the crash was printed only with `--verbose`, and the contract passed unchecked.
 
-The Kafka Connect runner and the embedded Debezium Server runner run the same streaming-sink checks before they create anything, so a contract that skipped `fluid validate` still fails before any Connect REST call or `application.properties` write.
+The Kafka Connect runner and the embedded Debezium Server runner run the same streaming-sink checks before they create anything, so a contract that skipped `fluid validate` still fails before any Connect REST call or `application.properties` write. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* That holds for a build that declares `sink.format: iceberg`, with a derived or a hand-written sink config, and for an embedded Debezium Server build that derives its sink. On #707 alone a hand-written config was not checked by the runners. [What each kind produces](../advanced/source-aligned-acquisition.md#what-each-kind-produces) lists the builds.
 
 ## GCP binding checks (since 0.15.0)
 

@@ -596,7 +596,7 @@ Other keys under `binding.properties` (`table_type`, `data_retention_time_in_day
 An expose with `binding.format: iceberg` on `platform: snowflake` closes the dbt Iceberg loop in two halves:
 
 - **`fluid generate transformation`** emits dbt's `catalogs.yml` (v1 catalogs schema, Snowflake adapter) into the generated project. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* Catalogs external to Snowflake (`location.catalog: glue`, `rest` or `iceberg_rest`, `lakekeeper`, `polaris`, `unity`, `nessie`, `bigquery`) map to `catalog_type: iceberg_rest`. No `location.catalog`, or `snowflake` (`snowflake-managed`), is Snowflake-managed (Horizon) and maps to `built_in`. `hive`, `jdbc`, `hadoop` and `dynamodb`, which Snowflake has no catalog integration for, are left out of the file with a warning, and `fluid validate` refuses them. Any other value is refused by `fluid validate`. The full table, and how spellings fold, is in [Iceberg catalogs](../advanced/source-aligned-acquisition.md#iceberg-catalogs-location-catalog). On 0.19.0 and earlier, only `glue`, `polaris`, `unity`, `rest`, `iceberg_rest` and `nessie` mapped to `iceberg_rest`, and anything else, `lakekeeper` and `hive` included, became `built_in`.
-- **`fluid apply`** provisions the prerequisites dbt refuses to create: the **EXTERNAL VOLUME** for Snowflake-managed catalogs (needs an `s3://` or `gs://` `location.warehouse`, plus `location.iam_role_arn` for S3), and the **AWS Glue CATALOG INTEGRATION** for `location.catalog: glue` (needs `location.iam_role_arn` — the role Snowflake assumes — and `location.account`, the AWS account id). It creates nothing for the other `iceberg_rest` catalogs listed above: their integrations authenticate with a secret, and the emitted module is credential-free. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* On 0.19.0 and earlier, a `lakekeeper` expose got an EXTERNAL VOLUME, and `fluid validate` asked it for an `s3://` or `gs://` warehouse.
+- **`fluid apply`** provisions the prerequisites dbt refuses to create: the **EXTERNAL VOLUME** for Snowflake-managed catalogs (needs an `s3://` or `gs://` `location.warehouse`, plus `location.iam_role_arn` for S3), and the **AWS Glue CATALOG INTEGRATION** for `location.catalog: glue` (needs `location.iam_role_arn` — the role Snowflake assumes — and `location.account`, the AWS account id). It creates nothing for the other `iceberg_rest` catalogs listed above: their integrations authenticate with a secret, and the emitted module is credential-free. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* On 0.19.0 and earlier, a `lakekeeper` expose got an EXTERNAL VOLUME, and `fluid validate` asked it for an `s3://` or `gs://` warehouse. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* While state still holds such a volume, `fluid apply` stops before it plans; see [Upgrading an Iceberg expose in an external catalog](#upgrading-an-iceberg-expose-in-an-external-catalog).
 
 ```yaml
 exposes:
@@ -616,6 +616,31 @@ exposes:
 Both halves derive names through one deterministic naming helper, so the EXTERNAL VOLUME `fluid apply` creates carries **exactly** the name `catalogs.yml` references (`FLUID_<PRODUCT_ID>_VOL`, folded from the contract id). To use a volume your Snowflake admin already created, set `binding.icebergConfig.properties.external_volume` (camelCase `externalVolume` is also accepted): `catalogs.yml` then references your volume and `fluid apply` emits no `CREATE`, so apply never collides with the operator-owned object.
 
 Since `0.14.0`, `fluid validate` errors when an Iceberg expose is missing one of the required inputs above instead of letting the emitters silently skip it — see [Iceberg prerequisite checks](/forge_docs/cli/validate.html#iceberg-prerequisite-checks-since-0-14-0). CI note: under `--strict`, Snowflake catalogs that authenticate with secrets (`polaris` / `unity` / `rest` / `nessie`) now fail validation, because the emitted OpenTofu module is credential-free. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* The same warning covers `lakekeeper` and `bigquery`, and `hive`, `jdbc`, `hadoop` or `dynamodb` on Snowflake is an error with or without `--strict`.
+
+### Upgrading an Iceberg expose in an external catalog
+
+*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* 0.19.0 and earlier created an EXTERNAL VOLUME for an Iceberg expose whose `location.catalog` is `lakekeeper` or `bigquery`, or is spelled `iceberg-rest`, and dbt wrote a Snowflake-managed table onto it. `hive`, `jdbc`, `hadoop` and `dynamodb` got one too; `fluid validate` now refuses them. The module now creates no volume for these catalogs. When the contract's OpenTofu state still holds the volume, the plan would drop it, so `fluid apply` stops before it plans (abridged):
+
+```text
+❌ iceberg_catalog_move_blocked  [ERR_ICEBERG_CATALOG_MOVE_BLOCKED]
+  kind: iceberg-catalog-move
+  error: iceberg catalog move blocked — this contract's OpenTofu state holds 1 Snowflake EXTERNAL VOLUME(s) for Iceberg table(s) that now live in another catalog:
+
+  exposes[orders_iceberg]: location.catalog lakekeeper
+
+  snowflake_external_volume.sales_orders_lake_vol_FLUID_SALES_ORDERS_LAKE_VOL
+...
+Drop each from this contract's state, then re-run apply:
+
+  tofu -chdir=.fluid/iac/snowflake/sales_orders_lake state rm snowflake_external_volume.sales_orders_lake_vol_FLUID_SALES_ORDERS_LAKE_VOL
+...
+```
+
+1. Run the printed command, in the form `tofu -chdir=.fluid/iac/snowflake/<safe-id> state rm snowflake_external_volume.<name>`. It changes nothing in Snowflake; it releases this contract's claim on the volume.
+2. Run `fluid apply` again.
+3. Drop the volume by hand (`DROP EXTERNAL VOLUME`) only once no Iceberg table uses it. A Snowflake-managed table an earlier dbt run wrote onto it still does.
+
+If the table belongs in Snowflake's own catalog, remove `location.catalog` (or set it to `snowflake`) instead. A volume you name in `binding.icebergConfig.properties.external_volume` is never flagged, because no release created it. The same guard covers Glue resources on AWS; see [Iceberg catalog-move guard](../cli/apply.md#iceberg-catalog-move-guard).
 
 ## See Also
 

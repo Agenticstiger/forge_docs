@@ -122,13 +122,11 @@ Principals are refused when they cannot be real identities. A principal in a res
 ```text
 ❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
   kind: principal-placeholder
-  error: exposes accessPolicy: principal 'group:data-platform@northwind.example'
-resolves to 'group:data-platform@northwind.example', a placeholder: .example is
-a reserved top-level domain (RFC 2606), so no real identity has it, and BigQuery
-refuses an access entry for an identity that does not exist.
-  remediation: ["Map the logical principal in this environment's
-binding.principals to the real group or service account it stands for, ...
+  error: exposes[customers] accessPolicy: principal 'group:data-platform@northwind.example' resolves to 'group:data-platform@northwind.example', a placeholder: .example is a reserved top-level domain (RFC 2606), so no real identity has it, and BigQuery refuses an access entry for an identity that does not exist.
+  remediation: ["Map the logical principal in this environment's binding.principals to the real group or service account it stands for, ...
 ```
+
+*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* The `error:` line names the expose, `exposes[customers]`, and a value is no longer wrapped at the terminal width. 0.19.0 and earlier print `exposes accessPolicy: ...`, without the expose.
 
 Other refusal kinds exist for principals and governance fields: `principal-unmapped`, `column-restriction-*` and `encryption-kms-*`. See the [GCP provider page](../providers/gcp.md) for the provider's own behaviour.
 
@@ -176,7 +174,7 @@ An Iceberg expose needs infrastructure dbt refuses to create, and the plugins de
 
 The emitters are emit-when-derivable: an Iceberg expose missing a required input (an S3 warehouse without `iam_role_arn`, no derivable bucket name, an illegal `external_volume` override) used to emit **nothing, silently** — the failure surfaced only at `dbt run`. Since `0.14.0`, [`fluid validate`](./validate.md#iceberg-prerequisite-checks-since-0-14-0) errors on exactly those cases before any emit. One `--strict` caveat: a Snowflake catalog whose auth is secret-bearing (`polaris` / `unity` / `rest` / `nessie`) draws a *warning* — FLUID does not emit those catalog integrations because the emitted module is credential-free — and `fluid validate --strict` promotes it to an error.
 
-With [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707) (unreleased), every plugin reads `location.catalog` through one table of catalog kinds. The Snowflake warning then covers every catalog Snowflake reaches over Iceberg REST (`rest`, `lakekeeper`, `polaris`, `unity`, `nessie`, `bigquery`), and `hive`, `jdbc`, `hadoop` or `dynamodb` on Snowflake is an error. The `aws` plugin keeps an Iceberg expose's S3 bucket but creates no Glue database or table for it unless its catalog is Glue, and `fluid apply` stops with `iceberg_catalog_move_blocked` when state holds Glue resources an earlier release created for such a table. See [Iceberg catalogs](../advanced/source-aligned-acquisition.md#iceberg-catalogs-location-catalog).
+With [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707) (unreleased), every plugin reads `location.catalog` through one table of catalog kinds. The Snowflake warning then covers every catalog Snowflake reaches over Iceberg REST (`rest`, `lakekeeper`, `polaris`, `unity`, `nessie`, `bigquery`), and `hive`, `jdbc`, `hadoop` or `dynamodb` on Snowflake is an error. The `aws` plugin keeps an Iceberg expose's S3 bucket but creates no Glue database or table for it unless its catalog is Glue, and `fluid apply` stops with `iceberg_catalog_move_blocked` when state holds Glue resources an earlier release created for such a table. The `snowflake` plugin creates no EXTERNAL VOLUME for an Iceberg expose in a catalog Snowflake does not manage, and *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* `fluid apply` stops the same way when state holds the volume an earlier release created for a `lakekeeper`, `bigquery` or `iceberg-rest` expose; see [Iceberg catalog-move guard](./apply.md#iceberg-catalog-move-guard). See [Iceberg catalogs](../advanced/source-aligned-acquisition.md#iceberg-catalogs-location-catalog).
 
 ## Packaging modes
 
