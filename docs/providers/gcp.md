@@ -321,11 +321,19 @@ Retention, keys and column restrictions are refused on an Iceberg binding: they 
 
 **A table in another catalog.** *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* BigLake metastore is the catalog this section describes, and the one an Iceberg expose gets with no `location.catalog` or with `catalog: bigquery`. An expose that names another catalog (`lakekeeper`, `rest`, `nessie`, ...) is not a BigLake table: `catalogs.yml` leaves it out, with a warning, instead of having dbt write a second table under the name that catalog owns. `fluid validate` accepts that catalog's warehouse name (`warehouse: analytics`), and refuses a warehouse in another object store (`s3://`, `abfss://`), since a `platform: gcp` table cannot live there. A streaming sink with no `location.catalog` on GCP writes through a REST catalog, not BigLake. See [Iceberg catalogs](../advanced/source-aligned-acquisition.md#iceberg-catalogs-location-catalog). On 0.19.0 and earlier, an expose naming another catalog became a BigLake table, and a warehouse name failed validation.
 
-**A streaming sink must name the catalog.** *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* An Iceberg expose that a Kafka Connect build or an embedded Debezium Server build writes must set `location.catalog`: `bigquery` for BigLake metastore, or the REST kind your catalog is. Without it, `fluid validate` fails, and so does the run, before it creates anything:
+**A streaming sink must name the catalog.** *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* An Iceberg expose that a Kafka Connect build or an embedded Debezium Server build writes must set `location.catalog`: `bigquery` for BigLake metastore, or the REST kind your catalog is. Without it, `fluid validate` fails when a catalog other than BigLake reaches the worker, and so does the run, before it creates anything. By default that catalog is REST:
 
 ```text
  1. iceberg sink (build 'stream_events'): the GCP Iceberg expose sets no binding.location.catalog, so it is read two ways: the sink would write through a REST catalog (the 'gcp' platform default) while dbt-bigquery and the GCP IaC, which read only binding.location.catalog, create a BigLake metastore table. Set binding.location.catalog: bigquery, or the REST kind your catalog is (e.g. rest, lakekeeper)
 ```
+
+The check reads the catalog a `type` or a `catalog-impl` class selects, so a Glue catalog is refused too, from `sink.catalog: glue` or from a hand-written `iceberg.catalog.catalog-impl: org.apache.iceberg.aws.glue.GlueCatalog`. For `sink.catalog: glue`:
+
+```text
+ 1. iceberg sink (build 'stream_events'): the GCP Iceberg expose sets no binding.location.catalog, so it is read two ways: the sink would write through a glue catalog (sink.catalog 'glue') while dbt-bigquery and the GCP IaC, which read only binding.location.catalog, create a BigLake metastore table. Set binding.location.catalog: bigquery, or the REST kind your catalog is (e.g. rest, lakekeeper)
+```
+
+Once the expose names its catalog, a hand-written sink config must select that same catalog: a `sink_connector_config` that keeps `iceberg.catalog.type: rest` for a `catalog: bigquery` expose is an error. See [Iceberg catalog checks](../cli/validate.md#iceberg-catalog-checks).
 
 An expose that no streaming sink writes may still leave `location.catalog` out; it is a BigLake table. With `catalog: bigquery`, a Kafka Connect build whose sink config sends `iceberg.catalog.type=bigquery` (the derived config does) draws a warning, since the published Apache Iceberg Kafka Connect sink (1.9.2) cannot load that type, which Iceberg adds in 1.10:
 
