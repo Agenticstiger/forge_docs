@@ -465,6 +465,8 @@ The preflight refuses a DynamoDB or JDBC sink, a BigQuery sink on embedded Debez
 
 *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* A Kafka Connect or embedded Debezium Server build whose Iceberg sink config forge-cli derives writes the Iceberg exposes its `outputs` name. An Iceberg expose here is one with an Iceberg format whose `binding.platform` is not `confluent`: a Tableflow expose is published by its own module. `fluid validate`, the run preflight and both runners resolve the exposes the same way, so they name the same tables. On 0.19.0 and earlier, and with #707 and #709 alone, a derived sink wrote the contract's first Iceberg expose, whatever the build's `outputs` named.
 
+The table a derived sink writes is `<namespace>.<table>`. The namespace is `location.database`, else `location.dataset` (on GCP, the BigQuery dataset). A derived sink whose expose names neither is refused, as is a derived Kafka Connect sink whose expose names no `location.table`. On 0.19.0 and earlier the derived config named such a table `None.<table>`, and a GCP expose that set only `dataset` always got that name.
+
 Two Kafka Connect builds, one per expose (each expose's `contract` and each build's `source` are left out):
 
 ```yaml
