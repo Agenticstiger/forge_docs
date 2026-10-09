@@ -38,7 +38,9 @@ The route table sends an event to one of these pages, and the entries below name
 |---|---|
 | [`fluid providers`](../cli/providers.md) | The provider events |
 | [`fluid secrets`](../cli/secrets.md) | `copilot_missing_llm_api_key` |
-| [Sovereignty](../concepts/sovereignty.md) | The policy and sovereignty events |
+| [Sovereignty](../concepts/sovereignty.md) | The policy and sovereignty events, except `policy_compiler_crashed` |
+| [`fluid apply`, Iceberg catalog move guard](../cli/apply.md#iceberg-catalog-move-guard) | `iceberg_catalog_move_blocked` |
+| [`fluid policy compile`, Errors](../cli/policy-compile.md#errors) | `policy_compiler_crashed` *(unreleased, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* |
 | [`fluid verify-signature`](../cli/verify-signature.md) | The signing events |
 | [Getting started](../getting-started/README.md) | `opentofu_engine_install_failed` |
 | [Typed CLI errors](./typed-cli-errors.md) | The schema-version events and the connectivity events |
@@ -275,6 +277,14 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 - If the resources should stay where they are, set the binding's location.region to the region the error names
 - If they should move, empty and remove them there first (tofu destroy in the state directory the error names, with AWS_REGION set to the old region), then apply again
 
+### iceberg_catalog_move_blocked
+
+`ERR_ICEBERG_CATALOG_MOVE_BLOCKED`. The documentation link lands on [`fluid apply`, Iceberg catalog move guard](../cli/apply.md#iceberg-catalog-move-guard).
+
+- Run the printed `tofu state rm` commands: they release the resources from this contract's OpenTofu state and touch nothing in the cloud
+- Then re-run fluid apply
+- The released Glue database/table or Snowflake EXTERNAL VOLUME stays in place; delete it by hand only if nothing else uses it
+
 ## Generate
 
 ### generate_iac_failed
@@ -359,6 +369,13 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 `ERR_POLICY_COMPILE_FAILED`. The documentation link lands on [Sovereignty](../concepts/sovereignty.md).
 
 - Check the agent-policy block in the contract; run 'fluid policy check &lt;contract&gt;'
+
+### policy_compiler_crashed
+
+*(unreleased, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* `ERR_POLICY_COMPILER_CRASHED`. The documentation link lands on [`fluid policy compile`, Errors](../cli/policy-compile.md#errors).
+
+- Run 'fluid validate &lt;contract&gt;': policy compile reads accessPolicy and exposes without validating them against the contract schema
+- If the contract validates, re-run with 'fluid --log-level DEBUG policy compile &lt;contract&gt;' to see the compiler's traceback
 
 ### policy_apply_failed
 

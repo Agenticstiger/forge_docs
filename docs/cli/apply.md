@@ -286,19 +286,23 @@ The message lists the addresses and a `tofu -chdir=.fluid/iac/aws/<safe-id> stat
 ```text
 ❌ iceberg_catalog_move_blocked  [ERR_ICEBERG_CATALOG_MOVE_BLOCKED]
   kind: iceberg-catalog-move
-  error: iceberg catalog move blocked — this contract's OpenTofu state holds 1 Snowflake EXTERNAL VOLUME(s) for Iceberg table(s) that now live in another catalog:
+  error: iceberg catalog move blocked — this contract's OpenTofu state holds 1 Snowflake EXTERNAL VOLUME(s) that this contract's configuration no longer declares:
+
+  snowflake_external_volume.sales_orders_lake_vol_FLUID_SALES_ORDERS_LAKE_VOL
+
+The volume is named for the contract, not for an expose, so the state does not say which expose it was created for. Possible causes: this contract was applied by a forge-cli release that gave an Iceberg table in a catalog Snowflake does not manage an EXTERNAL VOLUME (this release gives it none, and dbt writes it as an externally cataloged table); or this change removed a Snowflake-managed Iceberg expose, or moved one to another catalog. ...
+
+Iceberg exposes whose catalog earlier releases gave an EXTERNAL VOLUME:
 
   exposes[orders_iceberg]: location.catalog lakekeeper
 
-  snowflake_external_volume.sales_orders_lake_vol_FLUID_SALES_ORDERS_LAKE_VOL
-...
 Drop each from this contract's state, then re-run apply:
 
   tofu -chdir=.fluid/iac/snowflake/sales_orders_lake state rm snowflake_external_volume.sales_orders_lake_vol_FLUID_SALES_ORDERS_LAKE_VOL
 ...
 ```
 
-The guard finds the volume by the name an earlier release derived from the contract id, so it also stops an upgrade whose edit changed `location.warehouse` to the catalog's warehouse name or removed `location.iam_role_arn`. Run the printed `tofu -chdir=.fluid/iac/snowflake/<safe-id> state rm snowflake_external_volume.<name>`, which changes nothing in Snowflake, then apply again. Drop the volume by hand (`DROP EXTERNAL VOLUME`) only once no Iceberg table uses it: a Snowflake-managed table an earlier dbt run wrote onto it still does. See [Upgrading a Snowflake contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-a-snowflake-contract-that-names-another-catalog).
+*([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* The volume is named per contract, so state cannot say which expose it was created for, and the message names both possible causes: an upgrade from a release that gave a volume to an expose in a catalog Snowflake does not manage, or a Snowflake-managed Iceberg expose this change removed or moved to another catalog. It blocks the same applies as before; with #707 and #709 alone it said forge-cli no longer creates the volume and listed the moved exposes as holding it. The guard finds the volume by the name derived from the contract id, so it also stops an upgrade whose edit changed `location.warehouse` to the catalog's warehouse name or removed `location.iam_role_arn`. Run the printed `tofu -chdir=.fluid/iac/snowflake/<safe-id> state rm snowflake_external_volume.<name>`, which changes nothing in Snowflake, then apply again. Drop the volume by hand (`DROP EXTERNAL VOLUME`) only once no Iceberg table uses it: a Snowflake-managed table written onto it still does. See [Upgrading a Snowflake contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-a-snowflake-contract-that-names-another-catalog).
 
 *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* When the guard cannot read the state, or its check fails, the apply goes on to plan, and logs an `iceberg_catalog_move_probe_skipped` WARNING with the reason and the exposes. The data-loss gate still stops a plan that destroys the resources; release them with `tofu state rm` rather than passing `--allow-data-loss`. On #707 alone a failed check was logged at debug level.
 

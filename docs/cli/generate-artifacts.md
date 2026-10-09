@@ -70,7 +70,7 @@ fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--manifest PATH] [
 | `odps-bitol` | ODPS-Bitol v1.0.0 product file under `odps-bitol/`, with an ODCS file per exposed port beside it | Schema vendored from `bitol-io/open-data-product-standard`. |
 | `opds` | OPDS v4.1 (LF/ODPI) product file under `opds/` (`<product-id>.opds.json`) | `odps` is accepted as a deprecated alias of `opds` and warns. |
 | `schedule` | Airflow DAG files under `schedule/` | Emitted when `orchestration.engine` is set, or when a build declares a schedule trigger. See [Scheduled builds](#scheduled-builds). |
-| `policies` | `policy/bindings.json`, the compiled IAM / GRANT bindings | |
+| `policies` | `policy/bindings.json`, the compiled IAM / GRANT bindings | *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* A crash inside the policy compiler fails the stage with `policy_compiler_crashed` (exit 1). See [`fluid policy compile`](./policy-compile.md#errors). |
 
 `builds[].pattern` (for example `hybrid-reference`) decides how the transformation runs and gates no emit key: a reference-only contract gets the same set as any other.
 

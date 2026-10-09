@@ -87,5 +87,6 @@ fluid policy-apply runtime/policy/bindings.json --mode enforce
 
 - Provider and project are read from the first binding that sets them. `fluid policy compile` writes both from the contract's `binding.platform` and `binding.location`. A provider given by flag or environment overrides the file's.
 - Returns `0` for `ok` or `noop` results, `1` otherwise.
+- *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* Before it hands the bindings to the provider, the command prints each warning in the file's `warnings` array other than `No grants found in accessPolicy` to stderr, as a `policy_bindings_warning` log line at WARNING level, so a grant that [compiled to no binding](./policy-compile.md#warnings) shows in a job that runs apply apart from compile. The warnings do not change the exit code.
 - Compile bindings first with [`fluid policy compile`](./policy-compile.md); see [`fluid policy check`](./policy-check.md) for static linting of the access policy.
 - Both spellings share one argument set. Prefer `fluid policy apply` in new code; the hyphenated form is still registered in 0.18.1.

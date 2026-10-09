@@ -170,7 +170,7 @@ fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json
 }
 ```
 
-`read`-style permissions map to a viewer role and `write`, `insert`, `update` or `delete` to an owner role. A contract with no grants compiles to an empty list and a `No grants found in accessPolicy` warning.
+`read`-style permissions map to a viewer role and `write`, `insert`, `update` or `delete` to an owner role. A contract with no grants compiles to an empty list and a `No grants found in accessPolicy` warning. *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* Other warnings, such as one for a grant that compiled to no binding, are also printed at WARNING level, and a crash inside the compiler exits `1` with `policy_compiler_crashed` and writes no file. See [Warnings](../cli/policy-compile.md#warnings) and [Errors](../cli/policy-compile.md#errors).
 
 | Option | Description | Default |
 |--------|-------------|---------|
