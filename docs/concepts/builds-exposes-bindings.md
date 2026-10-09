@@ -95,6 +95,7 @@ Four rules, each measured on 0.18.1:
 
 - **Acquisition builds** write to the first expose whose `exposeId` appears in the build's `outputs`, and to `exposes[0]` when it names none. As of 0.18.1 their schema-drift check still compares the source with `exposes[0]`'s declared schema, so a second build whose source differs fails with `source schema drift detected` when `exposes[0]` has `schemaPolicy: discover_and_freeze`, the policy `fluid init --discover` writes. With `evolve_safe` on `exposes[0]` the second build lands in its own expose.
 - **Embedded-SQL builds on the local DuckDB engine** write one result, to `exposes[0]`, whatever `outputs` says. Naming a second expose prints a warning and writes nothing there.
+- **Streaming Iceberg sinks.** *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* A Kafka Connect or embedded Debezium Server build whose Iceberg sink config forge-cli derives writes the Iceberg exposes its `outputs` name: exactly one for Kafka Connect, and for Debezium Server one or more that share a database and a catalog. `fluid validate` refuses a build whose outputs its sink cannot write that way. See [Which exposes a streaming sink writes](../advanced/source-aligned-acquisition.md#which-exposes-a-streaming-sink-writes).
 
 As of 0.18.1, two embedded-SQL builds in one contract therefore share a destination. Each names its own expose in `outputs`; both run; and the second overwrites the first's file:
 

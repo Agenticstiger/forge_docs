@@ -184,6 +184,8 @@ The CLI builds each `doc` link from a fixed route table. A topic that is not in 
 | `sovereignty`, `sovereignty#residency` | [Sovereignty](../concepts/sovereignty.md) |
 | `supply-chain` | [`fluid verify-signature`](../cli/verify-signature.md) |
 | `installation` | [Getting started](../getting-started/README.md) |
+| `iceberg-catalog-move` | [Iceberg catalog-move guard](../cli/apply.md#iceberg-catalog-move-guard) *(unreleased, [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709))* |
+| `policy-compile#errors` | [`fluid policy compile`, Errors](../cli/policy-compile.md#errors) *(unreleased, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* |
 | anything else | [Production troubleshooting](./production-troubleshooting.md) |
 
 A few catalogued events land on a page that does not explain them. The CLI chooses these routes, so the explanations are here:

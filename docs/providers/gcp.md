@@ -338,8 +338,22 @@ Once the expose names its catalog, a hand-written sink config must select that s
 An expose that no streaming sink writes may still leave `location.catalog` out; it is a BigLake table. With `catalog: bigquery`, a Kafka Connect build whose sink config sends `iceberg.catalog.type=bigquery` (the derived config does) draws a warning, since the published Apache Iceberg Kafka Connect sink (1.9.2) cannot load that type, which Iceberg adds in 1.10:
 
 ```text
- 1. iceberg sink (build 'stream_events'): the sink config sets iceberg.catalog.type=bigquery, which the published Apache Iceberg Kafka Connect sink (1.9.2 on Confluent Hub) cannot load: Iceberg's CatalogUtil gains the bigquery type in 1.10. Run a sink built from Iceberg >= 1.10, or the connector fails at start
+ 1. iceberg sink (build 'stream_events'): the sink config sets iceberg.catalog.type=bigquery, which the published Apache Iceberg Kafka Connect sink (1.9.2 on Confluent Hub) cannot load: Iceberg's CatalogUtil gains the bigquery type in 1.10, so on that sink the connector fails at start. Run a sink built from Iceberg >= 1.10
 ```
+
+**What a streaming sink into BigLake needs.** *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* Iceberg's `BigQueryMetastoreCatalog` refuses to start without `gcp.bigquery.project-id`, so a `catalog: bigquery` expose that a streaming sink writes needs `location.project`, which becomes that property. Without it, or with only whitespace, `fluid validate` and the run refuse the build, unless an override sets the property. `location.region` becomes `gcp.bigquery.location`, and the derived config sets no `client.region`. The warehouse is the `gs://` storage dbt-bigquery and this module use: a `gs://` `location.warehouse`, else `gs://<bucket>` plus `location.path` when it is set. For the `events` binding above with `catalog: bigquery` and `region: europe-west1` added, the derived Kafka Connect config carries these catalog keys:
+
+```json
+{
+  "iceberg.catalog.type": "bigquery",
+  "iceberg.catalog.warehouse": "gs://my-lake/products/events",
+  "iceberg.catalog.io-impl": "org.apache.iceberg.gcp.gcs.GCSFileIO",
+  "iceberg.catalog.gcp.bigquery.project-id": "my-project-id",
+  "iceberg.catalog.gcp.bigquery.location": "europe-west1"
+}
+```
+
+With no warehouse to derive, the config sets none and `fluid validate` warns: a Kafka Connect sink with auto-create on cannot create tables, and embedded Debezium Server does not boot without `debezium.sink.iceberg.warehouse`. For a bucket written as a `{{ env.* }}` template, a variable that is unset or empty where `fluid validate` runs draws a warning. One that is unset or empty where the sink config is derived makes the run refuse the build, except on a Kafka Connect sink without auto-create, which reads the warehouse only to create tables: it warns and pushes no warehouse. See [What a DynamoDB, JDBC or BigQuery sink needs](../advanced/source-aligned-acquisition.md#what-a-dynamodb-jdbc-or-bigquery-sink-needs).
 
 ---
 
