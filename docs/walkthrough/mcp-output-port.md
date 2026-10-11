@@ -343,7 +343,7 @@ declared capabilities under `experimental.fluid`, which both SDK generations par
 ```
 
 An existing environment does not move until it is upgraded, and pinning
-`mcp>=1.20,<2.0` still works. None of this applies once authentication is enforced:
+`mcp>=1.22,<2.0` still works (mcp 1.20 and 1.21 fail to import with pydantic 2.14 or later). None of this applies once authentication is enforced:
 verified JWT claims replace self-attestation outright, and with `FLUID_MCP_AUTH_TOKEN` set the self-attested values are dropped.
 :::
 
