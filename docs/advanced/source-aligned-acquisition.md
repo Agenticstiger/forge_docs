@@ -407,7 +407,13 @@ Validation Errors:
  1. iceberg sink (build 'stream_orders'): lakekeeper addresses a warehouse by NAME (e.g. "analytics" or "<project-id>/<name>"), not an object-store URI; binding.location.warehouse is 's3://acme-lake/warehouse'
 ```
 
-Put the warehouse's name there instead; on `platform: aws`, `location.bucket` still names the bucket the module creates. On `platform: gcp` a `gs://` warehouse is refused too, although the [GCP Iceberg checks](../providers/gcp.md#iceberg-on-bigquery-via-dbt-since-0-14-0) accept one on an expose no streaming sink writes. `polaris` and `unity` draw the same error with their own kind in it; the `<project-id>/<name>` form it suggests is Lakekeeper's. With #707 to #710 alone `fluid validate` accepted an object-store warehouse for all three. A missing warehouse draws the error it drew before, which says what the value is:
+The check reads the warehouse that reaches the sink. An `iceberg.catalog.warehouse` in `iceberg_catalog_overrides` or `sink_connector_config` on Kafka Connect, or `warehouse` in `server.sink.config` on embedded Debezium Server, is refused the same way, and the error names where it came from:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): lakekeeper addresses a warehouse by NAME (e.g. "analytics" or "<project-id>/<name>"), not an object-store URI; iceberg_catalog_overrides iceberg.catalog.warehouse is 's3://acme-lake/warehouse'
+```
+
+Leading or trailing spaces do not hide a URI. Put the warehouse's name there instead; on `platform: aws`, `location.bucket` still names the bucket the module creates. On `platform: gcp` a `gs://` warehouse is refused too, although the [GCP Iceberg checks](../providers/gcp.md#iceberg-on-bigquery-via-dbt-since-0-14-0) accept one on an expose no streaming sink writes. `polaris` and `unity` draw the same error with their own kind in it, suggesting a plain name such as `"analytics"`; only Lakekeeper is offered the `<project-id>/<name>` form. With #707 to #710 alone `fluid validate` accepted an object-store warehouse for all three. A missing warehouse draws the error it drew before, which says what the value is:
 
 ```text
  1. iceberg sink (build 'stream_orders'): lakekeeper catalog requires binding.location.warehouse (the catalog name)
@@ -430,12 +436,6 @@ A trailing `/` is ignored, so `http://lakekeeper:8181/catalog/` passes; a path a
 What the checks do not cover:
 
 - **An expose no streaming sink writes.** The checks run per Kafka Connect or embedded Debezium Server build, so a `lakekeeper` expose with an `s3://` warehouse that no such build writes validates.
-- **An override.** The checks read `location.warehouse` and `location.uri`, not an override. An `s3://` `iceberg.catalog.warehouse` in `iceberg_catalog_overrides` draws only the warning that it diverges from the binding's warehouse:
-
-  ```text
-   1. iceberg sink (build 'stream_orders'): iceberg_catalog_overrides warehouse 's3://acme-lake/warehouse' diverges from the binding warehouse 'analytics' of the lakekeeper catalog; the sink will write there while dbt and the IaC address the binding's warehouse
-  ```
-
 - **`catalog: rest`.** A generic REST catalog, such as Apache Iceberg's REST fixture, takes an object-store warehouse, so `rest` gets neither check. Name the catalog's own kind to get them.
 
 ### What a DynamoDB, JDBC or BigQuery sink needs
