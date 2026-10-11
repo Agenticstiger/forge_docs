@@ -81,9 +81,9 @@ Both servers run on the official `mcp` Python SDK.
 
 | | |
 | --- | --- |
-| **Dependency pin** | `mcp>=1.20,<3.0` |
+| **Dependency pin** | `mcp>=1.22,<3.0` *(unreleased, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710); 0.19.0 and earlier pin `mcp>=1.20,<3.0`)* |
 | **What a fresh install resolves** | The newest `2.x`. `mcp` is a core dependency rather than an extra, so `pip install data-product-forge` picks it up. A fresh 0.18.1 install resolved `mcp 2.3.0` on 5 Oct 2026. |
-| **Existing environments** | Do not move until you upgrade them. Pinning `mcp>=1.20,<2.0` yourself remains supported. |
+| **Existing environments** | Do not move until you upgrade them. Pinning `mcp>=1.22,<2.0` yourself remains supported. mcp 1.20 and 1.21 fail to import with pydantic 2.14 or later, which removed a private helper they import; keep pydantic below 2.14 if you must stay on them. |
 | **3.x** | Outside the pin. |
 
 The protocol version is negotiated by the SDK at `initialize`, not fixed by Forge. A client built on that `mcp 2.3.0` was offered `2025-11-25` by both servers.
