@@ -83,6 +83,8 @@ unexpected)
 
 The [`consumes`](./contract-0.7.6-preview.md#consumes) and [`exposes`](./contract-0.7.6-preview.md#exposes) sections of the preview delta hold the rows for the fields above, in the order the schema declares them.
 
+*([forge-cli #712](https://github.com/Agenticstiger/forge-cli/pull/712), unreleased)* `builds[].properties.sink.catalogAuth` is a 0.7.6 field too. No release includes it yet, so it has no row above and none in the preview delta, which is generated from a released schema. It names the environment variable that authenticates a streaming sink to an Iceberg REST catalog; see [Authenticate a sink to a REST catalog](../advanced/source-aligned-acquisition.md#authenticate-a-sink-to-a-rest-catalog).
+
 ### Federated upstreams
 
 `upstreamWorkspace` and `upstreamDigest` travel together. This pair of fields on a `consumes[]` entry validates under 0.7.6:
