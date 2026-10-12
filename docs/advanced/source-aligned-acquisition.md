@@ -624,7 +624,7 @@ A pasted `<client-id>:<client-secret>` and a name with a trailing newline draw t
    2. iceberg sink (build 'stream_orders'): sink.catalogAuth.type must be one of: oauth2, bearer
   ```
 
-The schema's lines have these forms, and none quotes the value: `'scope' is a required property`, `tokenEnv is not allowed here`, `does not match '<pattern>' (value not shown)`, `must not match '<pattern>' (value not shown)`, `fails minLength: 1 (value not shown)` and `fails enum: ['oauth2', 'bearer'] (value not shown)`. At the edges the two checks differ: the schema alone refuses spaces around `oauth2ServerUri`, which the sink check, the one the runs use, trims; the sink check alone refuses a `scope` of only spaces.
+Every Iceberg sink message, in `fluid validate`'s output, the run preflight's log and a run error, passes through forge-cli's secret redactor: a `user:password@` part of a URL (a catalog `uri`, an override warehouse), a `key=value` secret, and the value of the variable `credentialEnv` or `tokenEnv` names once the embedded Debezium run has read it, show as `***REDACTED***`. The schema's lines have these forms, and none quotes the value: `'scope' is a required property`, `tokenEnv is not allowed here`, `does not match '<pattern>' (value not shown)`, `must not match '<pattern>' (value not shown)`, `fails minLength: 1 (value not shown)` and `fails enum: ['oauth2', 'bearer'] (value not shown)`. At the edges the two checks differ: the schema alone refuses spaces around `oauth2ServerUri`, which the sink check, the one the runs use, trims; the sink check alone refuses a `scope` of only spaces.
 
 **A build that writes no derived Iceberg sink.** A Kafka Connect build with another `sink.format`, or a Debezium build in `bring-your-own` or `managed` mode:
 
@@ -641,10 +641,10 @@ An `iceberg` sink on another engine, `dlt` here:
 **A sink config forge-cli does not derive.** A hand-written `sink_connector_config`, or a hand-written `server.sink.config` on Debezium Server, is pushed as written. The error lists the properties to write into it yourself:
 
 ```text
- 1. iceberg sink (build 'stream_orders'): sink.catalogAuth applies to a sink config forge-cli derives, and this build's sink config is hand-written (properties.kafka-connect.sink_connector_config), so nothing reads it. Set the catalog's auth properties in the sink config yourself (iceberg.catalog.rest.auth.type=oauth2, iceberg.catalog.credential=env:LAKEKEEPER_CREDENTIAL, iceberg.catalog.oauth2-server-uri=<oauth2ServerUri>, iceberg.catalog.scope=<scope>), or remove sink.catalogAuth
+ 1. iceberg sink (build 'stream_orders'): sink.catalogAuth applies to a sink config forge-cli derives, and this build's sink config is hand-written (properties.kafka-connect.sink_connector_config), so nothing reads it. Set the catalog's auth properties in the sink config yourself (set iceberg.catalog.rest.auth.type to oauth2, iceberg.catalog.credential to env:LAKEKEEPER_CREDENTIAL, iceberg.catalog.oauth2-server-uri to <oauth2ServerUri>, iceberg.catalog.scope to <scope>), or remove sink.catalogAuth
 ```
 
-With `iceberg_sink_enabled: false` and no hand-written config, the reason reads `this build does not derive its sink config (derivation is turned off)`. On Debezium Server the listed properties are bare keys (`rest.auth.type=oauth2, credential=env:LAKEKEEPER_CREDENTIAL, ...`), as `server.sink.config` takes them.
+With `iceberg_sink_enabled: false` and no hand-written config, the reason reads `this build does not derive its sink config (derivation is turned off)`. On Debezium Server the listed properties are bare keys (`rest.auth.type to oauth2, credential to env:LAKEKEEPER_CREDENTIAL, ...`), as `server.sink.config` takes them.
 
 **A catalog not reached over REST.** For `glue`; `nessie`, `bigquery`, `hive`, `jdbc`, `hadoop` and `dynamodb` draw the same error with their own kind in it:
 
