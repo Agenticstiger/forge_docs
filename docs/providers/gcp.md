@@ -559,6 +559,13 @@ contracts keep working, but it has never been schema-valid and fails
 mid-migration does not drop half its grants; duplicate grants collapse. See
 [Release Notes `0.13.0`](../RELEASE_NOTES_0.13.0.md#accesspolicy-is-now-the-iac-access-grant-surface).
 
+*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)*
+`fluid apply` now validates the contract before it plans, so a contract that still
+carries `metadata.policies` stops with `apply_contract_invalid`
+(`metadata: Additional properties are not allowed ('policies' was unexpected)`)
+instead of applying. Only `fluid generate iac`, which does not validate, still emits
+it. See [Contract validation](../cli/apply.md#contract-validation).
+
 ### Shared vs. isolated containers
 
 By default the product **owns** the BigQuery dataset and GCS bucket it creates. A

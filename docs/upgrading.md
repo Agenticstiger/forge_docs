@@ -294,6 +294,31 @@ Background: [Composing a contract with `$ref`](./concepts/contract-refs.md),
 [DuckDB sandbox for contract SQL](./advanced/duckdb-sandbox.md),
 [Contract loading API](./advanced/contract-loading-api.md) (new in `fluid_build.api` `1.1`).
 
+## Unreleased changes after 0.18.1
+
+These changes are in forge-cli pull requests that are not in a release yet. Each row names
+its pull request.
+
+| Change | What to do | How to check |
+|---|---|---|
+| `fluid apply` validates the contract against its schema on both engines and in every mode ([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714)). A cloud apply (`aws`, `gcp`, `snowflake`, `confluent`) or a build mode skipped the check, so a contract `fluid validate` rejects could apply with exit 0. It now stops before planning with `apply_contract_invalid`, or `contract_version_unsupported` below `fluidVersion` 0.7 | Run `fluid validate <contract> --env <env>` for each overlay you apply, and fix what it reports. No flag skips the check | `fluid apply <contract> --env <env> --dry-run` stops before `tofu plan` with the event |
+| A `plan.json` that embeds no contract is refused with `apply_plan_missing_contract` ([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714)). It used to run its actions unchecked on the native engine | Re-run `fluid plan` and apply the new plan | The apply fails before anything runs |
+| An `aws` contract with `orchestration.engine: airflow` and an `orchestration.schedule` fails `fluid apply` and `fluid generate iac` with `unsupported_binding`, kind `mwaa-environment-not-emitted` ([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715)). The apply reported success and created no MWAA environment | Set `orchestration.engine: none` to schedule through EventBridge Scheduler, or run the DAGs on an MWAA environment you own and drop `orchestration.schedule`. See [Scheduling on AWS](./providers/aws.md#scheduling-on-aws) | `fluid generate iac contract.fluid.yaml` refuses with the kind and writes no module |
+
+A key the schema does not have is one way a contract fails the first row. With
+`fluid apply --dry-run`, a GCP contract that still uses the deprecated `metadata.policies`
+went on to `tofu plan` on forge-cli main before #714, and now stops:
+
+```text
+❌ apply_contract_invalid  [ERR_APPLY_CONTRACT_INVALID]
+  command: apply
+  error_count: 1
+  errors: ["metadata: Additional properties are not allowed ('policies' was unexpected)"]
+  message: Contract validation failed with 1 error(s); ``fluid apply`` will not proceed on a schema-invalid contract. Run ``fluid validate`` for the full report.
+```
+
+Background: [Contract validation](./cli/apply.md#contract-validation).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

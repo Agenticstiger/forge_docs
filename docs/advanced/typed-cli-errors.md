@@ -78,7 +78,7 @@ Each class has a `for_*` factory that builds the `what`, `why`, `fix` and `doc` 
 
 `SchemaValidationError` is also the name of a different class in the forge agent layer; see [Typed Errors](./typed-errors.md). The two are not the same type.
 
-The route table also sends four catalogued events here: `invalid_schema_version`, `contract_version_unsupported`, `invalid_min_version` and `invalid_max_version`. Set `fluidVersion` to a version the installed CLI bundles. The latest stable contract schema is 0.7.5; 0.7.6 is a preview that a contract opts in to with `fluidVersion: "0.7.6"`. `fluid validate` reports the version it validated against.
+The route table also sends four catalogued events here: `invalid_schema_version`, `contract_version_unsupported`, `invalid_min_version` and `invalid_max_version`. Set `fluidVersion` to a version the installed CLI bundles. The latest stable contract schema is 0.7.5; 0.7.6 is a preview that a contract opts in to with `fluidVersion: "0.7.6"`. `fluid validate` reports the version it validated against. *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* `fluid apply` raises `contract_version_unsupported` before it plans, on both engines and in every mode; see [Contract validation](../cli/apply.md#contract-validation).
 
 ### Capability negotiation
 

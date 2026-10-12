@@ -226,6 +226,8 @@ As of 0.18.1 the second suggestion names `azure`, but `fluid providers` lists `a
 
 The state refusals (`state_shared_with_another_provider`, `state_migration_ambiguous` and the other `state_*` events) are described on [OpenTofu state](../concepts/state.md). The refusal for an env with no overlay (`overlay_declared_but_missing`) and the `bundle_env_mismatch` refusal are on [Environments and overlays](../concepts/environments-and-overlays.md); `plan_env_mismatch` is in [Production troubleshooting](./production-troubleshooting.md).
 
+*(unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714) and [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715))* `apply_contract_invalid`, `apply_plan_missing_contract` and `unsupported_binding` (kind `mwaa-environment-not-emitted`) are not catalogued, so they print no curated suggestions. [Production troubleshooting](./production-troubleshooting.md#environment-mode-and-plan-file-errors) explains the first two, and [Scheduling on AWS](../providers/aws.md#scheduling-on-aws) the third. `contract_version_unsupported`, catalogued [above](#contract-version-unsupported), is now raised by `fluid apply` on both engines and in every mode.
+
 ### planner_failed
 
 `ERR_PLANNER_FAILED`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md).

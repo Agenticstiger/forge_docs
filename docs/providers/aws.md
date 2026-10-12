@@ -37,6 +37,7 @@ The AWS provider turns a FLUID contract into cloud resources:
 - **Verification** — `fluid verify` reads Glue, runs an Athena `COUNT(*)` and checks the governance above on the live account. See [Verify on AWS](#verify-on-aws).
 - **Sovereignty validation** — region allow and deny lists are enforced before deployment. See [Data Sovereignty](#data-sovereignty).
 - **IAM policy compilation** — `fluid policy-compile` writes IAM bindings from `accessPolicy`, as advisory output only. See [accessPolicy on AWS](#accesspolicy-on-aws).
+- **Scheduling** — with `orchestration.engine: none`, `orchestration.schedule` becomes an EventBridge Scheduler schedule. *(forge-cli [#715](https://github.com/Agenticstiger/forge-cli/pull/715), unreleased)* With `orchestration.engine: airflow` it asks for an MWAA environment, which `fluid apply` refuses rather than report a success it did not create. See [Scheduling on AWS](#scheduling-on-aws).
 
 ## Working example: Bitcoin price tracker
 
@@ -358,6 +359,91 @@ An embedded-SQL build (`engine: sql`) lands its result the same way when the fir
 Contract SQL on the DuckDB engine can read and write only the contract's own directory and the locations the contract declares. For S3 that means the declared `s3://` locations: an `s3://` URL in SQL that the contract does not declare is refused, and `http(s)://`, `gs://` and Azure URLs cannot be read from contract SQL at all. Land remote data with an acquisition build first. The rules are in [DuckDB sandbox for contract SQL](../advanced/duckdb-sandbox.md); `$ref` composition is confined the same way, see [Contract references](../concepts/contract-refs.md).
 
 For acquisition build properties, see [Source-aligned acquisition](../advanced/source-aligned-acquisition.md); the same landing rules are in [where the build lands data](../advanced/source-aligned-acquisition.md#where-the-build-lands-data).
+
+## Scheduling on AWS
+
+*([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715), unreleased)* An `aws` contract with `orchestration.engine: airflow` and an `orchestration.schedule` asks for an Amazon MWAA environment, and `fluid apply` and `fluid generate iac` refuse it:
+
+```yaml
+orchestration:
+  engine: airflow
+  schedule: "cron(0 6 * * ? *)"
+```
+
+```bash
+fluid generate iac contract.fluid.yaml --out ./review
+```
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: mwaa-environment-not-emitted
+  error: The contract asks for the MWAA environment 'mwaa-sales_orders_daily' (orchestration.engine airflow or mwaa with orchestration.schedule), but the OpenTofu engine cannot create an aws_mwaa_environment: it needs a VPC network_configuration (subnets and security groups) that the contract does not carry. Applying would report success with no Airflow environment, so nothing was applied.
+  remediation: ["To schedule without Airflow, set orchestration.engine to 'none' and keep orchestration.schedule: fluid apply then creates an EventBridge Scheduler schedule.", "To keep Airflow, create the MWAA environment 'mwaa-sales_orders_daily' yourself (it needs your VPC), then push this contract's DAG to it with `fluid generate schedule --scheduler airflow --output dags` and `fluid schedule-sync --scheduler mwaa --dags-dir dags --destination s3://<the environment's DAG bucket>/dags/`. fluid apply still plans the environment while the contract has orchestration.schedule, so apply a copy of the contract without it."]
+```
+
+`fluid apply contract.fluid.yaml` prints the same refusal before `tofu init` and writes no module, and `fluid generate iac` writes no output directory. Before this change the module had no `aws_mwaa_environment`, `fluid apply` reported success, and no Airflow environment existed. The OpenTofu engine cannot create one: `aws_mwaa_environment` needs a VPC `network_configuration` (private subnets and security groups), and a contract carries no network.
+
+The environment is named `mwaa-<contract id>`, or `orchestration.mwaa.environmentName` when the contract sets it. A contract that names one is told to push to that environment rather than create it, with `--destination` filled in from `orchestration.mwaa.dagS3Path`:
+
+```text
+  remediation: [..., "Your contract names the existing MWAA environment 'shared-airflow': push this contract's DAG to it with `fluid generate schedule --scheduler airflow --output dags` and `fluid schedule-sync --scheduler mwaa --dags-dir dags --destination s3://acme-airflow-dags/dags/`. fluid apply still plans the environment while the contract has orchestration.schedule, so apply a copy of the contract without it."]
+```
+
+What `orchestration` makes `fluid apply` do on AWS:
+
+| `orchestration` | What the module gets |
+|---|---|
+| `engine: airflow` and a `schedule` | Nothing: the contract is refused with `mwaa-environment-not-emitted` |
+| `engine: none` (or any engine but `airflow`) and a `schedule` | An EventBridge Scheduler schedule and the Lambda function it invokes; see [Scheduling without Airflow](#scheduling-without-airflow) |
+| `engine: airflow` and no `schedule` | No schedule resource. Builds scheduled with `builds[].execution.trigger` run from the DAGs `fluid generate schedule` writes; see [MWAA on AWS](../advanced/airflow.md#mwaa-on-aws) |
+
+Edge cases:
+
+- **`fluid validate` and `fluid plan` pass the contract.** `airflow` is a valid engine, and the refusal comes from the module emitter. Run `fluid generate iac` to see it without touching AWS; it needs no `AWS_ACCOUNT_ID` to refuse.
+- **The refusal follows the contract, not the plan.** It holds when the AWS planner fails on another field (a Glue table name it rejects, `orchestration.tasks` that depend on each other), and under `--provider aws` on a multi-cloud contract whose first expose is on GCP or Snowflake, where that cloud's planner runs instead and never plans the environment.
+- **`engine: mwaa`** asks for the environment too, but `mwaa` is not one of the schema's `orchestration.engine` values: `fluid validate` rejects it, and with [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714) `fluid apply` stops on it with `apply_contract_invalid` first. `fluid generate iac`, which does not validate, refuses it as above.
+- **`orchestration.triggers` with no `schedule`** does not ask for MWAA and is not refused.
+- **`--shadow`.** `fluid generate iac --shadow` stops at the refusal. The shadow comparison now counts a planned `mwaa.ensure_environment` as an `environment` resource, so an environment the module lacked would show as a native-only gap.
+
+### Scheduling without Airflow
+
+Set `orchestration.engine: none` and keep the schedule:
+
+```yaml
+orchestration:
+  engine: none
+  schedule: "cron(0 6 * * ? *)"
+```
+
+```text
+Planned EventBridge schedule: fluid-schedule-sales_orders_daily
+...
+Wrote OpenTofu module: ./review/main.tf.json  (provider: aws, 6 resources)
+```
+
+Next to the bucket, the Glue database and the Glue table, the module gets an `aws_scheduler_schedule` named `fluid-schedule-<contract id>`, an `aws_lambda_function` named `fluid-workflow-<contract id>`, and the `aws_lambda_permission` that lets the scheduler invoke it. Before you rely on it (measured on the forge-cli #715 branch):
+
+- The schedule and the function name IAM roles the module does not create: `arn:aws:iam::<account>:role/EventBridgeSchedulerRole` and `arn:aws:iam::<account>:role/fluid-workflow-execution`. They have to exist in the account.
+- The function logs each `orchestration.tasks` entry of type `provider_action` and returns. It calls no AWS API and runs none of the contract's builds.
+- Lambda function names take letters, digits, hyphens and underscores only. With a dot in the contract id (`sales.orders_daily`) the AWS planner fails, and the module is written without the schedule, the function and the permission, with exit 0. Use an id without dots for a scheduled AWS contract.
+
+To keep Airflow, run the DAGs on an MWAA environment you create in your own VPC, or one you already run: [MWAA on AWS](../advanced/airflow.md#mwaa-on-aws) has the steps.
+
+### Planned operations the module does not create
+
+The AWS planner plans some operations the OpenTofu module has no resource for. They are no longer dropped without a word: each is named in a WARNING line, and the apply goes on.
+
+```text
+aws_orchestration_task_not_emitted op='athena.execute_query' id='refresh_orders': orchestration tasks run in the scheduler, and fluid apply provisions nothing for them
+```
+
+| Warning | What it names |
+|---|---|
+| `aws_planned_op_not_emitted` | An operation nothing in the module provisions yet: IAM bindings from `metadata.policies` (`iam.bind_glue_database`, `iam.bind_s3_bucket`), Athena views (`athena.create_view`), Redshift schemas and tables (`redshift.ensure_schema`, `redshift.ensure_table`), and a top-level `execution.trigger` schedule (`events.ensure_schedule`) |
+| `aws_orchestration_task_not_emitted` | An `orchestration.tasks` entry. Tasks run in the scheduler, and the module provisions nothing for them |
+| `planned_op_not_emitted` | An operation the AWS module does not know, such as another cloud's under `--provider aws` on a multi-cloud contract |
+
+The operations the module builds from `exposes[]` (the bucket, the Glue database and tables) and the build steps the build runner executes pass without a warning.
 
 ## Credentials setup
 
@@ -951,6 +1037,8 @@ The release notes for [`0.16.0`](../RELEASE_NOTES_0.16.0.md) and [`0.17.0`](../R
 - **`0.18.0`:** contract SQL runs in a DuckDB sandbox and `$ref` stays inside the contract's directory tree; see [Where a build lands data](#where-a-build-lands-data).
 - **Unreleased, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707):** an Iceberg expose whose `location.catalog` is not `glue` keeps its S3 bucket and loses its Glue database and table. On a contract an earlier release applied, `fluid apply` stops with `iceberg_catalog_move_blocked` and prints the `tofu state rm` commands that release them; see [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog). A Kafka Connect sink on Glue starts, where it failed at startup before.
 - **Unreleased, [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709):** the `iceberg_catalog_move_blocked` guard flags an expose's Glue database and table when that expose's own Glue table is in state, so a Glue database left by a removed expose no longer blocks the apply. An expose that names a `location.database` and no `location.table` has no Glue table, so its Glue database is flagged when state holds it and the module no longer declares it. When the guard cannot read the state, it logs an `iceberg_catalog_move_probe_skipped` WARNING. `fluid diff` refuses an Iceberg `location.catalog` value FLUID does not know, as `fluid validate` and `fluid apply` do, and a typo no longer also draws a Lake Formation refusal. See [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog).
+- **Unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714):** `fluid apply` validates the contract against its schema before it plans, in every mode. A contract `fluid validate` rejects used to reach `tofu` and could apply with exit 0; it now stops with `apply_contract_invalid`. Run `fluid validate contract.fluid.yaml --env <env>` before you upgrade. See [Contract validation](../cli/apply.md#contract-validation).
+- **Unreleased, [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715):** a contract with `orchestration.engine: airflow` and an `orchestration.schedule` fails `fluid apply` and `fluid generate iac` with `unsupported_binding`, kind `mwaa-environment-not-emitted`. It used to apply with exit 0 and create no MWAA environment. Set `orchestration.engine: none` to schedule through EventBridge Scheduler, or run the DAGs on an MWAA environment you own; see [Scheduling on AWS](#scheduling-on-aws). Planned operations the module does not create are now named in a WARNING line.
 
 ## How far this has been exercised
 

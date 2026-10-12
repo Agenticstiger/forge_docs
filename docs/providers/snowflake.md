@@ -556,7 +556,7 @@ What 0.18.1 does with each governance field on a Snowflake binding:
 | `sovereignty` | checked against the binding's region before deployment |
 | `metadata.layer`, `productType`, `domain`, `fluidVersion` | written into the table COMMENT |
 
-The Snowflake module can emit `snowflake_masking_policy`, `snowflake_row_access_policy` and `snowflake_grant_privileges_to_account_role` objects, but only from a top-level `security:` block (`security.policies`, `security.access_control.grants`). The contract schema rejects that block, so a contract carrying it fails `fluid validate`, and even then the policies are created without being attached to a column or table.
+The Snowflake module can emit `snowflake_masking_policy`, `snowflake_row_access_policy` and `snowflake_grant_privileges_to_account_role` objects, but only from a top-level `security:` block (`security.policies`, `security.access_control.grants`). The contract schema rejects that block, so a contract carrying it fails `fluid validate`, and even then the policies are created without being attached to a column or table. *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* `fluid apply` now validates the contract before it plans and stops on that block with `apply_contract_invalid`, so only `fluid generate iac`, which does not validate, still emits these objects. See [Contract validation](../cli/apply.md#contract-validation).
 
 ## CI/CD Pipeline
 

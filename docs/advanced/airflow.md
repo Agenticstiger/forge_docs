@@ -92,6 +92,36 @@ fluid schedule-sync --scheduler airflow --dags-dir dist/artifacts/schedule --des
 
 `--dags-dir` must contain one directory per product. With the default `--delete-scope product`, a loose file in `--dags-dir` is refused with `schedule_sync_dags_dir_not_product_scoped` and exit code 2, so one product's sync cannot delete another's DAGs. If you generated with `fluid generate schedule`, write into `-o <dags-dir>/<product-id>/` as in the quick start. `schedule-sync` takes no contract argument: it needs `--scheduler` and `--dags-dir`, plus `--destination` for `airflow` and `mwaa`.
 
+## MWAA on AWS
+
+*([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715), unreleased)* `fluid apply` does not create an Amazon MWAA environment. Create the environment yourself, in your own VPC, or use one you already run, and push the DAGs to the S3 folder it reads. Schedule the builds with `builds[].execution.trigger`, and leave `orchestration.schedule` out:
+
+```yaml
+orchestration:
+  engine: airflow
+builds:
+  - id: load_orders
+    execution:
+      trigger:
+        type: schedule
+        cron: "0 6 * * *"
+```
+
+```bash
+fluid generate schedule contract.fluid.yaml -o dags/sales_orders_daily
+fluid schedule-sync --scheduler mwaa --dags-dir dags --destination s3://acme-airflow-dags/dags/ --dry-run
+```
+
+```text
+[schedule-sync] scheduler=mwaa dags-dir=.../dags env=dev delete-scope=product dry-run=True
+[schedule-sync] → /usr/local/bin/aws s3 sync .../dags/sales_orders_daily/ s3://acme-airflow-dags/dags/sales_orders_daily/ --delete
+[schedule-sync] ✔ mwaa sync complete (1 subprocess(es))
+```
+
+Drop `--dry-run` to push. `--destination` is the S3 folder the environment reads its DAGs from, in its source bucket. Each scheduled run executes `fluid apply` on the MWAA worker, which needs what [What the DAG does](#what-the-dag-does) lists.
+
+An `aws` contract that keeps `orchestration.schedule` with `orchestration.engine: airflow` asks `fluid apply` for the environment itself, and is refused with `unsupported_binding`, kind `mwaa-environment-not-emitted`, before anything is applied; see [Scheduling on AWS](../providers/aws.md#scheduling-on-aws). Before this change the apply reported success and no environment existed. The refusal's own next step names `fluid generate schedule --scheduler airflow --output dags`, which writes the DAG straight into `dags/`; `fluid schedule-sync` refuses that layout with `schedule_sync_dags_dir_not_product_scoped` under its default `--delete-scope product`, so write into `dags/<product-id>/` as above.
+
 ## `fluid generate-airflow` (deprecated)
 
 `fluid generate-airflow` still runs, and prints a warning that points at its replacement:

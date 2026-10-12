@@ -92,7 +92,7 @@ Engine selection is automatic and per-provider (`apply.py::resolve_apply_engine`
 
 | Provider | Resources emitted |
 |---|---|
-| `aws` | S3 buckets / IAM roles + policies / Glue databases + tables + column comments (for an Iceberg expose, only when its catalog is Glue: [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased) / Athena workgroups / Lake Formation grants, with a contract's `columnRestrictions` written as excluded columns *(0.17.0)* / KMS keys and aliases for `binding.encryption.kms` and S3 lifecycle rules for `lifecycle.expire` *(0.16.5)* |
+| `aws` | S3 buckets / IAM roles + policies / Glue databases + tables + column comments (for an Iceberg expose, only when its catalog is Glue: [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased) / Athena workgroups / Lake Formation grants, with a contract's `columnRestrictions` written as excluded columns *(0.17.0)* / KMS keys and aliases for `binding.encryption.kms` and S3 lifecycle rules for `lifecycle.expire` *(0.16.5)*. No MWAA environment: a contract that asks for one is refused ([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715), unreleased; see [Scheduling on AWS](../providers/aws.md#scheduling-on-aws)) |
 | `gcp` | BigQuery datasets + tables / `google_bigquery_dataset_iam_member` grants *(0.17.0)* / GCS buckets / BigLake-Iceberg warehouse buckets *(0.14.0)* / Pub/Sub topics, with the binding's region as `message_storage_policy.allowed_persistence_regions` / Cloud KMS key rings and keys, Data Catalog taxonomies and policy tags, and a `terraform_data` partition-replace trigger *(0.17.0)* |
 | `snowflake` | Databases / schemas / tables / column comments (Horizon-aware) / file formats / stages / external volumes + Glue catalog integrations for Iceberg exposes *(0.13.1)* |
 
@@ -129,6 +129,17 @@ Principals are refused when they cannot be real identities. A principal in a res
 *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* The `error:` line names the expose, `exposes[customers]`, and a value is no longer wrapped at the terminal width. 0.19.0 and earlier print `exposes accessPolicy: ...`, without the expose.
 
 Other refusal kinds exist for principals and governance fields: `principal-unmapped`, `column-restriction-*` and `encryption-kms-*`. See the [GCP provider page](../providers/gcp.md) for the provider's own behaviour.
+
+*([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715), unreleased)* On AWS, a contract with `orchestration.engine: airflow` and an `orchestration.schedule` is refused with kind `mwaa-environment-not-emitted`, before the output directory is created:
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: mwaa-environment-not-emitted
+  error: The contract asks for the MWAA environment 'mwaa-sales_orders_daily' (orchestration.engine airflow or mwaa with orchestration.schedule), but the OpenTofu engine cannot create an aws_mwaa_environment: it needs a VPC network_configuration (subnets and security groups) that the contract does not carry. Applying would report success with no Airflow environment, so nothing was applied.
+  remediation: ["To schedule without Airflow, set orchestration.engine to 'none' and keep orchestration.schedule: fluid apply then creates an EventBridge Scheduler schedule.", ...]
+```
+
+The module used to be written without an `aws_mwaa_environment`, and `fluid apply` reported success. The refusal holds when the AWS planner fails on another field, and under `--provider aws` on a multi-cloud contract whose first expose is on another cloud. With `--shadow` the command stops at the refusal; the shadow comparison counts a planned `mwaa.ensure_environment` as an `environment` resource, so an environment missing from a module would show as a native-only gap. A planned operation the AWS module does not create is named in a WARNING line instead of being dropped without a word. Both ways out, and the warnings, are in [Scheduling on AWS](../providers/aws.md#scheduling-on-aws).
 
 ### Access grants on GCP *(0.17.0)*
 
