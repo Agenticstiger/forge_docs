@@ -218,7 +218,7 @@ For the DuckDB engine, each connection runs in DuckDB's own sandbox ([DuckDB san
 ## Iceberg catalogs (`location.catalog`)
 
 ::: warning Not in a release yet
-This section describes forge-cli [PR #707](https://github.com/Agenticstiger/forge-cli/pull/707) and the follow-up fixes in [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), marked *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)*, and in [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), marked *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)*. No release includes any of them yet. forge-cli 0.19.0 and earlier behave as described in [On 0.19.0 and earlier](#on-0-19-0-and-earlier), at the end of this section.
+This section describes forge-cli [PR #707](https://github.com/Agenticstiger/forge-cli/pull/707) and the follow-up fixes in [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), marked *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)*, and in [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), marked *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)*, and the Lakekeeper, Polaris and Unity checks of [forge-cli #711](https://github.com/Agenticstiger/forge-cli/pull/711), marked *([forge-cli #711](https://github.com/Agenticstiger/forge-cli/pull/711), unreleased)*. No release includes any of them yet. forge-cli 0.19.0 and earlier behave as described in [On 0.19.0 and earlier](#on-0-19-0-and-earlier), at the end of this section.
 :::
 
 An Iceberg expose names the catalog that owns its table in `binding.location.catalog`. The streaming sinks (Kafka Connect and Debezium Server), dbt's `catalogs.yml`, the AWS and Confluent modules, `fluid policy compile`, `fluid diff`, `fluid test` and `fluid validate` read the value through one table in forge-cli (`fluid_build/providers/_iceberg_catalog.py`), so they agree on which catalog holds the table. The Snowflake module reads it for the Iceberg prerequisites only: the EXTERNAL VOLUME and the Glue catalog integration follow the table. It still emits a `snowflake_database`, `snowflake_schema` and `snowflake_table` for the expose's `location.database`, `location.schema` and `location.table`, whatever the catalog.
@@ -276,7 +276,7 @@ builds:
           commitIntervalMs: 5000
 ```
 
-The contract validates as written. `fluid validate` requires `uri` and `warehouse` for a REST catalog such as Lakekeeper; without `uri` it fails:
+The contract validates as written. *([forge-cli #711](https://github.com/Agenticstiger/forge-cli/pull/711), unreleased)* With an `s3://` warehouse it would not, and a `uri` that does not end in `/catalog` draws a warning; see [What a Lakekeeper, Polaris or Unity sink needs](#what-a-lakekeeper-polaris-or-unity-sink-needs). `fluid validate` requires `uri` and `warehouse` for a REST catalog such as Lakekeeper; without `uri` it fails:
 
 ```text
 ❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
@@ -329,7 +329,11 @@ The one resource is `aws_s3_bucket.bronze_orders_stream_acme_lake`. Without `buc
   ```
 
   Once the expose names its catalog, a hand-written sink config must select that same catalog (below).
-- **`sink.catalog`.** A streaming build may set `properties.sink.catalog`, but it must name the expose's catalog, because dbt and the modules read only the expose. Spellings are compared after folding. Leave it unset and the sink uses the expose's catalog.
+- **`sink.catalog`.** A streaming build may set `properties.sink.catalog`, but it must name the expose's catalog, because dbt and the modules read only the expose. Spellings are compared after folding. Leave it unset and the sink uses the expose's catalog. *([forge-cli #711](https://github.com/Agenticstiger/forge-cli/pull/711), unreleased)* The schema takes `sink.catalog` from a list, in exactly these spellings: `rest`, `glue`, `nessie`, `unity`, `snowflake-managed` and `hive` on 0.7.5, and those plus `lakekeeper` and `polaris` on the [0.7.6 preview](../cli/validate.md#schema-versions-stable-and-preview). With #707 to #710 alone, 0.7.6 had the 0.7.5 list. A 0.7.5 contract whose expose is in Lakekeeper or Polaris leaves `sink.catalog` unset; setting it fails:
+
+  ```text
+   1. builds[0].properties.sink.catalog: 'lakekeeper' is not one of ['rest', 'glue', 'nessie', 'unity', 'snowflake-managed', 'hive']
+  ```
 - **Any other value** is refused by `fluid validate` on every Iceberg expose, with the accepted spellings. A `platform: confluent` expose has its own rule, [below](#other-commands). `fluid apply` on AWS refuses the value too, as `unknown-iceberg-catalog`, because whether a Glue table exists depends on it. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* So does the native AWS planner that [`fluid diff`](../cli/diff.md) runs; on #707 alone it planned the S3 buckets and no Glue table. A typo on an expose that also declares `governance.lakeFormation` draws only the two errors below, not a Lake Formation refusal that names the typo as a catalog.
 
 ```text
@@ -362,9 +366,9 @@ Declare the catalog the sink writes to in `binding.location.catalog`. A REST end
 |---|---|---|---|---|---|
 | `glue` | `catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog` | `iceberg_rest` | Glue `CATALOG INTEGRATION` | the bucket, a Glue database and a Glue table | nothing (warns without `region`) |
 | `rest` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
-| `lakekeeper` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
-| `polaris` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
-| `unity` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
+| `lakekeeper` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` as a name (warns when `uri` does not end in `/catalog`) |
+| `polaris` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` as a name |
+| `unity` | `type=rest` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` as a name |
 | `nessie` | `type=nessie` | `iceberg_rest` | nothing; validate warns | the bucket only | `uri`, `warehouse` |
 | `bigquery` | `type=bigquery` | `iceberg_rest` | nothing; validate warns | the bucket only | `project` (warns with no `gs://` warehouse to derive, and on a Kafka Connect build) |
 | `hive` | `type=hive` | left out, with a warning | nothing; validate errors | the bucket only | nothing |
@@ -384,11 +388,55 @@ How to read the columns:
   Both warnings follow the catalog that reaches the worker, selected by `type` or by a `catalog-impl` class (`org.apache.iceberg.nessie.NessieCatalog`, `org.apache.iceberg.gcp.bigquery.BigQueryMetastoreCatalog`), after `iceberg_catalog_overrides` and a hand-written `sink_connector_config` are merged in. A hand-written config that sets `iceberg.catalog.type: rest` for a `bigquery` or `nessie` expose draws neither, and is an error instead, because it selects another catalog than the expose's ([How a value is read](#how-a-value-is-read)).
 - **dbt `catalogs.yml` on Snowflake** and **Snowflake module** apply to `platform: snowflake`. The **Snowflake module** column lists the Iceberg prerequisite the module creates; for every kind it also emits the database, schema and `snowflake_table` the binding's `location` names. Apart from `glue`, Snowflake reaches the `iceberg_rest` kinds through a catalog integration that authenticates with a secret. The module is credential-free, so it creates none, and `fluid validate` warns (an error under `--strict`). Snowflake has no catalog integration for `hive`, `jdbc`, `hadoop` or `dynamodb`, so an expose naming one fails `fluid validate`. The prerequisites each emitted object needs are in [Iceberg tables via dbt](../providers/snowflake.md#iceberg-tables-via-dbt-since-0-13-1).
 - **AWS module** applies to `platform: aws`: the bucket is the one the binding names. See [On AWS](#on-aws-a-table-in-another-catalog).
-- **A streaming sink needs** the listed `binding.location` keys when a Kafka Connect build, or a Debezium Server build in `embedded` mode, writes the expose. *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* A `dynamodb` or `jdbc` warehouse may instead derive from a `bucket` or come from an override, and a `bigquery` project from an override; see [What a DynamoDB, JDBC or BigQuery sink needs](#what-a-dynamodb-jdbc-or-bigquery-sink-needs). Debezium in `bring-your-own` or `managed` mode creates only the source connector, so these checks do not apply to it. The Kafka Connect runner and the embedded Debezium Server runner run the same checks before they create anything, so a contract `fluid validate` refuses also fails its run, for these builds:
+- **A streaming sink needs** the listed `binding.location` keys when a Kafka Connect build, or a Debezium Server build in `embedded` mode, writes the expose. *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* A `dynamodb` or `jdbc` warehouse may instead derive from a `bucket` or come from an override, and a `bigquery` project from an override; see [What a DynamoDB, JDBC or BigQuery sink needs](#what-a-dynamodb-jdbc-or-bigquery-sink-needs). *([forge-cli #711](https://github.com/Agenticstiger/forge-cli/pull/711), unreleased)* A `lakekeeper`, `polaris` or `unity` warehouse is the catalog's warehouse name, never an object-store URI; see [What a Lakekeeper, Polaris or Unity sink needs](#what-a-lakekeeper-polaris-or-unity-sink-needs). Debezium in `bring-your-own` or `managed` mode creates only the source connector, so these checks do not apply to it. The Kafka Connect runner and the embedded Debezium Server runner run the same checks before they create anything, so a contract `fluid validate` refuses also fails its run, for these builds:
   - *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* a build that declares `sink.format: iceberg`, whether the runner derives the sink config or pushes a hand-written one: `sink_connector_config` on Kafka Connect, `server.sink.config` on an embedded Debezium Server build whose `server.sink.type` is `iceberg` (the default). On #707 alone the runners checked only a config they derived, so a hand-written config that `fluid validate` refuses was still deployed;
   - an embedded Debezium Server build that derives its sink: `server.sink.type: iceberg` (the default) with no hand-written `server.sink.config`, or with `server.sink.iceberg_sink_enabled: true`.
 
   *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* In a contract with several builds, each of these two runners reads its properties from the build it runs, the build the checks read. They used to read the first build's.
+
+### What a Lakekeeper, Polaris or Unity sink needs
+
+*([forge-cli #711](https://github.com/Agenticstiger/forge-cli/pull/711), unreleased)* Lakekeeper, Polaris and Unity address a warehouse by name. `location.warehouse` is the name the catalog knows it by, such as `analytics`, or `<project-id>/analytics` on Lakekeeper, and the catalog owns the storage location behind it. When a Kafka Connect build, or a Debezium Server build in `embedded` mode, writes such an expose, `fluid validate` refuses an object-store URI in `location.warehouse` (`s3://`, `s3a://`, `s3n://`, `gs://`, `gcs://`, `abfs://` or `abfss://`, in any case), and so does the run, before it creates anything. The [Lakekeeper example](#example-stream-into-lakekeeper) with `warehouse: s3://acme-lake/warehouse`:
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+Validation completed in 0.000s
+
+Validation Errors:
+==================
+ 1. iceberg sink (build 'stream_orders'): lakekeeper addresses a warehouse by NAME (e.g. "analytics" or "<project-id>/<name>"), not an object-store URI; binding.location.warehouse is 's3://acme-lake/warehouse'
+```
+
+The check reads the warehouse that reaches the sink. An `iceberg.catalog.warehouse` in `iceberg_catalog_overrides` or `sink_connector_config` on Kafka Connect, or `warehouse` in `server.sink.config` on embedded Debezium Server, is refused the same way, and the error names where it came from:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): lakekeeper addresses a warehouse by NAME (e.g. "analytics" or "<project-id>/<name>"), not an object-store URI; iceberg_catalog_overrides iceberg.catalog.warehouse is 's3://acme-lake/warehouse'
+```
+
+Leading or trailing spaces do not hide a URI. Put the warehouse's name there instead; on `platform: aws`, `location.bucket` still names the bucket the module creates. On `platform: gcp` a `gs://` warehouse is refused too, although the [GCP Iceberg checks](../providers/gcp.md#iceberg-on-bigquery-via-dbt-since-0-14-0) accept one on an expose no streaming sink writes. `polaris` and `unity` draw the same error with their own kind in it, suggesting a plain name such as `"analytics"`; only Lakekeeper is offered the `<project-id>/<name>` form. With #707 to #710 alone `fluid validate` accepted an object-store warehouse for all three. A missing warehouse draws the error it drew before, which says what the value is:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): lakekeeper catalog requires binding.location.warehouse (the catalog name)
+```
+
+**Lakekeeper's `/catalog` path.** Lakekeeper serves the Iceberg REST API under `<host>/catalog`, so its `uri` is `http://lakekeeper:8181/catalog`, not the bare host. A `lakekeeper` `uri` that does not end in `/catalog` is a warning rather than an error, because a reverse proxy may rewrite the path. With `uri: http://lakekeeper:8181`:
+
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+⚠️  1 warning(s)
+Validation completed in 0.000s
+
+Validation Warnings:
+====================
+ 1. iceberg sink (build 'stream_orders'): binding.location.uri 'http://lakekeeper:8181' does not end in '/catalog'; lakekeeper serves the Iceberg REST API under <host>/catalog
+```
+
+A trailing `/` is ignored, so `http://lakekeeper:8181/catalog/` passes; a path after `/catalog`, such as `/catalog/v1`, draws the warning. Under `--strict`, `fluid validate` exits `1` on it. The run preflight logs it and goes on. `polaris` and `unity` have no path check.
+
+What the checks do not cover:
+
+- **An expose no streaming sink writes.** The checks run per Kafka Connect or embedded Debezium Server build, so a `lakekeeper` expose with an `s3://` warehouse that no such build writes validates.
+- **`catalog: rest`.** A generic REST catalog, such as Apache Iceberg's REST fixture, takes an object-store warehouse, so `rest` gets neither check. Name the catalog's own kind to get them.
 
 ### What a DynamoDB, JDBC or BigQuery sink needs
 
