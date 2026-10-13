@@ -103,6 +103,8 @@ Scorecard: 1/2 non-advisory checks passing — FAIL
 
 The command exits `1`. With `--json` the same scorecard is one object with `mission`, `passed`, `gating_passed`, `gating_total`, `contract_sha256` and a `results` list; each result has `name`, `passed`, `advisory`, `detail` and `diagnostics`.
 
+A failing `eq`, `ne`, `contains`, `lt`, `lte`, `gt` or `gte` predicate quotes the value it compared, for example `exposes[0].binding.location.database: expected == 'orders', got 'sales'`. A value at or under a key that holds a credential, such as `password`, `secrets`, `auth`, `connection_string` or `apiKey`, shows as `***REDACTED***` instead: in the terminal, in `--json`, in the stored scorecard, and in what `fluid mission run` sends to its LLM provider. A key that refers to a credential (`secretRef`, `tokenEnv`, `catalogAuth.type`) shows its value, as do `maxTokensPerDay`, `authz` and `author`.
+
 ## Built-in missions
 
 Two flagship missions ship with the CLI.

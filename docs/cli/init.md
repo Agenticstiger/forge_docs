@@ -70,7 +70,7 @@ The next-steps panel stops at `plan`. To run a scaffold, `cd` into it and `fluid
         └── forge-receipt.json     # provenance record; ignored by the generated .gitignore
 ```
 
-Commit `fluid.workspace.yaml`, `.gitignore`, `.fluid/team-memory.yaml` and everything in `my-project/` except the receipt. The generated `.gitignore` block excludes `.fluid/init-receipt.json`, `.fluid/forge-receipt.json`, `.fluid/copilot-memory.json`, `.fluid/logs/` and `runtime/`.
+Commit `fluid.workspace.yaml`, `.gitignore`, `.fluid/team-memory.yaml` and everything in `my-project/` except the receipt. The generated `.gitignore` block excludes `.fluid/init-receipt.json`, `.fluid/forge-receipt.json`, `.fluid/copilot-memory.json`, `.fluid/logs/`, `**/.fluid/debezium/`, `**/.fluid/meltano/` and `runtime/` ([what to commit](./split.md)).
 
 `--blank`, `--blueprint` and the provider starters write the same workspace files, and a product directory that holds `contract.fluid.yaml` and `.fluid/forge-receipt.json` only. Directory templates add their `README.md` and sample data.
 
