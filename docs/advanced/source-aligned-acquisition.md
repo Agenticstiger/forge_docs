@@ -546,6 +546,8 @@ debezium.sink.iceberg.oauth2-server-uri=http://keycloak:8080/realms/iceberg/prot
 debezium.sink.iceberg.scope=lakekeeper
 ```
 
+The source password, and any other property whose value is a credential, is not written to the file. Its line holds an expression, and forge-cli passes the value to Debezium Server in that environment variable: the `secretRef` from the source connection becomes `debezium.source.database.password=${FLUID_DBZ_SOURCE_DATABASE_PASSWORD}`. Quarkus resolves the expression when the server starts. A `server_binary` wrapper that replaces the environment must pass the `FLUID_DBZ_*` variables through. The file is created readable by your user only (mode 0600). A sink value that starts with `env:` is Iceberg's own reference and is written as it is, as above.
+
 `type: bearer` with `tokenEnv: UC_TOKEN` gives `iceberg.catalog.rest.auth.type=oauth2` and `iceberg.catalog.token=env:UC_TOKEN` on Kafka Connect, and `debezium.sink.iceberg.rest.auth.type=oauth2` and `debezium.sink.iceberg.token=env:UC_TOKEN` on Debezium Server. `audience: lakekeeper` adds `iceberg.catalog.audience=lakekeeper`, and `resource` adds `iceberg.catalog.resource` the same way.
 
 #### Where to set the variable
@@ -658,7 +660,7 @@ With `iceberg_sink_enabled: false` and no hand-written config, the reason reads 
  1. iceberg sink (build 'stream_orders'): sink.catalogAuth and iceberg_catalog_overrides both set the catalog's auth (iceberg.catalog.credential), so which one reaches the catalog is ambiguous (Iceberg uses a token over a credential when it gets both). Remove those keys from iceberg_catalog_overrides, or remove sink.catalogAuth
 ```
 
-**A literal secret in an override.** Where no `catalogAuth` applies, an override or a hand-written sink config that sets `credential` or `token` to a literal value is a warning (next to a `catalogAuth` that applies, the override is refused, above), because forge-cli would push the value to the Kafka Connect REST API or write it to `application.properties`. Under `--strict`, `fluid validate` exits `1` on it. A value that starts with `env:` or carries a `${...}` expression, such as a Kafka Connect config provider reference, draws no warning:
+**A literal secret in an override.** Where no `catalogAuth` applies, an override or a hand-written sink config that sets `credential` or `token` to a literal value is a warning (next to a `catalogAuth` that applies, the override is refused, above), because the secret sits in the contract, and forge-cli would push it to the Kafka Connect REST API or pass it to Debezium Server. Under `--strict`, `fluid validate` exits `1` on it. A value that starts with `env:` or carries a `${...}` expression, such as a Kafka Connect config provider reference, draws no warning:
 
 ```text
 ✅ Valid FLUID contract (schema v0.7.6)
@@ -670,7 +672,7 @@ Validation Warnings:
  1. iceberg sink (build 'stream_orders'): iceberg_catalog_overrides sets iceberg.catalog.credential to a literal value (not shown), so the secret is inlined into the sink config forge-cli pushes to the Kafka Connect REST API. Use sink.catalogAuth, or set iceberg.catalog.credential to env:<VARIABLE>, which Iceberg resolves from the environment of the process that runs the sink
 ```
 
-On Debezium Server the warning names `debezium.server.sink.config` and says the value is written to `application.properties`. The runs log the warning and go on.
+On Debezium Server the warning names `debezium.server.sink.config` and says the value is passed to Debezium Server. The runs log the warning and go on.
 
 What `catalogAuth` does not cover:
 
