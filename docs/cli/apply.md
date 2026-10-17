@@ -124,6 +124,8 @@ Two things differ between the engines, and the rest of this page says which one 
 - **Modes.** `--mode dry-run` stops after `tofu plan` on the OpenTofu engine. Beyond that the OpenTofu engine does not branch on `--mode`: `amend`, `create-only` and `replace` run the same `tofu apply` of the emitted module. What stays mode-specific is the [data-loss gate](#safety-gates) and the build phase of the `*-and-build` modes.
 - **Options.** Some options are read only by the native engine. They are marked in the [options tables](#options).
 
+*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* The contract check does not differ: both engines validate the contract before they plan, in every mode. See [Contract validation](#contract-validation).
+
 ## Apply mode
 
 | `--mode` | What it does |
@@ -152,6 +154,49 @@ amend-and-build (or replace-and-build) to run that build, or drop --build-id.
 
 Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0.
 
+## Contract validation
+
+*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* `fluid apply` checks the contract against its schema before it plans anything, on both engines and in every mode, `--dry-run` and the build modes included. A GCP contract that still carries the deprecated `metadata.policies` mapping stops before `tofu` runs:
+
+```bash
+fluid apply contract.fluid.yaml --dry-run --yes
+```
+
+```text
+❌ apply_contract_invalid  [ERR_APPLY_CONTRACT_INVALID]
+  command: apply
+  error_count: 1
+  errors: ["metadata: Additional properties are not allowed ('policies' was unexpected)"]
+  message: Contract validation failed with 1 error(s); ``fluid apply`` will not proceed on a schema-invalid contract. Run ``fluid validate`` for the full report.
+```
+
+It is the check `fluid validate` and `fluid plan` run: a `fluidVersion` below 0.7 is refused, then the contract is validated against the schema its `fluidVersion` names.
+
+| The input | Event | Exit |
+|---|---|---|
+| A contract whose `fluidVersion` is below 0.7 | `contract_version_unsupported` | 1 |
+| A contract that is not valid against its schema | `apply_contract_invalid` | 1 |
+| A `plan.json` that embeds no contract | `apply_plan_missing_contract` | 1 |
+
+Before this change only the native engine ran the check, and not in the build modes. On the OpenTofu engine (`aws`, `gcp`, `snowflake`, `confluent` and IaC plugin clouds), and under `--mode amend-and-build` or `replace-and-build` on either engine, a contract `fluid validate` rejects reached `tofu` or the build runner and could apply with exit 0.
+
+What is checked:
+
+- **A contract file or a bundle.** The contract with its `--env` overlay, as `fluid validate <contract> --env <env>` sees it: `{{ env.* }}` placeholders are still literal.
+- **A `plan.json`.** The contract embedded in the plan, the copy its `planDigest` covers. Every plan `fluid plan` writes embeds it (see [What `plan.json` records](./plan.md#what-plan-json-records)).
+
+A plan whose `contract` is missing, empty or not an object is refused, with or without `--no-verify-plan-binding`. There is nothing to check, and the `planDigest` is an unkeyed hash: it proves the file has not changed since it was written, not who wrote it. Before this change such a plan fell back to the native engine and ran its actions unchecked.
+
+```text
+❌ apply_plan_missing_contract  [ERR_APPLY_PLAN_MISSING_CONTRACT]
+  path: .../runtime/plan.json
+  hint: plan.json embeds no contract, so there is nothing to validate before applying it. Re-run ``fluid plan <contract> --out <plan>.json`` with a current forge-cli.
+```
+
+The check runs after the [plan binding](#plan-binding) checks and the [mode gate](#the-mode-gate), and before the [apply hooks](#extension-point-apply-hooks), `tofu`, the native provider and any build, so a hook never sees a refused contract. `fluid apply` reads its input once, and the engine choice, the hooks, `tofu`, the build runner and the native provider all take that copy: the contract that is applied is the contract that was checked, even if the file changes while the apply runs.
+
+There is no flag to skip the check. Run `fluid validate <contract> --env <env>` to see every error, fix them, and apply again.
+
 ## Plan binding
 
 When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` runs three gates on it before it builds or provisions anything, on both engines:
@@ -173,6 +218,8 @@ This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryp
 ```
 
 Pass the bundle with `--bundle <path-to.tgz>`: the tgz this `plan.json` was generated against. When omitted, `apply` auto-discovers a single sibling `.tgz` / `.tar.gz` next to the `plan.json`. If several are present it logs a warning and leaves the bundle unresolved, so pass `--bundle` to disambiguate. A `plan.json` made from a raw contract has an empty `bundleDigest`, so only `planDigest` is verified; see [`fluid plan`](./plan.md#plan-binding).
+
+*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* After these gates the contract the plan embeds is validated against its schema, and a plan that embeds none is refused with `apply_plan_missing_contract`. See [Contract validation](#contract-validation).
 
 ### The plan's mode
 
@@ -516,6 +563,9 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | --- | --- |
 | `apply_plan_digest_plan_tamper`, `apply_plan_digest_bundle_mismatch`, `apply_plan_digest_bundle_missing` | A saved plan fails its digest checks. See [Plan binding](#plan-binding). |
 | `apply_plan_mode_mismatch` | `--mode` differs from the mode the plan was made for. |
+| `apply_contract_invalid` | *(unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* The contract, or the contract a `plan.json` embeds, is not valid against its schema. Raised on both engines and in every mode. See [Contract validation](#contract-validation). |
+| `contract_version_unsupported` | *(unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* The contract's `fluidVersion` is below 0.7. Raised on both engines and in every mode. |
+| `apply_plan_missing_contract` | *(unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* A `plan.json` embeds no contract. Re-run `fluid plan` and apply the new plan. |
 | `plan_env_mismatch` | A build mode is given an `--env` that differs from the plan's. |
 | `bundle_env_mismatch` | `--env` differs from the env a bundle was built for. |
 | `apply_build_id_requires_build_mode` | `--build-id` with a mode that runs no build. |
@@ -527,6 +577,7 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `opentofu_dataset_access_unreconciled` | State holds a BigQuery dataset an older forge-cli applied with an authoritative access list, and every entry of it is a grant the contract no longer makes. Revoke those entries on the dataset by hand, or keep one of them in `accessPolicy` for one apply. |
 | `apply_state_backend_invalid`, `state_shared_with_another_provider`, `state_migration_*` | See [Remote state](#remote-state). |
 | `generate_iac_provider_mismatch` | `--provider` contradicts the contract's binding. |
+| `unsupported_binding` | The OpenTofu module cannot provision part of the contract as declared, and refuses it rather than drop it; the `kind:` line says which part. *(unreleased, [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715))* Kind `mwaa-environment-not-emitted`: an `aws` contract with `orchestration.engine: airflow` and an `orchestration.schedule` asks for an MWAA environment, which the module cannot create. See [Scheduling on AWS](../providers/aws.md#scheduling-on-aws). |
 | `opentofu_engine_no_tofu` | The OpenTofu engine needs `tofu` and it is not on `PATH`. Install it, or pass `--ensure-opentofu`. |
 
 ## Notes
