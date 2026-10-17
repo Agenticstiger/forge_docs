@@ -35,7 +35,7 @@
     "@vuepress/plugin-links-check": "2.0.0-rc.131",
     "@vuepress/plugin-markdown-chart": "2.0.0-rc.132",
     "@vuepress/plugin-sitemap": "2.0.0-rc.132",
-    "@vuepress/plugin-slimsearch": "2.0.0-rc.131",
+    "@vuepress/plugin-slimsearch": "2.0.0-rc.134",
     "@vuepress/theme-default": "^2.0.0-rc.132",
     "monaco-editor": "^0.56.0",
     "sass-embedded": "^1.99.0",
