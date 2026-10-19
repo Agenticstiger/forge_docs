@@ -85,6 +85,10 @@ The [`consumes`](./contract-0.7.6-preview.md#consumes) and [`exposes`](./contrac
 
 *([forge-cli #712](https://github.com/Agenticstiger/forge-cli/pull/712), unreleased)* `builds[].properties.sink.catalogAuth` is a 0.7.6 field too. No release includes it yet, so it has no row above and none in the preview delta, which is generated from a released schema. It names the environment variable that authenticates a streaming sink to an Iceberg REST catalog; see [Authenticate a sink to a REST catalog](../advanced/source-aligned-acquisition.md#authenticate-a-sink-to-a-rest-catalog).
 
+*(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* `builds[].engine: flink` is a 0.7.6 value too, for a job that runs on the Flink Kubernetes Operator, AWS Managed Service for Apache Flink, or another Flink platform. forge-cli validates and plans it but ships no runner; see [Flink jobs](../concepts/builds-exposes-bindings.md#flink-jobs-engine-flink).
+
+*(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract that names 0.7.6, an overlay patches `builds`, `exposes` and `consumes` by identity instead of by position; see [How an overlay merges](../concepts/environments-and-overlays.md#how-an-overlay-merges).
+
 ### Federated upstreams
 
 `upstreamWorkspace` and `upstreamDigest` travel together. This pair of fields on a `consumes[]` entry validates under 0.7.6:
