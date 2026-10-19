@@ -56,6 +56,7 @@ fluid apply contract.fluid.yaml --yes --mode amend-and-build
 
 Under `--mode amend-and-build`, each build goes to the runner that matches it:
 
+- *(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* a Flink build (`engine: flink`, or `properties.language: flink_sql`) is not run: it is reported as run outside forge-cli (see [Flink jobs](#flink-jobs-engine-flink));
 - an `acquisition` build runs on its ingestion engine;
 - a build with `engine: sql`, or `pattern: embedded-logic` with `properties.sql`, runs as embedded SQL;
 - a dbt build runs the dbt project at `repository`;
@@ -105,6 +106,38 @@ only the first expose (by_region); by_customer is not written by this build
 ```
 
 After that run `out/by_region.parquet` held the second build's rows (`customer_id`, `revenue`). Until this changes, give each embedded-SQL build its own contract. An extra expose bound to a cloud store or a warehouse is refused instead of skipped (from the v0.18.1 source).
+
+### Flink jobs: `engine: flink`
+
+*(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* A long-running Flink job, typically Flink SQL from Kafka to Kafka on the [Flink Kubernetes Operator](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/) or on AWS Managed Service for Apache Flink, declares `engine: flink` (schema 0.7.6 preview). forge-cli validates and plans the build but ships no runner for it: the platform that runs the job executes it.
+
+```yaml
+fluidVersion: "0.7.6"
+builds:
+  - id: reconcile
+    engine: flink
+    pattern: embedded-logic
+    outputs: [service_instances_full]
+    properties:
+      language: flink_sql
+      sql: |
+        INSERT INTO service_instances_full
+        SELECT i.id, i.status, v.location
+        FROM service_instances i
+        JOIN inventory v ON i.id = v.instance_id
+      parameters:
+        parallelism: 2
+        upgradeMode: last-state
+    execution:
+      runtime:
+        platform: kubernetes
+```
+
+- **Deployment settings go under `properties.parameters`.** `embeddedLogicPattern` is closed, so `parallelism` beside `sql` fails validation with `Additional properties are not allowed ('parallelism' was unexpected)`. Name them as the operator does: `parallelism` and `upgradeMode` (`savepoint`, `last-state`, `stateless`) from its job spec, and `flinkConfiguration`.
+- **`fluid apply --mode amend-and-build`** prints `Build 'reconcile' - engine 'flink' runs on kubernetes, outside forge-cli; there is nothing for forge-cli to run.` and counts the build on its own summary line, `Run outside forge-cli: 1`. A contract whose only builds run elsewhere exits 0; it is not "every build was skipped". The apply run report records the build as `skipped` with `reason: runs_outside_forge`.
+- **No planner runs its SQL.** The local, AWS, GCP and Snowflake planners never turn it into a DuckDB, Athena, BigQuery or Snowflake statement, and the local planner lands nothing for an expose the job writes. In a contract that mixes a Flink build with a local one, name each build's exposes in `outputs`: when it cannot tell which build writes an expose, the local planner lands neither and warns.
+- **Schedules and generated code.** `fluid generate schedule` gives the build no task or DAG, and a contract with no other build has nothing to schedule (exit 0). `fluid generate transformation` says there is no code to generate for it. Leave `execution.trigger` out for a continuous job.
+- **On 0.7.5**, `engine: flink` fails validation. A 0.7.5 contract declares the same job with `properties.language: flink_sql` (with `engine: sql`, say), and forge-cli treats it the same way.
 
 ## `exposes[]` - the consumer-facing API
 
@@ -510,6 +543,8 @@ Schema `0.7.6` is a preview. It validates only when the file names it, and the s
 - **`consumes[].upstreamWorkspace` and `upstreamDigest`** pin an upstream that lives in another mesh ([Federated upstreams](./federation.md)). `upstreamWorkspace` is the federated workspace's id; `upstreamDigest` is the `sha256:<64 hex>` digest of the upstream contract, which `fluid contract digest <file>` prints. `fluid apply` compares it with the upstream's live digest.
 - **`binding.principals`, `binding.encryption`, `binding.packaging`** (the first two, with `exposes[].lifecycle.expire`, are covered in [Governance parity](./governance-parity.md)) map the contract's logical principals to identities on a platform, set encryption at rest for S3 and BigQuery, and override packaging per expose.
 - **`exposes[].lifecycle.expire`** deletes stored data once it is older than `retention`; it is `false` unless you set it.
+- *(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* **`builds[].engine: flink`** declares a job that runs outside forge-cli; see [Flink jobs](#flink-jobs-engine-flink).
+- *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* **Overlays merge `builds`, `exposes` and `consumes` by identity**; see [How an overlay merges](./environments-and-overlays.md#how-an-overlay-merges).
 
 ## Where to look next
 

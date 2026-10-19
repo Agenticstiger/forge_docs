@@ -116,7 +116,7 @@ fluid apply contract.fluid.yaml --env prod --yes
 
 ## What the overlay loader does
 
-- **Deep-merges** the overlay over the base — maps merge key-by-key; a list of maps is patched **positionally**, so `exposes: [ { ... } ]` in an overlay amends `exposes[0]` of the base rather than replacing the whole list, and overlay entries past the end of the base list are appended. Scalar lists, empty lists and mismatched types are replaced wholesale.
+- **Deep-merges** the overlay over the base — maps merge key-by-key; a list of maps is patched **positionally**, so `exposes: [ { ... } ]` in an overlay amends `exposes[0]` of the base rather than replacing the whole list, and overlay entries past the end of the base list are appended. Scalar lists, empty lists and mismatched types are replaced wholesale. *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* With `fluidVersion: "0.7.6"`, `builds`, `exposes` and `consumes` are patched by their ids instead, so each overlay entry names the `id` / `exposeId` (or `productId` + `exposeId`) of the entry it patches; see [How an overlay merges](../concepts/environments-and-overlays.md#how-an-overlay-merges).
 - **Resolves `$ref` first.** Fragments the base pulls in with `$ref` are resolved before the overlay is merged, so an overlay can patch a field that lives in a fragment. Do not put a `$ref` in an overlay itself: as of 0.18.1 such an overlay is silently ignored by `fluid validate` and `fluid plan`.
 - **Announces the merge** — an `overlay_applied` line is printed whenever an overlay is merged. The line does **not** name which overlay file was used.
 - **Warns when no overlay matches** `--env <name>` and runs the base contract unchanged. The warning names the overlays that do exist:

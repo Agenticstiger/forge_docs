@@ -71,6 +71,39 @@ not name the file.
 - A list of maps is patched by position: `exposes: [ {...} ]` in an overlay
   amends `exposes[0]` of the base and leaves the rest of that expose alone.
   Overlay entries past the end of the base list are appended.
+- *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract whose `fluidVersion` is 0.7.6 (the schema
+  preview) or later, `builds`, `exposes` and `consumes` at the top of the
+  contract are patched by identity instead: `builds[].id`, `exposes[].exposeId`,
+  and `consumes[]` by `productId` + `exposeId`. Inserting or reordering an entry
+  in the base no longer retargets the overlay.
+
+  ```yaml
+  # contract.fluid.yaml (base): backfill was just added first
+  builds:
+    - {id: backfill, engine: spark}
+    - {id: ingest, engine: kafka-connect}
+    - {id: transform, engine: spark, properties: {executors: 2}}
+  ```
+
+  ```yaml
+  # overlays/prod.yaml: patches transform wherever it sits
+  builds:
+    - id: transform
+      properties: {executors: 8}
+  ```
+
+  An overlay entry whose id the base lacks is appended, and logged as
+  `overlay_entry_added` with the base's ids, so a typo shows. An overlay entry
+  that names no id, or an id named twice, fails the load
+  (`contract_load_failed`, naming the overlay file and the index): give each
+  entry the id of the entry it patches. Id-less patches still apply to a base
+  list with at most one entry. When the base's own ids are missing or repeated,
+  the list merges by position and logs `overlay_merged_by_position`. Lists
+  inside an entry, such as an expose's `contract.schema`, still merge by
+  position.
+- *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* Before 0.7.6 the merge is by position, and a patch that
+  lands on an entry naming another id logs `overlay_patch_retargeted`: Put the
+  overlay's entries in the base's order, or set `fluidVersion: "0.7.6"`.
 - Base keys an overlay does not set survive inside a patched map. A base
   `binding.location.path` is still present in the resolved binding of an overlay
   that sets `project`, `dataset` and `table`: `fluid bundle --env gcp` shows
