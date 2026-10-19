@@ -169,6 +169,30 @@ A root contract can pull objects from other files with `$ref`. `fluid validate` 
 
 The suggestions printed under the slug (check the YAML syntax, file permissions) are generic and do not apply to a refused `$ref`. The error line above them is the diagnosis. How the ref root works, and how to widen it for a monorepo, is in [Composing a contract with `$ref`](../concepts/contract-refs.md).
 
+## YAML limits
+
+A contract is read through a guard that refuses YAML built to exhaust memory or CPU, for example a few hundred bytes of nested anchors that expand to millions of nodes (the "billion laughs" shape). It refuses a file that:
+
+| Refused when | Limit | Message |
+|---|---|---|
+| The file is too large | 5 MiB (5,242,880 bytes; *(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* counted in UTF-8 bytes for text too) | `YAML input is over the 5242880-byte safety cap` |
+| It has too many alias references (`*name`) | 50 | `YAML input has more than 50 alias references` |
+| *(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* It nests too deep | 128 levels of mappings and lists | `YAML input nests more than 128 levels deep` |
+| *(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* Its aliases add too many nodes | 100,000 added nodes, or 100-fold growth once the document is past 1,000 nodes | `YAML aliases expand this document from <n> to <m> nodes, ...` |
+| *(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* Its aliases repeat too much text | 5,242,880 characters of scalar text added | `YAML aliases repeat <n> characters of text in this document, ...` |
+
+`fluid validate` reports a refused contract as `contract_load_failed`:
+
+```text
+❌ Validation error: contract_load_failed
+   error: Failed to parse ./contract.fluid.yaml: YAML aliases repeat 20000000 characters of text in this document, over the cap of 5242880 — possible anchor-expansion (billion-laughs) DoS. Write the repeated blocks out, or nest fewer anchors.
+   [ERR_CONTRACT_LOAD_FAILED]
+```
+
+Reusing an anchored block a few times stays far inside every limit, and no file shipped with the CLI nests more than 9 levels. A contract that hits one is generated or hostile: write the repeated blocks out instead of reusing them through anchors. A document that contains itself through an alias is refused with `contract_load_failed` as well.
+
+*(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* The same guard reads ODCS and ODPS files: [`fluid odps import` and `fluid odps validate`](./odps.md), [`fluid odcs validate` and `fluid odcs import`](./odcs.md), [`fluid odps-bitol validate`](./odps-bitol.md), the contracts `odps import` fetches for a `contractId`, and [`fluid forge --seed-from`](./forge.md). Before, those read YAML with no limit at all. `fluid odps`, `fluid odcs` and `fluid odps-bitol` report a refused file as a failed import or validation and exit 1.
+
 ## Schema versions: stable and preview
 
 The CLI bundles several schema versions; [`fluid version`](./version.md) lists them and says which are preview. `fluid validate --list-versions --offline` prints the bundled ones:

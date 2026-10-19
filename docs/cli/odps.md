@@ -127,6 +127,30 @@ fluid odps import p.odps.yaml -o r.fluid.yaml
 
 The command exits 1. Add `--lenient` to import the document anyway, with each unresolved output port reported as a warning. The recovered contract then has no schema for those ports.
 
+## How a port's `contractId` is resolved
+
+`odps import` replaces each port's `contractId` with the ODCS contract it names. It looks, in order:
+
+1. In a directory bundle, at the directory's ODCS contracts, matched by the `id` each one declares.
+2. Beside the product document and in its `contracts/` subdirectory, at `<name>.odcs.yaml`, `<name>.odcs.yml`, `<name>.odcs.json` and `<name>.yaml`, where `<name>` is the whole `contractId`, then its part after the last dot. For `commerce.orders` that is `commerce.orders.odcs.yaml` first and `orders.odcs.yaml` later.
+3. Over HTTP, only when the `contractId` is itself a URL and you pass `--allow-remote`.
+
+*(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* A file found in step 2 is used only when it declares the `contractId` as its `id`. An `orders.odcs.yaml` that declares `billing.orders` is skipped for `commerce.orders` with a warning naming both ids, and the search goes on. A bundle that relied on a file named after the port but declaring another id now fails a strict import, or skips the port under `--lenient` (an input port is always skipped). Make the port's `contractId` and the ODCS `id` agree.
+
+*(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* A `contractId` that cannot name a contract is an unresolved one, like a `contractId` no file matches: `--lenient` and input ports skip it with a warning, and a strict import fails with exit 1. That covers a NUL byte, a value that is not a string (`false` and `0` included), a segment longer than a file name may be, and an unparsable URL such as `http://[::1`. A missing or empty `contractId` leaves the port without a contract and no warning, as before.
+
+### Files a directory bundle cannot read
+
+*(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* Every `.yaml`, `.yml` and `.json` file in the directory is read to find the product document, upper-case suffixes such as `PRODUCT.ODPS.YAML` included. A file that does not parse, or that the [YAML limits](./validate.md#yaml-limits) refuse, is skipped with a warning naming it. When no readable ODPS document is left, the import fails rather than importing the ODCS contracts on their own, because the skipped file may be the product:
+
+```text
+❌ Error importing: import_directory: found no readable ODPS doc in
+dist/odps, and could not read 1 file(s) that may be it:
+['dist/odps/product.odps.yaml']
+```
+
+Fix or remove the file the error names. An unreadable file next to a readable product document, such as a stray `docker-compose.yaml`, is only skipped.
+
 ## Spec at a glance
 
 | `--spec` | Standard | Governed by | Typical use |
