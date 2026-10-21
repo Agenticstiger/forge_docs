@@ -176,7 +176,7 @@ Validation Warnings:
 - Workspace mode lists it under the product, and `--strict` fails the product.
 - `fluid contract-validation --env` and `fluid test --env` (the native engine) report it too; `fluid test` shows it as an "Environment overlay" row.
 - `overlay_entry_added`, an overlay entry the base does not have, stays a log line and does not fail `--strict`: a build only one environment runs is often intended.
-- A bundle does not carry it: `fluid bundle --env` merged the overlay before, so `fluid validate <bundle>.tgz --strict` (pipeline stage 2) passes. Validate the contract file with `--env` to catch it.
+- *(unreleased, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* A bundle carries it. `fluid bundle --env --format tgz` records it in the bundle's manifest, so `fluid validate <bundle>.tgz` reports it as an `OVERLAY-WARNING` finding and `--strict` (pipeline stage 2) fails on it: see [Validating a bundle](#validating-a-bundle-tgz). A bundle built before that change records none and passes. `fluid contract-validation` and `fluid test` do not read the record, so run them on the contract file with `--env`.
 
 ## Contracts split into fragments
 
@@ -280,6 +280,7 @@ What it checks:
 - **The files in the bundle.** The resolved contract against the JSON Schema, SQL fragments with a SQL parser, and OpenAPI fragments with an OpenAPI validator. When the SQL parser or the OpenAPI validator is not installed, those fragments are reported as an info (an error under `--strict`) instead of being checked.
 - **The contract rules.** The resolved contract goes through the same rules a contract file does: sovereignty, agent policy, binding prerequisites, packaging, semantics, composition and plugin validators. Each finding is reported with code `CONTRACT-RULE`.
 - **The environment.** `--env` must match the environment the bundle was built for.
+- **The overlay warnings.** *(unreleased, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* An overlay patch that `fluid bundle --env` merged onto another entry is recorded in the manifest and reported as a warning, `OVERLAY-WARNING`, so `--strict` fails on it. A bundle is never re-overlaid, so the record is how validate sees it.
 
 A bundle is never re-overlaid, so a mismatched `--env` is an error, `BUNDLE-ENV-MISMATCH`, and exits `1`:
 
@@ -304,6 +305,22 @@ A bundle built from the governance example above fails on its contract rules, th
    [error] contract: contract.resolved.yaml: exposes[exports] is a GCP gcs_bucket binding and declares lifecycle.expire, ...
 ```
 
+A bundle built with `--env prod` from the 0.7.5 contract in [`--env` and environment overlays](#env-and-environment-overlays), whose overlay patches the wrong build, fails under `--strict`:
+
+```bash
+fluid validate runtime/bundle.tgz --env prod --strict
+```
+
+```text
+❌ Bundle fail: /path/to/proj/runtime/bundle.tgz
+   digest: sha256:6238f9c15525142e3b67ff343171cf10631c0e5f85504608bec05ad8e2380db7
+   issues: 1 total (0 error, 1 warning, 0 info)
+   [warning] overlay: MANIFEST.json: overlay_patch_retargeted: in network.service-instances, the overlay's builds[1] names id transform but patches the base's builds[1], id ingest, because lists merge by position. Put the overlay's entries in the base's order, or set fluidVersion 0.7.6 or later to merge builds by id.
+❌ Validation failed: warnings treated as errors (--strict)
+```
+
+*(unreleased, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* Without `--strict` the same bundle passes and still lists the warning: a bundle that passes lists its warnings, not only their count. `--quiet`, which printed nothing for a bundle, prints each error as `ERROR: <finding>`, a recorded overlay warning as `WARNING: <finding>`, and under `--strict` each warning as `ERROR (--strict): <finding>`.
+
 `--report PATH` writes the full structured report as JSON, on pass and on fail, so a CI job can upload it as an artifact. The report has `bundleDigest`, `input`, `strict`, `status`, `summary` and `issues[]`; each issue carries `file`, `validator`, `severity`, `message` and a `code`. The `BUNDLE-ENV-MISMATCH` finding is written to the report like any other. `--report` has an effect only for a `.tgz` bundle: `fluid validate contract.fluid.yaml --report out.json` writes no file as of 0.18.1.
 
 Codes you will meet in a report:
@@ -312,6 +329,7 @@ Codes you will meet in a report:
 | --- | --- |
 | `MANIFEST-TAMPER` | A file's hash does not match the manifest. |
 | `BUNDLE-ENV-MISMATCH` | `--env` differs from the environment the bundle was built for. |
+| `OVERLAY-WARNING` | `fluid bundle --env` recorded an overlay patch that landed on another entry (a warning; `--strict` fails on it). |
 | `CONTRACT-RULE` | A contract rule failed or warned on the resolved contract. |
 | `CONTRACT-LOAD` | The resolved contract inside the bundle could not be loaded. |
 | `RESOLVED-PARSE` | The resolved contract could not be parsed. |

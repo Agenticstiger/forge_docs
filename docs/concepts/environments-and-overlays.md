@@ -107,6 +107,8 @@ not name the file.
   *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* `fluid validate --env`, `fluid contract-validation --env` and
   `fluid test --env` report it as a warning instead, and `--strict` fails on
   it; see [`fluid validate`: `--env` and environment overlays](../cli/validate.md#env-and-environment-overlays).
+  *(unreleased, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* `fluid bundle --env --format tgz` records it in the
+  bundle, so `fluid validate <bundle>.tgz --strict` fails on it too.
 - Base keys an overlay does not set survive inside a patched map. A base
   `binding.location.path` is still present in the resolved binding of an overlay
   that sets `project`, `dataset` and `table`: `fluid bundle --env gcp` shows
