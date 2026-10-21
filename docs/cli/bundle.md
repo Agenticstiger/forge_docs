@@ -190,6 +190,7 @@ The file itself is compact JSON with sorted keys.
 | `source.contract` | The source contract, relative to the directory the bundle was written to. |
 | `source.env` | The `--env` the bundle was built with, or `null`. |
 | `source.overlay` | The overlay file that was merged, relative to the contract's directory, or `null`. |
+| `source.overlayWarnings` | *(unreleased, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* The overlay merge warnings `fluid validate --strict` fails on, one message each: a patch that landed on another entry. Present only when the merge raised one. |
 
 The `source` block is outside the digest, so the digest names the resolved
 contract alone: the same contract bundled into two directories keeps one
@@ -207,7 +208,8 @@ done | shasum -a 256
 
 Later stages use `source` to resolve relative `binding.location.path` values
 against the source contract's directory, and to refuse a mismatched
-environment.
+environment. `fluid validate` reports the overlay warnings it records, with
+any character that is not printable escaped.
 
 ## Environments
 
