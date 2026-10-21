@@ -157,6 +157,27 @@ Two environments are exempt from the refusal: `dev`, and an environment whose na
 
 The check lives in the contract loader, which `plan`, `apply`, `verify` and `publish` also use: `fluid apply --env prod` on a contract with no `prod` overlay prints the same warning. See [Per-environment overlays](../recipes/per-environment-overlays.md).
 
+*(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* An overlay patch that lands on another entry is a validation warning, so `--strict` fails on it. A contract that merges overlays by position (0.7.5 or older, or a 0.7.6 base whose entries lack unique ids) can do that: an overlay written against `builds: [ingest, transform]` patches the wrong build once the base gains one in front.
+
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+⚠️  1 warning(s)
+Validation completed in 0.001s
+
+Validation Warnings:
+====================
+ 1. overlay_patch_retargeted: in network.service-instances, the overlay's builds[1] names id transform but patches the base's builds[1], id ingest, because lists merge by position. Put the overlay's entries in the base's order, or set fluidVersion 0.7.6 or later to merge builds by id.
+
+❌ Validation failed: warnings treated as errors (--strict)
+```
+
+- Without `--strict` it exits `0`; with it, `1`. `--format json` lists it under `warnings`.
+- `--quiet` prints it as a `WARNING:` line, and with `--strict` as `ERROR (--strict): <warning>`.
+- Workspace mode lists it under the product, and `--strict` fails the product.
+- `fluid contract-validation --env` and `fluid test --env` (the native engine) report it too; `fluid test` shows it as an "Environment overlay" row.
+- `overlay_entry_added`, an overlay entry the base does not have, stays a log line and does not fail `--strict`: a build only one environment runs is often intended.
+- A bundle does not carry it: `fluid bundle --env` merged the overlay before, so `fluid validate <bundle>.tgz --strict` (pipeline stage 2) passes. Validate the contract file with `--env` to catch it.
+
 ## Contracts split into fragments
 
 A root contract can pull objects from other files with `$ref`. `fluid validate` resolves the pointers before it checks anything, so you pass the root file and validate the whole product. A `$ref` may only name a file inside the contract's own directory tree. One that climbs out of it is refused:
