@@ -57,5 +57,13 @@ with DAG(
 - Writes one `<dag_id>.py` file per contract, where `dag_id` comes from `id` (or `name`) with `.` replaced by `_`.
 - The generated DAG has three sequential `BashOperator` tasks: `validate`, `plan`, `apply`. The `plan` and `apply` steps run against the GCP provider, and `apply` passes `--yes`.
 - The tasks call `python -m fluid_build.cli` with the contract path as you gave it to `scaffold-composer`, relative to the Composer worker's working directory, so the contract has to be at that path on the worker. `--env` selects the overlay used to read the contract when the DAG is generated; the commands inside the DAG carry no `--env`.
-- Schedule is read from `builds[].execution.trigger.cron` in the contract; if missing, defaults to `0 2 * * *` (daily at 02:00). `trigger.schedule`, the key [`generate schedule`](./generate.md#fluid-generate-schedule) reads, is not read here: a contract with `schedule: "15 3 * * *"` and no `cron` still gets `0 2 * * *`.
+- Schedule is read from `builds[].execution.trigger.cron` in the contract; if missing, defaults to `0 2 * * *` (daily at 02:00). *(unreleased, [forge-cli #737](https://github.com/Agenticstiger/forge-cli/pull/737))* It is the cron of the first build a scheduler starts: a build that runs outside forge-cli (`engine: flink`, `properties.language: flink_sql`) or whose trigger is `continuous` is skipped, so a Flink job's own cron does not schedule the DAG. `trigger.schedule`, the key [`generate schedule`](./generate.md#fluid-generate-schedule) reads, is not read here: a contract with `schedule: "15 3 * * *"` and no `cron` still gets `0 2 * * *`.
+- *(unreleased, [forge-cli #737](https://github.com/Agenticstiger/forge-cli/pull/737))* A contract whose every build runs outside forge-cli or continuously gets no DAG unless it declares `orchestration.tasks`, the test [`fluid generate schedule`](./generate.md#fluid-generate-schedule) applies before it writes no files. The command exits `0`:
+
+  ```text
+  Every build runs outside forge-cli (a Flink job, for example) or continuously
+  (trigger.type: continuous), so there is nothing to schedule. No DAG written.
+  ```
+
+  A DAG the command wrote for the product before stays where it is, and the command prints its path when it finds it under the name it writes now: delete it, and remove it from Cloud Composer if you deployed it there. A file of that name that it did not write is not mentioned.
 - For non-Composer Airflow installs, see [`fluid generate-airflow`](./generate-airflow.md). For Airflow, Dagster and Prefect output from one command, see [`fluid generate schedule`](./generate.md#fluid-generate-schedule).

@@ -260,6 +260,37 @@ AWS has one warning of its own: `accessPolicy.grants` on a contract whose AWS bi
 
 Each message names its remedy. How the fields work, and what `fluid apply` emits for them on each cloud, is in [Governance](../advanced/governance.md), the [GCP provider](../providers/gcp.md) and the [AWS provider](../providers/aws.md).
 
+## A continuous trigger on a batch build
+
+*(unreleased, [forge-cli #737](https://github.com/Agenticstiger/forge-cli/pull/737))* `trigger.type: continuous` (schema 0.7.6, see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)) says the job's platform keeps it running, so no scheduler starts the build. On a build forge-cli runs as a batch run, which ends, `fluid validate` warns:
+
+```text
+✅ Valid FLUID contract (schema v0.7.6)
+⚠️  1 warning(s)
+Validation completed in 0.002s
+
+Validation Warnings:
+====================
+ 1. builds[0] (id 'customer360_build'): trigger.type continuous on engine 'dbt': forge-cli runs dbt builds as batch runs, which end, and its dbt runner refuses a continuous trigger: forge-cli never runs this build. Use trigger.type schedule or manual, or run the job on a platform that keeps it running.
+```
+
+Without `--strict` it exits `0`; with it, `1`. `--format json` lists it under `warnings`.
+
+| Build | What forge-cli does with a continuous one | Warning |
+| --- | --- | --- |
+| `engine: dbt`, `dbt-<adapter>` or `python`, or any build the python runner takes: no engine, `spark`, `glue` or `custom` without a `runtime.platform` of its own, an ingestion engine without `pattern: acquisition` | Its runner refuses the trigger, so `fluid apply --mode amend-and-build` fails on the build (exit `1`) and nothing else runs it. | Yes |
+| Inline SQL (`engine: sql`, or `pattern: embedded-logic` with `properties.sql`) on the local DuckDB engine or Snowflake, or a `duckdb`, `airbyte`, `meltano` or `dlt` acquisition | Runs only when `fluid apply` runs builds; no scheduler starts it. | Yes |
+| A `kafka-connect` or `debezium` acquisition, `engine: flink`, or `properties.language: flink_sql` | The connector or job keeps running on its platform. | No |
+| `engine: spark`, `glue` or `custom` with a `runtime.platform` other than `local`, or inline SQL on a platform with no embedded-SQL executor | forge-cli does not run it, so `fluid apply --mode amend-and-build` leaves it to that platform, as it does a Flink job, and records it as skipped with `reason: runs_outside_forge`. | No |
+
+For a build of the last kind, `fluid apply --mode amend-and-build` prints:
+
+```text
+⏭️  Build 'ingest_events' - trigger.type continuous on engine 'spark': databricks keeps the job running, outside forge-cli; there is nothing for forge-cli to run.
+```
+
+The check runs on the contract file and on a bundle's resolved contract, not in [workspace mode](#validating-without-a-contract-path).
+
 ## Validating a bundle (`.tgz`)
 
 Pass a bundle built with `fluid bundle --format tgz` and `fluid validate` checks the bundle itself and the contract inside it:
