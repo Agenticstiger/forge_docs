@@ -40,7 +40,7 @@ fluid contract-validation contract.fluid.yaml --output-format json --output-file
 ## Notes
 
 - Connects to the live resource for the contract's provider (BigQuery, Snowflake, AWS, or local DuckDB) and verifies schema, bindings, quality specs, and metadata.
-- Returns exit code `1` if any errors are found, or if `--strict` is set and any warnings are present.
+- Returns exit code `1` if any errors are found, or if `--strict` is set and any warnings are present. *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* With `--env`, an overlay patch that lands on another entry is such a warning (category `overlay`); see [`fluid validate`](./validate.md#env-and-environment-overlays).
 - Provider is auto-detected from `exposes[].binding.platform` (or `builds[].execution.runtime.platform`) — the `--provider`, `--project`, and `--region` flags only override the detected values.
 - Schema lookups are cached per `(table, provider)` for `--cache-ttl` seconds; use `--cache-clear` to force a refresh.
 - With `--check-drift`, results are compared against the recorded validation history for the same contract and resource.

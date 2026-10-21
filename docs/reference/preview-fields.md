@@ -89,6 +89,8 @@ The [`consumes`](./contract-0.7.6-preview.md#consumes) and [`exposes`](./contrac
 
 *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract that names 0.7.6, an overlay patches `builds`, `exposes` and `consumes` by identity instead of by position; see [How an overlay merges](../concepts/environments-and-overlays.md#how-an-overlay-merges).
 
+*(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* `builds[].execution.trigger.type: continuous` is a 0.7.6 value too, for a job its platform keeps running: no scheduler starts it, and it takes no other trigger; see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous).
+
 ### Federated upstreams
 
 `upstreamWorkspace` and `upstreamDigest` travel together. This pair of fields on a `consumes[]` entry validates under 0.7.6:

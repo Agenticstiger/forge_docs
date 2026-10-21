@@ -136,8 +136,42 @@ builds:
 - **Deployment settings go under `properties.parameters`.** `embeddedLogicPattern` is closed, so `parallelism` beside `sql` fails validation with `Additional properties are not allowed ('parallelism' was unexpected)`. Name them as the operator does: `parallelism` and `upgradeMode` (`savepoint`, `last-state`, `stateless`) from its job spec, and `flinkConfiguration`.
 - **`fluid apply --mode amend-and-build`** prints `Build 'reconcile' - engine 'flink' runs on kubernetes, outside forge-cli; there is nothing for forge-cli to run.` and counts the build on its own summary line, `Run outside forge-cli: 1`. A contract whose only builds run elsewhere exits 0; it is not "every build was skipped". The apply run report records the build as `skipped` with `reason: runs_outside_forge`.
 - **No planner runs its SQL.** The local, AWS, GCP and Snowflake planners never turn it into a DuckDB, Athena, BigQuery or Snowflake statement, and the local planner lands nothing for an expose the job writes. In a contract that mixes a Flink build with a local one, name each build's exposes in `outputs`: when it cannot tell which build writes an expose, the local planner lands neither and warns.
-- **Schedules and generated code.** `fluid generate schedule` gives the build no task or DAG, and a contract with no other build has nothing to schedule (exit 0). `fluid generate transformation` says there is no code to generate for it. Leave `execution.trigger` out for a continuous job.
+- **Schedules and generated code.** `fluid generate schedule` gives the build no task or DAG, and a contract with no other build has nothing to schedule (exit 0). `fluid generate transformation` says there is no code to generate for it. Leave `execution.trigger` out for a continuous job, or *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* say so with `trigger: {type: continuous}` (see [Continuous builds](#continuous-builds-trigger-type-continuous)).
 - **On 0.7.5**, `engine: flink` fails validation. A 0.7.5 contract declares the same job with `properties.language: flink_sql` (with `engine: sql`, say), and forge-cli treats it the same way.
+
+### Continuous builds: `trigger.type: continuous`
+
+*(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A build whose job its platform keeps running, such as a Flink job or a `kafka-connect` or `debezium` connector, can say so (schema 0.7.6 preview):
+
+```yaml
+fluidVersion: "0.7.6"
+builds:
+  - id: ingest
+    engine: kafka-connect
+    pattern: acquisition
+    execution:
+      trigger:
+        type: continuous
+```
+
+- **No scheduler starts it.** `fluid generate schedule`, `fluid schedule-sync` and the `fluid apply` DAGs leave the build out. A connector used to get a nightly `0 2 * * *` task. A contract whose every build is continuous or runs outside forge-cli has nothing to schedule:
+
+  ```text
+  Every build runs outside forge-cli (a Flink job, for example) or continuously
+  (trigger.type: continuous), so there is nothing to schedule. No files written.
+  ```
+
+- **It takes no other trigger.** `cron`, `schedule`, `datasets`, `event` and `timetable` are refused beside it, as Databricks Jobs refuses a continuous trigger beside any other, and the error names the field and the trigger type that takes it:
+
+  ```text
+   1. builds[0].execution.trigger: cron is not allowed with type continuous: a continuous job runs all the time, so its trigger takes no other trigger. Remove cron, or set type: schedule.
+  ```
+
+  It is not Airflow's `@continuous`, which starts batch runs back to back.
+- **On 0.7.5**, `continuous` fails validation: `'continuous' is not one of ['schedule', 'event', 'manual', 'dependency', 'dataset', 'schedule_and_dataset', 'timetable']`.
+- **Where it belongs.** Declare it on a build that runs outside forge-cli or on a connector. The dbt and python runners refuse it (`Unknown trigger type: continuous`), as they refuse `event` and `dataset`, and [`fluid scaffold-composer`](../cli/scaffold-composer.md) still writes its nightly DAG for any contract.
+- **Overlays.** An environment overlay cannot turn a scheduled build continuous: an overlay cannot delete the base's `cron` or `schedule`, and setting it to `null` is refused too. Declare the trigger in each environment's overlay instead of in the base.
+- **A DAG deployed earlier stays.** When every build of a product becomes continuous, it gets no `schedule/` artifacts, so pipeline stage 11 skips `fluid schedule-sync`, and a DAG deployed for the product before stays in the scheduler: remove it by hand.
 
 ## `exposes[]` - the consumer-facing API
 
@@ -517,7 +551,7 @@ builds:
         timezone: UTC
 ```
 
-`trigger.type` is one of `schedule`, `event`, `manual`, `dependency`, `dataset`, `schedule_and_dataset`, `timetable`; `scheduled` is not a value, and the cron expression goes in `schedule` (`cron` is also accepted). `fluid apply --mode amend-and-build` runs the script with the contract's directory as its working directory.
+`trigger.type` is one of `schedule`, `event`, `manual`, `dependency`, `dataset`, `schedule_and_dataset`, `timetable`, and in 0.7.6 `continuous` (see [Continuous builds](#continuous-builds-trigger-type-continuous)); `scheduled` is not a value, and the cron expression goes in `schedule` (`cron` is also accepted). `fluid apply --mode amend-and-build` runs the script with the contract's directory as its working directory.
 
 With a `schedule` trigger, `fluid generate schedule contract.fluid.yaml --out <dir>` writes an Airflow DAG with `SCHEDULE = '0 * * * *'`. The DAG's task runs `fluid apply ... --mode amend-and-build --build-id <id> --yes`.
 
@@ -545,6 +579,7 @@ Schema `0.7.6` is a preview. It validates only when the file names it, and the s
 - **`exposes[].lifecycle.expire`** deletes stored data once it is older than `retention`; it is `false` unless you set it.
 - *(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* **`builds[].engine: flink`** declares a job that runs outside forge-cli; see [Flink jobs](#flink-jobs-engine-flink).
 - *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* **Overlays merge `builds`, `exposes` and `consumes` by identity**; see [How an overlay merges](./environments-and-overlays.md#how-an-overlay-merges).
+- *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* **`builds[].execution.trigger.type: continuous`** declares a job its platform keeps running, which no scheduler starts; see [Continuous builds](#continuous-builds-trigger-type-continuous).
 
 ## Where to look next
 

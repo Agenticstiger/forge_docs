@@ -104,6 +104,9 @@ not name the file.
 - *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* Before 0.7.6 the merge is by position, and a patch that
   lands on an entry naming another id logs `overlay_patch_retargeted`: Put the
   overlay's entries in the base's order, or set `fluidVersion: "0.7.6"`.
+  *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* `fluid validate --env`, `fluid contract-validation --env` and
+  `fluid test --env` report it as a warning instead, and `--strict` fails on
+  it; see [`fluid validate`: `--env` and environment overlays](../cli/validate.md#env-and-environment-overlays).
 - Base keys an overlay does not set survive inside a patched map. A base
   `binding.location.path` is still present in the resolved binding of an overlay
   that sets `project`, `dataset` and `table`: `fluid bundle --env gcp` shows

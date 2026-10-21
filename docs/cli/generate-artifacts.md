@@ -116,7 +116,7 @@ The `schedule` key writes DAGs when either holds:
 - `orchestration.engine` is set to anything except `none`.
 - No `orchestration.engine` is set, and a build declares `execution.trigger.schedule` (or `cron`) with trigger `type: schedule` or no type. The engine then defaults to Airflow. The file does nothing until `schedule-sync` delivers it, and stage 11 names the scheduler (`airflow`, `mwaa`, `composer` and `astronomer` run Airflow DAGs), so the default decides the file format only.
 
-Each such build gets its own DAG that runs `fluid apply`, unless the contract hand-declares `orchestration.tasks`, which keep their declared operators. A build is left out when its own `execution.orchestration.engine` is `none` or not Airflow, or when its trigger is `event`, `dataset`, `schedule_and_dataset` or `timetable`, which a plain cron DAG cannot express.
+Each such build gets its own DAG that runs `fluid apply`, unless the contract hand-declares `orchestration.tasks`, which keep their declared operators. A build is left out when its own `execution.orchestration.engine` is `none` or not Airflow, or when its trigger is `event`, `dataset`, `schedule_and_dataset` or `timetable`, which a plain cron DAG cannot express. *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build, or one that runs outside forge-cli, gets no DAG and no task at all (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)).
 
 ### Layout and naming
 
