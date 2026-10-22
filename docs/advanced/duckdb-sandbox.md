@@ -125,7 +125,7 @@ acquisition build first.
 | Where the SQL runs | It can read and write |
 |---|---|
 | Embedded-SQL build on the local DuckDB engine (`builds[].properties.sql`) | the contract's directory, the FLUID workspace it sits in (`fluid.workspace.yaml`), `./runtime`, the run's scratch directory, each declared `parameters.inputs[].path`, each resolved `consumes[]` upstream, the expose's landing path, and the `s3://` prefixes those name. A declared local path counts only [inside the allowed directories](#declared-locations-stay-inside-the-allowed-directories). |
-| DuckDB acquisition build (`pattern: acquisition`, `engine: duckdb`) | the contract's directory, the declared `source.connection.uri` (or stream paths), and each stream's landing file, each inside the allowed directories. A `mysql` source is attached before the sandbox closes; so is a `sqlite` source, and its file must also be inside the allowed directories. |
+| DuckDB acquisition build (`pattern: acquisition`, `engine: duckdb`) | the contract's directory, the declared `source.connection.uri` (or stream paths), and each stream's landing file, each inside the allowed directories. *(unreleased, [forge-cli #740](https://github.com/Agenticstiger/forge-cli/pull/740))* A `postgres` or `mysql` source is attached read-only before the sandbox closes. A `sqlite` source is attached then too, and its file must also be inside the allowed directories. |
 | `fluid validate` quality rules, `fluid verify`, `fluid diff` | the one file being checked |
 | Legacy local-provider module `fluid_build.contract_tests` (no `fluid` command uses it) | each declared input file and each output file, each under the working directory or a `FLUID_DUCKDB_ALLOWED_DIRS` directory |
 | Discovery (`fluid forge data-model from-source`, `discover`) | the one file or URL being introspected; a JDBC source is attached first |
@@ -206,9 +206,8 @@ refused.
 
 A SQLite acquisition source (`source.kind: sqlite`) is confined the same way,
 and refused with the same `FLUID_DUCKDB_ALLOWED_DIRS` message outside the
-allowed directories. This check is the only one on it: the sqlite scanner
-opens the file through its own library, which DuckDB's allowlist does not
-bound.
+allowed directories. This check is the only one on it: the engine attaches the
+file before the sandbox locks, when nothing else bounds the open.
 
 ## Reading a file from another directory
 
@@ -337,11 +336,16 @@ guide gives.
 - **A remote prefix bounds the bucket, not the path.** DuckDB 1.5 does not
   resolve `..` inside a URL, so a declared `s3://bucket/landing/` also lets the
   SQL reach other keys in that bucket with the same credentials.
-- **A loaded database scanner is not bounded by the allowlist.** The `sqlite`,
-  `postgres` and `mysql` extensions open files and sockets through their own
-  client libraries. The engine loads them only for an acquisition build's
-  declared source, discovery, and the copilot's sample-rows tool, whose SQL the
-  engine builds from validated identifiers. Contract SQL never runs on such a
+- **A loaded database scanner widens what SQL on its connection reaches.** With
+  DuckDB 1.5, a loaded `postgres` extension's `postgres_scan` connects to any
+  host the process can reach, and the `sqlite` scanner opens any SQLite file it
+  can read, whatever the allowlist says. DuckDB 2.0 has no `postgres_scan` and
+  refuses a SQLite file outside the allowlist, as it refuses any other read. On
+  both, an `ATTACH` of a Postgres or MySQL database after the lock is refused, so
+  `postgres_query` and `mysql_query` reach only what the engine attached first.
+  The engine loads these extensions only for an acquisition build's declared
+  source, discovery, and the copilot's sample-rows tool, whose SQL the engine
+  builds from validated identifiers. Contract SQL never runs on such a
   connection.
 - **One open connection per database file.** DuckDB shares one instance per
   database file within a process, and the sandbox locks that instance. A second
