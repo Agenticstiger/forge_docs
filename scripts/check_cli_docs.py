@@ -24,6 +24,11 @@ Six checks:
    positionals that declare ``choices`` are checked against them.
 6. VERSION SWEEP: no page claims a CLI version or a contract ``fluidVersion``
    that contradicts ``cli-version.json`` / the pinned CLI's bundled schemas.
+7. RELEASE MARKER SWEEP: no page calls a forge-cli pull request "unreleased"
+   that a release already contains, against the record in
+   ``scripts/forge-cli-releases.json`` and forge-cli's own ``CHANGELOG.md``.
+   This is the one check that looks outside the installed package, because the
+   claim it checks is about forge-cli's release history rather than its code.
 
 We introspect the argparse parser directly (via
 ``fluid_build.cli.build_parser``, falling back to
@@ -73,11 +78,14 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = REPO_ROOT / "docs" / ".vuepress" / "cli-version.json"
@@ -950,6 +958,507 @@ def check_doc_versions(allowlist: set[str]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# RELEASE MARKER SWEEP
+# ---------------------------------------------------------------------------
+#
+# A page that marks a change "unreleased" is making a claim about the world
+# outside this repo, and it is the one claim nothing here could check: the
+# release that contains the work ships in forge-cli, and the page keeps
+# saying "unreleased" until somebody notices. An audit on 2026-10-26 found
+# 152 such lines across 37 pages naming 14 pull requests, every one of them
+# already shipped - the oldest in 0.20.0, eleven days earlier. A reader could
+# not tell which documented behaviour their install has.
+#
+# So the sweep is the same shape as the version sweep above: a committed
+# record of what the world looked like when a human last checked it
+# (scripts/forge-cli-releases.json, the sibling of cli-version.json for this
+# one fact), and a check that fails when the world has moved past it.
+#
+# Two halves, and the first needs no network:
+#
+#   1. EXACT. A marker naming a pull request that `releaseOfPr` maps to a
+#      release fails, naming the file, the line and that release. This is the
+#      half that would have caught all 152 lines.
+#   2. FRESH. When a marker names a pull request the map does not know, the
+#      claim is taken at face value - but only up to the release recorded in
+#      `reviewedThroughRelease`. If forge-cli's own CHANGELOG.md shows a newer
+#      release, the sweep fails: that release may well contain the work, and
+#      nobody has looked. With no surviving markers there is nothing to go
+#      stale, so this half stays quiet.
+#
+# A marker must name its pull request (`forge-cli/pull/<n>`), because a marker
+# the sweep cannot resolve is a marker that cannot expire. Three structural
+# exemptions keep the honest uses out of the results, so no path allowlist is
+# needed: fenced code blocks (a page showing a `## [Unreleased]` changelog
+# template), the word inside a link target (Apache Polaris publishes its
+# in-development docs under /unreleased/), and RELEASE_NOTES_*.md, which the
+# version sweep already excludes as a permanent record. Anything else is
+# exempted line by line with the same `<!-- cli-version: historical -->`
+# marker the version sweep uses, documented in the module docstring.
+#
+# In-process canaries run before the sweep and fail the check if the matcher
+# stops working, because a matcher that silently stops matching reports a
+# clean tree. They are in-process rather than a separate CI step on purpose: a
+# separate step can be deleted while the gate keeps reporting green.
+
+RELEASES_FILE = REPO_ROOT / "scripts" / "forge-cli-releases.json"
+
+_MARKER_WORD_RE = re.compile(r"(?i)\bunreleased\b")
+_MARKER_PR_RE = re.compile(r"forge-cli/pull/(\d+)")
+_LINK_TARGET_RE = re.compile(r"\]\([^)\s]+\)")
+_BARE_URL_RE = re.compile(r"https?://\S+")
+_CHANGELOG_RELEASE_RE = re.compile(r"^##\s*\[?v?(\d+\.\d+\.\d+)\]?", re.M)
+_RELEASE_COMMIT_RE = re.compile(r"^chore\(release\)[^\n]*?v?(\d+\.\d+\.\d+)")
+
+# docs/ has 256 pages. A sweep that walked a handful of them inspected
+# nothing, whatever it reported.
+_MARKER_PAGE_FLOOR = 100
+
+
+def _release_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def _url_spans(line: str) -> list[tuple[int, int]]:
+    """Character ranges of this line that are a link target or a bare URL."""
+    spans = [m.span() for m in _LINK_TARGET_RE.finditer(line)]
+    spans += [m.span() for m in _BARE_URL_RE.finditer(line)]
+    return spans
+
+
+def _enclosing_group(line: str, pos: int) -> tuple[int, int] | None:
+    """The `(...)` group containing ``pos``, skipping nested markdown links."""
+    depth = 0
+    start = None
+    for i in range(pos, -1, -1):
+        char = line[i]
+        if char == ")":
+            depth += 1
+        elif char == "(":
+            if depth == 0:
+                start = i
+                break
+            depth -= 1
+    if start is None:
+        return None
+    depth = 0
+    for j in range(start + 1, len(line)):
+        char = line[j]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            if depth == 0:
+                return start, j
+            depth -= 1
+    return None
+
+
+@dataclass(frozen=True)
+class Marker:
+    """One `unreleased` claim a page makes, and the PRs it names."""
+
+    rel: str
+    line_no: int
+    prs: tuple[str, ...]
+    text: str
+
+
+def find_markers(path: Path, rel: str) -> tuple[list[Marker], dict[str, int]]:
+    """Every live `unreleased` claim in one page, plus why the rest were skipped."""
+    skipped: dict[str, int] = {}
+
+    def skip(reason: str) -> None:
+        skipped[reason] = skipped.get(reason, 0) + 1
+
+    if path.name.startswith("RELEASE_NOTES_"):
+        text = path.read_text(encoding="utf-8")
+        for _ in _MARKER_WORD_RE.finditer(text):
+            skip("release notes")
+        return [], skipped
+
+    text = path.read_text(encoding="utf-8")
+    if HISTORICAL_FILE_MARKER in text:
+        for _ in _MARKER_WORD_RE.finditer(text):
+            skip("historical file")
+        return [], skipped
+
+    lines = text.splitlines()
+    exempt = _historical_lines(lines)
+    markers: list[Marker] = []
+    fence: tuple[str, int] | None = None
+    for idx, line in enumerate(lines):
+        opener = _FENCE_RE.match(line)
+        if fence is not None:
+            if opener and opener.group(1)[0] == fence[0] and len(opener.group(1)) >= fence[1]:
+                fence = None
+            for _ in _MARKER_WORD_RE.finditer(line):
+                skip("fenced code")
+            continue
+        if opener and opener.group(1):
+            fence = (opener.group(1)[0], len(opener.group(1)))
+            for _ in _MARKER_WORD_RE.finditer(line):
+                skip("fenced code")
+            continue
+
+        hits = list(_MARKER_WORD_RE.finditer(line))
+        if not hits:
+            continue
+        if idx in exempt or HISTORICAL_MARKER in line:
+            for _ in hits:
+                skip("marked historical")
+            continue
+        urls = _url_spans(line)
+        for hit in hits:
+            if any(lo <= hit.start() < hi for lo, hi in urls):
+                skip("inside a URL")
+                continue
+            group = _enclosing_group(line, hit.start())
+            scope = line[group[0] : group[1] + 1] if group else line
+            prs = tuple(sorted(set(_MARKER_PR_RE.findall(scope)), key=int))
+            if not prs:
+                prs = tuple(sorted(set(_MARKER_PR_RE.findall(line)), key=int))
+            markers.append(Marker(rel, idx + 1, prs, line.strip()))
+    return markers, skipped
+
+
+def load_releases() -> dict[str, Any]:
+    try:
+        data = json.loads(RELEASES_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        sys.exit(
+            f"ERROR: {RELEASES_FILE.relative_to(REPO_ROOT)} is missing; "
+            "the release-marker sweep needs it"
+        )
+    except json.JSONDecodeError as exc:
+        sys.exit(f"ERROR: {RELEASES_FILE.relative_to(REPO_ROOT)} is not valid JSON: {exc}")
+    for key in ("repo", "changelogUrl", "reviewedThroughRelease", "releaseOfPr"):
+        if key not in data:
+            sys.exit(f"ERROR: {RELEASES_FILE.relative_to(REPO_ROOT)} is missing '{key}'")
+    return data
+
+
+def changelog_releases(text: str) -> list[str]:
+    """Release versions named by `## [x.y.z]` headings, newest first."""
+    found = {m.group(1) for m in _CHANGELOG_RELEASE_RE.finditer(text)}
+    return sorted(found, key=_release_key, reverse=True)
+
+
+def _read_forge_changelog(explicit: str | None) -> tuple[str, str] | tuple[None, str]:
+    """forge-cli's CHANGELOG.md text, and where it came from.
+
+    A path beats a checkout beats the network, so CI can fetch it once and a
+    maintainer with the repo beside this one needs no network at all. Only an
+    absent source is tolerated; a source that is present but unreadable, or
+    that names no release, is a failure - it is how a check stops checking.
+    """
+    candidates: list[tuple[str, Path]] = []
+    if explicit:
+        candidates.append(("--forge-cli-changelog", Path(explicit)))
+    env_file = os.environ.get("FORGE_CLI_CHANGELOG")
+    if env_file:
+        candidates.append(("FORGE_CLI_CHANGELOG", Path(env_file)))
+    env_repo = os.environ.get("FORGE_CLI_REPO")
+    if env_repo:
+        candidates.append(("FORGE_CLI_REPO", Path(env_repo) / "CHANGELOG.md"))
+    for label, path in candidates:
+        if not path.is_file():
+            return None, f"{label} names {path}, which is not a file"
+        return path.read_text(encoding="utf-8"), f"{label} ({path})"
+    return None, "no forge-cli CHANGELOG.md was offered"
+
+
+def check_release_markers(forge_changelog: str | None = None) -> int:
+    canary_problems, canary_census = _marker_canaries()
+    if canary_problems:
+        print(
+            "FAIL: the release-marker sweep's own canaries failed, so its "
+            "result means nothing:\n" + "\n".join(f"  - {p}" for p in canary_problems),
+            file=sys.stderr,
+        )
+        return 1
+
+    releases = load_releases()
+    released: dict[str, str] = {str(k): str(v) for k, v in releases["releaseOfPr"].items()}
+    reviewed = str(releases["reviewedThroughRelease"])
+
+    pages = 0
+    markers: list[Marker] = []
+    skipped: dict[str, int] = {}
+    for path in _iter_doc_files(DOCS_DIR):
+        pages += 1
+        found, page_skipped = find_markers(path, str(path.relative_to(REPO_ROOT)))
+        markers.extend(found)
+        for reason, count in page_skipped.items():
+            skipped[reason] = skipped.get(reason, 0) + count
+
+    if pages < _MARKER_PAGE_FLOOR:
+        print(
+            f"FAIL: the release-marker sweep walked {pages} pages, fewer than the "
+            f"{_MARKER_PAGE_FLOOR} this tree has; it inspected nothing.",
+            file=sys.stderr,
+        )
+        return 1
+
+    stale: list[str] = []
+    unresolvable: list[str] = []
+    pending: list[Marker] = []
+    for marker in markers:
+        shipped = sorted(
+            {released[pr] for pr in marker.prs if pr in released}, key=_release_key
+        )
+        if shipped:
+            prs = ", ".join(
+                f"forge-cli #{pr} ({released[pr]})" for pr in marker.prs if pr in released
+            )
+            stale.append(
+                f"  {marker.rel}:{marker.line_no}: calls {prs} unreleased, but "
+                f"{shipped[0]} contains it\n      {marker.text[:140]}"
+            )
+        elif not marker.prs:
+            unresolvable.append(
+                f"  {marker.rel}:{marker.line_no}: says unreleased but names no "
+                f"forge-cli pull request, so nothing can tell when it expires"
+                f"\n      {marker.text[:140]}"
+            )
+        else:
+            pending.append(marker)
+
+    rc = 0
+    if stale:
+        print(
+            f"FAIL: {len(stale)} page line(s) call a forge-cli pull request "
+            "unreleased that a release already contains:\n"
+            + "\n".join(stale)
+            + "\n  Replace the marker with the release, in this repo's own form: "
+            "`*([forge-cli #714](<url>), since 0.20.0)*`.",
+            file=sys.stderr,
+        )
+        rc = 1
+    if unresolvable:
+        print(
+            f"FAIL: {len(unresolvable)} page line(s) claim something is unreleased "
+            "without naming the pull request:\n"
+            + "\n".join(unresolvable)
+            + "\n  Link the pull request (https://github.com/"
+            f"{releases['repo']}/pull/<n>), or, if the line is not such a claim, "
+            f"mark it `{HISTORICAL_MARKER}`.",
+            file=sys.stderr,
+        )
+        rc = 1
+
+    changelog, source = _read_forge_changelog(forge_changelog)
+    newest = None
+    if changelog is not None:
+        found = changelog_releases(changelog)
+        if not found:
+            print(
+                f"FAIL: the forge-cli CHANGELOG.md from {source} names no "
+                "`## [x.y.z]` release, so the freshness half cannot run.",
+                file=sys.stderr,
+            )
+            return 1
+        newest = found[0]
+
+    if pending:
+        if newest is None:
+            print(
+                f"FAIL: {len(pending)} page line(s) still call a pull request "
+                f"unreleased, and {source}, so the claim cannot be checked:\n"
+                + "\n".join(
+                    f"  {m.rel}:{m.line_no}: forge-cli "
+                    + ", ".join(f"#{pr}" for pr in m.prs)
+                    for m in pending
+                )
+                + "\n  Pass --forge-cli-changelog <file>, or set FORGE_CLI_REPO to a "
+                "forge-cli checkout.",
+                file=sys.stderr,
+            )
+            return 1
+        if _release_key(newest) > _release_key(reviewed):
+            print(
+                f"FAIL: forge-cli has released {newest} since these markers were "
+                f"checked against {reviewed}, and {len(pending)} page line(s) still "
+                "call a pull request unreleased:\n"
+                + "\n".join(
+                    f"  {m.rel}:{m.line_no}: forge-cli "
+                    + ", ".join(f"#{pr}" for pr in m.prs)
+                    for m in pending
+                )
+                + "\n  Re-check each against forge-cli's CHANGELOG.md, then "
+                "`python scripts/check_cli_docs.py --refresh-releases <forge-cli checkout>`.",
+                file=sys.stderr,
+            )
+            return 1
+
+    census = ", ".join(f"{count} {reason}" for reason, count in sorted(skipped.items()))
+    if rc == 0:
+        print(
+            f"OK: no page calls a released forge-cli pull request unreleased "
+            f"({pages} pages, {len(markers)} live marker(s), {len(pending)} still "
+            f"pending; skipped: {census or 'none'}; "
+            f"canaries: {canary_census}; forge-cli newest release "
+            f"{newest or 'not offered'}, reviewed through {reviewed})."
+        )
+    return rc
+
+
+def _marker_canaries() -> tuple[list[str], str]:
+    """Run the matcher over a synthetic tree whose verdicts are known.
+
+    Every case here is one the real tree holds, or held before this check
+    existed: a shipped marker in each of the two phrasings the pages use, two
+    on one line, a marker inside a fenced changelog template, the word inside
+    a link target, a line turned off with the historical marker, and a claim
+    naming no pull request.
+    """
+    pull = "https://github.com/Agenticstiger/forge-cli/pull"
+    page = "\n".join(
+        [
+            "# Canary",
+            "",
+            f"*([forge-cli #714]({pull}/714), unreleased)* trailing form.",
+            f"*(unreleased, [forge-cli #714]({pull}/714))* leading form.",
+            f"| a ([forge-cli #707]({pull}/707), unreleased) and "
+            f"([forge-cli #715]({pull}/715), unreleased; see x) |",
+            f"See [Identity Providers]({pull}/../in-dev/unreleased/idp.md) upstream.",
+            f"*([forge-cli #714]({pull}/714), unreleased)* "
+            f"{HISTORICAL_MARKER}",
+            "This behaviour is unreleased.",
+            "",
+            "```markdown",
+            "## [Unreleased]",
+            "```",
+            "",
+        ]
+    )
+    problems: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "canary.md").write_text(page, encoding="utf-8")
+        (root / "RELEASE_NOTES_0.0.1.md").write_text(
+            "Work that was unreleased at the time.\n", encoding="utf-8"
+        )
+        markers, skipped = find_markers(root / "canary.md", "canary.md")
+        notes, notes_skipped = find_markers(
+            root / "RELEASE_NOTES_0.0.1.md", "RELEASE_NOTES_0.0.1.md"
+        )
+
+    got = sorted((m.line_no, m.prs) for m in markers)
+    want = [(3, ("714",)), (4, ("714",)), (5, ("707",)), (5, ("715",)), (8, ())]
+    if got != want:
+        problems.append(f"matcher found {got}, expected {want}")
+    if skipped.get("fenced code") != 1:
+        problems.append(f"fenced-code exemption counted {skipped.get('fenced code')}, expected 1")
+    if skipped.get("inside a URL") != 1:
+        problems.append(f"URL exemption counted {skipped.get('inside a URL')}, expected 1")
+    if skipped.get("marked historical") != 1:
+        problems.append(
+            f"historical exemption counted {skipped.get('marked historical')}, expected 1"
+        )
+    if notes or notes_skipped.get("release notes") != 1:
+        problems.append(f"RELEASE_NOTES_ page gave {notes} / {notes_skipped}, expected 0 / 1")
+
+    releases = changelog_releases(
+        "## [Unreleased]\n\n## [0.22.0] — 2026-10-22\n\n## [0.9.0] - 2026-06-25\n"
+    )
+    if releases != ["0.22.0", "0.9.0"]:
+        problems.append(f"changelog parser gave {releases}, expected ['0.22.0', '0.9.0']")
+
+    return problems, (
+        f"{len(markers)} markers and {sum(skipped.values()) + 1} exemptions over "
+        f"{len(want)} expected cases"
+    )
+
+
+def refresh_releases(checkout: str, ref: str = "origin/main") -> int:
+    """Rebuild scripts/forge-cli-releases.json from a forge-cli checkout.
+
+    Ancestry, never dates: #725 merged on 2026-10-19 and 0.21.0 was cut on
+    2026-10-19, so a date comparison has to guess and git does not.
+    """
+    repo = Path(checkout)
+    if not (repo / ".git").exists():
+        sys.exit(f"ERROR: {repo} is not a git checkout of forge-cli")
+
+    def git(*args: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
+        )
+        if result.returncode != 0:
+            sys.exit(
+                f"ERROR: git {' '.join(args)} failed in {repo}: {result.stderr.strip()}"
+            )
+        return result.stdout
+
+    changelog = git("show", f"{ref}:CHANGELOG.md")
+    versions = changelog_releases(changelog)
+    if not versions:
+        sys.exit(f"ERROR: {ref}:CHANGELOG.md in {repo} names no `## [x.y.z]` release")
+
+    release_commits: list[tuple[str, str]] = []
+    for line in git(
+        "log", ref, "--first-parent", "--format=%H|%s", "--grep=^chore(release)"
+    ).splitlines():
+        sha, _, subject = line.partition("|")
+        match = _RELEASE_COMMIT_RE.match(subject)
+        if match and match.group(1) in set(versions):
+            release_commits.append((match.group(1), sha))
+    release_commits.sort(key=lambda item: _release_key(item[0]))
+    if not release_commits:
+        sys.exit(f"ERROR: found no `chore(release)` commit on {ref} in {repo}")
+
+    data = load_releases()
+    wanted = set(data["releaseOfPr"])
+    for path in _iter_doc_files(DOCS_DIR):
+        markers, _ = find_markers(path, str(path.relative_to(REPO_ROOT)))
+        for marker in markers:
+            wanted.update(marker.prs)
+
+    resolved: dict[str, str] = {}
+    unresolved: list[str] = []
+    for pr in sorted(wanted, key=int):
+        shas = git(
+            "log", ref, "--first-parent", "--format=%H", f"--grep=(#{pr})$"
+        ).split()
+        if not shas:
+            unresolved.append(f"#{pr}: no merge commit on {ref}")
+            continue
+        for version, release_sha in release_commits:
+            check = subprocess.run(
+                ["git", "-C", str(repo), "merge-base", "--is-ancestor", shas[0], release_sha],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if check.returncode == 0:
+                resolved[pr] = version
+                break
+        else:
+            unresolved.append(f"#{pr}: merged, in no release on {ref} yet")
+
+    kept: list[str] = []
+    for pr, version in data["releaseOfPr"].items():
+        if str(pr) not in resolved:
+            # Dropping it would quietly weaken the check: a page could call that
+            # pull request unreleased again and nothing would fail.
+            resolved[str(pr)] = str(version)
+            kept.append(f"#{pr}: kept {version} from the existing file")
+    unresolved = [line for line in unresolved if not any(line.startswith(k.split(':')[0] + ':') for k in kept)]
+    unresolved += kept
+    data["releaseOfPr"] = dict(sorted(resolved.items(), key=lambda item: int(item[0])))
+    data["reviewedThroughRelease"] = release_commits[-1][0]
+    RELEASES_FILE.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    print(
+        f"Wrote {RELEASES_FILE.relative_to(REPO_ROOT)}: {len(resolved)} pull "
+        f"request(s) mapped, reviewed through {data['reviewedThroughRelease']} "
+        f"(from {ref} in {repo})."
+    )
+    for line in unresolved:
+        print(f"  left unmapped - {line}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Drivers
 # ---------------------------------------------------------------------------
 
@@ -994,7 +1503,7 @@ def check_docs_coverage(allowlist: dict[str, set[str]]) -> int:
     return rc
 
 
-def check_full() -> int:
+def check_full(forge_changelog: str | None = None) -> int:
     allowlist = load_allowlist()
     rc = check_version_only()
     if check_docs_coverage(allowlist) != 0:
@@ -1006,6 +1515,8 @@ def check_full() -> int:
     if check_doc_flags(allowlist["flag_oracle_ok"]) != 0:
         rc = 1
     if check_doc_versions(allowlist["version_sweep_ok"]) != 0:
+        rc = 1
+    if check_release_markers(forge_changelog) != 0:
         rc = 1
     return rc
 
@@ -1034,7 +1545,37 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Only run the version sweep over docs/**/*.md.",
     )
+    parser.add_argument(
+        "--markers-only",
+        action="store_true",
+        help="Only run the release-marker sweep over docs/**/*.md.",
+    )
+    parser.add_argument(
+        "--forge-cli-changelog",
+        metavar="FILE",
+        help=(
+            "forge-cli's CHANGELOG.md, for the release-marker sweep. Also read "
+            "from FORGE_CLI_CHANGELOG, or CHANGELOG.md inside FORGE_CLI_REPO."
+        ),
+    )
+    parser.add_argument(
+        "--refresh-releases",
+        metavar="FORGE_CLI_CHECKOUT",
+        help=(
+            "Rebuild scripts/forge-cli-releases.json from a forge-cli git "
+            "checkout and exit. Writes the file; runs no other check."
+        ),
+    )
+    parser.add_argument(
+        "--refresh-ref",
+        default="origin/main",
+        metavar="REF",
+        help="The forge-cli ref --refresh-releases reads (default: origin/main).",
+    )
     args = parser.parse_args(argv)
+
+    if args.refresh_releases:
+        return refresh_releases(args.refresh_releases, args.refresh_ref)
 
     if args.version_only:
         return check_version_only()
@@ -1044,7 +1585,9 @@ def main(argv: list[str] | None = None) -> int:
         return check_doc_flags(load_allowlist()["flag_oracle_ok"])
     if args.versions_only:
         return check_doc_versions(load_allowlist()["version_sweep_ok"])
-    return check_full()
+    if args.markers_only:
+        return check_release_markers(args.forge_cli_changelog)
+    return check_full(args.forge_cli_changelog)
 
 
 if __name__ == "__main__":
