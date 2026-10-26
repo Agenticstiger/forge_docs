@@ -315,10 +315,23 @@ $ grep 'path: output' runtime/prod.yaml
       path: output/high_value_customers.parquet
 ```
 
-A list in an overlay patches the resolved list by position, so `exposes[0]`
-in the overlay is the first `$ref` in the root's `exposes:` list. Reordering
-the refs in the root changes which expose an overlay patches. The merge rules
-are on [Per-environment overlays](../recipes/per-environment-overlays.md).
+An overlay patches the *resolved* list, so its `exposes:` entries patch the
+exposes the `$ref`s pulled in, not the `$ref` lines themselves.
+
+*(since 0.21.0, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))*
+In a contract whose `fluidVersion` is 0.7.6 or later, `builds`, `exposes` and
+`consumes` are matched by identity — `builds[].id`, `exposes[].exposeId`, and
+`consumes[]` by `productId` + `exposeId` — so reordering the refs in the root
+no longer changes which expose an overlay patches. An overlay entry whose id
+the base does not have is appended, and logged as `overlay_entry_added` naming
+the ids the base does have, so a typo shows instead of silently adding an
+expose. An entry that names no id, or an id named twice, fails the load.
+
+Below 0.7.6, and in any contract whose base entries lack unique ids, these
+lists still merge by position: `exposes[0]` in the overlay is the first `$ref`
+in the root's `exposes:` list, and reordering the refs retargets the overlay.
+The merge rules, the warnings and what `--strict` does with them are on
+[Per-environment overlays](../recipes/per-environment-overlays.md).
 
 Keep two things in mind:
 
