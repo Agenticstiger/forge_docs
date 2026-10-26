@@ -78,7 +78,7 @@ Each class has a `for_*` factory that builds the `what`, `why`, `fix` and `doc` 
 
 `SchemaValidationError` is also the name of a different class in the forge agent layer; see [Typed Errors](./typed-errors.md). The two are not the same type.
 
-The route table also sends four catalogued events here: `invalid_schema_version`, `contract_version_unsupported`, `invalid_min_version` and `invalid_max_version`. Set `fluidVersion` to a version the installed CLI bundles. The latest stable contract schema is 0.7.5; 0.7.6 is a preview that a contract opts in to with `fluidVersion: "0.7.6"`. `fluid validate` reports the version it validated against. *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* `fluid apply` raises `contract_version_unsupported` before it plans, on both engines and in every mode; see [Contract validation](../cli/apply.md#contract-validation).
+The route table also sends four catalogued events here: `invalid_schema_version`, `contract_version_unsupported`, `invalid_min_version` and `invalid_max_version`. Set `fluidVersion` to a version the installed CLI bundles. The latest stable contract schema is 0.7.5; 0.7.6 is a preview that a contract opts in to with `fluidVersion: "0.7.6"`. `fluid validate` reports the version it validated against. *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* `fluid apply` raises `contract_version_unsupported` before it plans, on both engines and in every mode; see [Contract validation](../cli/apply.md#contract-validation).
 
 ### Capability negotiation
 
@@ -184,8 +184,8 @@ The CLI builds each `doc` link from a fixed route table. A topic that is not in 
 | `sovereignty`, `sovereignty#residency` | [Sovereignty](../concepts/sovereignty.md) |
 | `supply-chain` | [`fluid verify-signature`](../cli/verify-signature.md) |
 | `installation` | [Getting started](../getting-started/README.md) |
-| `iceberg-catalog-move` | [Iceberg catalog-move guard](../cli/apply.md#iceberg-catalog-move-guard) *(unreleased, [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709))* |
-| `policy-compile#errors` | [`fluid policy compile`, Errors](../cli/policy-compile.md#errors) *(unreleased, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* |
+| `iceberg-catalog-move` | [Iceberg catalog-move guard](../cli/apply.md#iceberg-catalog-move-guard) *(since 0.20.0, [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709))* |
+| `policy-compile#errors` | [`fluid policy compile`, Errors](../cli/policy-compile.md#errors) *(since 0.20.0, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* |
 | anything else | [Production troubleshooting](./production-troubleshooting.md) |
 
 A few catalogued events land on a page that does not explain them. The CLI chooses these routes, so the explanations are here:

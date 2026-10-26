@@ -52,7 +52,7 @@ The local provider reads the data with DuckDB. If the `duckdb` package is missin
 | `--provider` | Override the provider (`gcp`, `snowflake`, `aws`, `local`). Like every provider name, it must be registered in your install. |
 | `--project`, `--region` | Override the project / account ID or region from the contract. |
 | `--server` | Provider connection string or identifier, such as a Snowflake account locator. |
-| `--strict` | Exit `1` on any warning. In the example above `--strict` exits `1`. *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* With `--env`, an overlay patch that lands on another entry is such a warning, shown as an "Environment overlay" row; see [`fluid validate`](./validate.md#env-and-environment-overlays). `--engine soda` does not read `--strict`. |
+| `--strict` | Exit `1` on any warning. In the example above `--strict` exits `1`. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* With `--env`, an overlay patch that lands on another entry is such a warning, shown as an "Environment overlay" row; see [`fluid validate`](./validate.md#env-and-environment-overlays). `--engine soda` does not read `--strict`. |
 | `--no-data` | Skip live data validation: structure-only checks. Checks 4 to 7 print `not checked (--no-data)`. |
 | `--output` | `text` (default), `json`, or `junit`. |
 | `--output-file` | Write the report to a file instead of stdout. |

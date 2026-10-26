@@ -38,7 +38,7 @@ fluid policy-compile contract.fluid.yaml --env prod
 
 ## Warnings
 
-*([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* Each compiler warning goes into the `warnings` array of the output file, and each one other than `No grants found in accessPolicy` is also printed to stderr, as a `policy_compile_warning` log line at WARNING level. Warnings leave the exit code at `0`. A warning can be the only sign that a grant compiled to no binding. A `read` grant on an AWS Iceberg expose that Lakekeeper catalogs compiles to the S3 bucket binding only, and prints:
+*([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* Each compiler warning goes into the `warnings` array of the output file, and each one other than `No grants found in accessPolicy` is also printed to stderr, as a `policy_compile_warning` log line at WARNING level. Warnings leave the exit code at `0`. A warning can be the only sign that a grant compiled to no binding. A `read` grant on an AWS Iceberg expose that Lakekeeper catalogs compiles to the S3 bucket binding only, and prints:
 
 ```bash
 fluid policy compile contract.fluid.yaml
@@ -54,7 +54,7 @@ A contract with no `accessPolicy` grants gets `No grants found in accessPolicy` 
 
 | Code | When | Exit |
 | --- | --- | --- |
-| `ERR_POLICY_COMPILER_CRASHED` | *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* The policy compiler raised an exception. No bindings file is written; one from an earlier run is left as it was. | 1 |
+| `ERR_POLICY_COMPILER_CRASHED` | *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* The policy compiler raised an exception. No bindings file is written; one from an earlier run is left as it was. | 1 |
 | `ERR_POLICY_COMPILE_FAILED` | The command failed outside the compiler, for example because the contract or overlay is missing or does not parse, or the bindings file cannot be written. | 1 |
 
 `policy compile` does not validate the contract against its schema, so a value of the wrong type where the compiler reads (`accessPolicy`, its `grants`, a grant's `permissions`, an expose's `binding` and `binding.location`) reaches the compiler. When it crashes there, the error names each such value by path and expected type, never by its content. A grant written as a bare string:

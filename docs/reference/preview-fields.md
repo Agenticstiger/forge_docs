@@ -83,13 +83,13 @@ unexpected)
 
 The [`consumes`](./contract-0.7.6-preview.md#consumes) and [`exposes`](./contract-0.7.6-preview.md#exposes) sections of the preview delta hold the rows for the fields above, in the order the schema declares them.
 
-*([forge-cli #712](https://github.com/Agenticstiger/forge-cli/pull/712), unreleased)* `builds[].properties.sink.catalogAuth` is a 0.7.6 field too. No release includes it yet, so it has no row above and none in the preview delta, which is generated from a released schema. It names the environment variable that authenticates a streaming sink to an Iceberg REST catalog; see [Authenticate a sink to a REST catalog](../advanced/source-aligned-acquisition.md#authenticate-a-sink-to-a-rest-catalog).
+*([forge-cli #712](https://github.com/Agenticstiger/forge-cli/pull/712), since 0.20.0)* `builds[].properties.sink.catalogAuth` is a 0.7.6 field too. It has no row above and none in the preview delta: that delta is generated from the 0.7.6 schema bundled in the CLI release this site is pinned to, and the field was added to the schema after it. It names the environment variable that authenticates a streaming sink to an Iceberg REST catalog; see [Authenticate a sink to a REST catalog](../advanced/source-aligned-acquisition.md#authenticate-a-sink-to-a-rest-catalog).
 
-*(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* `builds[].engine: flink` is a 0.7.6 value too, for a job that runs on the Flink Kubernetes Operator, AWS Managed Service for Apache Flink, or another Flink platform. forge-cli validates and plans it but ships no runner; see [Flink jobs](../concepts/builds-exposes-bindings.md#flink-jobs-engine-flink).
+*(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* `builds[].engine: flink` is a 0.7.6 value too, for a job that runs on the Flink Kubernetes Operator, AWS Managed Service for Apache Flink, or another Flink platform. forge-cli validates and plans it but ships no runner; see [Flink jobs](../concepts/builds-exposes-bindings.md#flink-jobs-engine-flink).
 
-*(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract that names 0.7.6, an overlay patches `builds`, `exposes` and `consumes` by identity instead of by position; see [How an overlay merges](../concepts/environments-and-overlays.md#how-an-overlay-merges).
+*(since 0.21.0, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract that names 0.7.6, an overlay patches `builds`, `exposes` and `consumes` by identity instead of by position; see [How an overlay merges](../concepts/environments-and-overlays.md#how-an-overlay-merges).
 
-*(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* `builds[].execution.trigger.type: continuous` is a 0.7.6 value too, for a job its platform keeps running: no scheduler starts it, and it takes no other trigger; see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous).
+*(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* `builds[].execution.trigger.type: continuous` is a 0.7.6 value too, for a job its platform keeps running: no scheduler starts it, and it takes no other trigger; see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous).
 
 ### Federated upstreams
 

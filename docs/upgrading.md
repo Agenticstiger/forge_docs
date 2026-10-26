@@ -294,10 +294,10 @@ Background: [Composing a contract with `$ref`](./concepts/contract-refs.md),
 [DuckDB sandbox for contract SQL](./advanced/duckdb-sandbox.md),
 [Contract loading API](./advanced/contract-loading-api.md) (new in `fluid_build.api` `1.1`).
 
-## Unreleased changes after 0.18.1
+## Changes in 0.20.0
 
-These changes are in forge-cli pull requests that are not in a release yet. Each row names
-its pull request.
+These changes shipped in forge-cli `0.20.0`, after the `0.18.1` the sections above cover.
+Each row names the pull request that made it.
 
 | Change | What to do | How to check |
 |---|---|---|
