@@ -27,6 +27,7 @@ None of it is required reading. Start at [Concepts](../concepts/README.md) for t
 | [Governance and compliance](./governance.md) | How do I declare access policy, classification and data residency in the contract, and what does the engine do when a binding contradicts them? |
 | [Network safety](./network-safety.md) | Which outbound fetches are allowed by default, and how do I allow a host I trust? |
 | [Credential resolver](./credential-resolver.md) | Where do catalog credentials live when an agent calls a tool, and what happens when none resolve? |
+| [What a project's `.env` may set](./project-dotenv-trust.md) | A project file may hold credentials — which settings does it refuse to take from one, and where do I set those instead? |
 
 The sidebar puts one more page in this group, [Governance, compliance and the business case](../governance-compliance-roi.md), which lives outside this folder.
 

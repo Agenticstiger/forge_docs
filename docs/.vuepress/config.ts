@@ -612,7 +612,8 @@ export default defineUserConfig({
                 '/governance-compliance-roi.md',
                 '/advanced/governance.md',
                 '/advanced/network-safety.md',
-                '/advanced/credential-resolver.md'
+                '/advanced/credential-resolver.md',
+                '/advanced/project-dotenv-trust.md'
               ]
             },
             {
