@@ -62,8 +62,8 @@ KNOWN_KEYWORDS = {
     "$comment", "$defs", "$id", "$ref", "$schema", "additionalProperties",
     "allOf", "anyOf", "const", "default", "dependentRequired", "description",
     "enum", "errorMessage", "examples", "format", "if", "items", "maximum",
-    "minItems", "minLength", "minimum", "not", "oneOf", "pattern", "properties",
-    "propertyNames", "required", "then", "title", "type", "uniqueItems",
+    "minItems", "minLength", "minProperties", "minimum", "not", "oneOf", "pattern",
+    "properties", "propertyNames", "required", "then", "title", "type", "uniqueItems",
 }
 # Keywords whose value is data or a name->schema map, not a schema to audit.
 DATA_KEYWORDS = {"examples", "enum", "const", "default", "dependentRequired", "required"}
@@ -359,6 +359,11 @@ class Walker:
             lines.append(f"min items {eff['minItems']}")
         if eff.get("uniqueItems"):
             lines.append("unique items")
+        if "minProperties" in eff:
+            # The object counterpart of minItems. 0.7.6 uses it on a column's
+            # quality rule, where every key is optional and an empty `{}` would
+            # otherwise validate as a rule that says nothing.
+            lines.append(f"min properties {eff['minProperties']}")
         if "not" in eff:
             neg = self.resolve(eff["not"])
             if set(neg) == {"pattern"}:
