@@ -37,10 +37,6 @@ jobs:
   consistency:
     name: Verify docs match installed fluid CLI
     runs-on: ubuntu-latest
-    env:
-      # Read by the release-marker sweep in scripts/check_cli_docs.py. Set at
-      # job level so the full run sees it too, not only the dedicated step.
-      FORGE_CLI_CHANGELOG: ${{ runner.temp }}/forge-cli-CHANGELOG.md
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -57,12 +53,25 @@ jobs:
       # -f so an HTTP error fails the step instead of leaving an empty file
       # that the sweep would then report as "no release" - and it does fail on
       # that, rather than passing with nothing to compare against.
+      #
+      # FORGE_CLI_CHANGELOG is exported from here rather than declared in a
+      # job-level `env:` block. It used to read `${{ runner.temp }}/...` there,
+      # and `runner` is not one of the contexts available to `jobs.<id>.env`
+      # (only github, inputs, matrix, needs, secrets, strategy and vars are).
+      # That is a workflow validation error, so the whole run ended in a
+      # STARTUP FAILURE: zero jobs, no logs, and — the part that hid it — no
+      # check run at all, so the gate did not go red, it went missing from
+      # every PR check list. Resolve the path in the shell, where RUNNER_TEMP
+      # is an ordinary variable, and hand it to later steps through
+      # GITHUB_ENV. The workflow-lint job catches the next one of these.
       - name: Fetch forge-cli's CHANGELOG
         run: |
+          dest="${RUNNER_TEMP}/forge-cli-CHANGELOG.md"
           curl -sSfL --retry 3 --retry-delay 2 \
-            -o "${FORGE_CLI_CHANGELOG}" \
+            -o "$dest" \
             https://raw.githubusercontent.com/Agenticstiger/forge-cli/main/CHANGELOG.md
-          grep -qE '^## \[?[0-9]+\.[0-9]+\.[0-9]+' "${FORGE_CLI_CHANGELOG}"
+          grep -qE '^## \[?[0-9]+\.[0-9]+\.[0-9]+' "$dest"
+          echo "FORGE_CLI_CHANGELOG=$dest" >> "$GITHUB_ENV"
 
       - name: Resolve pinned CLI version
         id: pin
