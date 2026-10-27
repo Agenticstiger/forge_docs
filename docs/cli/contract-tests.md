@@ -87,7 +87,7 @@ The contract is loaded the way `fluid plan` loads it, with `$ref` fragments and 
 ```yaml
 - name: Schema gate
   run: |
-    pip install data-product-forge==0.23.0
+    pip install data-product-forge==0.24.0
     fluid contract-tests contract.fluid.yaml --baseline baseline.schema.json
 ```
 

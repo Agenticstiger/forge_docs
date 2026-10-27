@@ -8,7 +8,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 ## Docs baseline
 
-- CLI release covered by the primary docs: `0.23.0`
+- CLI release covered by the primary docs: `0.24.0`
 - Contract schema: `0.7.5` is the current stable version; `0.7.6` is a preview you opt into with `fluidVersion: "0.7.6"`. The GCP retention, encryption and `binding.principals` fields need `0.7.6`.
 - Which `fluidVersion` each scaffolding command writes is listed in [`fluid init`](../cli/init.md#which-fluidversion-each-path-writes).
 

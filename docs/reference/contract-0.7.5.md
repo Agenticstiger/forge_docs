@@ -9,7 +9,7 @@ description: "The fields of the FLUID 0.7.5 contract schema (stable): path, type
 
 Status: **stable**. Schema 0.7.5 is the newest stable schema bundled with the CLI. The newer 0.7.6 schema is a preview; see the [0.7.6 preview delta](./contract-0.7.6-preview.md).
 
-Generated from `fluid_build/schemas/fluid-schema-0.7.5.json` in the `data-product-forge` 0.23.0 package (sha256 `a1c33dc003599649`). It is the schema `fluid validate` checks a contract against, rendered without edits. To regenerate: `python scripts/gen_contract_reference.py`.
+Generated from `fluid_build/schemas/fluid-schema-0.7.5.json` in the `data-product-forge` 0.24.0 package (sha256 `a1c33dc003599649`). It is the schema `fluid validate` checks a contract against, rendered without edits. To regenerate: `python scripts/gen_contract_reference.py`.
 
 Each table row is one field, addressed by its path from the contract root: `.` descends into an object, `[]` marks the items of a list, and `<key>` stands for any key of a map. **Required** means required inside its parent object; the parent can itself be optional. **Allowed values** lists the enum, pattern and range the schema enforces. An object typed plainly `object` rejects keys the schema does not list; `object (open)` accepts extra keys and `object (free-form)` has no listed keys. A row that begins "Only when ..." exists only under that condition. See [how to read this reference](./README.md#how-to-read-a-row).
 

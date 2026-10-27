@@ -139,6 +139,8 @@ For ODPS publishes, product-to-product `consumes[]` entries are not kept as ODPS
 
 That default avoids duplicated lineage nodes: upstream data products stay data products, and are not mirrored as SourceSystem objects just to satisfy older ODPS importer behavior.
 
+Since 0.24.0 an ODPS export also derives `outputPorts[].inputContracts` from `consumes[]`, which states the same dependency a second time in one document. A stripped input port's lineage entry is removed with it, so the upstream is not left named in a payload that has no port to resolve it. Lineage a contract states for itself — an imported document's own `inputContracts`, replayed through the expose pass-through — is kept, because Access agreements are built from `consumes[]` and would not record it.
+
 Use `--odps-lineage-mode source-system` only for legacy DMM deployments that explicitly require SourceSystem custom properties on retained ODPS input ports. Explicit source-system consumes authored in the FLUID contract are still preserved as source-system input ports in the default `contract` mode.
 
 Access agreements are create-only by default. Use `--auto-approve-access`, `DMM_AUTO_APPROVE_ACCESS=true`, or catalog config `auto_approve_access: true` only when your environment intentionally auto-approves those agreements. `--no-auto-approve-access` forces pending agreements for one publish even when the environment variable is set.
