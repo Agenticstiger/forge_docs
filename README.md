@@ -19,7 +19,7 @@ The site is organised the way a reader uses it (get started, tutorials, how-to g
 
 ## Current Versioning
 
-- Current CLI release documented here: `0.23.0`
+- Current CLI release documented here: `0.24.0`
 - Contract schema: `fluidVersion: 0.7.5` is the stable default; `0.7.6` is an opt-in preview
 
 Those are different on purpose. `fluid version` reports the installed CLI release, while `fluidVersion` inside a contract selects the contract schema version.

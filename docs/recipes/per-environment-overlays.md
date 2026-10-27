@@ -250,7 +250,7 @@ jobs:
       matrix:
         env: [dev, staging, prod]
     steps:
-      - run: pip install "data-product-forge==0.23.0"
+      - run: pip install "data-product-forge==0.24.0"
       - run: fluid validate contract.fluid.yaml --env ${{ matrix.env }}
       - run: fluid plan     contract.fluid.yaml --env ${{ matrix.env }}
 ```
