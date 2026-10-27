@@ -146,6 +146,115 @@ Replace `<your-domain>` with the domain of your own groups; left as written, val
 
 The same refusal applies to a placeholder in a reserved top-level domain (`.example`, `.test`, `.invalid`, `.localhost`), per the `exposes[].binding.principals` row. A value that is not valid for the binding's platform is refused too: an AWS role ARN mapped on a `gcp` binding fails with "is not a GCP IAM member".
 
+## Seven more fields, in the next release after `0.22.0`
+
+::: tip Not in a released CLI yet
+[forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753) adds seven optional
+fields to the 0.7.6 preview schema, for things a contract could not previously say. All seven
+require `fluidVersion: "0.7.6"`, all are additive, and a contract that sets none of them
+validates and exports byte for byte as before. The names are taken from Bitol ODCS v3.1.0 and
+the released ODPS v1.1.0 rather than invented, so import and export are a pass-through instead
+of a translation.
+
+The release is a minor bump from `0.22.0` and its number is not settled yet, so this page names
+the release rather than the number. The generated [0.7.6 preview delta](./contract-0.7.6-preview.md)
+does not list these rows: it is rendered from the schema bundled in the CLI release this site is
+pinned to, and will carry them once that pin moves.
+:::
+
+| Field | What it declares | What it changes on export |
+| --- | --- | --- |
+| `metadata.team` | The team as a roster — `{name, members[]}`, each member `{username, name, role, email}` — where `metadata.owner` holds one team name and one mailbox and no role at all | Fills the ODCS and ODPS team block, which came out empty before. See [the `email` caveat](#the-email-caveat) |
+| `description` (root) | Either a string, as today, or `{purpose, usage, limitations}` — the shape both Bitol standards define | An export could only ever carry `description.purpose`; `usage` and `limitations` had no home a contract could declare, so every export left them empty |
+| `consumes[].contractId` | The upstream contract's own id, for an upstream that has one — a product not built with FLUID, registered in a catalog under an id FLUID did not derive | The canonical-port builder already preferred an explicit id; with `consumes[]` closed there was no way to supply one, so the derived id was exported as if the upstream answered to it |
+| `exposes[].contract.id` | An explicit, stable contract id for one output port | Used verbatim as the ODCS `id` and the ODPS output port `contractId`. See [pinning a contract id](#pinning-a-contract-id) |
+| `binding.location.host` | Host or endpoint; for a Kafka binding, the bootstrap servers | The ODCS server mapper already read `host` and fell back to `account`, while the schema accepted only `account` — so the only valid way to set bootstrap servers was a field named for something else. With neither set, the exported server is the placeholder `${KAFKA_BOOTSTRAP_SERVERS}` |
+| `exposes[].binding.serialization` | `{value, key}`, each one of `json`, `avro`, `protobuf`, `xml`, `avro-confluent`, `json-confluent` | The only thing that moves a Kafka server's ODCS `format` off `kafka_topic`. See [declaring the wire format](#declaring-the-wire-format) |
+| `quality` on a column | Column-level data quality rules, in ODCS's own shape | Written straight into `schema[].properties[].quality[]` of the exported ODCS contract. See [column quality rules](#column-quality-rules) |
+
+`binding.location.host` is usually set per environment in an overlay rather than in the base
+contract, since the brokers differ by environment and the rest of the binding does not.
+
+### The `email` caveat
+
+`metadata.team.members[].email` is **not** exported as a Bitol `TeamMember` field, because
+there is no such field to export it as. All three vendored schemas — ODCS v3.1.0, ODPS v1.0.0
+and ODPS v1.1.0 — define `TeamMember` with `additionalProperties: false` and none of them has
+an `email` property. Writing one would produce a document that fails the standard's own schema.
+
+So the roster's `email` is carried in that member's `fluidEmail` custom property instead. It is
+not dropped, and it is not smuggled into a field that means something else.
+
+`username` is the only member field Bitol requires, and the only one this schema requires. The
+other three, `name`, `role` and `email`, are optional. `role` is free-form, because Bitol does
+not constrain it — `owner`, `steward`, `data engineer`.
+
+### Pinning a contract id
+
+Without `exposes[].contract.id` a port's contract id is derived as `<product id>.<exposeId>`,
+so renaming the product or the expose silently changes the contract id and breaks every
+consumer reference to it. A catalog that requires an id format of its own — a URN, a UUID —
+cannot be served at all.
+
+The field has **no pattern**, only a minimum length of 1. That is deliberate: a catalog's id
+format is the catalog's business, so the schema does not have an opinion about what a URN or a
+UUID should look like.
+
+Each expose needs its own. Two exposes that resolve to one contract id — whether both pin it,
+or one pins what the other derives — fail `fluid validate` and every export path, and the
+message names both exposes and the shared id. That export used to succeed and write one
+per-port ODCS document for two output ports, so one port's schema was lost; see
+[Read this first if you consume the exported artifacts](../upgrading.md#read-this-first-if-you-consume-the-exported-artifacts).
+
+### Declaring the wire format
+
+A Kafka binding declares `format: kafka_topic`, which tells a consumer nothing about whether
+the values on the topic are Avro or JSON — the one thing it has to know to read the topic at
+all. `binding.serialization.value` says so, and `key` says the same for a topic whose keys are
+not opaque bytes.
+
+The first four values are the message formats ODCS v3.1.0 documents for its own Kafka server
+`format`. The two `-confluent` values name those same wire formats carried through a Confluent
+schema registry, spelled as Apache Flink spells them; on export they collapse onto the plain
+wire format, because that is what the ODCS field means. The registry is not forgotten: the
+whole `binding.serialization` block rides along verbatim in the `fluidExtras` custom property.
+
+A contract that does not declare it exports exactly as it does today.
+
+### Column quality rules
+
+The ODCS exporter has always replayed a column's `quality` key verbatim and always read it back
+on import — but `$defs.column` is `additionalProperties: false` and did not define it. So a
+column written the way the exporter supports was **refused by `fluid validate`**: the only way
+to get a hand-written column rule into a published contract was to write an invalid contract.
+
+Two things are worth knowing before you set it.
+
+- **It replaces the derived rules for that column** rather than adding to them. That is what
+  makes an imported ODCS column round-trip byte for byte. A column without it exports exactly
+  as it does today, with the rules forge derives from `required`, the primary-key tag and
+  `validationRules`.
+- **Put the rules on the column, not in a pass-through bucket.** The ODPS importer merges a
+  resolved port's `contract` block into its output-port stub and discards the sub-import's root
+  `extensions`, so rules parked in that bucket were dropped outright by a
+  FLUID → ODPS → FLUID cycle.
+
+The authority for an item's contents is ODCS v3.1.0 `$defs.DataQuality`, which the schema
+deliberately does not re-declare — a copy would drift from the vendored schema, and
+`fluid odcs validate` already checks a document against it. The keys the
+schema does name:
+
+| Key | Applies to | Notes |
+| --- | --- | --- |
+| `id` | every type | Stable identifier, unique within the column's rules; the charset is ODCS `$defs.StableId`. Rules forge derives itself are named `<column>-<metric>`. Optional in ODCS, but a DQ engine that labels results by rule id rejects a contract whose rules have none, so give every rule one |
+| `type` | — | `text` (prose), `library` (a predefined ODCS metric), `sql` (a query whose result is compared) or `custom` (a named engine's own check) |
+| `metric` | `library` | One of `nullValues`, `missingValues`, `invalidValues`, `duplicateValues`, `rowCount` — the five ODCS v3.1.0 defines. A name outside the list is not a library rule |
+| `arguments` | `library` | Extra arguments for the metric: `pattern` or `validValues` for `invalidValues`, as DataHub's ODCS ingestion reads them |
+| `query` | `sql` | The query whose result the comparison operator is applied to |
+| `engine`, `implementation` | `custom` | The engine that runs the check (`soda`, `great-expectations`, `dbt`) and the check as that engine expresses it |
+| `dimension` | every type | One of `accuracy`, `completeness`, `conformity`, `consistency`, `coverage`, `timeliness`, `uniqueness` |
+| `description`, `severity`, `unit` | every type | ODCS types `severity` as a free string and documents `info` / `warning` / `error` by example. `unit` is usually `rows` (the default) or `percent` |
+
 ## Behaviour that does not wait for the preview
 
 `bucketPolicy` is a 0.7.6 key, but the behaviour it controls is not. When a binding with Lake Formation grants omits it, the AWS emitter in 0.18.1 applies `cross-account`: only grantees in another AWS account get a bucket-policy statement, and same-account grantees get none. Setting the key under 0.7.6 changes that choice; leaving it out does not return the earlier output. The `exposes[].binding.governance.lakeFormation.bucketPolicy` row has the security reasoning.

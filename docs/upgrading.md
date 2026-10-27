@@ -95,6 +95,155 @@ prints). Some fields added in these releases exist only in `0.7.6`:
 
 5. Work through the section for each version you cross, below.
 
+## Read this first if you consume the exported artifacts
+
+::: warning Shipping in the next release after `0.22.0`
+Exported ODCS and ODPS documents change shape. Every change below corrects output that was
+wrong, but the old values may be baked into whatever reads them, so this is the section to read
+before you upgrade rather than after. The work is
+[forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753); the release is a minor
+bump from `0.22.0` and its number is not settled yet, so this page names the release rather
+than the number.
+
+Nothing here changes a FLUID contract. If you do not consume `fluid generate standard`,
+`fluid odcs export`, `fluid odps export` or `fluid generate artifacts` output, skip it.
+:::
+
+| Change | What to do | How to check |
+|---|---|---|
+| A Kafka column's ODCS `physicalType` is an Avro type name. **`bigint` now exports as `long`, where it exported `integer`** | Re-derive and re-register any Avro schema built from a forge ODCS export of a Kafka topic with a 64-bit column | Export the contract and read `physicalType` on that column |
+| A **per-port** ODCS contract's `name` is the port's, not the product's; the product name moves to a `fluidProductName` custom property | Re-key anything that keys files, registry subjects or display names on the contract `name`; read the product from `fluidProductName` | Export a product with more than one expose: the two documents no longer share a `name` |
+| ODPS `inputPorts[].contractId` is `<productId>.<exposeId>`, not the bare upstream product id | Point any resolver that looks an input port up by that id at the port-scoped form | Export a contract with a `consumes[]` entry and read `inputPorts[].contractId` |
+| A Kafka server's ODCS `format` becomes a message format **once the contract declares `binding.serialization`** | Nothing, until you adopt that field | A contract without it exports the same bytes as before |
+| Derived quality rules carry an `id`, and rules declared in `dq.rules` are exported as ODCS quality | Nothing. A DQ engine that labels results by rule id stops refusing the document | `quality[].id` is present on every rule the exporter mints |
+| `fluid odps import` refuses to write a contract that does not validate, and its pass-through bucket moved from `metadata.odps_passthrough` to the root `extensions.odps` | Read the bucket at its new address. Pass `--lenient` if you need the old write-anyway behaviour | An import that used to print a success tick and write an invalid file now fails and writes nothing |
+| **Breaking.** Two exposes resolving to one contract id fail `fluid validate` and every export | Give each expose its own `exposes[].contract.id`, or rename the expose whose id is derived | `fluid validate` names both exposes and the shared id |
+
+### The Kafka `physicalType` change is the urgent one
+
+This was silent data corruption, not a cosmetic fix. Kafka had no physical-type table, so
+`fluid_to_physical` fell back to the ODCS *logicalType* — and ODCS's own schema defaults an
+unqualified `integer` to `i32`. A tool deriving an Avro schema from the exported contract
+therefore read 32 bits for a column a producer such as Flink `BIGINT` writes as 64. The
+registered schema and the data disagreed, and nothing signalled it.
+
+The physical type is now the Avro type name, from a table measured against the Avro 1.12
+specification and against datacontract-cli's own ODCS→Avro exporter. The integer family is
+split by width, because Avro has no 8- or 16-bit integer: `int`, `integer`, `int2`, `int4` and
+`serial` are `int`, while `bigint`, `long`, `int8`, `int64`, `longint` and `bigserial` are
+`long`. `decimal` carries its precision and scale in `customProperties`.
+
+If you build Avro schemas from these exports, treat every 64-bit column as having been wrong
+and re-register.
+
+### The per-port ODCS name
+
+A per-port export — `fluid generate standard --format odcs`, and the per-expose documents
+`fluid generate artifacts` writes — used to name every document after the **product**, so a
+product with two exposes published two contracts both called "Orders Product". The `id` was
+already per-port; the `name` was not, so a tool that keys files, registry subjects or display
+names on the name could not tell them apart.
+
+The name is now the port's `title`, falling back to its `exposeId`, and the product's name is
+in a `fluidProductName` custom property.
+
+There is deliberately **no** special case for a single-port product: making the exported name
+depend on how many siblings a port has would change that name the day a second port is added.
+So a single-expose product's exported name changes too, whenever its port's title (or
+`exposeId`) differs from the product's name. The ODCS `id` is unchanged in every case, and a
+whole-contract export is untouched.
+
+### Input ports, and the version constraint that used to be dropped
+
+`inputPorts[].contractId` carried the bare upstream *product* id, which is not the id anything
+publishes: an output port is published under `<productId>.<exposeId>`. It is now that
+port-scoped form — or the upstream's own id when the contract names one in the new
+`consumes[].contractId`.
+
+A `consumes[].versionConstraint` was dropped outright, because ODCS's input-port object has no
+field for it. It now rides in a `fluidVersionConstraint` custom property.
+
+### The Kafka server `format`
+
+A Kafka binding declares `format: kafka_topic`, which says nothing about whether the values on
+the topic are Avro or JSON — the one thing a consumer has to know to read it at all. With the
+new `binding.serialization.value`, the exported ODCS server `format` is the message format ODCS
+means by that field: `avro`, `json`, `protobuf` or `xml`, with `avro-confluent` and
+`json-confluent` collapsing onto the wire format they carry. Whether a schema registry is
+involved is not lost — `binding.serialization` rides along verbatim in the `fluidExtras`
+custom property, unless `ODCS_FLUID_EXTRAS=false` opts out of that blob.
+
+**A contract that has not adopted the field exports exactly as before.** The exporter will not
+guess a wire format from a contract that never stated one: `binding.format` passes through as
+it always has, and where a contract sets neither, the pre-existing `json` default still
+applies. So this changes a Kafka export only once the contract says what its messages are.
+
+### Quality rules
+
+Rules the exporter derives from `required`, the primary-key tag and `validationRules` now carry
+an `id`. The ids are derived rather than counted, so two renders of one contract produce the
+same ids and an export is not a spurious diff. That matters twice: a DQ engine that labels its
+results by rule id refuses a whole contract whose rules have none, and DataHub's ODCS ingestion
+seeds its assertion URNs from `quality.id`, so a stable id is what keeps an assertion's
+identity across a rename or a reorder.
+
+Rules an author declared in `dq.rules` used to be parked in the `fluidExtras` custom property
+and nowhere else, so a consumer running the published contract's quality saw only the checks
+forge had synthesised. They are now exported as ODCS quality for the four types ODCS can
+express:
+
+| `dq.rules` type | Exported as |
+|---|---|
+| `completeness` | library metric `nullValues`, dimension `completeness` |
+| `uniqueness` | library metric `duplicateValues`, dimension `uniqueness` |
+| `valid_values` | library metric `invalidValues`, dimension `conformity` |
+| `freshness` | a `text` rule — ODCS has no library metric for it |
+
+The other four — `accuracy`, `schema`, `anomaly_detection` and `drift_detection` — have no
+executable ODCS form, so each is **logged by name with the reason** and still carried in
+`fluidExtras`. Silence was the bug; a rule with no ODCS form is now reported rather than
+dropped without a word.
+
+### `fluid odps import`
+
+The command's own help said it "always emits one validated FLUID contract" while never running
+the validator, so importing its own export printed a success tick and wrote a file
+`fluid validate` then rejected with ten errors. It now validates before writing:
+
+```bash
+fluid odps import product.odps.yaml -o contract.fluid.yaml
+```
+
+A document that does not produce a valid contract fails, names the problem and **writes
+nothing**. `--lenient` writes it anyway — note that this widens a flag that already existed:
+it used to mean only "downgrade output-port resolution failures to warnings", and it now also
+means "write the contract even when it does not validate".
+
+The pass-through bucket the importer writes for everything ODPS carries that FLUID has no field
+for moved from `metadata.odps_passthrough` to the root `extensions.odps`. `metadata` is
+`additionalProperties: false`, so the old address could never validate; root `extensions` is
+the one object the FLUID schema declares open. Root `extensions` arrived in FLUID 0.7.3, so an
+import whose source document records an older `fluidVersion` warns and declares the default
+instead, because the older schema cannot hold the bucket.
+
+### The breaking one: two ports under one contract id
+
+A contract whose `exposes[].contract.id` collides with a sibling's **resolved** id — pinned or
+derived — now fails `fluid validate` and every export door. The check compares the ids the
+exporters will actually mint, so a pin equal to a sibling's derived `<productId>.<exposeId>`
+is caught too:
+
+```bash
+fluid validate contract.fluid.yaml
+```
+
+The message names both exposes and the shared id, and the advice fits which side pinned it:
+change the `contract.id` where one is pinned, rename the expose where the id is derived.
+
+That export used to succeed. It wrote one per-port ODCS document for two output ports, so the
+losing port's schema was absent from the bundle and both ports resolved to the survivor — and
+`fluid generate artifacts` sealed it under a MANIFEST merkle root. The failure is the fix.
+
 ## From 0.15.x to 0.16
 
 Release notes: [`0.16.0`](./RELEASE_NOTES_0.16.0.md) (covers `0.15.1` to `0.16.2`).
