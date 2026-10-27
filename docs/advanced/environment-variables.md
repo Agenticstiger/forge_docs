@@ -12,6 +12,10 @@ fluid doctor --env          # runtime kill switches: current value, source, defa
 There is no single rule. Some variables accept only `1`, some accept `1`/`true`/`yes`/`on`, and a few treat any non-empty value as set, including `0`. The tables say which where it matters. When in doubt, use `1` to turn something on and unset the variable to turn it off.
 :::
 
+::: warning Where you set it matters
+Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may hold credentials but not a setting that widens a sandbox, moves where the CLI reads trusted configuration, changes authentication or trust, changes where data and credentials are sent, or chooses which program runs. `fluid` names what it ignored and runs without it. Export those in your shell, your CI job, or a `FLUID_SECRETS_FILE` you export — see [What a project's `.env` may set](./project-dotenv-trust.md).
+:::
+
 ## CLI behaviour
 
 | Variable | Effect |

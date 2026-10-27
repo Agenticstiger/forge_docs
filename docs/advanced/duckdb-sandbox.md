@@ -268,7 +268,12 @@ message now includes the declared file:
 
 - Absolute directories, separated by `:` (`;` on Windows). `~` is expanded.
 - Read from the environment of the process that runs the engine. No contract
-  field can set it.
+  field can set it, and since `0.20.0` neither can the project's `.env`,
+  `.env.<environment>` or `.env.local`: it widens this sandbox, so it is one of
+  the settings that must come from your shell, your CI job or a
+  `FLUID_SECRETS_FILE` you export. `fluid` warns and runs without it when a
+  project file sets it. See [What a project's `.env` may
+  set](./project-dotenv-trust.md).
 - A relative entry, or `/`, fails the run:
 
   ```console
@@ -353,6 +358,19 @@ guide gives.
   (`DuckDB database … is already open in this process`). Two MCP DuckDB
   drivers bound to the same `.duckdb` file in one process, or two concurrent
   `persist=True` local runs, hit this.
+- **On DuckDB 1.5.x, a free-form SQL surface can end the process.**
+  `lock_configuration` does not hold on 1.5.x for DuckDB's logging settings when
+  they are reached as a *table function* rather than with `SET`. `SET
+  enable_logging = true` is refused as it should be; the table-function route is
+  not, and the sandbox's own path refusal then comes out of DuckDB's logger write
+  path as an uncaught C++ exception that aborts the process (SIGABRT; reproduced
+  on 1.5.1 and 1.5.6). It widens no grant — the failure is availability, not
+  confidentiality — and the engine's own SQL never reaches it. What is exposed is
+  a surface that runs SQL somebody else wrote, such as the MCP output port's
+  `query_sql` under `policy.allow_free_form_sql`, whose SELECT-only gate a table
+  function passes. DuckDB 2.0 refuses it cleanly. So run on DuckDB 2.x wherever
+  you expose free-form SQL, and otherwise leave `policy.allow_free_form_sql` off;
+  no connection setting can take back what the lock does not hold.
 - **Persistent DuckDB secrets are off.** Secrets saved in
   `~/.duckdb/stored_secrets` are no longer loaded; object-store builds use the
   credential-chain secret the engine creates.
@@ -364,6 +382,7 @@ guide gives.
 
 - [Composing a contract with `$ref`](../concepts/contract-refs.md): the matching confinement for contract fragments
 - [Local provider](../providers/local.md)
+- [What a project's `.env` may set](./project-dotenv-trust.md): why `FLUID_DUCKDB_ALLOWED_DIRS` has to come from your shell
 - [Upgrading to 0.18.0](../RELEASE_NOTES_0.18.0.md)
 
 ::: tip About the examples

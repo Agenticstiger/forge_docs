@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, and the checklist for each step from 0.15.x to 0.18.1 — what changes, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.18.1, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -318,6 +318,114 @@ went on to `tofu plan` on forge-cli main before #714, and now stops:
 ```
 
 Background: [Contract validation](./cli/apply.md#contract-validation).
+
+## DuckDB 1.x to 2.x
+
+`0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so
+`pip install -U "data-product-forge[local]"` can now resolve DuckDB 2.x. DuckDB 2.0 needs
+Python 3.11, so a Python 3.10 install stays on 1.5.x and nothing below changes for it.
+
+Nothing here asks you to upgrade DuckDB. Read it before you do, and before anything else in
+your stack does it for you — `pip install -U` on a fresh environment, a rebuilt CI image, or
+another tool in the same environment pulling DuckDB 2.x in.
+
+```bash
+python -c "import duckdb; print(duckdb.__version__)"
+```
+
+| Change | What to do | How to check |
+|---|---|---|
+| A DuckDB **database file** another 2.x tool wrote cannot be opened on 1.5. That covers dbt-duckdb, dlt, and forge-cli `0.21.0` or older running on DuckDB 2.0 | Convert it, or keep every reader of that file on 2.x. The conversion is below | `fluid apply` on 1.5.x fails to open the file |
+| **Contract SQL runs on the DuckDB that is installed**, and 2.0 changed some SQL: `x -> x + 1` is an error, and integer `//` and `%` by zero raise instead of returning NULL | Write `lambda x: x + 1`; wrap a division that can divide by zero in `TRY(...)` | Run each local build once: `fluid apply contract.fluid.yaml --mode amend-and-build --yes` |
+| A **DuckDB acquisition build now resolves a Postgres source's `connection.secretRef`** (`0.22.0`). It used to ignore it, and libpq's `PGPASSWORD` or `~/.pgpass` supplied the password | To keep using `PGPASSWORD`, remove the `secretRef`. An inline `password` still wins over it | The build fails, naming the reference, where the `secretRef` does not resolve on the host that runs `fluid apply` |
+| An **incremental timestamp cursor** written on 1.5 and read on 2.0 could silently drop or duplicate rows | Nothing: no state file needs rewriting. Upgrade to the release below before you move an incremental build across DuckDB versions | A run that lands fewer rows than are due, at exit code 0, with the stream recorded `succeeded` |
+| A pipeline **discovered on 1.5 failed `SchemaDriftError` on 2.0** on a false positive | Nothing, in the release below | `fluid apply` fails the drift gate after a DuckDB upgrade, with no contract edit and no new data |
+
+A file forge-cli itself creates on 2.x — `fluid demo`'s `.fluid/db.duckdb`, the local
+provider's session and `persist` databases, a Meltano acquisition's DuckDB destination — is
+written in the format DuckDB 1.5 writes, which DuckDB 1.0 and later open. A column type that
+needs a newer format, such as `VARIANT`, is refused in it on 2.x exactly as it is on 1.5. A
+file that already exists keeps the format it has.
+
+To convert a file that only opens on 2.x, run this on 2.x:
+
+```sql
+ATTACH 'old.duckdb' AS src (READ_ONLY);
+ATTACH 'new.duckdb' AS dst (STORAGE_VERSION 'v1.0.0');
+COPY FROM DATABASE src TO dst;
+```
+
+DuckDB's own [2.0 migration notes](https://duckdb.org/docs/2.0/operations_manual/migration.html)
+cover the SQL changes in full.
+
+### The two drift defects, and what fixes them
+
+::: tip Shipping in the next release after `0.22.0`
+Both fixes are on forge-cli `main`. The release is a minor bump from `0.22.0` and its number
+is not settled yet, so this page names the release rather than the number. Their pull request
+is [forge-cli #749](https://github.com/Agenticstiger/forge-cli/pull/749).
+:::
+
+**An incremental cursor written on 1.5 and read on 2.0 silently dropped or duplicated rows.**
+A cursor is stored as text and pasted into `WHERE <field> > '<text>'` as an untyped literal,
+so DuckDB coerces it to the column's type — and the two versions disagree about that type.
+`read_json_auto` over a timestamp carrying `Z` gives `TIMESTAMP` on 1.5 and
+`TIMESTAMP WITH TIME ZONE` on 2.0, where a naive literal is read in the session time zone,
+which is the host's. On a host at a non-zero UTC offset the `>` boundary therefore moved. An
+end-to-end run that wrote its cursor on 1.5 and continued on 2.0 landed 5 of 6 rows and
+advanced the cursor past the row it skipped — exit code 0, stream recorded `succeeded`. Both
+versions satisfy `duckdb>=1.5.0`, so one install can write state another reads. CSV sources
+were never affected: `read_csv_auto` already sniffed `TIMESTAMPTZ` on 1.5.
+
+A timestamp cursor now compares **instants** (`epoch_us`), which no session time zone can
+shift, and the stored text is normalised to a naive UTC instant.
+
+- **No state file needs rewriting.** A cursor a shipped 2.0 install already wrote carries an
+  explicit offset, and is normalised when it is read.
+- The instant comparison is used only for a column whose type `epoch_us` accepts
+  (`TIMESTAMP`, `TIMESTAMP WITH TIME ZONE`, `TIMESTAMPTZ`, `TIMESTAMP_S`, `TIMESTAMP_MS`,
+  `TIMESTAMP_NS`, `TIMESTAMPTZ_NS`, `DATE`, `TIME`). Integer, date-as-integer and opaque
+  string cursors keep the plain comparison, because `epoch_us` raises `BinderException` on
+  them. The choice is made from the **column's** type, never from the cursor text's shape: a
+  `VARCHAR` column of timestamp-looking strings yields a cursor indistinguishable from a real
+  timestamp's.
+- Pinning the session time zone to UTC would also have worked, and is deliberately not used.
+  `TimeZone` is an ICU-backed setting, the [DuckDB sandbox](./advanced/duckdb-sandbox.md)
+  forbids autoloading extensions, and where ICU is absent DuckDB does not recognise the option
+  at all — so a pin would fail the connection in exactly the hardened environments the sandbox
+  exists for.
+- The accepted cost: wrapping the column in a function can stop the predicate being pushed
+  into the Parquet or JSON reader, so a large source scans more than it would have.
+
+**A pipeline discovered on 1.5 failed `SchemaDriftError` on 2.0.** The drift gate compared
+type *names*, and 2.0 infers `HUGEINT` where 1.5 infers `DOUBLE` for the same integer literal,
+and `TIMESTAMP WITH TIME ZONE` where 1.5 infers `TIMESTAMP` for the same JSON timestamp.
+Upgrading DuckDB — no contract edit, no new data — broke a working pipeline on a false
+positive: the inferrer drifted, the data did not. Those pairs are now treated as one physical
+type under two names.
+
+- The widening and narrowing classification is unchanged. The family check runs *after* it, so
+  `type_widened` and `type_narrowed` still fire for every ordered numeric pair.
+- `DOUBLE` and `HUGEINT` are **not** value-identical: for the same literal 1.5 landed a lossy
+  17-significant-digit float where 2.0 lands the exact 128-bit integer. So the non-failing path
+  says the physical type moved rather than passing silently, with a line that ends "the same
+  physical type under two names ... The stored width does change, so a value's precision may
+  differ between the two."
+
+**`fluid init --discover` emitted contracts its own `fluid validate` rejected.** The emitter
+wrote the source's type name straight through, so a discover on DuckDB 2.0 produced
+`type: hugeint` and `type: '"null"'`, and `fluid validate` then exited 1 on the file the tool
+had just written. Validating every name in DuckDB's own `duckdb_types()` against the bundled
+schema showed **35 rejected names**, not the two reported: `uinteger` and `integer[]` were
+rejected on 1.5 as well, so this was never only a 2.0 problem. Discovered types are now
+canonicalised at the emitter, each rejected name mapping to the nearest one the schema accepts
+and every already-valid name left untouched. An unsigned or 128-bit type maps to a width that
+holds its range (`uinteger` → `bigint`, `hugeint` → `numeric`) rather than to the
+similar-sounding name. A contract already emitted with an invalid type stays invalid — the fix
+is at emit time — but such a contract already failed validation, so nothing working changes.
+
+Background: [DuckDB sandbox for contract SQL](./advanced/duckdb-sandbox.md),
+[Source-aligned acquisition](./advanced/source-aligned-acquisition.md).
 
 ## Older releases
 
