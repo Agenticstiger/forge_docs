@@ -40,7 +40,7 @@ The route table sends an event to one of these pages, and the entries below name
 | [`fluid secrets`](../cli/secrets.md) | `copilot_missing_llm_api_key` |
 | [Sovereignty](../concepts/sovereignty.md) | The policy and sovereignty events, except `policy_compiler_crashed` |
 | [`fluid apply`, Iceberg catalog move guard](../cli/apply.md#iceberg-catalog-move-guard) | `iceberg_catalog_move_blocked` |
-| [`fluid policy compile`, Errors](../cli/policy-compile.md#errors) | `policy_compiler_crashed` *(unreleased, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* |
+| [`fluid policy compile`, Errors](../cli/policy-compile.md#errors) | `policy_compiler_crashed` *(since 0.20.0, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* |
 | [`fluid verify-signature`](../cli/verify-signature.md) | The signing events |
 | [Getting started](../getting-started/README.md) | `opentofu_engine_install_failed` |
 | [Typed CLI errors](./typed-cli-errors.md) | The schema-version events and the connectivity events |
@@ -226,7 +226,7 @@ As of 0.18.1 the second suggestion names `azure`, but `fluid providers` lists `a
 
 The state refusals (`state_shared_with_another_provider`, `state_migration_ambiguous` and the other `state_*` events) are described on [OpenTofu state](../concepts/state.md). The refusal for an env with no overlay (`overlay_declared_but_missing`) and the `bundle_env_mismatch` refusal are on [Environments and overlays](../concepts/environments-and-overlays.md); `plan_env_mismatch` is in [Production troubleshooting](./production-troubleshooting.md).
 
-*(unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714) and [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715))* `apply_contract_invalid`, `apply_plan_missing_contract` and `unsupported_binding` (kind `mwaa-environment-not-emitted`) are not catalogued, so they print no curated suggestions. [Production troubleshooting](./production-troubleshooting.md#environment-mode-and-plan-file-errors) explains the first two, and [Scheduling on AWS](../providers/aws.md#scheduling-on-aws) the third. `contract_version_unsupported`, catalogued [above](#contract-version-unsupported), is now raised by `fluid apply` on both engines and in every mode.
+*(since 0.20.0, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714) and [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715))* `apply_contract_invalid`, `apply_plan_missing_contract` and `unsupported_binding` (kind `mwaa-environment-not-emitted`) are not catalogued, so they print no curated suggestions. [Production troubleshooting](./production-troubleshooting.md#environment-mode-and-plan-file-errors) explains the first two, and [Scheduling on AWS](../providers/aws.md#scheduling-on-aws) the third. `contract_version_unsupported`, catalogued [above](#contract-version-unsupported), is now raised by `fluid apply` on both engines and in every mode.
 
 ### planner_failed
 
@@ -374,7 +374,7 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 
 ### policy_compiler_crashed
 
-*(unreleased, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* `ERR_POLICY_COMPILER_CRASHED`. The documentation link lands on [`fluid policy compile`, Errors](../cli/policy-compile.md#errors).
+*(since 0.20.0, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* `ERR_POLICY_COMPILER_CRASHED`. The documentation link lands on [`fluid policy compile`, Errors](../cli/policy-compile.md#errors).
 
 - Run 'fluid validate &lt;contract&gt;': policy compile reads accessPolicy and exposes without validating them against the contract schema
 - If the contract validates, re-run with 'fluid --log-level DEBUG policy compile &lt;contract&gt;' to see the compiler's traceback

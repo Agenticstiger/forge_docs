@@ -242,7 +242,7 @@ If `PGHOST` and the others are not exported in that shell, the build fails at co
 | Stage | What ran | Where it's wired |
 |---|---|---|
 | Validation | JSON-schema check against the contract's declared schema (`0.7.3`), plus the Bronze/SDP consistency check | `fluid validate` |
-| Source read | *(unreleased, [forge-cli #740](https://github.com/Agenticstiger/forge-cli/pull/740))* The runner installs and loads DuckDB's `postgres` extension on first use, attaches the source read-only (`ATTACH ... (TYPE postgres, READ_ONLY)`) before the sandbox locks, and reads the stream as `<alias>.<schema>.<table>`. The first run needs network access to DuckDB's extension repository | DuckDB runner, `build_runners/duckdb/` |
+| Source read | *(since 0.22.0, [forge-cli #740](https://github.com/Agenticstiger/forge-cli/pull/740))* The runner installs and loads DuckDB's `postgres` extension on first use, attaches the source read-only (`ATTACH ... (TYPE postgres, READ_ONLY)`) before the sandbox locks, and reads the stream as `<alias>.<schema>.<table>`. The first run needs network access to DuckDB's extension repository | DuckDB runner, `build_runners/duckdb/` |
 | Quality gate | The `not_null` gate on `id` is compiled into the read: the `COPY` selects `... WHERE id IS NOT NULL` | DuckDB runner |
 | Pre-land hook | `dlp_scan` classifies the batch before it lands. `quality_gate` in `preLand` is accepted and handled by the gate above, not by a separate hook | `build_runners/hooks/dlp_scan.py` |
 | Write | `COPY (...) TO 'out/orders.parquet' (FORMAT 'parquet')` | DuckDB runner |

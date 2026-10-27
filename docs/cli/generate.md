@@ -409,7 +409,7 @@ The ODPS exporter reads a few environment variables for output shape:
 | `ODPS_INCLUDE_EXECUTION_DETAILS` | `false` | Include execution details (triggers, runtime) |
 | `ODPS_TARGET_PLATFORM` | `generic` | Platform-specific tuning (`collibra`, etc.) |
 | `ODPS_VALIDATE_OUTPUT` | `true` | Validate the emitted JSON |
-| `ODPS_API_VERSION` | `v1.0.0` | Bitol ODPS `apiVersion` to emit. `v1.1.0` opts into the RFC 0029 top-level `type` field (see [`fluid odps-bitol`](./odps-bitol.md)); it stays opt-in until Bitol cuts the v1.1.0 release. |
+| `ODPS_API_VERSION` | `v1.0.0` | Bitol ODPS `apiVersion` to emit. `v1.1.0` (released by Bitol on 2026-09-08) opts into the RFC 0029 top-level `type` field (see [`fluid odps-bitol`](./odps-bitol.md)); `v1.0.0` stays the default because the emitted `apiVersion` is what every existing consumer parses, so the default moves with a schema bump rather than silently. |
 
 Formats are deterministic: identical input yields byte-identical output, so the result can be checked into version control.
 

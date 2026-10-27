@@ -70,7 +70,7 @@ fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--manifest PATH] [
 | `odps-bitol` | ODPS-Bitol v1.0.0 product file under `odps-bitol/`, with an ODCS file per exposed port beside it | Schema vendored from `bitol-io/open-data-product-standard`. |
 | `opds` | OPDS v4.1 (LF/ODPI) product file under `opds/` (`<product-id>.opds.json`) | `odps` is accepted as a deprecated alias of `opds` and warns. |
 | `schedule` | Airflow DAG files under `schedule/` | Emitted when `orchestration.engine` is set, or when a build declares a schedule trigger. See [Scheduled builds](#scheduled-builds). |
-| `policies` | `policy/bindings.json`, the compiled IAM / GRANT bindings | *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* A crash inside the policy compiler fails the stage with `policy_compiler_crashed` (exit 1). See [`fluid policy compile`](./policy-compile.md#errors). |
+| `policies` | `policy/bindings.json`, the compiled IAM / GRANT bindings | *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* A crash inside the policy compiler fails the stage with `policy_compiler_crashed` (exit 1). See [`fluid policy compile`](./policy-compile.md#errors). |
 
 `builds[].pattern` (for example `hybrid-reference`) decides how the transformation runs and gates no emit key: a reference-only contract gets the same set as any other.
 
@@ -116,7 +116,7 @@ The `schedule` key writes DAGs when either holds:
 - `orchestration.engine` is set to anything except `none`.
 - No `orchestration.engine` is set, and a build declares `execution.trigger.schedule` (or `cron`) with trigger `type: schedule` or no type. The engine then defaults to Airflow. The file does nothing until `schedule-sync` delivers it, and stage 11 names the scheduler (`airflow`, `mwaa`, `composer` and `astronomer` run Airflow DAGs), so the default decides the file format only.
 
-Each such build gets its own DAG that runs `fluid apply`, unless the contract hand-declares `orchestration.tasks`, which keep their declared operators. A build is left out when its own `execution.orchestration.engine` is `none` or not Airflow, or when its trigger is `event`, `dataset`, `schedule_and_dataset` or `timetable`, which a plain cron DAG cannot express. *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build, or one that runs outside forge-cli, gets no DAG and no task at all (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)).
+Each such build gets its own DAG that runs `fluid apply`, unless the contract hand-declares `orchestration.tasks`, which keep their declared operators. A build is left out when its own `execution.orchestration.engine` is `none` or not Airflow, or when its trigger is `event`, `dataset`, `schedule_and_dataset` or `timetable`, which a plain cron DAG cannot express. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build, or one that runs outside forge-cli, gets no DAG and no task at all (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)).
 
 ### Layout and naming
 

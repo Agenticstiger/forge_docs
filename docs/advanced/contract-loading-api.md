@@ -180,7 +180,7 @@ In the engine's order:
 3. **Overlay**: for `env`, the first of `overlays/<env>.yaml|yml|json`,
    `<env>.yaml|yml|json`, `<contract-stem>.<env>.yaml|yml|json` next to the
    contract, deep-merged over the base (objects key by key, lists of objects
-   by position, anything else replaced). *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* From
+   by position, anything else replaced). *(since 0.21.0, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* From
    `fluidVersion` 0.7.6, `builds`, `exposes` and `consumes` merge by identity,
    and an overlay entry the merge cannot match raises `ContractLoadError`
    (`contract_load_failed`). A bundle is never re-overlaid.

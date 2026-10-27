@@ -139,7 +139,7 @@ The DAG is written for Airflow 3 (`airflow.sdk.DAG`, `BashOperator` from `apache
 
 Stage 3 (`fluid generate artifacts`) writes schedule artifacts when the contract sets `orchestration.engine` to anything but `none`, or when it sets no engine and a build declares `execution.trigger.schedule` (or `cron`) with `type: schedule` or no type. Airflow renders the second case.
 
-Within that, a build gets the `fluid apply` DAG unless its own `execution.orchestration.engine` is `none` or not Airflow, or its trigger is `event`, `dataset`, `schedule_and_dataset` or `timetable`, which a cron DAG cannot express. *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build gets none either: its platform keeps it running (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)). A contract that hand-declares `orchestration.tasks` keeps those operators instead.
+Within that, a build gets the `fluid apply` DAG unless its own `execution.orchestration.engine` is `none` or not Airflow, or its trigger is `event`, `dataset`, `schedule_and_dataset` or `timetable`, which a cron DAG cannot express. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build gets none either: its platform keeps it running (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)). A contract that hand-declares `orchestration.tasks` keeps those operators instead.
 
 ### The DAG id and the environment
 

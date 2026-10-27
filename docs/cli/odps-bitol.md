@@ -24,7 +24,7 @@ fluid odps-bitol info
 | `--output`, `-o` | Output file path. Default: the contract file's name without its last extension, plus `-odps` and the format. `contract.fluid.yaml` writes `contract.fluid-odps.yaml`. |
 | `--format`, `-f` | Output format: `yaml` or `json`. Default `yaml`. |
 | `--no-custom` | Exclude custom properties from the output. |
-| `--api-version` | ODPS `apiVersion` to emit: `v1.0.0` or `v1.1.0`. Default `v1.0.0` (the released standard). `v1.1.0` (approved RFC 0029, since v0.13.1) adds the top-level `type` — `sourceAligned` / `aggregate` / `consumerAligned`, mapped 1:1 and bidirectionally to FLUID SDP / ADP / CDP (`metadata.productType`); stays opt-in until Bitol cuts the release. The `ODPS_API_VERSION` env var sets the default. |
+| `--api-version` | ODPS `apiVersion` to emit: `v1.0.0` or `v1.1.0`. Both are released Bitol standards. `v1.1.0` (RFC 0029, released 2026-09-08) adds the top-level `type` — `sourceAligned` / `aggregate` / `consumerAligned`, mapped 1:1 and bidirectionally to FLUID SDP / ADP / CDP (`metadata.productType`) — and forge-cli has emitted it on request since v0.13.1. `v1.0.0` stays the default: the emitted `apiVersion` is what every existing consumer parses, so the default moves with a schema bump rather than silently. The `ODPS_API_VERSION` env var sets the default. |
 
 ### `odps-bitol validate`
 

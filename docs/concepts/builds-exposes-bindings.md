@@ -56,7 +56,7 @@ fluid apply contract.fluid.yaml --yes --mode amend-and-build
 
 Under `--mode amend-and-build`, each build goes to the runner that matches it:
 
-- *(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* a Flink build (`engine: flink`, or `properties.language: flink_sql`) is not run: it is reported as run outside forge-cli (see [Flink jobs](#flink-jobs-engine-flink));
+- *(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* a Flink build (`engine: flink`, or `properties.language: flink_sql`) is not run: it is reported as run outside forge-cli (see [Flink jobs](#flink-jobs-engine-flink));
 - an `acquisition` build runs on its ingestion engine;
 - a build with `engine: sql`, or `pattern: embedded-logic` with `properties.sql`, runs as embedded SQL;
 - a dbt build runs the dbt project at `repository`;
@@ -96,7 +96,7 @@ Four rules, each measured on 0.18.1:
 
 - **Acquisition builds** write to the first expose whose `exposeId` appears in the build's `outputs`, and to `exposes[0]` when it names none. As of 0.18.1 their schema-drift check still compares the source with `exposes[0]`'s declared schema, so a second build whose source differs fails with `source schema drift detected` when `exposes[0]` has `schemaPolicy: discover_and_freeze`, the policy `fluid init --discover` writes. With `evolve_safe` on `exposes[0]` the second build lands in its own expose.
 - **Embedded-SQL builds on the local DuckDB engine** write one result, to `exposes[0]`, whatever `outputs` says. Naming a second expose prints a warning and writes nothing there.
-- **Streaming Iceberg sinks.** *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* A Kafka Connect or embedded Debezium Server build whose Iceberg sink config forge-cli derives writes the Iceberg exposes its `outputs` name: exactly one for Kafka Connect, and for Debezium Server one or more that share a database and a catalog. `fluid validate` refuses a build whose outputs its sink cannot write that way. See [Which exposes a streaming sink writes](../advanced/source-aligned-acquisition.md#which-exposes-a-streaming-sink-writes).
+- **Streaming Iceberg sinks.** *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* A Kafka Connect or embedded Debezium Server build whose Iceberg sink config forge-cli derives writes the Iceberg exposes its `outputs` name: exactly one for Kafka Connect, and for Debezium Server one or more that share a database and a catalog. `fluid validate` refuses a build whose outputs its sink cannot write that way. See [Which exposes a streaming sink writes](../advanced/source-aligned-acquisition.md#which-exposes-a-streaming-sink-writes).
 
 As of 0.18.1, two embedded-SQL builds in one contract therefore share a destination. Each names its own expose in `outputs`; both run; and the second overwrites the first's file:
 
@@ -109,7 +109,7 @@ After that run `out/by_region.parquet` held the second build's rows (`customer_i
 
 ### Flink jobs: `engine: flink`
 
-*(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* A long-running Flink job, typically Flink SQL from Kafka to Kafka on the [Flink Kubernetes Operator](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/) or on AWS Managed Service for Apache Flink, declares `engine: flink` (schema 0.7.6 preview). forge-cli validates and plans the build but ships no runner for it: the platform that runs the job executes it.
+*(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* A long-running Flink job, typically Flink SQL from Kafka to Kafka on the [Flink Kubernetes Operator](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/) or on AWS Managed Service for Apache Flink, declares `engine: flink` (schema 0.7.6 preview). forge-cli validates and plans the build but ships no runner for it: the platform that runs the job executes it.
 
 ```yaml
 fluidVersion: "0.7.6"
@@ -136,12 +136,12 @@ builds:
 - **Deployment settings go under `properties.parameters`.** `embeddedLogicPattern` is closed, so `parallelism` beside `sql` fails validation with `Additional properties are not allowed ('parallelism' was unexpected)`. Name them as the operator does: `parallelism` and `upgradeMode` (`savepoint`, `last-state`, `stateless`) from its job spec, and `flinkConfiguration`.
 - **`fluid apply --mode amend-and-build`** prints `Build 'reconcile' - engine 'flink' runs on kubernetes, outside forge-cli; there is nothing for forge-cli to run.` and counts the build on its own summary line, `Run outside forge-cli: 1`. A contract whose only builds run elsewhere exits 0; it is not "every build was skipped". The apply run report records the build as `skipped` with `reason: runs_outside_forge`.
 - **No planner runs its SQL.** The local, AWS, GCP and Snowflake planners never turn it into a DuckDB, Athena, BigQuery or Snowflake statement, and the local planner lands nothing for an expose the job writes. In a contract that mixes a Flink build with a local one, name each build's exposes in `outputs`: when it cannot tell which build writes an expose, the local planner lands neither and warns.
-- **Schedules and generated code.** `fluid generate schedule` gives the build no task or DAG, and a contract with no other build has nothing to schedule (exit 0). `fluid generate transformation` says there is no code to generate for it. Leave `execution.trigger` out for a continuous job, or *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* say so with `trigger: {type: continuous}` (see [Continuous builds](#continuous-builds-trigger-type-continuous)).
+- **Schedules and generated code.** `fluid generate schedule` gives the build no task or DAG, and a contract with no other build has nothing to schedule (exit 0). `fluid generate transformation` says there is no code to generate for it. Leave `execution.trigger` out for a continuous job, or *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* say so with `trigger: {type: continuous}` (see [Continuous builds](#continuous-builds-trigger-type-continuous)).
 - **On 0.7.5**, `engine: flink` fails validation. A 0.7.5 contract declares the same job with `properties.language: flink_sql` (with `engine: sql`, say), and forge-cli treats it the same way.
 
 ### Continuous builds: `trigger.type: continuous`
 
-*(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A build whose job its platform keeps running, such as a Flink job or a `kafka-connect` or `debezium` connector, can say so (schema 0.7.6 preview):
+*(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A build whose job its platform keeps running, such as a Flink job or a `kafka-connect` or `debezium` connector, can say so (schema 0.7.6 preview):
 
 ```yaml
 fluidVersion: "0.7.6"
@@ -169,7 +169,7 @@ builds:
 
   It is not Airflow's `@continuous`, which starts batch runs back to back.
 - **On 0.7.5**, `continuous` fails validation: `'continuous' is not one of ['schedule', 'event', 'manual', 'dependency', 'dataset', 'schedule_and_dataset', 'timetable']`.
-- **Where it belongs.** Declare it on a build that runs outside forge-cli or on a connector. *(unreleased, [forge-cli #737](https://github.com/Agenticstiger/forge-cli/pull/737))* On a build forge-cli runs as a batch run, [`fluid validate` warns](../cli/validate.md#a-continuous-trigger-on-a-batch-build), so `--strict` fails. The dbt and python runners refuse the trigger and say why (exit `1`), and the python runner takes every build no other runner does, such as one with no engine or a local `spark` script; an inline-SQL build, or a `duckdb`, `airbyte`, `meltano` or `dlt` acquisition, runs only when `fluid apply` runs builds. A continuous `spark`, `glue` or `custom` build that names a `runtime.platform` other than `local` gets no warning: `fluid apply --mode amend-and-build` leaves it to that platform, as it does a Flink job. [`fluid scaffold-composer`](../cli/scaffold-composer.md) writes no DAG for a contract whose every build is continuous or runs outside forge-cli.
+- **Where it belongs.** Declare it on a build that runs outside forge-cli or on a connector. *(since 0.22.0, [forge-cli #737](https://github.com/Agenticstiger/forge-cli/pull/737))* On a build forge-cli runs as a batch run, [`fluid validate` warns](../cli/validate.md#a-continuous-trigger-on-a-batch-build), so `--strict` fails. The dbt and python runners refuse the trigger and say why (exit `1`), and the python runner takes every build no other runner does, such as one with no engine or a local `spark` script; an inline-SQL build, or a `duckdb`, `airbyte`, `meltano` or `dlt` acquisition, runs only when `fluid apply` runs builds. A continuous `spark`, `glue` or `custom` build that names a `runtime.platform` other than `local` gets no warning: `fluid apply --mode amend-and-build` leaves it to that platform, as it does a Flink job. [`fluid scaffold-composer`](../cli/scaffold-composer.md) writes no DAG for a contract whose every build is continuous or runs outside forge-cli.
 - **Overlays.** An environment overlay cannot turn a scheduled build continuous: an overlay cannot delete the base's `cron` or `schedule`, and setting it to `null` is refused too. Declare the trigger in each environment's overlay instead of in the base.
 - **A DAG deployed earlier stays.** When every build of a product becomes continuous, it gets no `schedule/` artifacts, so pipeline stage 11 skips `fluid schedule-sync`, and a DAG deployed for the product before stays in the scheduler: remove it by hand.
 
@@ -577,9 +577,9 @@ Schema `0.7.6` is a preview. It validates only when the file names it, and the s
 - **`consumes[].upstreamWorkspace` and `upstreamDigest`** pin an upstream that lives in another mesh ([Federated upstreams](./federation.md)). `upstreamWorkspace` is the federated workspace's id; `upstreamDigest` is the `sha256:<64 hex>` digest of the upstream contract, which `fluid contract digest <file>` prints. `fluid apply` compares it with the upstream's live digest.
 - **`binding.principals`, `binding.encryption`, `binding.packaging`** (the first two, with `exposes[].lifecycle.expire`, are covered in [Governance parity](./governance-parity.md)) map the contract's logical principals to identities on a platform, set encryption at rest for S3 and BigQuery, and override packaging per expose.
 - **`exposes[].lifecycle.expire`** deletes stored data once it is older than `retention`; it is `false` unless you set it.
-- *(unreleased, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* **`builds[].engine: flink`** declares a job that runs outside forge-cli; see [Flink jobs](#flink-jobs-engine-flink).
-- *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* **Overlays merge `builds`, `exposes` and `consumes` by identity**; see [How an overlay merges](./environments-and-overlays.md#how-an-overlay-merges).
-- *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* **`builds[].execution.trigger.type: continuous`** declares a job its platform keeps running, which no scheduler starts; see [Continuous builds](#continuous-builds-trigger-type-continuous).
+- *(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* **`builds[].engine: flink`** declares a job that runs outside forge-cli; see [Flink jobs](#flink-jobs-engine-flink).
+- *(since 0.21.0, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* **Overlays merge `builds`, `exposes` and `consumes` by identity**; see [How an overlay merges](./environments-and-overlays.md#how-an-overlay-merges).
+- *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* **`builds[].execution.trigger.type: continuous`** declares a job its platform keeps running, which no scheduler starts; see [Continuous builds](#continuous-builds-trigger-type-continuous).
 
 ## Where to look next
 

@@ -71,7 +71,7 @@ not name the file.
 - A list of maps is patched by position: `exposes: [ {...} ]` in an overlay
   amends `exposes[0]` of the base and leaves the rest of that expose alone.
   Overlay entries past the end of the base list are appended.
-- *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract whose `fluidVersion` is 0.7.6 (the schema
+- *(since 0.21.0, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract whose `fluidVersion` is 0.7.6 (the schema
   preview) or later, `builds`, `exposes` and `consumes` at the top of the
   contract are patched by identity instead: `builds[].id`, `exposes[].exposeId`,
   and `consumes[]` by `productId` + `exposeId`. Inserting or reordering an entry
@@ -101,13 +101,13 @@ not name the file.
   the list merges by position and logs `overlay_merged_by_position`. Lists
   inside an entry, such as an expose's `contract.schema`, still merge by
   position.
-- *(unreleased, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* Before 0.7.6 the merge is by position, and a patch that
+- *(since 0.21.0, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* Before 0.7.6 the merge is by position, and a patch that
   lands on an entry naming another id logs `overlay_patch_retargeted`: Put the
   overlay's entries in the base's order, or set `fluidVersion: "0.7.6"`.
-  *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* `fluid validate --env`, `fluid contract-validation --env` and
+  *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* `fluid validate --env`, `fluid contract-validation --env` and
   `fluid test --env` report it as a warning instead, and `--strict` fails on
   it; see [`fluid validate`: `--env` and environment overlays](../cli/validate.md#env-and-environment-overlays).
-  *(unreleased, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* `fluid bundle --env --format tgz` records it in the
+  *(since 0.22.0, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* `fluid bundle --env --format tgz` records it in the
   bundle, so `fluid validate <bundle>.tgz --strict` fails on it too.
 - Base keys an overlay does not set survive inside a patched map. A base
   `binding.location.path` is still present in the resolved binding of an overlay

@@ -30,7 +30,7 @@ Generated 1 files (airflow scheduler):
 Tip: To regenerate after editing the contract: fluid generate schedule
 ```
 
-`fluid generate schedule` renders these DAGs when the contract's `orchestration.engine` is `airflow` and the contract declares no explicit `orchestration.tasks`. A contract with no `orchestration.engine` at all but a build with a cron trigger defaults to Airflow. A build with a trigger of another type (`event`, `timetable`, `schedule_and_dataset`) gets no DAG, because a plain cron DAG would silently drop what those types mean. *(unreleased, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* Neither does a `continuous` build: its platform keeps it running (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)). `--env` is the overlay for the generation and the `--env` every scheduled run passes to `fluid apply`; leave it out for a contract with no overlays.
+`fluid generate schedule` renders these DAGs when the contract's `orchestration.engine` is `airflow` and the contract declares no explicit `orchestration.tasks`. A contract with no `orchestration.engine` at all but a build with a cron trigger defaults to Airflow. A build with a trigger of another type (`event`, `timetable`, `schedule_and_dataset`) gets no DAG, because a plain cron DAG would silently drop what those types mean. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* Neither does a `continuous` build: its platform keeps it running (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)). `--env` is the overlay for the generation and the `--env` every scheduled run passes to `fluid apply`; leave it out for a contract with no overlays.
 
 ## What the DAG does
 
@@ -94,7 +94,7 @@ fluid schedule-sync --scheduler airflow --dags-dir dist/artifacts/schedule --des
 
 ## MWAA on AWS
 
-*([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715), unreleased)* `fluid apply` does not create an Amazon MWAA environment. Create the environment yourself, in your own VPC, or use one you already run, and push the DAGs to the S3 folder it reads. Schedule the builds with `builds[].execution.trigger`, and leave `orchestration.schedule` out:
+*([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715), since 0.20.0)* `fluid apply` does not create an Amazon MWAA environment. Create the environment yourself, in your own VPC, or use one you already run, and push the DAGs to the S3 folder it reads. Schedule the builds with `builds[].execution.trigger`, and leave `orchestration.schedule` out:
 
 ```yaml
 orchestration:

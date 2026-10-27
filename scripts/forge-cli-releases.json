@@ -1,0 +1,41 @@
+{
+  "_comment": [
+    "Which forge-cli release contains each pull request a docs page cites.",
+    "",
+    "Read by the release-marker sweep in scripts/check_cli_docs.py. A page may",
+    "call a pull request unreleased only while that pull request is absent from",
+    "releaseOfPr; once an entry exists here, every `unreleased` marker naming it",
+    "fails CI, with the file, the line and the release that contains it.",
+    "",
+    "Regenerate from a forge-cli checkout, which needs no network:",
+    "  python scripts/check_cli_docs.py --refresh-releases ../forge-cli",
+    "It reads CHANGELOG.md for the release list, finds each release's",
+    "`chore(release)` commit on the default branch, and asks git whether the",
+    "pull request's merge commit is an ancestor of it. Nothing is inferred from",
+    "a date: a release cut on the same day as a merge is decided by ancestry.",
+    "",
+    "reviewedThroughRelease is the newest forge-cli release these entries were",
+    "checked against. When forge-cli has cut a newer one and a page still calls",
+    "some pull request unreleased, the sweep fails: that release may contain it",
+    "and nobody has looked. Refresh this file and the markers together."
+  ],
+  "repo": "Agenticstiger/forge-cli",
+  "changelogUrl": "https://raw.githubusercontent.com/Agenticstiger/forge-cli/main/CHANGELOG.md",
+  "reviewedThroughRelease": "0.22.0",
+  "releaseOfPr": {
+    "707": "0.20.0",
+    "709": "0.20.0",
+    "710": "0.20.0",
+    "711": "0.20.0",
+    "712": "0.20.0",
+    "714": "0.20.0",
+    "715": "0.20.0",
+    "725": "0.21.0",
+    "731": "0.21.0",
+    "732": "0.21.0",
+    "734": "0.22.0",
+    "735": "0.22.0",
+    "737": "0.22.0",
+    "740": "0.22.0"
+  }
+}

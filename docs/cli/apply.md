@@ -124,7 +124,7 @@ Two things differ between the engines, and the rest of this page says which one 
 - **Modes.** `--mode dry-run` stops after `tofu plan` on the OpenTofu engine. Beyond that the OpenTofu engine does not branch on `--mode`: `amend`, `create-only` and `replace` run the same `tofu apply` of the emitted module. What stays mode-specific is the [data-loss gate](#safety-gates) and the build phase of the `*-and-build` modes.
 - **Options.** Some options are read only by the native engine. They are marked in the [options tables](#options).
 
-*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* The contract check does not differ: both engines validate the contract before they plan, in every mode. See [Contract validation](#contract-validation).
+*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* The contract check does not differ: both engines validate the contract before they plan, in every mode. See [Contract validation](#contract-validation).
 
 ## Apply mode
 
@@ -156,7 +156,7 @@ Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0.
 
 ## Contract validation
 
-*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* `fluid apply` checks the contract against its schema before it plans anything, on both engines and in every mode, `--dry-run` and the build modes included. A GCP contract that still carries the deprecated `metadata.policies` mapping stops before `tofu` runs:
+*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* `fluid apply` checks the contract against its schema before it plans anything, on both engines and in every mode, `--dry-run` and the build modes included. A GCP contract that still carries the deprecated `metadata.policies` mapping stops before `tofu` runs:
 
 ```bash
 fluid apply contract.fluid.yaml --dry-run --yes
@@ -219,7 +219,7 @@ This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryp
 
 Pass the bundle with `--bundle <path-to.tgz>`: the tgz this `plan.json` was generated against. When omitted, `apply` auto-discovers a single sibling `.tgz` / `.tar.gz` next to the `plan.json`. If several are present it logs a warning and leaves the bundle unresolved, so pass `--bundle` to disambiguate. A `plan.json` made from a raw contract has an empty `bundleDigest`, so only `planDigest` is verified; see [`fluid plan`](./plan.md#plan-binding).
 
-*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), unreleased)* After these gates the contract the plan embeds is validated against its schema, and a plan that embeds none is refused with `apply_plan_missing_contract`. See [Contract validation](#contract-validation).
+*([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* After these gates the contract the plan embeds is validated against its schema, and a plan that embeds none is refused with `apply_plan_missing_contract`. See [Contract validation](#contract-validation).
 
 ### The plan's mode
 
@@ -312,7 +312,7 @@ Without the guard `tofu` would find nothing in the new region, create the resour
 
 ### Iceberg catalog-move guard
 
-*([forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707), unreleased)* An AWS Iceberg expose whose `location.catalog` names a catalog other than Glue no longer gets a Glue database and table. When the contract's state still holds the ones an earlier release created, an OpenTofu apply stops before it plans, because the plan would destroy them, and destroying a Glue database deletes every table in it:
+*([forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707), since 0.20.0)* An AWS Iceberg expose whose `location.catalog` names a catalog other than Glue no longer gets a Glue database and table. When the contract's state still holds the ones an earlier release created, an OpenTofu apply stops before it plans, because the plan would destroy them, and destroying a Glue database deletes every table in it:
 
 ```text
 ❌ iceberg_catalog_move_blocked  [ERR_ICEBERG_CATALOG_MOVE_BLOCKED]
@@ -326,9 +326,9 @@ Without the guard `tofu` would find nothing in the new region, create the resour
 ...
 ```
 
-The message lists the addresses and a `tofu -chdir=.fluid/iac/aws/<safe-id> state rm <address>` command for each. Run them, which changes nothing in AWS, then apply again. No flag skips the guard. The steps, and what to delete by hand afterwards, are in [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog). *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* The expose's resources are flagged when its own Glue table is in state, so a Glue database that a since-removed expose created is left to the [data-loss gate](#opentofu-data-loss-gate) instead of blocking the apply. An expose that names a `location.database` and no `location.table` has no Glue table: an earlier release created only its Glue database, so that database is flagged when state holds it and the module no longer declares it.
+The message lists the addresses and a `tofu -chdir=.fluid/iac/aws/<safe-id> state rm <address>` command for each. Run them, which changes nothing in AWS, then apply again. No flag skips the guard. The steps, and what to delete by hand afterwards, are in [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog). *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), since 0.20.0)* The expose's resources are flagged when its own Glue table is in state, so a Glue database that a since-removed expose created is left to the [data-loss gate](#opentofu-data-loss-gate) instead of blocking the apply. An expose that names a `location.database` and no `location.table` has no Glue table: an earlier release created only its Glue database, so that database is flagged when state holds it and the module no longer declares it.
 
-*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* The guard covers Snowflake too. 0.19.0 and earlier created a Snowflake EXTERNAL VOLUME for a `platform: snowflake` Iceberg expose whose `location.catalog` is `lakekeeper` or `bigquery`, or is spelled `iceberg-rest` (and for `hive`, `jdbc`, `hadoop` and `dynamodb`, which `fluid validate` now refuses). The module no longer creates one for those catalogs, so when state still holds the volume, the apply stops instead of dropping it:
+*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), since 0.20.0)* The guard covers Snowflake too. 0.19.0 and earlier created a Snowflake EXTERNAL VOLUME for a `platform: snowflake` Iceberg expose whose `location.catalog` is `lakekeeper` or `bigquery`, or is spelled `iceberg-rest` (and for `hive`, `jdbc`, `hadoop` and `dynamodb`, which `fluid validate` now refuses). The module no longer creates one for those catalogs, so when state still holds the volume, the apply stops instead of dropping it:
 
 ```text
 ❌ iceberg_catalog_move_blocked  [ERR_ICEBERG_CATALOG_MOVE_BLOCKED]
@@ -349,9 +349,9 @@ Drop each from this contract's state, then re-run apply:
 ...
 ```
 
-*([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), unreleased)* The volume is named per contract, so state cannot say which expose it was created for, and the message names both possible causes: an upgrade from a release that gave a volume to an expose in a catalog Snowflake does not manage, or a Snowflake-managed Iceberg expose this change removed or moved to another catalog. It blocks the same applies as before; with #707 and #709 alone it said forge-cli no longer creates the volume and listed the moved exposes as holding it. The guard finds the volume by the name derived from the contract id, so it also stops an upgrade whose edit changed `location.warehouse` to the catalog's warehouse name or removed `location.iam_role_arn`. Run the printed `tofu -chdir=.fluid/iac/snowflake/<safe-id> state rm snowflake_external_volume.<name>`, which changes nothing in Snowflake, then apply again. Drop the volume by hand (`DROP EXTERNAL VOLUME`) only once no Iceberg table uses it: a Snowflake-managed table written onto it still does. See [Upgrading a Snowflake contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-a-snowflake-contract-that-names-another-catalog).
+*([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* The volume is named per contract, so state cannot say which expose it was created for, and the message names both possible causes: an upgrade from a release that gave a volume to an expose in a catalog Snowflake does not manage, or a Snowflake-managed Iceberg expose this change removed or moved to another catalog. It blocks the same applies as before; with #707 and #709 alone it said forge-cli no longer creates the volume and listed the moved exposes as holding it. The guard finds the volume by the name derived from the contract id, so it also stops an upgrade whose edit changed `location.warehouse` to the catalog's warehouse name or removed `location.iam_role_arn`. Run the printed `tofu -chdir=.fluid/iac/snowflake/<safe-id> state rm snowflake_external_volume.<name>`, which changes nothing in Snowflake, then apply again. Drop the volume by hand (`DROP EXTERNAL VOLUME`) only once no Iceberg table uses it: a Snowflake-managed table written onto it still does. See [Upgrading a Snowflake contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-a-snowflake-contract-that-names-another-catalog).
 
-*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* When the guard cannot read the state, or its check fails, the apply goes on to plan, and logs an `iceberg_catalog_move_probe_skipped` WARNING with the reason and the exposes. The data-loss gate still stops a plan that destroys the resources; release them with `tofu state rm` rather than passing `--allow-data-loss`. On #707 alone a failed check was logged at debug level.
+*([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), since 0.20.0)* When the guard cannot read the state, or its check fails, the apply goes on to plan, and logs an `iceberg_catalog_move_probe_skipped` WARNING with the reason and the exposes. The data-loss gate still stops a plan that destroys the resources; release them with `tofu state rm` rather than passing `--allow-data-loss`. On #707 alone a failed check was logged at debug level.
 
 ## Remote state
 
@@ -563,9 +563,9 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | --- | --- |
 | `apply_plan_digest_plan_tamper`, `apply_plan_digest_bundle_mismatch`, `apply_plan_digest_bundle_missing` | A saved plan fails its digest checks. See [Plan binding](#plan-binding). |
 | `apply_plan_mode_mismatch` | `--mode` differs from the mode the plan was made for. |
-| `apply_contract_invalid` | *(unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* The contract, or the contract a `plan.json` embeds, is not valid against its schema. Raised on both engines and in every mode. See [Contract validation](#contract-validation). |
-| `contract_version_unsupported` | *(unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* The contract's `fluidVersion` is below 0.7. Raised on both engines and in every mode. |
-| `apply_plan_missing_contract` | *(unreleased, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* A `plan.json` embeds no contract. Re-run `fluid plan` and apply the new plan. |
+| `apply_contract_invalid` | *(since 0.20.0, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* The contract, or the contract a `plan.json` embeds, is not valid against its schema. Raised on both engines and in every mode. See [Contract validation](#contract-validation). |
+| `contract_version_unsupported` | *(since 0.20.0, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* The contract's `fluidVersion` is below 0.7. Raised on both engines and in every mode. |
+| `apply_plan_missing_contract` | *(since 0.20.0, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* A `plan.json` embeds no contract. Re-run `fluid plan` and apply the new plan. |
 | `plan_env_mismatch` | A build mode is given an `--env` that differs from the plan's. |
 | `bundle_env_mismatch` | `--env` differs from the env a bundle was built for. |
 | `apply_build_id_requires_build_mode` | `--build-id` with a mode that runs no build. |
@@ -573,11 +573,11 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. |
 | `opentofu_region_moved` | State holds the contract's resources in another region than its bindings name. |
 | `packaging_transition_blocked` | A container's ownership flips under existing state. See [Packaging modes](#packaging-modes). |
-| `iceberg_catalog_move_blocked` | *(unreleased, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707))* State holds Glue resources an earlier release created for an AWS Iceberg table that now lives in another catalog. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), unreleased)* Or it holds the Snowflake EXTERNAL VOLUME an earlier release created for a Snowflake Iceberg table in an external catalog. See [Iceberg catalog-move guard](#iceberg-catalog-move-guard). |
+| `iceberg_catalog_move_blocked` | *(since 0.20.0, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707))* State holds Glue resources an earlier release created for an AWS Iceberg table that now lives in another catalog. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), since 0.20.0)* Or it holds the Snowflake EXTERNAL VOLUME an earlier release created for a Snowflake Iceberg table in an external catalog. See [Iceberg catalog-move guard](#iceberg-catalog-move-guard). |
 | `opentofu_dataset_access_unreconciled` | State holds a BigQuery dataset an older forge-cli applied with an authoritative access list, and every entry of it is a grant the contract no longer makes. Revoke those entries on the dataset by hand, or keep one of them in `accessPolicy` for one apply. |
 | `apply_state_backend_invalid`, `state_shared_with_another_provider`, `state_migration_*` | See [Remote state](#remote-state). |
 | `generate_iac_provider_mismatch` | `--provider` contradicts the contract's binding. |
-| `unsupported_binding` | The OpenTofu module cannot provision part of the contract as declared, and refuses it rather than drop it; the `kind:` line says which part. *(unreleased, [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715))* Kind `mwaa-environment-not-emitted`: an `aws` contract with `orchestration.engine: airflow` and an `orchestration.schedule` asks for an MWAA environment, which the module cannot create. See [Scheduling on AWS](../providers/aws.md#scheduling-on-aws). |
+| `unsupported_binding` | The OpenTofu module cannot provision part of the contract as declared, and refuses it rather than drop it; the `kind:` line says which part. *(since 0.20.0, [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715))* Kind `mwaa-environment-not-emitted`: an `aws` contract with `orchestration.engine: airflow` and an `orchestration.schedule` asks for an MWAA environment, which the module cannot create. See [Scheduling on AWS](../providers/aws.md#scheduling-on-aws). |
 | `opentofu_engine_no_tofu` | The OpenTofu engine needs `tofu` and it is not on `PATH`. Install it, or pass `--ensure-opentofu`. |
 
 ## Notes

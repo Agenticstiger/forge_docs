@@ -311,7 +311,7 @@ Remote `http(s)` `contractId` references are **off by default** (the May 2026 SS
 
 The seed pre-processor lives at `fluid_build/cli/forge_copilot_seed.load_seed(...)` and is callable as a library. The copilot runtime hand-off plus the ground-truth diff guard (rejecting an LLM rewrite that mutates schema fields the seed pinned) are wired into the standard `fluid forge` flow.
 
-*(unreleased, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* The guard also catches an expose the model drops. Before, a generated contract with fewer exposes than the seed made the guard itself fail; the run logged `structural_seed_guard_failed` and kept the contract, so the seeded expose was lost without an error. A dropped expose is now a seed mismatch, which the repair loop sends back to the model on its next attempt. A seed file goes through the same [YAML limits](./validate.md#yaml-limits) as a FLUID contract, and an ODPS seed resolves its ports' `contractId` as [`fluid odps import`](./odps.md#how-a-port-s-contractid-is-resolved) does.
+*(since 0.21.0, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* The guard also catches an expose the model drops. Before, a generated contract with fewer exposes than the seed made the guard itself fail; the run logged `structural_seed_guard_failed` and kept the contract, so the seeded expose was lost without an error. A dropped expose is now a seed mismatch, which the repair loop sends back to the model on its next attempt. A seed file goes through the same [YAML limits](./validate.md#yaml-limits) as a FLUID contract, and an ODPS seed resolves its ports' `contractId` as [`fluid odps import`](./odps.md#how-a-port-s-contractid-is-resolved) does.
 
 ## Forging from a source catalog
 
