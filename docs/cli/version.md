@@ -69,7 +69,7 @@ Python: 3.11.15 (darwin)
 System: Darwin arm64
 ```
 
-`fluid --version` is the top-level flag and prints one line, `FLUID Forge CLI v0.18.1`.
+`fluid --version` is the top-level flag and prints one line, `FLUID Forge CLI v0.23.0`.
 
 ## Options
 

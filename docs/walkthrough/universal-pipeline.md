@@ -2,7 +2,7 @@
 
 One hand-written Jenkinsfile for every provider, with no provider branches in it: the contract's `binding.platform` selects the provider.
 
-**Docs baseline:** CLI `0.18.1`
+**Docs baseline:** CLI `0.18.1`  <!-- cli-version: historical -->
 
 ::: tip Starting a new pipeline?
 `fluid generate ci --system jenkins` writes a pipeline for you that runs the bundle chain, checks the digests between stages and gives every parameter a default, so the first build runs with them. See [Jenkins CI/CD](./jenkins-cicd.md) and [The 11-stage pipeline](./11-stage-pipeline.md). This page is for teams that keep a Jenkinsfile of their own and want one that does not change per cloud.
