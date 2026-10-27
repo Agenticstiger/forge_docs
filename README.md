@@ -62,7 +62,7 @@ fluid generate transformation customer_orders.fluid.yaml -o ./dbt_customer_order
 
 ## Promoted Command Groups
 
-These are the groups `fluid --help` prints on `0.18.1`:
+These are the groups `fluid --help` prints on `0.24.0`:
 
 | Group | Commands |
 | --- | --- |

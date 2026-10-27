@@ -62,7 +62,7 @@ Hello from the my-first-product data product,2026-10-05 10:35:49.479853+02
 
 [Getting Started](./getting-started/README.md) walks through each step with its output, then makes the product read a CSV and adds a data-quality rule. It explains why it uses the `fluid.starter` blueprint rather than `fluid init --quickstart` on 0.18.1.
 
-This site documents CLI `0.18.1`, with contract schema `0.7.5` as the stable default and `0.7.6` as an [opt-in preview](./reference/preview-fields.md). `fluid version` is the CLI release you installed; `fluidVersion` inside a contract is the [schema version](./reference/README.md) it is written against. Which version each scaffold writes is in [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
+This site documents CLI `0.24.0`, with contract schema `0.7.5` as the stable default and `0.7.6` as an [opt-in preview](./reference/preview-fields.md). `fluid version` is the CLI release you installed; `fluidVersion` inside a contract is the [schema version](./reference/README.md) it is written against. Which version each scaffold writes is in [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
 
 ## Follow one product from laptop to production
 
