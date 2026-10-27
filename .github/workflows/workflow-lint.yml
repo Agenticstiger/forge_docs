@@ -1,0 +1,58 @@
+name: Workflow Lint
+
+# Catches a workflow that GitHub would refuse to START.
+#
+# This exists because of a specific failure, and it is worth writing down: a
+# job-level `env:` block referenced `${{ runner.temp }}`, which is not one of
+# the contexts available to `jobs.<job_id>.env`. GitHub rejected the workflow
+# before creating any job, which means the run ended as a STARTUP FAILURE —
+# zero jobs, `gh run view --log` reporting "log not found", and, the part that
+# hid it for a day, NO CHECK RUN. A startup failure does not report a red
+# check; it reports nothing, so the job simply vanished from every pull
+# request's check list and from main. Reading a PR's checks and finding them
+# all green was therefore consistent with a gate that had not run since the
+# commit that introduced it — including on that commit's own pull request.
+#
+# Nothing else in this repository could see that. Every other gate runs as a
+# step inside a workflow, so a workflow that cannot start takes its own gate
+# down with it. This job reads the other workflow files as TEXT from a
+# workflow of its own, so it survives their being invalid and fails visibly
+# instead.
+#
+# actionlint is the tool forge-cli already uses for this. It reports the
+# offending line and the contexts that ARE allowed there:
+#
+#   cli-consistency.yml:43:32: context "runner" is not allowed here. available
+#   contexts are "github", "inputs", "matrix", "needs", "secrets", "strategy",
+#   "vars". [expression]
+#
+# Pinned to 1.7.12, the version that was verified against the real failure.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+# Read-only: this job only reads files out of the checkout.
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: Lint every workflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # The container's entrypoint is actionlint itself, and with no arguments
+      # it discovers every file under .github/workflows. It exits non-zero on
+      # any finding, which fails this step.
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.12
