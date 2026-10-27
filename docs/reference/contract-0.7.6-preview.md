@@ -9,13 +9,13 @@ description: "What the FLUID 0.7.6 preview schema adds to, and changes in, the s
 
 Status: **preview**. A contract opts in with `fluidVersion: "0.7.6"`; a contract that declares 0.7.5 is unaffected. This page lists the difference between the 0.7.5 schema and the 0.7.6 schema as bundled with the CLI: added fields, fields whose definition changed, and fields removed. A field not listed here has the same type, required flag, allowed values, default and description in both; for those, use the [0.7.5 reference](./contract-0.7.5.md). A definition used at several paths is listed once, at its first path.
 
-Generated from `fluid_build/schemas/fluid-schema-0.7.6.json` in the `data-product-forge` 0.23.0 package (sha256 `9cef4fbdd5f562e0`). It is the schema `fluid validate` checks a contract against, rendered without edits. To regenerate: `python scripts/gen_contract_reference.py`.
+Generated from `fluid_build/schemas/fluid-schema-0.7.6.json` in the `data-product-forge` 0.24.0 package (sha256 `8c025e0466fcbe51`). It is the schema `fluid validate` checks a contract against, rendered without edits. To regenerate: `python scripts/gen_contract_reference.py`.
 
 Each table row is one field, addressed by its path from the contract root: `.` descends into an object, `[]` marks the items of a list, and `<key>` stands for any key of a map. **Required** means required inside its parent object; the parent can itself be optional. **Allowed values** lists the enum, pattern and range the schema enforces. An object typed plainly `object` rejects keys the schema does not list; `object (open)` accepts extra keys and `object (free-form)` has no listed keys. A row that begins "Only when ..." exists only under that condition. See [how to read this reference](./README.md#how-to-read-a-row).
 
 ## At a glance
 
-- Added: 93 rows
+- Added: 94 rows
 - Changed: 17 rows
 - Removed: 0 rows
 
@@ -101,7 +101,7 @@ Each table row is one field, addressed by its path from the contract root: `.` d
 | Path | Type | Required | Allowed values | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `consumes[].contractId` | string | no |  |  | NEW in v0.7.6: The upstream contract's OWN id, for an upstream that has one of its own — a product not built with FLUID, registered in a catalog under an id FLUID did not derive. The canonical-port builder already prefers an explicit contractId over the derived `<productId>.<exposeId>`; until now `consumes[]` was closed, so there was no way to supply it and the derived id was exported as if the upstream answered to it. |
-| `consumes[].contractVersion` | string | no | matches `$defs.semver` |  | NEW in v0.7.6: The exact upstream contract version this product was built and tested against, within `versionConstraint`. Exported as the ODPS `inputPorts[].version`, and as the version of the matching `outputPorts[].inputContracts[]` entry. Without it the export derives the range's lower bound; for a range it cannot read it falls back to 1.0.0, because ODPS v1.0.0 requires a version on every input port and the field cannot simply be omitted. `versionConstraint` stays the range this product accepts; this is the single version its exported lineage claims. `fluid validate` does not check that it falls inside `versionConstraint`. |
+| `consumes[].contractVersion` | string | no | matches `^(0\|[1-9]\d*)\.(0\|[1-9]\d*)\.(0\|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$` |  | NEW in v0.7.6: The exact upstream contract version this product was built and tested against, within `versionConstraint`. Exported as the ODPS `inputPorts[].version`, and as the version of the matching `outputPorts[].inputContracts[]` entry. Without it the export derives the range's lower bound; for a range it cannot read it falls back to 1.0.0, because ODPS v1.0.0 requires a version on every input port and the field cannot simply be omitted. `versionConstraint` stays the range this product accepts; this is the single version its exported lineage claims. `fluid validate` does not check that it falls inside `versionConstraint`. |
 | `consumes[].upstreamWorkspace` | string | no | min length 1 |  | Cross-mesh only. Id of the federated workspace that owns this upstream, as declared in federation/upstreams.yaml. Set it when the upstream lives in another mesh rather than this workspace; omit it for a local upstream, which is resolved by walking the workspace. |
 | `consumes[].upstreamDigest` | string | no | matches `^sha256:[0-9a-f]{64}$` |  | Cross-mesh only. The contract digest this product was composed against, as sha256:&lt;64 hex&gt;. `fluid apply` re-fetches the upstream's live digest and compares: a mismatch means the upstream changed since composition. Required whenever upstreamWorkspace is set. |
 
