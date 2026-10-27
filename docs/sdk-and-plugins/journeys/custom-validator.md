@@ -459,7 +459,7 @@ Three places this typically gets installed:
    ```
 3. **CI** — the bundle from [your-own-ci](./your-own-ci.md) already has a `validate` stage. Add `my-org-validators` to the `pip install` line:
    ```yaml
-   - run: pip install --index-url "<your-private-index-url>" "data-product-forge==0.18.1" "my-org-validators==<version>"
+   - run: pip install --index-url "<your-private-index-url>" "data-product-forge==0.23.0" "my-org-validators==<version>"
    - run: fluid validate contract.fluid.yaml --strict
      env:
        FLUID_PLUGINS_ALLOWLIST: "steward-required,cost-center-required,classification-from-vocab,local"

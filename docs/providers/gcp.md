@@ -1,7 +1,7 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.18.1`<br>
+**Docs Baseline:** CLI `0.18.1`<br>  <!-- cli-version: historical -->
 **Services:** BigQuery, Cloud Storage, Pub/Sub, IAM, Data Catalog policy tags, Cloud KMS
 
 > **Why it matters**

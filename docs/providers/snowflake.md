@@ -3,7 +3,7 @@
 Deploy data products to Snowflake Data Cloud (databases, schemas and tables) using the same contract format and CLI commands as the other providers.
 
 **Status:** ✅ Production  
-**Docs Baseline:** CLI `0.18.1`<br>
+**Docs Baseline:** CLI `0.18.1`<br>  <!-- cli-version: historical -->
 **Tested Services:** Databases, Schemas, Tables
 
 > **Why it matters**

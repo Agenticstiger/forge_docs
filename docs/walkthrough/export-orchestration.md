@@ -1,6 +1,6 @@
 # Generating Orchestration Code from Contracts
 
-**Docs baseline:** CLI `0.18.1`
+**Docs baseline:** CLI `0.18.1`  <!-- cli-version: historical -->
 
 `fluid export` reads the tasks you declare under `orchestration` in a contract and writes orchestration code for Airflow, Dagster or Prefect. This page exports the same kind of contract for AWS, GCP and Snowflake, shows what comes out, and lists what the generated code does not do. Everything here was run on 0.18.1; paths are shortened to `...`.
 

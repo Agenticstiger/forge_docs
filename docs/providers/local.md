@@ -1,7 +1,7 @@
 # Local Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.18.1`<br>
+**Docs Baseline:** CLI `0.18.1`<br>  <!-- cli-version: historical -->
 **Engine:** DuckDB (1.5.0 or later)
 
 > **Why it matters**

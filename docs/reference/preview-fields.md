@@ -80,16 +80,20 @@ unexpected)
 | `exposes[].binding.encryption.kms` | 0.16.5 | The key that encrypts the data at rest: `product`, `none`, an alias, an AWS key ARN, or a Cloud KMS key name. |
 | `exposes[].lifecycle.expire` | 0.16.5 | Whether `retention` deletes data. |
 | `exposes[].binding.principals` | 0.17.0 | A map from the contract's logical principals to the identities they are on this binding's cloud. |
+| `builds[].properties.sink.catalogAuth` | 0.20.0 | The environment variable that authenticates a streaming sink to an Iceberg REST catalog; see [Authenticate a sink to a REST catalog](../advanced/source-aligned-acquisition.md#authenticate-a-sink-to-a-rest-catalog). |
+| `builds[].engine: flink` | 0.21.0 | Apache Flink as a build's engine, for a job that runs on the Flink Kubernetes Operator, AWS Managed Service for Apache Flink, or another Flink platform. forge-cli validates and plans it but ships no runner; see [Flink jobs](../concepts/builds-exposes-bindings.md#flink-jobs-engine-flink). |
+| `builds[].execution.trigger.type: continuous` | 0.22.0 | A job its platform keeps running: no scheduler starts it, and it takes no other trigger; see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous). |
+| `metadata.team` | 0.23.0 | The team as a roster — `{name, members[]}`, each member `{username, name, role, email}` — where `metadata.owner` holds one team name, one mailbox and no role. Fills the ODCS and ODPS team block, which came out empty before; `email` has [a caveat](#the-email-caveat). |
+| `description` (at the contract root) | 0.23.0 | Either a string, as before, or `{purpose, usage, limitations}` — the shape both Bitol standards define. While it was a string, `usage` and `limitations` had no home a contract could declare, so every ODCS and ODPS export left them empty. |
+| `consumes[].contractId` | 0.23.0 | The upstream contract's own id, for an upstream that has one of its own — a product not built with FLUID, registered under an id FLUID did not derive. The canonical-port builder already preferred an explicit id; with `consumes[]` closed there was no way to supply one, so the derived id was exported as if the upstream answered to it. |
+| `exposes[].contract.id` | 0.23.0 | An explicit, stable contract id for one output port, used verbatim as the ODCS `id` and the ODPS output port `contractId`. Without it the id is derived from the product and expose names, so renaming either changes it. See [pinning a contract id](#pinning-a-contract-id). |
+| `exposes[].binding.location.host` | 0.23.0 | Host or endpoint; for a Kafka binding, the bootstrap servers. The ODCS server mapper already read `host` and fell back to `account`, while the schema accepted only `account`, so the only valid way to set brokers was a field named for something else. Usually set per environment in an overlay, since the brokers differ by environment and the rest of the binding does not. |
+| `exposes[].binding.serialization` | 0.23.0 | `{value, key}`, each one of `json`, `avro`, `protobuf`, `xml`, `avro-confluent`, `json-confluent`. The only thing that moves a Kafka server's exported ODCS `format` off `kafka_topic`. See [declaring the wire format](#declaring-the-wire-format). |
+| `exposes[].contract.schema[].quality` | 0.23.0 | Column-level data quality rules, in ODCS's own shape, written straight into `schema[].properties[].quality[]` of the exported contract. Setting it replaces the rules forge derives for that column. See [column quality rules](#column-quality-rules). |
 
-The [`consumes`](./contract-0.7.6-preview.md#consumes) and [`exposes`](./contract-0.7.6-preview.md#exposes) sections of the preview delta hold the rows for the fields above, in the order the schema declares them.
-
-*([forge-cli #712](https://github.com/Agenticstiger/forge-cli/pull/712), since 0.20.0)* `builds[].properties.sink.catalogAuth` is a 0.7.6 field too. It has no row above and none in the preview delta: that delta is generated from the 0.7.6 schema bundled in the CLI release this site is pinned to, and the field was added to the schema after it. It names the environment variable that authenticates a streaming sink to an Iceberg REST catalog; see [Authenticate a sink to a REST catalog](../advanced/source-aligned-acquisition.md#authenticate-a-sink-to-a-rest-catalog).
-
-*(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* `builds[].engine: flink` is a 0.7.6 value too, for a job that runs on the Flink Kubernetes Operator, AWS Managed Service for Apache Flink, or another Flink platform. forge-cli validates and plans it but ships no runner; see [Flink jobs](../concepts/builds-exposes-bindings.md#flink-jobs-engine-flink).
+The [0.7.6 preview delta](./contract-0.7.6-preview.md) holds the full row for every field above, grouped by the top-level key it hangs off (`metadata`, `exposes`, `description`, `consumes`, `builds`) and in the order the schema declares them.
 
 *(since 0.21.0, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract that names 0.7.6, an overlay patches `builds`, `exposes` and `consumes` by identity instead of by position; see [How an overlay merges](../concepts/environments-and-overlays.md#how-an-overlay-merges).
-
-*(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* `builds[].execution.trigger.type: continuous` is a 0.7.6 value too, for a job its platform keeps running: no scheduler starts it, and it takes no other trigger; see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous).
 
 ### Federated upstreams
 
@@ -146,34 +150,16 @@ Replace `<your-domain>` with the domain of your own groups; left as written, val
 
 The same refusal applies to a placeholder in a reserved top-level domain (`.example`, `.test`, `.invalid`, `.localhost`), per the `exposes[].binding.principals` row. A value that is not valid for the binding's platform is refused too: an AWS role ARN mapped on a `gcp` binding fails with "is not a GCP IAM member".
 
-## Seven more fields, in the next release after `0.22.0`
+## Four of the 0.23.0 fields need more than a table row
 
-::: tip Not in a released CLI yet
-[forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753) adds seven optional
-fields to the 0.7.6 preview schema, for things a contract could not previously say. All seven
-require `fluidVersion: "0.7.6"`, all are additive, and a contract that sets none of them
-validates and exports byte for byte as before. The names are taken from Bitol ODCS v3.1.0 and
-the released ODPS v1.1.0 rather than invented, so import and export are a pass-through instead
-of a translation.
+`0.23.0` added the seven rows above
+([forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753)). All seven are optional
+and additive, so a contract that sets none of them validates and exports byte for byte as
+before, and their names are taken from Bitol ODCS v3.1.0 and the released ODPS v1.1.0 rather
+than invented, so import and export are a pass-through instead of a translation. The generated
+[0.7.6 preview delta](./contract-0.7.6-preview.md) carries the full row for each.
 
-The release is a minor bump from `0.22.0` and its number is not settled yet, so this page names
-the release rather than the number. The generated [0.7.6 preview delta](./contract-0.7.6-preview.md)
-does not list these rows: it is rendered from the schema bundled in the CLI release this site is
-pinned to, and will carry them once that pin moves.
-:::
-
-| Field | What it declares | What it changes on export |
-| --- | --- | --- |
-| `metadata.team` | The team as a roster — `{name, members[]}`, each member `{username, name, role, email}` — where `metadata.owner` holds one team name and one mailbox and no role at all | Fills the ODCS and ODPS team block, which came out empty before. See [the `email` caveat](#the-email-caveat) |
-| `description` (root) | Either a string, as today, or `{purpose, usage, limitations}` — the shape both Bitol standards define | An export could only ever carry `description.purpose`; `usage` and `limitations` had no home a contract could declare, so every export left them empty |
-| `consumes[].contractId` | The upstream contract's own id, for an upstream that has one — a product not built with FLUID, registered in a catalog under an id FLUID did not derive | The canonical-port builder already preferred an explicit id; with `consumes[]` closed there was no way to supply one, so the derived id was exported as if the upstream answered to it |
-| `exposes[].contract.id` | An explicit, stable contract id for one output port | Used verbatim as the ODCS `id` and the ODPS output port `contractId`. See [pinning a contract id](#pinning-a-contract-id) |
-| `binding.location.host` | Host or endpoint; for a Kafka binding, the bootstrap servers | The ODCS server mapper already read `host` and fell back to `account`, while the schema accepted only `account` — so the only valid way to set bootstrap servers was a field named for something else. With neither set, the exported server is the placeholder `${KAFKA_BOOTSTRAP_SERVERS}` |
-| `exposes[].binding.serialization` | `{value, key}`, each one of `json`, `avro`, `protobuf`, `xml`, `avro-confluent`, `json-confluent` | The only thing that moves a Kafka server's ODCS `format` off `kafka_topic`. See [declaring the wire format](#declaring-the-wire-format) |
-| `quality` on a column | Column-level data quality rules, in ODCS's own shape | Written straight into `schema[].properties[].quality[]` of the exported ODCS contract. See [column quality rules](#column-quality-rules) |
-
-`binding.location.host` is usually set per environment in an overlay rather than in the base
-contract, since the brokers differ by environment and the rest of the binding does not.
+Four of them have something a row cannot hold.
 
 ### The `email` caveat
 

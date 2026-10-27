@@ -2,7 +2,7 @@
 
 Deploy data products to Amazon Web Services (S3, Glue, Athena, Lake Formation) with the same contract and CLI commands you use for the other providers.
 
-**Docs Baseline:** CLI `0.18.1`<br>
+**Docs Baseline:** CLI `0.18.1`<br>  <!-- cli-version: historical -->
 **`fluid apply` creates:** S3 buckets, Glue databases and tables, Lake Formation registrations and grants, KMS keys, S3 lifecycle rules<br>
 **`fluid verify` reads:** Glue, Athena, S3, KMS, Lake Formation
 
