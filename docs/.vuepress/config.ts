@@ -42,10 +42,10 @@ export default defineUserConfig({
   // Monaco's CSS ships to every page. That is a RECORDED DECISION to leave it
   // alone, not an oversight.
   //
-  // Measured on a fresh build, 2026-09-15, monaco-editor as installed: the
-  // site emits exactly ONE stylesheet, assets/style-<hash>.css, 251,769 bytes,
-  // linked render-blocking from all 213 pages. Monaco is 162,004 of those
-  // bytes (64.3%), about 24 KB of the file's 41 KB gzipped. The editor is used
+  // Measured on a fresh build, 2026-10-27, monaco-editor 0.57.0: the site
+  // emits exactly ONE stylesheet, assets/style-<hash>.css, 275,966 bytes,
+  // linked render-blocking from all 237 pages. Monaco is 186,201 of those
+  // bytes (67.5%), about 27 KB of the file's 43 KB gzipped. The editor is used
   // on ONE page: `<Playground>` appears only in docs/playground/README.md.
   //
   // Monaco's JAVASCRIPT is split correctly, and that contrast is the whole
@@ -82,11 +82,11 @@ export default defineUserConfig({
   //    cache-busting, and ordering it after the theme.
   //
   // Before changing this, RE-MEASURE rather than trusting the numbers above.
-  // They move with every monaco-editor bump: earlier passes recorded 58.6% and
-  // 65.9% for what is 64.3% today.
+  // They move with every monaco-editor bump: earlier passes recorded 58.6%,
+  // 65.9% and 64.3% for what is 67.5% today.
   //
   //   rm -rf docs/.vuepress/dist && npm run docs:build
-  //   # one stylesheet, on every page -> 213
+  //   # one stylesheet, on every page -> 237
   //   grep -rl 'assets/style-.*\.css' --include='*.html' docs/.vuepress/dist | wc -l
   //   # Monaco's JS still async-only -> 0 pages reference a Monaco chunk
   //   grep -rlE 'assets/(editor\.api-|[a-z]+\.worker-)' --include='*.html' docs/.vuepress/dist | wc -l
