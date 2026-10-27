@@ -75,13 +75,12 @@ What it may not set is any variable that
 project file has nothing to supply there. The full list is
 `fluid_build/credentials/protected_env.py` in forge-cli.
 
-::: tip Two more in the next release after `0.22.0`
+::: tip Two more since `0.23.0`
 `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`, which allows an acquisition source's `env://`
 reference against a remote host, and `TESTCONTAINERS_HOST_OVERRIDE`, which rewrites a
-contract-declared loopback host to a reachable one, join the list on forge-cli `main`
-([#751](https://github.com/Agenticstiger/forge-cli/pull/751)). Both decide where a credential
-may be sent, so neither may come from a file beside the contract. The release is a minor bump
-from `0.22.0` and its number is not settled yet.
+contract-declared loopback host to a reachable one, joined the list in `0.23.0`
+([forge-cli #751](https://github.com/Agenticstiger/forge-cli/pull/751)). Both decide where a
+credential may be sent, so neither may come from a file beside the contract.
 :::
 
 ### An unlisted name fails closed

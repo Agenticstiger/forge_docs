@@ -97,13 +97,11 @@ prints). Some fields added in these releases exist only in `0.7.6`:
 
 ## Read this first if you consume the exported artifacts
 
-::: warning Shipping in the next release after `0.22.0`
+::: warning New in `0.23.0`
 Exported ODCS and ODPS documents change shape. Every change below corrects output that was
 wrong, but the old values may be baked into whatever reads them, so this is the section to read
 before you upgrade rather than after. The work is
-[forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753); the release is a minor
-bump from `0.22.0` and its number is not settled yet, so this page names the release rather
-than the number.
+[forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753).
 
 Nothing here changes a FLUID contract. If you do not consume `fluid generate standard`,
 `fluid odcs export`, `fluid odps export` or `fluid generate artifacts` output, skip it.
@@ -509,10 +507,9 @@ cover the SQL changes in full.
 
 ### The two drift defects, and what fixes them
 
-::: tip Shipping in the next release after `0.22.0`
-Both fixes are on forge-cli `main`. The release is a minor bump from `0.22.0` and its number
-is not settled yet, so this page names the release rather than the number. Their pull request
-is [forge-cli #749](https://github.com/Agenticstiger/forge-cli/pull/749).
+::: tip Fixed in `0.23.0`
+Both fixes shipped in `0.23.0`, in
+[forge-cli #749](https://github.com/Agenticstiger/forge-cli/pull/749).
 :::
 
 **An incremental cursor written on 1.5 and read on 2.0 silently dropped or duplicated rows.**
