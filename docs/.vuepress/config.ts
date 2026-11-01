@@ -430,8 +430,8 @@ export default defineUserConfig({
           collapsible: true,
           children: [
             '/reference/README.md',
-            '/reference/contract-0.7.5.md',
-            '/reference/contract-0.7.6-preview.md',
+            '/reference/contract-0.7.6.md',
+            '/reference/contract-0.7.7-preview.md',
             '/reference/preview-fields.md',
             '/advanced/environment-variables.md',
             '/advanced/error-codes.md',

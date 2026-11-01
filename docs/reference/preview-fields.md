@@ -1,11 +1,11 @@
 ---
 title: Fields that need fluidVersion 0.7.6
-description: The contract fields that exist only in the 0.7.6 preview schema, the CLI release that introduced each, and validated examples of opting in.
+description: The contract fields that exist only in schema 0.7.6 (a preview until CLI 0.26.0 made it stable), the CLI release that introduced each, and validated examples of opting in.
 ---
 
 # Fields that need `fluidVersion: "0.7.6"`
 
-Some fields exist only in the 0.7.6 preview schema. A contract that declares `fluidVersion: "0.7.5"` and uses one of them fails `fluid validate`. This page lists them and shows how to opt in. The [0.7.6 preview delta](./contract-0.7.6-preview.md) has the full row for each field; this page is the map to it.
+Some fields exist only in the 0.7.6 schema. 0.7.6 was a preview until CLI `0.26.0` made it stable and the default; a contract that declares `fluidVersion: "0.7.5"` and uses one of them still fails `fluid validate`. This page lists them and shows how to opt in. The [0.7.6 field reference](./contract-0.7.6.md) has the full row for each field; this page is the map to it. The next preview, 0.7.7, adds no field yet: its [preview delta](./contract-0.7.7-preview.md) lists what lands there.
 
 ## Opt in
 
@@ -66,15 +66,15 @@ unexpected)
 
 `expire: true` turns `retention` from a declaration into deletion. Read the `exposes[].lifecycle.expire` row before you set it: it says what the AWS and GCP emitters write, what happens to data that is already older than the period, and which plans `fluid apply` refuses without `--allow-data-loss`.
 
-## What the preview adds
+## What 0.7.6 adds
 
 "First in CLI" is the first release whose bundled 0.7.6 schema contains the field, read from the tagged releases of the CLI.
 
 | Field | First in CLI | What it declares |
 | --- | --- | --- |
-| `packaging`, `exposes[].binding.packaging` | 0.13.0 | Whether the product owns each infrastructure container (`isolated`) or writes into a pre-existing, platform-owned pool (`shared`), as one default for the contract and an override per exposure. See the [`packaging`](./contract-0.7.6-preview.md#packaging) rows. |
+| `packaging`, `exposes[].binding.packaging` | 0.13.0 | Whether the product owns each infrastructure container (`isolated`) or writes into a pre-existing, platform-owned pool (`shared`), as one default for the contract and an override per exposure. See the [`packaging`](./contract-0.7.6.md#packaging) rows. |
 | `exposes[].semantics.measures[].aggParams` | 0.13.0 | Parameters for a measure whose `agg` is `percentile`: the percentile, and whether to use the discrete form. |
-| `consumers` | 0.13.1 | The dashboards, notebooks, analyses, ML apps and applications built on the product, shaped like dbt exposures. The schema describes the key as reserved and not yet consumed by any code. See the [`consumers`](./contract-0.7.6-preview.md#consumers) rows. |
+| `consumers` | 0.13.1 | The dashboards, notebooks, analyses, ML apps and applications built on the product, shaped like dbt exposures. The schema describes the key as reserved and not yet consumed by any code. See the [`consumers`](./contract-0.7.6.md#consumers) rows. |
 | `consumes[].upstreamWorkspace`, `consumes[].upstreamDigest` | 0.16.0 | For an upstream that lives in another mesh: the federated workspace that owns it, and the `sha256:` digest this product was composed against. Setting `upstreamWorkspace` requires `upstreamDigest`. |
 | `exposes[].binding.governance.lakeFormation.bucketPolicy` | 0.16.3 | Which Lake Formation grantees also get an S3 bucket-policy statement: `cross-account`, `none` or `all-grantees`. |
 | `exposes[].binding.encryption.kms` | 0.16.5 | The key that encrypts the data at rest: `product`, `none`, an alias, an AWS key ARN, or a Cloud KMS key name. |
@@ -92,7 +92,7 @@ unexpected)
 | `consumes[].contractVersion` | 0.24.0 | The exact upstream version this product was built and tested against, inside `versionConstraint`. An ODPS input port's `version` used to be the `1.0.0` default whenever the contract stated only a range, asserting a pin the contract never made; the export now resolves the range's lowest accepted version, and this field overrides it when you know the one you tested. |
 | `exposes[].contract.schema[].quality` | 0.23.0 | Column-level data quality rules, in ODCS's own shape, written straight into `schema[].properties[].quality[]` of the exported contract. Setting it replaces the rules forge derives for that column. See [column quality rules](#column-quality-rules). |
 
-The [0.7.6 preview delta](./contract-0.7.6-preview.md) holds the full row for every field above, grouped by the top-level key it hangs off (`metadata`, `exposes`, `description`, `consumes`, `builds`) and in the order the schema declares them.
+The [0.7.6 field reference](./contract-0.7.6.md) holds the full row for every field above.
 
 *(since 0.21.0, [forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732))* In a contract that names 0.7.6, an overlay patches `builds`, `exposes` and `consumes` by identity instead of by position; see [How an overlay merges](../concepts/environments-and-overlays.md#how-an-overlay-merges).
 
@@ -158,7 +158,7 @@ The same refusal applies to a placeholder in a reserved top-level domain (`.exam
 and additive, so a contract that sets none of them validates and exports byte for byte as
 before, and their names are taken from Bitol ODCS v3.1.0 and the released ODPS v1.1.0 rather
 than invented, so import and export are a pass-through instead of a translation. The generated
-[0.7.6 preview delta](./contract-0.7.6-preview.md) carries the full row for each.
+[0.7.6 field reference](./contract-0.7.6.md) carries the full row for each.
 
 Four of them have something a row cannot hold.
 
@@ -242,19 +242,19 @@ schema does name:
 | `dimension` | every type | One of `accuracy`, `completeness`, `conformity`, `consistency`, `coverage`, `timeliness`, `uniqueness` |
 | `description`, `severity`, `unit` | every type | ODCS types `severity` as a free string and documents `info` / `warning` / `error` by example. `unit` is usually `rows` (the default) or `percent` |
 
-## Behaviour that does not wait for the preview
+## Behaviour that does not need 0.7.6
 
 `bucketPolicy` is a 0.7.6 key, but the behaviour it controls is not. When a binding with Lake Formation grants omits it, the AWS emitter in 0.18.1 applies `cross-account`: only grantees in another AWS account get a bucket-policy statement, and same-account grantees get none. Setting the key under 0.7.6 changes that choice; leaving it out does not return the earlier output. The `exposes[].binding.governance.lakeFormation.bucketPolicy` row has the security reasoning.
 
 ## Changed rows that a 0.7.5 contract can already use
 
-These rows appear on the preview delta, but the field itself is in the 0.7.5 schema. Only the rows listed here were checked against both schemas.
+These rows changed in 0.7.6, but the field itself is in the 0.7.5 schema. Only the rows listed here were checked against both schemas.
 
 | Field | What 0.7.6 changes |
 | --- | --- |
 | `exposes[].policy.authz.columnRestrictions` | The schema description now says what `fluid apply` enforces on each cloud, and the items gain descriptions. The field and its keys are in 0.7.5. |
 | `exposes[].policy.privacy.masking` | The field gains a description. |
-| `exposes[].policy.privacy.masking[].params` | 0.7.5 accepts any keys. 0.7.6 lists `saltEnv`, `keyEnv`, `keepFirst` and `keepLast`. Those four keys appear as added rows on the delta because 0.7.5 left `params` open, and a 0.7.5 contract that uses them passes schema validation. |
+| `exposes[].policy.privacy.masking[].params` | 0.7.5 accepts any keys. 0.7.6 lists `saltEnv`, `keyEnv`, `keepFirst` and `keepLast`. Those four keys are new rows in 0.7.6 because 0.7.5 left `params` open, and a 0.7.5 contract that uses them passes schema validation. |
 | `exposes[].binding.location.partitionBy` | A longer description covering its use with `lifecycle.expire` on BigQuery. |
 
 A 0.7.5 contract that declares `columnRestrictions` on a `gcp` binding is in the 0.7.5 schema. It validates when the expose has a reader (an `accessPolicy` read grant or `policy.authz.readers`) and fails without one.
@@ -268,5 +268,5 @@ A 0.7.5 contract that declares `columnRestrictions` on a `gcp` binding is in the
 ## Related
 
 - [Contract reference](./README.md): how to read the tables, and the stable and preview split.
-- [Schema 0.7.5](./contract-0.7.5.md): the complete stable reference.
+- [Schema 0.7.6](./contract-0.7.6.md): the complete stable reference.
 - [Release notes 0.13.0](../RELEASE_NOTES_0.13.0.md) and [0.15.0](../RELEASE_NOTES_0.15.0.md): the releases that introduced packaging and federated pinning.
