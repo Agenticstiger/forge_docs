@@ -300,14 +300,15 @@ Available FLUID Schema Versions:
   0.7.4 (bundled)
   0.7.5 (bundled)
   0.7.6 (bundled)
+  0.7.7 (bundled)
 ```
 
 A schema version you fetched into the cache earlier is listed too, marked `(cached)`.
 
 | Version | Status |
 | --- | --- |
-| `0.7.5` | Latest **stable**. A contract with no `fluidVersion` is validated against it. |
-| `0.7.6` | **Preview.** It validates only when a contract declares `fluidVersion: "0.7.6"` or you pass `--schema-version 0.7.6`; it is never chosen automatically. |
+| `0.7.6` | Latest **stable**, since `0.26.0`. A contract with no `fluidVersion` is validated against it. |
+| `0.7.7` | **Preview.** It validates only when a contract declares `fluidVersion: "0.7.7"` or you pass `--schema-version 0.7.7`; it is never chosen automatically. At open it is identical to `0.7.6`. |
 
 The fields that need `0.7.6` include `lifecycle.expire`, `binding.encryption.kms`, `binding.principals`, `packaging`, and `upstreamWorkspace` / `upstreamDigest`. A contract that declares `0.7.5` and uses one of them fails with an error such as `exposes[1].lifecycle: Additional properties are not allowed ('expire' was unexpected)`.
 
