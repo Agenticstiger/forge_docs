@@ -9,7 +9,7 @@ The page you actually want is [**CLI by task →**](./tasks/) — narrative walk
 ## Read this first
 
 - CLI release examples in this section use `0.18.1`  <!-- cli-version: historical -->
-- Contract examples use `fluidVersion: 0.7.5`, the stable schema, which `fluid init --quickstart` emits. `0.7.6` is a preview you opt into per contract
+- Contract examples use `fluidVersion: 0.7.5`, which `fluid init --quickstart` emits. `0.7.6` is the stable schema since `0.26.0`, and `0.7.7` a preview you opt into per contract
 - `fluid version` and `fluidVersion` are different things
 - The pinned CLI version is recorded in [`docs/.vuepress/cli-version.json`](https://github.com/Agenticstiger/forge_docs/blob/main/docs/.vuepress/cli-version.json) and enforced by the [`cli-consistency`](https://github.com/Agenticstiger/forge_docs/actions/workflows/cli-consistency.yml) workflow.
 - Install: `pip install data-product-forge` installs `0.18.1`; TestPyPI is only for release validation and intentional next-release candidates — see [Getting Started](../getting-started/README.md#install-the-cli) for the full install matrix.

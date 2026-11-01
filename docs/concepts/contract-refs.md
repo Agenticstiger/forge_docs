@@ -361,11 +361,10 @@ in /work/orders/contract.fluid.yaml is a URL; remote refs (including file://) ar
 supported — use a relative path to a file inside the ref root
 ```
 
-Each of these confinement refusals (a URL, an absolute path, an escape from
-the ref root) names the ref, the JSON pointer of the `$ref` node, and the file
-it was written in. Other ref errors, such as a ref blocked because it resolves
-into a system directory, a missing target file, or a JSON pointer that does not
-resolve, do not carry all three.
+These errors name the ref, the JSON pointer of the `$ref` node, and the file it
+was written in: the confinement refusals above (a URL, an absolute path, an
+escape from the ref root), a ref blocked because it resolves into a system
+directory, a missing target file, and a JSON pointer that does not resolve.
 
 ::: tip Why the root exists
 Contracts are often untrusted input: services, CI jobs or shared hosts run
