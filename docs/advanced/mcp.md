@@ -49,23 +49,9 @@ Every advertised tool includes an MCP `inputSchema`, so clients can provide type
 
 #### Fragment-first contracts
 
-A contract split into fragments keeps `$ref` stubs in its root file (see [Contract fragments](../concepts/fragments.md#which-commands-read-a-fragment-root) and [Composing a contract with `$ref`](../concepts/contract-refs.md)). `fluid validate`, `fluid plan` and `fluid mcp output-port serve` resolve those references. As of 0.18.1, the authoring tools that take a `contract_path` read the file as written and do not resolve `$ref` stubs. `validate_contract` takes `contract_path` (or `logical_path`) and no inline contract; `score_contract_quality` and `enrich_contract_suggestions` accept either `contract_path` or an inline `contract` object.
+A contract split into fragments keeps `$ref` stubs in its root file (see [Contract fragments](../concepts/fragments.md#which-commands-read-a-fragment-root) and [Composing a contract with `$ref`](../concepts/contract-refs.md)). `fluid validate`, `fluid plan` and `fluid mcp output-port serve` resolve those references. Since 0.25.0 ([forge-cli #760](https://github.com/Agenticstiger/forge-cli/pull/760)), so do the authoring tools when they take a `contract_path`: `validate_contract`, `score_contract_quality` and `enrich_contract_suggestions` compose the contract like every command, with fragments confined to the contract's directory unless a [workspace `ref_root` or `FLUID_REF_ROOT`](../concepts/contract-refs.md#widening-the-root-for-a-monorepo) widens it. `validate_contract` takes `contract_path` (or `logical_path`) and no inline contract; `score_contract_quality` and `enrich_contract_suggestions` accept either `contract_path` or an inline `contract` object.
 
-On a root that holds `$ref` stubs, `validate_contract` reports errors that `fluid validate` does not:
-
-```text
-{"score": 0, "passes_schema": false, "issues": [
-  {"message": "builds[0]: Additional properties are not allowed ('$ref' was unexpected)", ...},
-  {"message": "exposes[0]: 'exposeId' is a required property", ...}, ...]}
-```
-
-`fluid validate` on the same file prints `✅ Valid FLUID contract (schema v0.7.5)`. Resolve the references first and point the tool at the result:
-
-```bash
-fluid bundle contract.fluid.yaml --out runtime/contract.bundled.yaml
-```
-
-With `contract_path: runtime/contract.bundled.yaml`, the same call returns `passes_schema: false` only for the findings the contract really has. An editor agent driving `fluid mcp serve` on a project that [`fluid forge`](../cli/forge.md) split into fragments needs this step, or it scores `$ref` stubs and not the contract.
+In 0.24.0 and earlier these tools read the file as written, so `validate_contract` reported errors on `$ref` stubs that `fluid validate` did not, and an empty file validated nothing. On those versions, run `fluid bundle contract.fluid.yaml --out runtime/contract.bundled.yaml` and point the tool at the result.
 
 ### LLM sampling
 

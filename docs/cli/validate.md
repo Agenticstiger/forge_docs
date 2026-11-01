@@ -6,6 +6,7 @@ Check a contract against the FLUID schema and the provider-, governance- and pol
 
 ```bash
 fluid validate [CONTRACT] [options]
+fluid validate --fragment KIND FILE [options]
 ```
 
 `CONTRACT` is a contract file (`contract.fluid.yaml` or `.json`) or a `.tgz` bundle built by [`fluid bundle`](./bundle.md). It is optional: [without it](#validating-without-a-contract-path), the command looks for a workspace or for a `contract.fluid.yaml` in the current directory.
@@ -45,9 +46,10 @@ fluid validate contract.fluid.yaml --strict               # warnings become erro
 fluid validate contract.fluid.yaml --schema-version 0.7.2 # validate against a specific schema
 fluid validate contract.fluid.yaml --format json          # machine-readable result
 fluid validate runtime/bundle.tgz                         # validate a bundle
+fluid validate --fragment expose fragments/exposes/orders.yaml  # one fragment on its own
 ```
 
-For a single contract, `--format json` prints `valid`, `schema_version`, `errors`, `warnings` and `validation_time`. For a `.tgz` bundle it prints the same report `--report` writes (`bundleDigest`, `input`, `strict`, `status`, `summary`, `issues`).
+For a single contract, `--format json` prints `valid`, `schema_version`, `errors`, `warnings` and `validation_time`. A [fragment run](#validating-one-fragment) adds a `fragment` field after `valid`, naming the kind (`"fragment": "expose"`); the JSON of a whole-contract run has no such field. For a `.tgz` bundle it prints the same report `--report` writes (`bundleDigest`, `input`, `strict`, `status`, `summary`, `issues`).
 
 ## Exit codes
 
@@ -64,16 +66,17 @@ A failure prints a stable `[ERR_<EVENT>]` slug, such as `[ERR_VERSION_BELOW_MINI
 | Option | Description |
 | --- | --- |
 | `--env ENV` | Apply the `ENV` overlay to the base contract before validating. See [`--env` and environment overlays](#env-and-environment-overlays) and [Environments and overlays](../concepts/environments-and-overlays.md). |
-| `--schema-version VERSION` | Validate against this schema version, for example `0.7.6`, instead of the version the contract declares. |
-| `--min-version CONSTRAINT` | Fail with exit `2` when the contract's version does not satisfy the constraint, for example `'>=0.7.5'`. |
-| `--max-version CONSTRAINT` | Fail with exit `2` when the contract's version does not satisfy the constraint. |
+| `--fragment KIND` | Validate the file as one fragment of a contract, against the schema definition `KIND` names. The file is required. See [Validating one fragment](#validating-one-fragment). |
+| `--schema-version VERSION` | Validate against this schema version, for example `0.7.6`, instead of the version the contract declares. With `--fragment`, the version to check the fragment against. A value that is not a version stops the run with `invalid_schema_version`. See [Schema version flags](#schema-version-flags). |
+| `--min-version CONSTRAINT` | Fail with exit `2` when the schema version does not satisfy the constraint, for example `'>=0.7.5'`. A value that is not a constraint stops the run with `invalid_min_version` (exit `1`). |
+| `--max-version CONSTRAINT` | Fail with exit `2` when the schema version does not satisfy the constraint, for example `'<0.7.7'`. A value that is not a constraint stops the run with `invalid_max_version` (exit `1`). |
 | `--strict` | Treat warnings as errors. |
 | `--offline` | Use only cached or bundled schemas. |
 | `--force-refresh` | Refresh cached schemas. |
 | `--clear-cache` | Clear the schema cache first. |
 | `--cache-dir CACHE_DIR` | Use a custom schema cache directory. |
 | `--verbose`, `-v` | Detailed validation output. |
-| `--quiet`, `-q` | Minimal output. |
+| `--quiet`, `-q` | Minimal output: errors only. A run that stops on an error such as `contract_load_failed` still prints the error and the line that says what failed; the `[ERR_...]` slug, the suggestions and the documentation link stay hidden. See [Quiet output](#quiet-output). |
 | `--format {text\|json}` | Output format. Default `text`. |
 | `--list-versions` | List the available schema versions and exit. |
 | `--show-schema` | Show the schema used for validation. |
@@ -180,15 +183,84 @@ Validation Warnings:
 
 ## Contracts split into fragments
 
-A root contract can pull objects from other files with `$ref`. `fluid validate` resolves the pointers before it checks anything, so you pass the root file and validate the whole product. A `$ref` may only name a file inside the contract's own directory tree. One that climbs out of it is refused:
+A root contract can pull parts of itself from other files with `$ref`. `fluid validate` resolves the pointers before it checks anything, so you pass the root file and validate the whole product. An error names the file and the line it was written in, then the place in the composed contract:
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+
+Validation Errors:
+==================
+ 1. fragments/exposes/high_value_customers.yaml:17 (exposes[1].binding.format): 'parquett' is not one of ['bigquery_table', ...
+```
+
+A `$ref` may only name a file inside the ref root, which is the contract's own directory tree unless `ref_root` in `fluid.workspace.yaml` or `FLUID_REF_ROOT` widens it. One that climbs out of it is refused:
 
 ```text
 ❌ Validation error: contract_load_failed
-   error: $ref '../shared-builds/customer_360_pipeline.yaml' at JSON pointer '/builds/0' in /path/to/esc/product/contract.fluid.yaml escapes the ref root /path/to/esc/product (after resolving '..' and symlinks); refs may only name files inside it. To compose fragments from a wider tree (e.g. a monorepo's shared/ directory), set FLUID_REF_ROOT to that directory or pass ref_root= to the loader; see docs/contract-refs.md.
+   error: $ref '../shared-builds/customer_360_pipeline.yaml' at JSON pointer '/builds/0' in /path/to/esc/product/contract.fluid.yaml escapes the ref root /path/to/esc/product (after resolving '..' and symlinks); refs may only name files inside it. To compose fragments from a wider tree (e.g. a monorepo's shared/ directory), declare ref_root in the workspace's fluid.workspace.yaml, set FLUID_REF_ROOT to that directory, or pass ref_root= to the loader; see docs/contract-refs.md.
    [ERR_CONTRACT_LOAD_FAILED]
 ```
 
 The suggestions printed under the slug (check the YAML syntax, file permissions) are generic and do not apply to a refused `$ref`. The error line above them is the diagnosis. How the ref root works, and how to widen it for a monorepo, is in [Composing a contract with `$ref`](../concepts/contract-refs.md).
+
+## Validating one fragment
+
+*(since 0.25.0, [forge-cli #760](https://github.com/Agenticstiger/forge-cli/pull/760); corrected in 0.26.0, [#761](https://github.com/Agenticstiger/forge-cli/pull/761))*
+`--fragment KIND FILE` checks one fragment against the part of the schema it stands for, without the root contract:
+
+```bash
+fluid validate --fragment expose fragments/exposes/orders.yaml
+```
+
+```text
+✅ Valid expose fragment (schema v0.7.5)
+```
+
+`KIND` is the name of a definition in the schema's `$defs` (`expose`, `build`, `column`, `sovereignty`, `accessPolicy`, ...), or `quality` or `schema` for an expose's lists. A name that is not a kind stops the run with `fragment_kind_unknown` and lists the kinds the schema has. The file's own `$ref`s are resolved and confined as the contract it belongs to would confine them: the nearest `contract.fluid.yaml` above it, or the file's own directory when there is none. The nearest contract is not taken past the top of the file's repository or workspace (a directory holding `.git`, `.hg`, `.svn` or `fluid.workspace.yaml`), nor past a home directory, a temporary directory or `/`, and a symlinked contract is never taken. An error reads as the whole contract's do, and names the file and line, with the path relative to the fragment:
+
+```text
+❌ Invalid expose fragment (1 error(s)) (schema v0.7.5)
+
+Validation Errors:
+==================
+ 1. fragments/exposes/high_value_customers.yaml:17 (binding.format): 'parquett' is not one of ['bigquery_table', ...
+```
+
+With `--format json`, the result names the kind in a `fragment` field after `valid`:
+
+```json
+{
+  "valid": true,
+  "fragment": "expose",
+  "schema_version": "0.7.5",
+  "errors": [],
+  "warnings": [],
+  "validation_time": null
+}
+```
+
+**Which schema version.** `--schema-version` wins. Otherwise the version is the `fluidVersion` of the nearest root contract, read as every command reads it: a root that is a `$ref` to its base, a `fluidVersion` kept in a fragment and a same-document pointer are all followed. With neither, the run stops with `schema_version_required` and says why: no root contract above the fragment could be taken, or the nearest one cannot be read or declares no `fluidVersion`. The command does not guess a version: before 0.26.0 it used the newest stable schema, so a valid fragment of a newer schema failed on a field the older one does not have.
+
+```console
+$ fluid validate --fragment column col.yaml
+❌ Validation error: schema_version_required
+   error: cannot tell which schema version to check the fragment against: no contract.fluid.yaml above col.yaml could be taken (a symlinked one is not, and the search stops at the top of its repository or workspace, and before a home or temp directory). Pass --schema-version <version>; fluid validate --list-versions lists them.
+   [ERR_SCHEMA_VERSION_REQUIRED]
+$ fluid validate --fragment column col.yaml --schema-version 0.7.6
+✅ Valid column fragment (schema v0.7.6)
+```
+
+**What it refuses.** Each stops the run with exit `1`:
+
+| Event | When |
+| --- | --- |
+| `fragment_file_required` | No file was given. Before 0.26.0 `--fragment KIND` validated the `contract.fluid.yaml` of the working directory as if it were the fragment. When the KIND was left out, so that the file was read as the KIND, the error says that instead. |
+| `fragment_bundle_unsupported` | The file is a `.tgz` bundle. A bundle holds a whole contract, so validate it without `--fragment`. Before 0.26.0 it validated the bundle and ignored `--fragment`. |
+| `fragment_env_unsupported` | `--env` was given. An environment applies to a whole contract. |
+| `fragment_has_pointers` | The fragment holds a same-document pointer (`#/...`), which names a place in the whole contract. Validate the contract that uses it. |
+| `fragment_kind_unknown` | `KIND` is not a kind in the schema version. |
+
+It checks the schema only. The rules that need the whole contract (sovereignty against regions, overlays, provider and governance checks) run when you validate the root.
 
 ## YAML limits
 
@@ -243,7 +315,43 @@ The fields that need `0.7.6` include `lifecycle.expire`, `binding.encryption.kms
 
 *([forge-cli #712](https://github.com/Agenticstiger/forge-cli/pull/712), since 0.20.0)* So does `builds[].properties.sink.catalogAuth`, which authenticates a streaming sink to an Iceberg REST catalog. On `0.7.5` it fails with `builds[0].properties.sink: Additional properties are not allowed ('catalogAuth' was unexpected)`. See [Authenticate a sink to a REST catalog](../advanced/source-aligned-acquisition.md#authenticate-a-sink-to-a-rest-catalog).
 
-`--schema-version` overrides what the contract declares, which lets you test a contract against a newer schema without editing it. `--min-version` and `--max-version` bound the schema version being validated and fail with exit `2` when it falls outside them.
+### Schema version flags
+
+`--schema-version` overrides what the contract declares, which lets you test a contract against a newer schema without editing it.
+
+`--min-version` and `--max-version` bound the schema version being validated and fail with exit `2` when it falls outside them. Their values are constraints: an operator and a version, one of `>=`, `>`, `<=`, `<`, `~` (the same minor version, at or above the version) or `=`, and a bare version means `=`. When the contract declares no `fluidVersion`, the two flags also narrow the versions `fluid validate` picks from: it takes the newest stable version that satisfies them, and a preview version only when nothing else does.
+
+```console
+$ fluid validate contract.fluid.yaml --min-version '>=0.7.6'
+❌ Contract version 0.7.5 does not meet minimum requirement >=0.7.6
+   [ERR_VERSION_BELOW_MINIMUM]
+```
+
+A value that is not a version or a constraint is a typed error with exit `1`, named for the flag: `invalid_schema_version`, `invalid_min_version` or `invalid_max_version`. Before 0.26.0 each ended as `cli_unhandled_exception`. The `invalid_schema_version` hint names `fluid validate --list-versions`, the command that lists the versions.
+
+```console
+$ fluid validate contract.fluid.yaml --schema-version banana
+❌ Validation error: invalid_schema_version
+   version: banana
+   error: Invalid FLUID version format: banana
+   [ERR_INVALID_SCHEMA_VERSION]
+   💡 Use a supported version (current line: 0.7.x) in fluidVersion or --schema-version
+   💡 Run 'fluid validate --list-versions' to see the supported versions
+```
+
+## Quiet output
+
+`--quiet` is "errors only". Before 0.26.0 it printed nothing at all when a run stopped on an error such as `contract_load_failed`. The error now prints, and the hints, the slug and the documentation link stay hidden:
+
+```console
+$ fluid validate contract.fluid.yaml --quiet
+❌ Validation error: contract_load_failed
+   error: $ref target not found: nope.yaml (resolved to /work/nope.yaml), at JSON pointer '/builds/0' in /work/contract.fluid.yaml
+```
+
+Without `--quiet` the same run adds the `[ERR_CONTRACT_LOAD_FAILED]` line, the suggestions and the link.
+
+A contract path that does not exist is named in the error: `❌ Contract file not found: missing.fluid.yaml`. Before 0.26.0 the message read `Contract file not found: None`.
 
 ## Governance binding checks (since 0.17.0)
 

@@ -44,7 +44,7 @@ fluid bundle contract.fluid.yaml --env prod --format tgz --out runtime/bundle.tg
 | Option | Default | Description |
 | --- | --- | --- |
 | `CONTRACT` | `./contract.fluid.yaml` | The root contract. Optional: without it, `fluid bundle` uses `contract.fluid.yaml` in the current directory, and fails with `contract_required` when there is none. |
-| `--out`, `-o` | `-` | Output path. `-` is stdout, except on a fragment layout and for `tgz`: see [Default output location](#default-output-location). |
+| `--out`, `-o` | `-` | Output path. `-` (the default) is stdout for `yaml` and `json`, and `<contract id>.fluid.bundle.tgz` beside the contract for `tgz`: see [Default output location](#default-output-location). |
 | `--format`, `-f` | inferred | `yaml`, `json` or `tgz`. Without `--format`, an `--out` ending in `.tgz` or `.tar.gz` means `tgz`, one ending in `.json` means `json`, and anything else means `yaml`. |
 | `--env`, `-e` | none | Environment overlay to merge after the refs are resolved. With `tgz`, recorded in the bundle; see [Environments](#environments). |
 
@@ -62,35 +62,52 @@ that expects a signature must use `--format tgz`.
 
 ## Default output location
 
-| Format | `--out` omitted or `-`, no `fragments/` next to the contract | `--out` omitted or `-`, `fragments/` next to the contract |
-|---|---|---|
-| `yaml`, `json` | stdout | `<contract dir>/contract.bundled.fluid.yaml` |
-| `tgz` | `<contract dir>/<contract id>.fluid.bundle.tgz` | `<contract dir>/contract.bundled.fluid.yaml` (a tarball) |
+Without `--out`, or with `--out -`, the output goes to the same place for
+every contract, whether or not a `fragments/` directory sits beside it:
+
+| Format | `--out` omitted or `-` |
+|---|---|
+| `yaml`, `json` | stdout |
+| `tgz` | `<contract dir>/<contract id>.fluid.bundle.tgz` |
+
+The command writes no file for `yaml` or `json`, so
+`fluid bundle contract.fluid.yaml | ...` receives the document. Log lines go to stderr.
 
 The tgz name is the contract `id` made filename-safe, for example
 `gold.customer.analytics_360_v1.fluid.bundle.tgz`, and the command says so:
-
-On a contract with no `fragments/` directory:
 
 ```console
 $ fluid bundle contract.fluid.yaml --format tgz
 ℹ️  --out not specified; defaulting to /work/customer-360/gold.customer.analytics_360_v1.fluid.bundle.tgz
    (derived from contract.id; override with --out <path>)
 ✅ Bundle written to /work/customer-360/gold.customer.analytics_360_v1.fluid.bundle.tgz
-   digest: sha256:6db90412513e10d5ed5c0bd02f465dbc76cdeec505997e6e65828f62b03521e0
+   digest: sha256:7e8e5318810f3359ee9958c2fd49a5dfe21b29a486b0d59f3119691831f8b3af
 ```
 
-::: warning Always pass --out with --format tgz on a fragment layout
-As of 0.18.1, when a `fragments/` directory sits next to the contract,
-`--format tgz` without `--out` writes the gzip tarball to
-`contract.bundled.fluid.yaml`. Later stages decide what a file is by its
-extension, so they try to read it as YAML and fail
-(`'utf-8' codec can't decode byte 0x8b`). With `--format json`, the JSON goes
-into the same `.yaml`-named file.
+The default tgz path gets the same write check an explicit `--out` gets. A
+symlink planted at `<contract id>.fluid.bundle.tgz` cannot point the write at a
+forbidden path; it is refused, with exit `1`:
 
-[`fluid ship`](./ship.md) runs `fluid bundle <contract> --format tgz` without
-`--out`, so on a fragment layout every `fluid ship` leaves that file behind.
-Add `contract.bundled.fluid.yaml` to `.gitignore`.
+```console
+$ ln -s /etc/fluid-test.tgz sales.orders_v1.fluid.bundle.tgz
+$ fluid bundle contract.fluid.yaml --format tgz
+❌ Access to system path forbidden: /private/etc/fluid-test.tgz  [ERR_FORBIDDEN_PATH_ACCESS]
+```
+
+::: warning Changed in 0.26.0
+([forge-cli #763](https://github.com/Agenticstiger/forge-cli/pull/763))
+In 0.25.0 and earlier, a `fragments/` directory beside the contract sent a
+no-`--out` run to `contract.bundled.fluid.yaml`. `yaml` and `json` printed
+nothing to stdout, and `--format tgz` wrote its gzip tarball under that
+`.yaml` name, which the next stage read as YAML
+(`'utf-8' codec can't decode byte 0x8b`) and `--sign` and `--attest` refused
+(`signing_bundle_wrong_format`). `fluid ship` bundled that way on every run.
+
+`fluid bundle` no longer writes `contract.bundled.fluid.yaml` on its own. A
+script that bundled a split contract and then read that file must pass
+`--out contract.bundled.fluid.yaml`. A `contract.bundled.fluid.yaml` that an
+earlier `fluid ship` left beside a contract is a tarball, and one an earlier
+`fluid bundle` left is a copy of the contract that may be stale. Delete either.
 :::
 
 ## Output formats
@@ -103,9 +120,13 @@ give the contract to a tool that does not understand `$ref`
 
 The document is the contract with:
 
-- every `$ref` to another file replaced by its target. Same-document refs
-  (`$ref: "#/..."`) are left as written;
-- the `--env` overlay deep-merged on top.
+- every `$ref` replaced by what it names: the value of a file, the text of a
+  SQL or Markdown file, or the place a same-document pointer (`$ref: "#/..."`)
+  names in the composed contract. Keys written beside a `$ref` are merged over
+  the target, as [Composing a contract with `$ref`](../concepts/contract-refs.md#keys-beside-a-ref)
+  describes. No `$ref` is left in the output;
+- the `--env` overlay merged on top, with its own refs resolved relative to the
+  overlay file.
 
 Nothing else is changed. Value aliases (such as `binding.format: kafka`), a
 legacy singular `build:` key and `{{ env.* }}` placeholders stay as authored;
@@ -271,9 +292,12 @@ without `--env` is accepted with `--env dev`, unless a dev overlay exists next
 to the source contract. A bundle from an older CLI that recorded no `source`
 block is accepted with a `bundle_env_unrecorded` warning.
 
-Do not put a `$ref` inside an overlay. As of 0.18.1, `fluid bundle --env`
-keeps the `$ref` key in its output unresolved, and `fluid validate`,
-`fluid plan` and `fluid apply` silently ignore the whole overlay. See
+An overlay may hold a `$ref`. Since 0.25.0 it resolves relative to the
+overlay file, inside the same ref root, and nothing falls back to the base
+contract. Before, `fluid bundle --env` kept the `$ref` key in its output
+unresolved, and `fluid validate`, `fluid plan` and `fluid apply` ignored the
+whole overlay. `--env` must name an environment, not a path: `--env ../x` is
+refused. See
 [Environments: overlays apply after resolution](../concepts/fragments.md#environments-overlays-apply-after-resolution).
 
 ## Signing and attestation
@@ -336,12 +360,11 @@ Result: the bundle's SHA-256 digest is a stable identifier usable as a cache key
 | Symptom | Cause | Fix |
 |---|---|---|
 | `bundle_env_mismatch` in plan, verify, diff or generate artifacts | The bundle was built for another `--env`. | Pass the env it was built for, or rebuild with `--env <env>`. |
-| `Failed to read file .../contract.bundled.fluid.yaml: 'utf-8' codec can't decode byte 0x8b` | A tgz written without `--out` on a fragment layout. | Pass `--out runtime/bundle.tgz`. |
+| `Failed to read file .../contract.bundled.fluid.yaml: 'utf-8' codec can't decode byte 0x8b` | A `contract.bundled.fluid.yaml` that is really a tarball, written by `fluid bundle --format tgz` or `fluid ship` in 0.25.0 or earlier on a fragment layout. | Delete it and bundle again; 0.26.0 writes `<contract id>.fluid.bundle.tgz`. |
 | `❌ $ref resolution error: ... escapes the ref root` | A ref leaves the contract's directory tree. | See [The ref root](../concepts/contract-refs.md#the-ref-root). |
 | `ERR_PATH_TRAVERSAL_DETECTED` | CONTRACT or `--out` contains `..`. | Pass a path without `..`, for example an absolute path. |
 | `ERR_FORBIDDEN_PATH_ACCESS` | CONTRACT or `--out` is under a protected system directory such as `/etc`. | Write under the project directory. |
 | No `.sig` after `--sign` | The format was `yaml` or `json`. | Use `--format tgz`. |
-| Nothing printed to stdout | A `fragments/` directory next to the contract redirects output to `contract.bundled.fluid.yaml`, even with an explicit `--out -`. | Pass `--out <path>` and read that file. |
 
 ## See also
 
@@ -352,6 +375,8 @@ Result: the bundle's SHA-256 digest is a stable identifier usable as a cache key
 
 ::: tip About the examples
 Output on this page was produced with CLI 0.18.1 on the quickstart
-`customer-360` product, flat or split into fragments as each example shows. Long temporary paths are
+`customer-360` product, flat or split into fragments as each example shows,
+except [Default output location](#default-output-location), which was
+produced with 0.26.0. Long temporary paths are
 shortened to `/work`, and long lines are re-wrapped.
 :::
