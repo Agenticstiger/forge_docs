@@ -577,5 +577,5 @@ Before shipping a provider, verify:
 ## Next Steps
 
 - **Understand the architecture:** [Provider Architecture](./architecture.md)
-- **See real providers:** [Local](./local.md) · [GCP](./gcp.md) · [AWS](./aws.md) · [Snowflake](./snowflake.md)
+- **See real providers:** [Local](./local.md) · [GCP](./gcp.md) · [AWS](./aws.md) · [Snowflake](./snowflake.md) · [Databricks](./databricks.md)
 - **See what's planned:** [Provider Roadmap](./roadmap.md)

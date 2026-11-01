@@ -4,7 +4,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 > **Why it matters**
 > Target a new cloud by editing `binding`, not the rest of the contract.
-> Change an expose's `binding` (its `platform`, `format` and `location`) and the same contract compiles for `local` (DuckDB), `aws`, `gcp` or `snowflake`.
+> Change an expose's `binding` (its `platform`, `format` and `location`) and the same contract compiles for `local` (DuckDB), `aws`, `gcp`, `snowflake` or `databricks`.
 
 ## Docs baseline
 
@@ -14,13 +14,14 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 ## Provider overview
 
-`fluid providers` reports `aws`, `datamesh_manager`, `gcp`, `local`, `redshift` and `snowflake`. These have a provider page:
+`fluid providers` reports `aws`, `databricks`, `datamesh_manager`, `gcp`, `local`, `redshift` and `snowflake`. These have a provider page:
 
 | Provider | Plan / Apply | Scheduling docs stance | Status |
 | --- | --- | --- | --- |
 | [GCP](./gcp.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
 | [AWS](./aws.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
 | [Snowflake](./snowflake.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
+| [Databricks](./databricks.md) | Yes (OpenTofu) | dbt builds run as Databricks jobs on their own trigger | Added in 0.26.0 |
 | [Local](./local.md) | Yes (native DuckDB) | Local-first onboarding | Production |
 
 "Production" covers provisioning and builds. Governance differs by cloud: on GCP, `fluid apply` emits dataset grants, column policy tags and, on `0.7.6`, retention and Cloud KMS keys; on Snowflake, as of 0.18.1, `accessPolicy` grants, column restrictions and masking are not applied. Each provider page lists what its module emits.
@@ -28,7 +29,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 > **ODCS / ODPS are spec exporters, not providers.** As of `v0.10.0` the open-standards exports (ODCS, ODPS, ODPS-Bitol) are surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html) — they serialize a contract to a spec and do **not** deploy infrastructure, so they no longer appear in the `fluid providers` roster.
 
 ::: tip Runtime requirement for cloud apply
-Since `v0.10.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
+Since `v0.10.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. `databricks` does the same since `0.26.0`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
 :::
 
 The CLI surface today is asymmetric for the two spec exporters — `fluid odcs` exposes `export` / `import` / `validate` / `info`, while `fluid odps-bitol` exposes only `export` / `validate` / `info`. The unified `fluid odps` command covers both specs and adds an `import` subcommand for Bitol — see [`fluid odps`](../cli/odps.md) and [`fluid odcs`](../cli/odcs.md).
@@ -72,6 +73,18 @@ export SNOWFLAKE_ACCOUNT=your_account
 export SNOWFLAKE_USER=your_user
 fluid apply contract.fluid.yaml --provider snowflake --yes
 ```
+
+### Databricks
+
+```bash
+pip install "data-product-forge[databricks]"
+export DATABRICKS_HOST=https://<workspace>.cloud.databricks.com
+export DATABRICKS_TOKEN=<token>
+export DATABRICKS_WAREHOUSE_ID=<warehouse-id>
+fluid apply contract.fluid.yaml --provider databricks --yes
+```
+
+See [Databricks](./databricks.md#credentials) for the credential rules.
 
 ### Local
 
@@ -143,7 +156,7 @@ The previously-shipped `glue` and `snowflake_horizon` registrars were retired in
 ## Notes
 
 - Publishing one contract from two clouds (`--env aws`, then `--env gcp`) updates one Command Center product, keyed by the contract id, so the last publish sets its platform and location. `fluid generate ci --no-publish-stage-default` leaves the publish stage off for a second cloud's pipeline.
-- Use the provider pages ([GCP](./gcp.md), [AWS](./aws.md), [Snowflake](./snowflake.md), [Local](./local.md)) when you need deep target details.
+- Use the provider pages ([GCP](./gcp.md), [AWS](./aws.md), [Snowflake](./snowflake.md), [Databricks](./databricks.md), [Local](./local.md)) when you need deep target details.
 - Use [CLI Reference](/forge_docs/cli/) for command syntax.
 - Use [Getting Started](/forge_docs/getting-started/) for the local-first workflow.
 

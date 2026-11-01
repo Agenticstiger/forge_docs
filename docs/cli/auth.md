@@ -19,6 +19,7 @@ fluid auth login gcp
 fluid auth status
 fluid auth status aws
 fluid auth logout aws
+fluid auth logout databricks dev
 fluid auth doctor
 fluid auth doctor --fix
 fluid auth list
@@ -32,7 +33,7 @@ Running `fluid auth` with no verb prints a short guide that lists each verb with
 | --- | --- |
 | `login [PROVIDER]` | Authenticate with a provider. A provider is required; without one the command exits `1`. |
 | `status [PROVIDER]` | Show authentication status. Without a provider it checks them all. |
-| `logout [PROVIDER]` | Sign out of a provider. A provider is required; without one the command exits `1`. |
+| `logout [PROVIDER] [PROFILE]` | Sign out of a provider. A provider is required; without one the command exits `1`. For `databricks`, name the one profile to remove from the config file (see [below](#databricks-logout)). |
 | `list` | List the providers and their aliases. |
 | `doctor [PROVIDER] [--fix]` | Audit credential hygiene. Without a provider it covers them all. |
 
@@ -70,7 +71,9 @@ fluid auth status azure
 ⚠️ Provider 'azure' requires --project to be specified
 ```
 
-`azure`, `databricks` and the aliases `google_cloud`, `google`, `microsoft` and `amazon` all fail this way. Use `gcp` and `aws` for those two clouds. For Azure and Databricks, sign in with the platform's own tooling, then run `fluid auth status` with **no provider**: without an argument the command checks every provider, including those two, and does not go through the registry check.
+`azure` and the aliases `google_cloud`, `google`, `microsoft` and `amazon` all fail this way. Use `gcp` and `aws` for those two clouds. For Azure, sign in with the platform's own tooling, then run `fluid auth status` with **no provider**: without an argument the command checks every provider and does not go through the registry check.
+
+`databricks` failed this way too until 0.26.0, which added the Databricks provider ([forge-cli #769](https://github.com/Agenticstiger/forge-cli/pull/769)) to that registry. `fluid auth status databricks` and `fluid auth logout databricks` now work.
 :::
 
 ## `fluid auth status`
@@ -82,6 +85,23 @@ The exit code is `0` only when every provider it checked is authenticated. `flui
 ```bash
 fluid auth status gcp && fluid plan contract.fluid.yaml --env gcp
 ```
+
+## `fluid auth logout`
+
+Logout removes the credential `fluid auth login` saved for the provider. For `databricks` it works on one profile of the config file (`~/.databrickscfg`, or the file `DATABRICKS_CONFIG_FILE` names), because that file belongs to the Databricks CLI, SDK, dbt and terraform and holds every profile.
+
+<a id="databricks-logout"></a>
+
+```bash
+fluid auth logout databricks dev
+```
+
+- It removes only the profile you name, keeps the others, writes the file back owner-only (`0600`) and never deletes it. The token it held stays valid until it is revoked in the workspace.
+- With no profile named, a file that holds profiles is left alone and the command exits `1`, listing them. `DATABRICKS_CONFIG_PROFILE` is quoted in that hint, never acted on.
+- An OAuth profile (`auth_type = databricks-cli`) is left to `databricks auth logout --profile=<name> --delete`, which clears its cached tokens.
+- A hard-linked file, or one that belongs to another user (a logout under `sudo`), is left as it is.
+
+Before 0.26.0 this command deleted the whole file ([forge-cli #772](https://github.com/Agenticstiger/forge-cli/pull/772)). See [Databricks](../providers/databricks.md#fluid-auth-logout-databricks).
 
 ## `fluid auth doctor`
 
