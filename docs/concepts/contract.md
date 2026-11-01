@@ -24,7 +24,7 @@ A **Fluid Forge contract** is a YAML document that describes a data product: its
 
 ## The required top-level fields
 
-A contract must declare the fields below. [The contract reference](../reference/README.md) has a field table for schema [0.7.5](../reference/contract-0.7.5.md), and [preview fields](../reference/preview-fields.md) lists what needs `fluidVersion: "0.7.6"`.
+A contract must declare the fields below. [The contract reference](../reference/README.md) has a field table for schema [0.7.6](../reference/contract-0.7.6.md), and [preview fields](../reference/preview-fields.md) lists what needs `fluidVersion: "0.7.6"`.
 
 A contract must declare:
 

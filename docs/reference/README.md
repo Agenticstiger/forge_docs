@@ -1,6 +1,6 @@
 ---
 title: Contract reference
-description: Field-by-field reference for the FLUID contract schema, generated from the schemas bundled in the CLI. Stable 0.7.5, and the 0.7.6 preview delta.
+description: Field-by-field reference for the FLUID contract schema, generated from the schemas bundled in the CLI. Stable 0.7.6, and the 0.7.7 preview delta.
 ---
 
 # Contract reference
@@ -9,8 +9,8 @@ The fields of the FLUID contract schema, each with its type, whether it is requi
 
 | Page | What it lists | Status |
 | --- | --- | --- |
-| [Schema 0.7.5](./contract-0.7.5.md) | The fields of the schema, from `fluidVersion` down to nested keys | Stable |
-| [Schema 0.7.6 preview](./contract-0.7.6-preview.md) | What 0.7.6 adds to 0.7.5, changes in it, and removes from it, field by field | Preview, opt-in |
+| [Schema 0.7.6](./contract-0.7.6.md) | The fields of the schema, from `fluidVersion` down to nested keys | Stable |
+| [Schema 0.7.7 preview](./contract-0.7.7-preview.md) | What 0.7.7 adds to 0.7.6, changes in it, and removes from it, field by field | Preview, opt-in |
 | [Fields that need 0.7.6](./preview-fields.md) | The preview fields by the CLI release that introduced them, with validated examples | Preview, opt-in |
 
 ## Find a field
@@ -26,7 +26,7 @@ exposes:
         kms: product
 ```
 
-`kms` is addressed as `exposes[].binding.encryption.kms`: `.` steps into an object and `[]` stands for "each item of this list". Search the page for that path. The row for it sits on the [0.7.6 preview delta](./contract-0.7.6-preview.md), because `binding.encryption` exists only in the preview schema.
+`kms` is addressed as `exposes[].binding.encryption.kms`: `.` steps into an object and `[]` stands for "each item of this list". Search the page for that path. The row for it sits on the [0.7.6 page](./contract-0.7.6.md); `binding.encryption` does not exist in 0.7.5.
 
 ## How to read a row
 
@@ -58,11 +58,12 @@ A contract declares the schema it is written against in `fluidVersion`. The CLI 
 ✅ Valid FLUID contract (schema v0.7.5)
 ```
 
-- **0.7.5 is stable.** It is the newest stable schema bundled with the CLI. The [0.7.5 page](./contract-0.7.5.md) is the complete reference.
-- **0.7.6 is a preview.** A contract opts in with `fluidVersion: "0.7.6"`. A contract that declares 0.7.5 has fields such as `binding.encryption`, `lifecycle.expire` and `consumes[].upstreamWorkspace` rejected by `fluid validate` as unexpected keys. A few delta rows, such as the masking `params` keys, are accepted by 0.7.5 because it left their parent open; [preview-fields](./preview-fields.md) names them. The [preview delta](./contract-0.7.6-preview.md) lists what differs.
-- **0.7.1 to 0.7.4** are also bundled, and a contract that names one of them validates against it. They are not rendered here.
+- **0.7.6 is stable.** It is the newest stable schema bundled with the CLI, and the default since CLI `0.26.0`. The [0.7.6 page](./contract-0.7.6.md) is the complete reference.
+- **0.7.7 is a preview.** A contract opts in with `fluidVersion: "0.7.7"`. It is identical to 0.7.6 at open; the [preview delta](./contract-0.7.7-preview.md) lists what differs as fields land.
+- **0.7.5 and earlier.** A contract that declares 0.7.5 has fields such as `binding.encryption`, `lifecycle.expire` and `consumes[].upstreamWorkspace` rejected by `fluid validate` as unexpected keys: they are 0.7.6 fields. A few changed rows, such as the masking `params` keys, are accepted by 0.7.5 because it left their parent open; [preview-fields](./preview-fields.md) names them.
+- **0.7.1 to 0.7.5** are also bundled, and a contract that names one of them validates against it. They are not rendered here.
 
-Which versions are stable and which are preview comes from the CLI itself, so the generated pages follow a promotion in a later release rather than going stale. The 0.7.6 schema is bundled in the CLI package. On 5 Oct 2026 the spec site's schema address for 0.7.6 (`/schema/fluid-schema-0.7.6.json`) returned 404, so read the preview from the package or from this reference.
+Which versions are stable and which are preview comes from the CLI itself, so the generated pages follow a promotion in a later release rather than going stale. The 0.7.7 schema is bundled in the CLI package. On 1 Nov 2026 the spec site's schema address for 0.7.7 (`/schema/fluid-schema-0.7.7.json`) returned 404, so read the preview from the package or from this reference.
 
 To see the schema file your own CLI uses:
 
