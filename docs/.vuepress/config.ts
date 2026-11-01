@@ -300,6 +300,7 @@ export default defineUserConfig({
           { text: 'GCP (BigQuery)', link: '/providers/gcp.md' },
           { text: 'AWS (S3 + Athena)', link: '/providers/aws.md' },
           { text: 'Snowflake', link: '/providers/snowflake.md' },
+          { text: 'Databricks', link: '/providers/databricks.md' },
           { text: 'Local (DuckDB)', link: '/providers/local.md' },
           { text: 'Custom providers', link: '/providers/custom-providers.md' },
           { text: 'Roadmap', link: '/providers/roadmap.md' }
@@ -581,6 +582,7 @@ export default defineUserConfig({
             '/providers/gcp.md',
             '/providers/aws.md',
             '/providers/snowflake.md',
+            '/providers/databricks.md',
             '/providers/local.md',
             '/providers/custom-providers.md',
             '/providers/roadmap.md'

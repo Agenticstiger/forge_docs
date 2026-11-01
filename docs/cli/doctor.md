@@ -65,6 +65,7 @@ fluid doctor --env
 
 - **Forge copilot readiness**: whether an LLM provider and model are configured, and whether credentials are present.
 - **Memory store backend**: which backend holds copilot memory (`file`, `sqlite`, `postgres` or `vector`), where it lives, and whether it is readable and writable.
+- **Provider readiness**: under `--verbose`, a **Databricks Provider** row reports `Not configured` when no `DATABRICKS_*` workspace variable is set, and otherwise whether the credential resolves under the same rules `fluid apply` uses, whether `DATABRICKS_WAREHOUSE_ID` is set and whether `databricks-sdk` is installed. It never opens a connection and never changes the exit code. See [Databricks](../providers/databricks.md#fluid-doctor-and-the-welcome-scan).
 - **Feature availability**: a table of CLI components (the schema manager, the sovereignty and agent-policy validators, the provider action parsers for GCP, AWS and Snowflake, the dbt engine, the copilot, the LiteLLM backend and the agent web tools), each marked available, not available or not installed. `--features-only` prints just this table.
 
 It prints a summary panel followed by the readiness and backend tables; the feature table appears under `--verbose` or when a feature is missing. The exit code is `1` when a feature the CLI treats as critical is unavailable, and `0` otherwise. A missing LLM key, a missing Snowflake driver and a missing dbt install do not change it.
