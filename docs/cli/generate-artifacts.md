@@ -170,30 +170,20 @@ A name starting `AIRFLOW` does not pass, even when the contract or `FLUID_DAG_EN
 
 ## Fragment layouts
 
-A fragment layout is a root contract that composes its exposes and builds from files through `$ref` (see [Contract refs](../concepts/contract-refs.md)). As of 0.18.1, `fluid generate artifacts` reads a contract file as written and does not resolve `$ref`, so the default emit set fails on a fragment root:
+A fragment layout is a root contract that composes its exposes and builds from files through `$ref` (see [Contract refs](../concepts/contract-refs.md)). `fluid generate artifacts` loads the composed contract, with or without `--env`, so a split contract gets byte-identical artifacts to the same contract written flat:
 
 ```bash
 fluid generate artifacts contract.fluid.yaml --out dist/artifacts/
 ```
 
-```text
-❌ Provider error: FLUID expose has no usable name — Bitol ODPS v1.0.0
-OutputPort requires a stable port name. Set expose.exposeId, expose.id, or
-expose.name.
-```
+In 0.24.0 and earlier the command read the root as written unless `--env` was given, and failed on a fragment root with `FLUID expose has no usable name`; `generate ci` also judged reference-only builds and engines from the raw root. Both are fixed in 0.25.0 ([forge-cli #760](https://github.com/Agenticstiger/forge-cli/pull/760)).
 
-The exit code is 1, and an empty `odps-bitol/` directory is left in `--out`. The same product in flat form succeeds. Either of these works:
+The generated Jenkins and Tekton pipelines feed stage 3 the bundle:
 
 ```bash
-# the stage-1 bundle, which carries the resolved contract
 fluid bundle contract.fluid.yaml --format tgz --out runtime/bundle.tgz
 fluid generate artifacts runtime/bundle.tgz --out dist/artifacts/
-
-# or --env, which loads the contract with its overlay and its $refs resolved
-fluid generate artifacts contract.fluid.yaml --out dist/artifacts/ --env dev
 ```
-
-The generated Jenkins and Tekton pipelines feed stage 3 the bundle. In the same check on 0.18.1, `fluid generate transformation`, `generate schedule`, `generate standard`, `generate dbt-tests`, `generate ci` and `generate iac` loaded the fragment root; `generate artifacts` was the one that did not.
 
 ## Examples
 
