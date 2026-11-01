@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.18.1, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.26.0, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -61,14 +61,19 @@ Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it,
 
 ## Contracts do not need a new `fluidVersion`
 
-Upgrading the CLI does not change the schema your contracts declare. `0.18.1` reads
-`fluidVersion` `0.7.1` to `0.7.5`, and `0.7.6` as a preview (the list `fluid version`
-prints). Some fields added in these releases exist only in `0.7.6`:
-`lifecycle.expire`, `binding.encryption`, `binding.principals`,
-`binding.governance.lakeFormation.bucketPolicy`, and `consumes[].upstreamWorkspace` /
-`upstreamDigest`. Declare `fluidVersion: "0.7.6"` only when you use one of them; the
-[preview fields](./reference/preview-fields.md) page lists them, and
-[Federated upstreams](./concepts/federation.md) covers the last two.
+Upgrading the CLI does not change the schema your contracts declare. `0.26.0` reads
+`fluidVersion` `0.7.1` to `0.7.6`, and `0.7.7` as a preview (the list `fluid version`
+prints). `0.7.6` is stable since `0.26.0`: it is the default, and the contracts forge-cli
+writes declare it. A contract that declares `0.7.5` still validates as `0.7.5`.
+
+Some fields exist only in `0.7.6`: `lifecycle.expire`, `binding.encryption`,
+`binding.principals`, `binding.governance.lakeFormation.bucketPolicy`, and
+`consumes[].upstreamWorkspace` / `upstreamDigest` among them; the
+[0.7.6 field reference](./reference/contract-0.7.6.md) lists every field, and
+[Federated upstreams](./concepts/federation.md) covers the last two. Before you move a
+contract to `0.7.6`, give each entry of an overlay's `builds`, `exposes` and `consumes` an
+`id` (see [Changes in 0.25.0 and 0.26.0](#changes-in-0-25-0-and-0-26-0)). To try what lands
+next, declare `fluidVersion: "0.7.7"`.
 
 ## A safe order for any upgrade
 
@@ -465,6 +470,87 @@ went on to `tofu plan` on forge-cli main before #714, and now stops:
 ```
 
 Background: [Contract validation](./cli/apply.md#contract-validation).
+
+## Changes in 0.25.0 and 0.26.0
+
+`0.25.0` added [contract fragments](https://github.com/Agenticstiger/forge-cli/pull/760)
+(`$ref`). `0.26.0` made schema `0.7.6` stable and added the [Databricks](./providers/databricks.md)
+provider. Each item names the pull request that made the change; the
+[forge-cli CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md)
+carries the full upgrade notes of both releases.
+
+### 0.25.0
+
+- **A `$ref` that 0.24.0 left in the contract now composes or fails**
+  ([forge-cli #760](https://github.com/Agenticstiger/forge-cli/pull/760)). A ref with keys
+  beside it, a same-file `#/` pointer, or a ref inside an overlay used to stay a literal key. It
+  now resolves, and one that cannot be resolved fails every command, naming the file and the
+  place. A contract that embeds a document with its own `$ref` keys (a JSON Schema or OpenAPI
+  fragment inside `parameters` or an extension) now fails too: keep such a payload as a string.
+- **Contracts that use the new forms need 0.25.0 or later.** Text refs, list-root fragments,
+  keys beside a `$ref`, pointers, refs inside overlays and a workspace `ref_root` fail on
+  0.24.0, or load differently there. Pin `data-product-forge>=0.25.0` wherever such contracts are
+  validated or planned.
+- **Overlays are held to the ref root, and `--env` names an environment.** An `overlays/`
+  directory or overlay file that links outside the contract's tree is refused: widen the root
+  with `ref_root` in `fluid.workspace.yaml`, or `FLUID_REF_ROOT`, to share one. `--env ../x` and
+  `--env /abs/x` are refused by every command.
+- **A root contract must be a regular file of at most 5 MiB**, and a composed contract nests at
+  most 128 levels. A contract read through a pipe (`fluid validate <(git show HEAD:contract.fluid.yaml)`)
+  is refused: write it to a file, or move its large parts into fragments.
+- **`fluid split` keeps the root's text and comments** instead of re-dumping it, and writes no
+  file through a symlink. The fragments are the same as before.
+- **A contract whose orchestrator is on a public host fails until the operator allows it**
+  ([forge-cli #758](https://github.com/Agenticstiger/forge-cli/pull/758)). Set
+  `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` to the host or its parent domain, without a port,
+  in the shell, in CI, or in a `FLUID_SECRETS_FILE` outside the project. A project `.env` cannot
+  set it. Deployments on `localhost`, loopback or a private network need nothing.
+
+### 0.26.0
+
+- **Schema 0.7.6 is stable, and 0.7.7 is the preview**
+  ([forge-cli #768](https://github.com/Agenticstiger/forge-cli/pull/768)). What forge-cli writes
+  now declares `0.7.6`: the importers, `fluid product-new`, `fluid init --discover` and the
+  `fluid forge --scaffold` templates. Running `fluid import` again over a contract it wrote changes
+  its `fluidVersion` from `0.7.3` to `0.7.6`. A `0.7.6` contract merges an overlay's `builds`,
+  `exposes` and `consumes` by id, so an overlay entry that names no id fails to load where the base
+  list has more than one entry, or where another overlay entry names an id.
+- **`fluid bundle` no longer writes `contract.bundled.fluid.yaml` on its own**
+  ([forge-cli #763](https://github.com/Agenticstiger/forge-cli/pull/763)). Without `--out`, `yaml`
+  and `json` go to stdout and a `tgz` to `<contract id>.fluid.bundle.tgz`. A script that read that
+  file must pass `--out contract.bundled.fluid.yaml`. Delete a `contract.bundled.fluid.yaml` an
+  earlier run left beside a contract: from `fluid ship` it is a tarball, from `fluid bundle` a
+  copy that may be stale.
+- **`fluid apply` checks every platform the contract declares**
+  ([forge-cli #766](https://github.com/Agenticstiger/forge-cli/pull/766)). It stops with
+  `apply_platform_unsupported` (exit 2) where a platform has no provider; `provider_unknown` now
+  means a `--provider` value no provider has. A contract with an expose on such a platform beside
+  the exposes that chose the provider used to apply with exit 0, and now stops: pass `--provider`
+  to apply it as before. With the `local` provider, a later build declared for a platform no
+  provider serves (`composer`, `kubernetes`, ...) now stops the run: declare it as the job it is,
+  or drop the platform.
+- **A contract can no longer name the host a dbt build's credential goes to**
+  ([forge-cli #773](https://github.com/Agenticstiger/forge-cli/pull/773)). A dbt build on
+  Databricks, Redshift or Postgres that sets `builds[].execution.runtime.resources.host` now fails
+  before dbt starts, with `DbtProfileError` naming the field. Remove it and set `DATABRICKS_HOST`,
+  `REDSHIFT_HOST` or `PGHOST`. A Databricks catalog or schema must be a plain identifier, or come
+  from a variable whose name ends in `_CATALOG` or `_SCHEMA`; or leave the field out and set
+  `DATABRICKS_CATALOG` / `DATABRICKS_SCHEMA`.
+- **A dbt build with no `execution.runtime.platform` takes its platform from the first expose's
+  binding**, for the generated `profiles.yml` and the model-contract column types. It used to get a
+  DuckDB profile whatever the binding said.
+- **A dbt build on Databricks runs in the workspace**
+  ([forge-cli #774](https://github.com/Agenticstiger/forge-cli/pull/774)). With
+  `execution.runtime.platform: databricks`, `fluid apply` provisions it as a job through OpenTofu,
+  and `--mode amend-and-build` no longer runs dbt on this machine. See
+  [Databricks](./providers/databricks.md).
+- **`fluid auth logout databricks` removes only the profile you name**
+  ([forge-cli #772](https://github.com/Agenticstiger/forge-cli/pull/772)):
+  `fluid auth logout databricks <profile>`. It never deletes `~/.databrickscfg`. With no profile
+  named, it leaves the file alone, lists the profiles and exits 1.
+- **ODCS and ODPS round trips:** an ODCS export records `fluidVersion` in `fluidExtras`
+  whatever the version, and `fluid odcs import` / `fluid odps import` of a document that records
+  no version declare `0.7.6`. Re-importing such a document writes a different file.
 
 ## DuckDB 1.x to 2.x
 
