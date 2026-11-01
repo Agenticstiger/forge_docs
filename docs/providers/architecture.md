@@ -217,5 +217,5 @@ raise ProviderInternalError(f"BigQuery API returned unexpected status: {status}"
 ## Next Steps
 
 - **Build your own provider:** [Creating Custom Providers](./custom-providers.md)
-- **Use a specific provider:** [GCP](./gcp.md) · [AWS](./aws.md) · [Snowflake](./snowflake.md) · [Local](./local.md)
+- **Use a specific provider:** [GCP](./gcp.md) · [AWS](./aws.md) · [Snowflake](./snowflake.md) · [Databricks](./databricks.md) · [Local](./local.md)
 - **See what's coming:** [Provider Roadmap](./roadmap.md)

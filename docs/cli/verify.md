@@ -1,6 +1,6 @@
 # `fluid verify`
 
-Stage 9 of the 11-stage pipeline. `fluid verify` reads what the build produced and compares it with the contract: a local file, a BigQuery table, an S3 prefix behind a Glue table, or a Snowflake table. Which checks run depends on that target.
+Stage 9 of the 11-stage pipeline. `fluid verify` reads what the build produced and compares it with the contract: a local file, a BigQuery table, an S3 prefix behind a Glue table, a Snowflake table, or a Databricks Unity Catalog table. Which checks run depends on that target.
 
 ## Syntax
 
@@ -87,6 +87,7 @@ For the Athena options the flag wins over the environment variable.
 | `format: bigquery_table`, or a `gcp` binding that provisions a BigQuery table or view | [BigQuery](#bigquery) |
 | `platform: aws`, `format: parquet` (or no format), with `location.database`, `table` and `bucket` | [S3 and Glue](#s3-and-glue-athena) |
 | `format: snowflake_table` or `snowflake_view` | [Snowflake](#snowflake) |
+| `platform: databricks` | [Databricks](#databricks) |
 | Another `gcp` binding (a GCS bucket, a Pub/Sub topic, an Iceberg warehouse) | `unsupported` |
 | Another `aws` or `azure` binding that names a bucket | `unsupported` |
 | Any other format | `unsupported` |
@@ -99,6 +100,7 @@ For the Athena options the flag wins over the environment variable.
 | BigQuery | Structure, types, constraints and location; `row_count`; masking; retention, encryption and `columnRestrictions` (policy tags) when the expose declares them. |
 | S3 and Glue (Athena) | Table, columns, prefix and an Athena read; row count; masking; retention, encryption and Lake Formation column restrictions when the expose declares them. |
 | Snowflake | Structure, types and constraints. |
+| Databricks | Structure, types and constraints; `USE CATALOG` for every reader; each dbt job exists exactly once. |
 
 Dataset and table access grants (`accessPolicy.grants`) are not checked on any platform as of 0.18.1. [Governance parity](../concepts/governance-parity.md) sets what each cloud emits beside what verify reads back.
 
@@ -256,6 +258,18 @@ The count is reported, and only an empty table fails, in cases such as: there is
 ### Snowflake
 
 A Snowflake table is checked for structure, types and constraints. The count of rows is reported in the metadata and is not compared with the build.
+
+### Databricks
+
+*Since 0.26.0 ([forge-cli #769](https://github.com/Agenticstiger/forge-cli/pull/769), [#774](https://github.com/Agenticstiger/forge-cli/pull/774), [#775](https://github.com/Agenticstiger/forge-cli/pull/775)).* Needs the extra: `pip install 'data-product-forge[databricks]'`. The workspace and credential come from `DATABRICKS_HOST` and the credential rules in [Databricks](../providers/databricks.md#credentials).
+
+A Databricks table is checked for three things:
+
+- **Columns** against the contract, as for the other warehouses.
+- **`USE CATALOG`** for every reader. forge-cli never grants it, so a reader without it is `CRITICAL` and the finding carries the `GRANT` statement the catalog's owner runs.
+- **Jobs**: each dbt build that writes the expose has exactly one job of its name. None, or several, is `CRITICAL`.
+
+A table a dbt build writes is rebuilt by dbt, which drops a contract's `NOT NULL`. Verify reports the column unless the dbt model declares the constraint; see [the limitation](../providers/databricks.md#tables-a-dbt-build-writes).
 
 ## Reference-only contracts
 
