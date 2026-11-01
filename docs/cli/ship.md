@@ -73,7 +73,7 @@ Three things `ship` does not do, which differ from the [11-stage pipeline](../wa
 
 The bundle stage runs `fluid bundle <contract> --format tgz` with no `--out`, so the bundle goes next to the contract as `<contract id>.fluid.bundle.tgz`. The plan stage writes `plan.json` in the current directory. Neither is read by `apply`. Add them to `.gitignore`, or pass `--skip-bundle` and `--skip-plan`.
 
-As of 0.18.1, a contract with a `fragments/` directory next to it changes where that bundle goes. [`fluid bundle`](./bundle.md) redirects a no-`--out` run to `<contract dir>/contract.bundled.fluid.yaml`, and for `--format tgz` it writes the gzip tarball under that `.yaml` name. `ship` then reports success, `fluid validate` and `fluid plan` cannot read the file as a contract, and `file contract.bundled.fluid.yaml` says `gzip compressed data`. Use `--skip-bundle` for a fragment layout, or run `fluid bundle --format tgz --out runtime/bundle.tgz` yourself.
+A `fragments/` directory next to the contract does not change where the bundle goes since 0.26.0 ([forge-cli #763](https://github.com/Agenticstiger/forge-cli/pull/763)). In 0.25.0 and earlier, `fluid bundle` sent a no-`--out` run on a fragment layout to `<contract dir>/contract.bundled.fluid.yaml`, and for `--format tgz` wrote the gzip tarball under that `.yaml` name, which `fluid validate` and `fluid plan` could not read as a contract. If an earlier `fluid ship` left that file beside your contract, delete it.
 
 ## When to use the macro vs. the individual stages
 
