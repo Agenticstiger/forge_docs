@@ -175,7 +175,7 @@ A table that already exists is imported before the first apply, not replaced. It
 
 ## dbt builds as jobs
 
-A build with an `engine` of `dbt` (or `dbt-<adapter>`) and `execution.runtime.platform: databricks` runs in the workspace, not on the machine that applies. `fluid apply` provisions one serverless job per build with a dbt task. Databricks runs it on the SQL warehouse `DATABRICKS_WAREHOUSE_ID` names, in the catalog and schema of the first Databricks expose the build writes (`builds[].outputs`). The job is named `fluid <product> <build>`.
+A build with an `engine` of `dbt` or `dbt-databricks` and `execution.runtime.platform: databricks` runs in the workspace, not on the machine that applies. `fluid apply` provisions one serverless job per build with a dbt task. Databricks runs it on the SQL warehouse `DATABRICKS_WAREHOUSE_ID` names, in the catalog and schema of the first Databricks expose the build writes (`builds[].outputs`). The job is named `fluid <product> <build>`.
 
 The job runs `dbt deps`, then `dbt build` with the selectors and vars a local run uses. It runs in a serverless environment (version 2) with `dbt-databricks>=1.8.0,<2.0.0`.
 
@@ -217,7 +217,7 @@ builds:
 
 Never uploaded: `profiles.yml`, `target/`, a hidden file or directory, a symbolic link. A path key that names the project root, a hidden directory or a place outside the project is refused. The upload takes at most 1000 files and 20 MiB, and a file may be 2 MiB. The apply uploads the project as it is when the apply runs, as a local dbt run reads it when it runs. A plan's `planDigest` and `bundleDigest` bind the contract, not the project's files.
 
-**A Git URL** is cloned by Databricks, and nothing is uploaded. It must be `https://` with no user or password in it, on `github.com`, `gitlab.com`, `bitbucket.org` or `dev.azure.com`. Name exactly one ref, once: `?branch=`, `?tag=` or `?commit=`. Add `&path=` for a project below the repository root. A private repository needs a Git credential in Databricks.
+**A Git URL** is cloned by Databricks, and nothing is uploaded. It must be `https://` with no user or password in it, on `github.com`, `gitlab.com`, `bitbucket.org` or Azure DevOps (`dev.azure.com`, or a `*.visualstudio.com` organisation). Name exactly one ref, once: `?branch=`, `?tag=` or `?commit=`. Add `&path=` for a project below the repository root. A private repository needs a Git credential in Databricks.
 
 ```yaml
     repository: https://github.com/acme/orders-dbt?tag=v1.2.0&path=dbt
@@ -248,7 +248,8 @@ A job runs as the identity that applies it. A contract can name a service princi
 - `runtime.image`, `environment`, `executor`, or `resources.cpu`, `memory`, `disk`;
 - a `vars` value holding an `{{ env.* }}` template, which the job settings would store in clear;
 - a `serviceAccount` that is not an application id, or is not in the allowlist;
-- a Git URL that breaks the rules above, and a Git host outside the four.
+- a Git URL that breaks the rules above, and a Git host outside those;
+- a dbt build with another adapter (`engine: dbt-snowflake`, for example) and `runtime.platform: databricks`: a Databricks job runs dbt with the dbt-databricks adapter only.
 
 ### Applying and removing
 

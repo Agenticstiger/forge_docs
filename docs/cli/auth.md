@@ -101,7 +101,7 @@ fluid auth logout databricks dev
 - An OAuth profile (`auth_type = databricks-cli`) is left to `databricks auth logout --profile=<name> --delete`, which clears its cached tokens.
 - A hard-linked file, or one that belongs to another user (a logout under `sudo`), is left as it is.
 
-Before 0.26.0 this command deleted the whole file ([forge-cli #772](https://github.com/Agenticstiger/forge-cli/pull/772)). See [Databricks](../providers/databricks.md#fluid-auth-logout-databricks).
+Before 0.26.0 the command never got this far: the CLI refused `databricks` as an unknown provider. The library call `AuthManager.logout("databricks")` deleted the whole file ([forge-cli #772](https://github.com/Agenticstiger/forge-cli/pull/772)). See [Databricks](../providers/databricks.md#fluid-auth-logout-databricks).
 
 ## `fluid auth doctor`
 

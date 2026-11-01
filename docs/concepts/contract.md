@@ -45,9 +45,9 @@ The root of the contract accepts only the keys the schema defines; any other top
 
 | `fluidVersion` | Status in the CLI |
 |---|---|
-| `0.7.5` | Latest stable, and the default. `fluid init --quickstart` writes it. |
-| `0.7.1` to `0.7.4` | Accepted. |
-| `0.7.6` | **Preview.** Accepted only when the file names it. Adds the fields listed in [Builds, Exposes, Bindings](./builds-exposes-bindings.md#fields-that-need-fluidversion-0-7-6). |
+| `0.7.6` | Latest stable, and the default since `0.26.0`. Adds the fields listed in [Builds, Exposes, Bindings](./builds-exposes-bindings.md#fields-that-need-fluidversion-0-7-6). |
+| `0.7.1` to `0.7.5` | Accepted. `fluid init --quickstart` writes `0.7.5`. |
+| `0.7.7` | **Preview.** Accepted only when the file names it. Identical to `0.7.6` at open. |
 | `0.4.x` to `0.6.x` | Rejected with `ERR_CONTRACT_VERSION_UNSUPPORTED`. |
 
 `fluid version --format json` prints the same lists under `spec_versions`. A key that belongs to a newer schema fails on an older `fluidVersion`: a `consumers:` block in a `0.7.5` file is `root: Additional properties are not allowed ('consumers' was unexpected)`.

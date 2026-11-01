@@ -576,7 +576,7 @@ Validation completed in 0.007s
 
 ## Notes
 
-- A contract can declare an older schema than the CLI's newest. A contract with `fluidVersion: 0.7.2` still validates on a current CLI because the older schemas stay bundled. Schema `0.7.5` is the latest stable version; `0.7.6` is a preview.
+- A contract can declare an older schema than the CLI's newest. A contract with `fluidVersion: 0.7.2` still validates on a current CLI because the older schemas stay bundled. Schema `0.7.6` is the latest stable version; `0.7.7` is a preview.
 - *(since 0.15.0)* `fluid validate` shares its sovereignty checker with [`fluid plan --check-sovereignty`](./plan.md#sovereignty-gate-since-0-15-0), and `sovereignty.enforcementMode` now decides severity in both directions: a `strict` contract whose binding region resolves outside its declared `jurisdiction` newly **fails** with exit 1, and an `advisory` contract that failed now only warns. Full table, and the region-table derivation that changes verdicts on contracts nobody edited: [Governance → Sovereignty enforcement modes](../advanced/governance.md#sovereignty-enforcement-modes-since-0-15-0).
 - For routine use, `fluid validate contract.fluid.yaml` is enough. Reach for the schema flags when you are debugging compatibility or working across versions.
 
