@@ -157,6 +157,7 @@ data-analysts also need USE CATALOG on catalog main, which forge-cli never grant
 | A column reorder | Refused, flag or not. No apply can reach it. |
 | A column type change | Fails at plan, naming the column. |
 | A revoked grant | Not refused. |
+| A removed label (its tag assignment) | Not refused: it holds no data. The apply prints it. |
 | A missing catalog, missing credentials or an unreachable workspace | Fails at plan, naming the catalog, the variables to set or the host. |
 
 An apply that stops before it applies anything (`--mode dry-run`, a refusal, the data-loss gate, a failed plan) hands back any object it imported with `tofu state rm`. The objects stay as they are, and the next apply adopts them again.
@@ -181,6 +182,7 @@ What a contract says about where its data lives and who may read it, and what fo
 | Contract | On Databricks | Verify dimension |
 | --- | --- | --- |
 | `binding.location.region` with `sovereignty` | Held by the policy at `fluid validate`, `fluid apply` and `generate iac`, and checked against the workspace's metastore at plan time (see [Residency](#residency)) | `residency` |
+| `labels`, and the classification, jurisdiction, regulation and residency a contract carries | Unity Catalog tags on the schema and the table (see [Governance tags](#governance-tags)) | `governance_tags` |
 
 ### Residency
 
@@ -227,6 +229,36 @@ The rules:
 ::: warning Not proven live
 Whether a real metastore reports its region in the spelling a contract declares (GCP's `europe-west3`, for one) is not proven against a live workspace, nor is a workspace with no metastore assigned, where the plan should fail on the data source. If the spelling differs, the plan fails and names both regions.
 :::
+
+### Governance tags
+
+*On forge-cli `main`, not yet in a release ([forge-cli #779](https://github.com/Agenticstiger/forge-cli/pull/779)).*
+
+A contract's governance labels reach AWS as tags and Glue parameters and GCP as labels. On Databricks they are Unity Catalog tags, one `databricks_entity_tag_assignment` per tag, built from the same source as the other two clouds (`iac/governance_labels.py`). Before this change the Databricks module never read `labels`, and nothing said so.
+
+The tags a contract carries are its and the expose's `labels`, plus `fluid_classification`, `fluid_jurisdiction`, `fluid_regulation` and `fluid_residency`, from the classification (the expose's `policy.classification`, else `metadata.classification`) and the contract's `sovereignty` block. Keys and values first pass through the label alphabet the three clouds share (lower-case letters, digits, `_` and `-`, at most 63 characters), so a tag carries the same text on each.
+
+| On | Carries |
+| --- | --- |
+| Each schema the product owns | The contract's own labels and governance values. Two exposes in one schema give the same tags. |
+| Each table | The same, plus the expose's labels and classification. |
+
+Two rules shape the keys:
+
+- **A `-` in a key becomes `_`.** A Unity Catalog tag key may not contain `. , - = / :`, and a governance label key is lower-case letters, digits, `_` and `-`. `data-classification` is the tag `data_classification`; `fluid_jurisdiction` stays as it is. The value is not changed further.
+- **Nothing is dropped, nothing is overwritten.** Two labels that become one key (`cost-center` and `cost_center`) are refused as `databricks-tag-collision`. More than the 50 tags a Unity Catalog securable holds is refused as `databricks-tags-too-many`. `fluid validate` reports both.
+
+A contract with no labels gets the module it always did.
+
+An assignment that already exists is imported before the first apply, best-effort as grants are, so a run after lost state adopts it instead of failing. Removing a label destroys only its assignment. That holds no data, so it does not need `--allow-data-loss`: the apply prints it, as it does a revoked grant.
+
+`fluid verify` reads the table's and its schema's tags into a `governance_tags` dimension. Every tag the contract implies must be there with its value. A missing or changed tag is `CRITICAL`, with `fluid apply` as the fix. A tag someone else set is ignored, and a contract with no labels skips the dimension. The tag list is paginated: verify follows every page, and a repeated page token or more than 100 pages is an error, not a pass.
+
+::: warning Tags on a table a dbt build writes
+Databricks does not document whether a table keeps its tags across the `CREATE OR REPLACE` a dbt `table` materialization runs, and forge-cli has not proven it. If tags go missing after a build, `fluid apply` sets them again. `fluid verify` is the gate.
+:::
+
+Not run against a live workspace.
 
 ## dbt builds as jobs
 
