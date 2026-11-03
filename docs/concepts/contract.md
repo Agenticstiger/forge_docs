@@ -169,7 +169,7 @@ The contract has its own version (`fluidVersion`), separate from the data produc
 fluid diff v2/contract.fluid.yaml --baseline v1/contract.fluid.yaml --fail-on-breaking
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789)).* The diff reads each expose's columns from `exposes[].contract.schema` and sorts each column change it compares into breaking, non-breaking or info. Removing a column from the [`csv-basics` template](../cli/init.md) exits 1 (measured):
+*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* The diff reads each expose's columns from `exposes[].contract.schema` and sorts each column change it compares into breaking, non-breaking or info. Removing a column from the [`csv-basics` template](../cli/init.md) exits 1 (measured):
 
 ```text
 BREAKING (1)
