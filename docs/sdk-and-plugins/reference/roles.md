@@ -244,7 +244,7 @@ class MyCatalog(CatalogAdapter):
 
 ### Examples
 
-- The CLI's `datamesh_manager` and `marketplace` providers under `fluid_build/providers/` are the closest in-tree analogs. A standalone `CatalogAdapter` plugin on PyPI hasn't been published yet — when one ships, it'll be linked here.
+- The CLI's Data Mesh Manager and `marketplace` publishers under `fluid_build/providers/` are the closest in-tree analogs. A standalone `CatalogAdapter` plugin on PyPI hasn't been published yet — when one ships, it'll be linked here.
 
 ## Shared concepts across roles
 

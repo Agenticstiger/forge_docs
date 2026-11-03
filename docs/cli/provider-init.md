@@ -51,7 +51,7 @@ The tree on disk also has an empty `tests/__init__.py`.
 ## Notes
 
 - Creates `fluid-provider-<name>/` with a `pyproject.toml` (with the `fluid_build.providers` entry point), `src/fluid_provider_<name>/{__init__,provider}.py`, a conformance test, a fixture contract, and a README.
-- Refuses reserved names with `ERR_RESERVED_PROVIDER_NAME` and exit 1: `unknown`, `stub`, `base`, `test`, `none`, `default`, `local`, `aws`, `gcp`, `snowflake`, `odps`. Refuses to overwrite an existing target directory (`ERR_DIRECTORY_EXISTS`, exit 1). See [`fluid providers`](./providers.md#err-reserved-provider-name).
+- Refuses reserved names with `ERR_RESERVED_PROVIDER_NAME` and exit 1: `unknown`, `stub`, `base`, `test`, `none`, `default`, `local`, `aws`, `gcp`, `snowflake`, `odps`. Refuses to overwrite an existing target directory (`ERR_DIRECTORY_EXISTS`, exit 1). See [`fluid providers`](./providers.md#err-reserved-provider-name). *(from 0.27.0)* A plugin also cannot claim `redshift` or `datamesh-manager`: these names were retired, and discovery skips a plugin that registers one with a WARNING.
 - Hyphens in the provided name are normalised to underscores. The Python module (`fluid_provider_my_warehouse`) and the entry-point name (`my_warehouse`) use underscores; the directory and the distribution name use hyphens.
 - The fixture contract declares `fluidVersion: "0.7.5"`, the stable schema. It does not use the 0.7.6 preview.
 - Once installed with `pip install -e ".[dev]"`, the new provider shows up in [`fluid providers`](./providers.md).

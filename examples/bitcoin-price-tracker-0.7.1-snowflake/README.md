@@ -347,7 +347,7 @@ accessPolicy:
 |----------|----------------|----------|
 | **Snowflake** | `platform: snowflake`<br>`account/database/schema/table` | `fluid apply contract.fluid.yaml` |
 | **BigQuery** | `platform: bigquery`<br>`project/dataset/table` | `fluid apply contract.fluid.yaml` |
-| **AWS Redshift** | `platform: redshift`<br>`cluster/database/schema/table` | `fluid apply contract.fluid.yaml` |
+| **AWS** | `platform: aws`<br>`bucket/path/database/table/region` | `fluid apply contract.fluid.yaml` |
 
 **Runtime script auto-adapts** by reading `binding.platform`.
 

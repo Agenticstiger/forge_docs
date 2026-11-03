@@ -14,23 +14,22 @@ Two related but distinct ideas:
 
 ## Cloud providers in `data-product-forge`
 
-`fluid providers` prints the providers installed in your environment. On 0.18.1:
+`fluid providers` prints the providers installed in your environment. From 0.27.0:
 
 ```bash
 fluid providers
 # {
 #   "providers": [
 #     "aws",
-#     "datamesh_manager",
+#     "databricks",
 #     "gcp",
 #     "local",
-#     "redshift",
 #     "snowflake"
 #   ]
 # }
 ```
 
-`datamesh_manager` is a catalog publisher, not a cloud target. The cloud-platform providers:
+Data Mesh Manager is a catalog, not a provider: publish to it with `fluid publish --target datamesh-manager`. *(Until 0.26.x it also appeared in this list as `datamesh_manager`, and `redshift` appeared too; both names were retired in 0.27.0.)* The cloud-platform providers:
 
 | Provider | Lands data in | Install extra |
 |----------|---------------|---------------|
@@ -38,9 +37,8 @@ fluid providers
 | `gcp`       | BigQuery, Cloud Storage, Pub/Sub | `pip install "data-product-forge[gcp]"` |
 | `aws`       | S3, Glue, Athena, Lake Formation | `pip install "data-product-forge[aws]"` |
 | `snowflake` | Snowflake | `pip install "data-product-forge[snowflake]"` |
-| `redshift`  | Amazon Redshift (ships in the `aws` provider package) | `pip install "data-product-forge[aws]"` |
 
-`azure` and `databricks` are valid `binding.platform` values with no provider behind them.
+`azure` is a valid `binding.platform` value with no provider behind it. Redshift has no provider of its own: a build with `execution.runtime.platform: redshift` is served by `aws`, and `--provider redshift` exits 2 *(from 0.27.0)*.
 
 How each provider materialises `apply()` — native execution vs IaC compilation — is an implementation detail; see [`fluid generate iac`](/forge_docs/cli/generate-iac.html) for the cloud-provider engine details and the `tofu` runtime requirement.
 
