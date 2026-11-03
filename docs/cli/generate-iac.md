@@ -117,6 +117,8 @@ declares no region, so where its data lives cannot be checked against the
 sovereignty policy (the platform would choose); dataset_analytics: Region 'US' not in allowed regions list; ...
 ```
 
+On Databricks, `generate iac` holds the same policy: with a `sovereignty` block, a Databricks binding with no `binding.location.region`, or one in a region the policy forbids, raises `SovereigntyViolationError` before a module is written. It also refuses, as `databricks-enforcement-outside-module`, a contract with column masks or row filters, because Unity Catalog enforces them through functions that `fluid apply` binds around `tofu apply` and a plain `tofu apply` of the module would grant unmasked access. Both are on forge-cli `main`, not yet in a release. See [Databricks](../providers/databricks.md#residency).
+
 Principals are refused when they cannot be real identities. A principal in a reserved top-level domain (`.example`, `.test`, `.invalid`, `.localhost`), or one that is not an IAM member at all, fails with kind `principal-placeholder`:
 
 ```text
