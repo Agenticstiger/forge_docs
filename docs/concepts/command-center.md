@@ -313,6 +313,6 @@ export FLUID_COMMAND_CENTER_ENABLED=false
 - [`fluid publish`](../cli/publish.md): the publish options, and the other
   catalog targets.
 - [`fluid apply`](../cli/apply.md): apply modes and safety gates.
-- [Environment variables](../advanced/environment-variables.md#fluid-command-center)
+- [Environment variables](../advanced/environment-variables.md#command-center)
 - [Per-environment overlays](../recipes/per-environment-overlays.md): what
   `--env` loads.

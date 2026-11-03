@@ -77,6 +77,23 @@ the retention, the restriction or the grants. See
 [Snowflake](../providers/snowflake.md) for what the Snowflake provider manages.
 :::
 
+## Databricks
+
+*On forge-cli `main`, not yet in a release.* The [Databricks](../providers/databricks.md) provider takes the same contract fields. It is not in the AWS and GCP table above, because it enforces some of them where Unity Catalog does, and refuses others.
+
+| Policy (contract field) | What `fluid apply` does on Databricks | What `fluid verify` checks |
+|---|---|---|
+| **Residency**: `binding.location.region` with `sovereignty` | The policy is held at validate, apply and `generate iac`; every owned schema carries a plan-time precondition that the workspace's metastore is in the declared region. [Details](../providers/databricks.md#residency) | The metastore's region against the declaration (`residency`). |
+| **Governance labels**: `labels`, classification, jurisdiction, regulation, residency | Unity Catalog tags on the schema and the table, `-` in a key becoming `_`. [Details](../providers/databricks.md#governance-tags) | Every implied tag is present with its value (`governance_tags`). |
+| **Column restrictions**: `columnRestrictions` | A column mask, a SQL function bound on the column. `deny` reads `NULL`, because Unity Catalog has no column grant. [Details](../providers/databricks.md#column-masks-and-row-filters) | Each column's bound mask, read back (`row_filter_masks`). |
+| **Row filters**: `rowFilters` *(0.7.6)* | One row filter function bound on the table. | The bound filter, read back (`row_filter_masks`). |
+| **Access grants**: `accessPolicy.grants`, `policy.authz.readers` and `writers` | One `databricks_grant` per principal. | `USE CATALOG` for every reader. |
+| **Retention**: `lifecycle.expire` | Refused (`databricks-retention-unmapped`). | Not applicable. |
+| **Landing-time masking**: `policy.privacy.masking` | Refused (`databricks-governance-unmapped`). | Not applicable. |
+| **Encryption at rest**: `binding.encryption` | Refused (`databricks-encryption-unmapped`). | Not applicable. |
+
+Masks and row filters are bound by `fluid apply` around `tofu apply`, not by the module, so `fluid generate iac` refuses a contract that has them.
+
 ## Logical principals and `binding.principals`
 
 The base contract names principals as the business knows them. Each overlay

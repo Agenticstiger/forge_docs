@@ -11,7 +11,7 @@ What each provider does today, and what is not built yet. This page records stat
 | **Snowflake** | ✅ OpenTofu (`snowflakedb/snowflake`) | ✅ Airflow, Dagster, Prefect | Available |
 | **Local (DuckDB)** | ✅ Native | N/A | Available |
 | **Azure** | Not built | Not built | Not available |
-| **Databricks** | Not built | Not built | Not available |
+| **Databricks** | ✅ OpenTofu (`databricks/databricks`) | dbt builds run as Databricks jobs; `fluid generate schedule` gives such a build no task | Available since 0.26.0 ([Databricks](./databricks.md)) |
 
 **Legend:**
 - **Plan / Apply**: `fluid plan` + `fluid apply` provision the platform's resources.
@@ -23,13 +23,15 @@ ODPS and ODCS are spec exporters, not providers ([`fluid exporters`](../cli/expo
 
 "Available" covers provisioning and builds. Governance is not the same on every cloud. In 0.18.1:
 
-| Contract field | GCP | AWS | Snowflake |
-|---|---|---|---|
-| `accessPolicy.grants` | dataset IAM members | not emitted; access is `binding.governance.lakeFormation.grants` | compiled by `fluid policy-compile`, not applied |
-| `policy.authz.columnRestrictions` | Data Catalog policy tags | Lake Formation excluded columns | not read |
-| `policy.privacy.masking` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | not read |
-| `exposes[].lifecycle.expire` *(0.7.6)* | expiring DAY partitions | S3 lifecycle rule | not read |
-| `binding.encryption.kms` *(0.7.6)* | Cloud KMS key ring and key | KMS key as the bucket default | not read |
+| Contract field | GCP | AWS | Snowflake | Databricks (on forge-cli `main`, not yet in a release) |
+|---|---|---|---|---|
+| `accessPolicy.grants` | dataset IAM members | not emitted; access is `binding.governance.lakeFormation.grants` | compiled by `fluid policy-compile`, not applied | one `databricks_grant` per principal |
+| `policy.authz.columnRestrictions` | Data Catalog policy tags | Lake Formation excluded columns | not read | Unity Catalog column masks; a denied column reads `NULL` |
+| `policy.privacy.masking` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | not read | refused |
+| `exposes[].lifecycle.expire` *(0.7.6)* | expiring DAY partitions | S3 lifecycle rule | not read | refused |
+| `binding.encryption.kms` *(0.7.6)* | Cloud KMS key ring and key | KMS key as the bucket default | not read | refused |
+| `policy.authz.rowFilters` *(0.7.6)* | not in this table's 0.18.1 check | not in this table's 0.18.1 check | not read | a Unity Catalog row filter |
+| Governance labels | not in this table's 0.18.1 check | not in this table's 0.18.1 check | not read | Unity Catalog tags |
 
 Masking is applied when the data lands; no cloud receives a dynamic masking policy. [Governance parity](../concepts/governance-parity.md) compares AWS and GCP in full. The [GCP](./gcp.md#security-governance), [AWS](./aws.md) and [Snowflake](./snowflake.md#snowflake-native-security) pages give the detail.
 
@@ -39,7 +41,7 @@ Not emitted as of 0.18.1 (checked against the GCP and Snowflake emitters):
 
 - **GCP:** BigQuery row-level security, BigQuery dynamic data masking, VPC Service Controls, partitioning and clustering from `binding.properties`.
 - **Snowflake:** grants from `accessPolicy`, masking and row access policies from the contract's `policy` fields.
-- **Azure and Databricks** as `fluid apply` targets.
+- **Azure** as a `fluid apply` target.
 
 ## Orchestration code
 
