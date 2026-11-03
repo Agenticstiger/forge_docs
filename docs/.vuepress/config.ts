@@ -99,7 +99,17 @@ export default defineUserConfig({
   // the percentage, because an interleaved bundle would make it silently
   // undercount and read as an improvement. Then confirm /playground/ still
   // paints a styled editor with no flash.
-  bundler: viteBundler(),
+  bundler: viteBundler({
+    // SSR only; the client stylesheet above is unaffected. Since 2.0.0-rc.137,
+    // @vuepress/plugin-slimsearch's client imports @vuepress/search-helper/client,
+    // whose config chunk imports a .css file, but the plugin adds only
+    // @vuepress/helper and fflate to ssr.noExternal. Vite therefore leaves
+    // search-helper external in the server build, Node imports it raw, and
+    // "Rendering pages" dies on ERR_UNKNOWN_FILE_EXTENSION ".css". Upstream's
+    // own build never hits it: its packages are workspace links, which Vite
+    // never externalizes. Drop this once the plugin lists search-helper itself.
+    viteOptions: { ssr: { noExternal: ['@vuepress/search-helper'] } },
+  }),
 
   // Both of these default to TRUE in VuePress. They were set to false in the
   // initial commit with no rationale, and the cost is paid on every single
