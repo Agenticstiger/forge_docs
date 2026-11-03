@@ -552,6 +552,36 @@ carries the full upgrade notes of both releases.
   whatever the version, and `fluid odcs import` / `fluid odps import` of a document that records
   no version declare `0.7.6`. Re-importing such a document writes a different file.
 
+## On forge-cli `main` since 0.26.0 (not yet released)
+
+These Databricks changes are merged and in no release yet. They fail closed where a contract used to apply without them, so read them before the next upgrade. See [Databricks](./providers/databricks.md).
+
+- **A Databricks contract with a `sovereignty` block and no `binding.location.region` is now a finding**
+  ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)): an error under
+  `enforcementMode: strict`, a warning under `advisory`. `fluid apply` and `fluid generate iac` now
+  hold the policy, and refuse a forbidden placement with `SovereigntyViolationError`. Set
+  `binding.location.region` to the region of the workspace `DATABRICKS_HOST` names. It was refused as
+  a field the module would drop; it is read now. Write it as a plain lower-case name
+  (`databricks-region-invalid` otherwise), and declare one region per contract
+  (`databricks-region-conflict`). `tofu plan` fails when the workspace's metastore is in another
+  region.
+- **A contract's labels become Unity Catalog tags**
+  ([#779](https://github.com/Agenticstiger/forge-cli/pull/779)). They were dropped silently. A key's
+  `-` becomes `_`. A contract whose labels collide once `-` is read as `_`
+  (`databricks-tag-collision`), or that puts more than 50 tags on one schema or table
+  (`databricks-tags-too-many`), is now refused. `fluid verify` checks the tags.
+- **`fluid publish` sends `metadata.workspace_host`** for a Databricks product
+  ([#780](https://github.com/Agenticstiger/forge-cli/pull/780)), from `DATABRICKS_HOST`. Nothing to do.
+- **Column restrictions and row filters are accepted on Databricks**
+  ([#785](https://github.com/Agenticstiger/forge-cli/pull/785)). `policy.authz.columnRestrictions`
+  and `rowFilters` were refused (`databricks-governance-unmapped`). `fluid apply` now binds them on
+  the table in Unity Catalog, after creating `fluid_`-prefixed SQL functions, and needs the
+  `[databricks]` extra and `DATABRICKS_WAREHOUSE_ID` to do it. A denied column reads `NULL`. New
+  refusals: `access: allow`, a text mask on a non-string column, a principal with no `group:`,
+  `user:` or `serviceAccount:` prefix, and a predicate outside the allowlist. `fluid generate iac`
+  now refuses such a contract (`databricks-enforcement-outside-module`): use `fluid apply`. A dbt job
+  that writes a table not yet protected is created paused, and the next `fluid apply` unpauses it.
+
 ## DuckDB 1.x to 2.x
 
 `0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so

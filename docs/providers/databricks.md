@@ -15,10 +15,12 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **Plan & Apply**: a schema, a managed Delta table and one grant per principal, through OpenTofu
 - ✅ **Existing catalog**: `location.database` names a catalog that must already exist. forge-cli reads it and never creates, grants on or destroys it
 - ✅ **dbt builds as jobs**: a dbt build whose `execution.runtime.platform` is `databricks` becomes a serverless job that Databricks runs on its own trigger
-- ✅ **Verify**: `fluid verify` checks the live table's columns, `USE CATALOG` for every reader and that each dbt job exists exactly once
+- ✅ **Residency**: `binding.location.region` is checked against the contract's `sovereignty` policy and against the workspace's metastore (see [Residency](#residency))
+- ✅ **Verify**: `fluid verify` checks the live table's columns, `USE CATALOG` for every reader, the residency, the governance tags, the bound masks and row filter, and that each dbt job exists exactly once
 - ✅ **One pinned credential**: the workspace comes from `DATABRICKS_HOST` only, and a run never falls back to a stray profile
 - ⚠️ **Live drift**: `fluid diff` has no Databricks inspector yet (see [`fluid diff`](#fluid-diff))
-- ❌ **Iceberg, masks, row filters, column restrictions, `packaging`**: `fluid validate` refuses them rather than apply something that is not enforced (see [What validate refuses](#what-validate-refuses))
+- ✅ **Column masks, row filters, denied columns**: Unity Catalog SQL functions that `fluid apply` binds on the table (see [Column masks and row filters](#column-masks-and-row-filters))
+- ❌ **Iceberg, `packaging`, and the governance fields that are not mapped**: `fluid validate` refuses them rather than apply something that is not enforced (see [What validate refuses](#what-validate-refuses))
 
 ## Prerequisites
 
@@ -156,6 +158,7 @@ data-analysts also need USE CATALOG on catalog main, which forge-cli never grant
 | A column reorder | Refused, flag or not. No apply can reach it. |
 | A column type change | Fails at plan, naming the column. |
 | A revoked grant | Not refused. |
+| A removed label (its tag assignment) | Not refused: it holds no data. The apply prints it. |
 | A missing catalog, missing credentials or an unreachable workspace | Fails at plan, naming the catalog, the variables to set or the host. |
 
 An apply that stops before it applies anything (`--mode dry-run`, a refusal, the data-loss gate, a failed plan) hands back any object it imported with `tofu state rm`. The objects stay as they are, and the next apply adopts them again.
@@ -172,6 +175,210 @@ A table that already exists is imported before the first apply, not replaced. It
   ```
 
   Or leave the table out of the contract, or let a dbt build write it.
+
+## Governance
+
+What a contract says about where its data lives and who may read it, and what forge-cli does with each field on Databricks. Each part below says what is enforced, where, and what `fluid verify` reads back.
+
+| Contract | On Databricks | Verify dimension |
+| --- | --- | --- |
+| `binding.location.region` with `sovereignty` | Held by the policy at `fluid validate`, `fluid apply` and `generate iac`, and checked against the workspace's metastore at plan time (see [Residency](#residency)) | `residency` |
+| `labels`, and the classification, jurisdiction, regulation and residency a contract carries | Unity Catalog tags on the schema and the table (see [Governance tags](#governance-tags)) | `governance_tags` |
+| `policy.authz.columnRestrictions` and `rowFilters` | SQL functions bound on the table as column masks and a row filter, by `fluid apply` only (see [Column masks and row filters](#column-masks-and-row-filters)) | `row_filter_masks` |
+
+### Residency
+
+*On forge-cli `main`, not yet in a release ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)).*
+
+A workspace is in one region. A contract's [`sovereignty`](../concepts/sovereignty.md) policy is checked for a Databricks expose as it is for the other clouds, from the region the expose declares in `binding.location.region`:
+
+```yaml
+sovereignty:
+  jurisdiction: EU
+  deniedRegions: [us-west-2]
+  enforcementMode: strict
+
+exposes:
+  - exposeId: orders
+    binding:
+      platform: databricks
+      format: delta_table
+      location:
+        database: main
+        schema: sales
+        table: orders
+        region: eu-central-1     # the region of the workspace DATABRICKS_HOST names
+```
+
+The rules:
+
+- **A declared region is held to the policy** (`allowedRegions`, `deniedRegions`, `jurisdiction`) like any cloud region.
+- **With a `sovereignty` block, no region is a finding.** An error under `enforcementMode: strict`, a warning under `advisory`. Where the data lives cannot be checked without one.
+- **The policy holds at apply, not only at validate.** `fluid apply` and `fluid generate iac` refuse a placement the policy forbids with `SovereigntyViolationError`, before any module is written, so before `tofu init`, an import or an adoption.
+- **The spelling is exact.** The region must be a plain lower-case name: lower-case letters, digits and hyphens, starting with a letter, 2 to 63 characters, no spaces (`eu-central-1`, `westeurope`, `europe-west3`). Anything else is refused as `databricks-region-invalid`. It is not lower-cased for you: the policy compares the text as written, so `US-WEST-2` would otherwise pass a `deniedRegions: [us-west-2]` check and still plan against a workspace in us-west-2.
+- **One region per contract.** The module applies to one workspace (`DATABRICKS_HOST`). Two Databricks exposes that declare different regions are refused as `databricks-region-conflict`.
+- **The declaration is checked against the workspace, at plan time.** With a region declared, the module reads the workspace's metastore (`data.databricks_current_metastore`), and every schema it owns carries a precondition that the metastore's region equals the declared one. `tofu plan` fails, `--mode dry-run` included, before anything is written, when `DATABRICKS_HOST` names a workspace elsewhere:
+
+  ```text
+  The contract declares binding.location.region eu-central-1, but the workspace DATABRICKS_HOST names is in us-west-2. Residency is checked against the workspace's metastore. Point DATABRICKS_HOST at a workspace in eu-central-1, or correct binding.location.region.
+  ```
+
+  The precondition sits on every schema the module owns, whichever expose declared the region.
+- **No region and no `sovereignty` block** gives the module it always did.
+
+`fluid verify` reads the workspace's metastore summary and reports a `residency` dimension: it passes when the region matches the declaration (compared without regard to case), fails with the fix when it does not, and is skipped when the contract declares none. A mismatch raises the result to `CRITICAL`.
+
+::: warning Not proven live
+Whether a real metastore reports its region in the spelling a contract declares (GCP's `europe-west3`, for one) is not proven against a live workspace, nor is a workspace with no metastore assigned, where the plan should fail on the data source. If the spelling differs, the plan fails and names both regions.
+:::
+
+### Governance tags
+
+*On forge-cli `main`, not yet in a release ([forge-cli #779](https://github.com/Agenticstiger/forge-cli/pull/779)).*
+
+A contract's governance labels reach AWS as tags and Glue parameters and GCP as labels. On Databricks they are Unity Catalog tags, one `databricks_entity_tag_assignment` per tag, built from the same source as the other two clouds (`iac/governance_labels.py`). Before this change the Databricks module never read `labels`, and nothing said so.
+
+The tags a contract carries are its and the expose's `labels`, plus `fluid_classification`, `fluid_jurisdiction`, `fluid_regulation` and `fluid_residency`, from the classification (the expose's `policy.classification`, else `metadata.classification`) and the contract's `sovereignty` block. Keys and values first pass through the label alphabet the three clouds share (lower-case letters, digits, `_` and `-`, at most 63 characters), so a tag carries the same text on each.
+
+| On | Carries |
+| --- | --- |
+| Each schema the product owns | The contract's own labels and governance values. Two exposes in one schema give the same tags. |
+| Each table | The same, plus the expose's labels and classification. |
+
+Two rules shape the keys:
+
+- **A `-` in a key becomes `_`.** A Unity Catalog tag key may not contain `. , - = / :`, and a governance label key is lower-case letters, digits, `_` and `-`. `data-classification` is the tag `data_classification`; `fluid_jurisdiction` stays as it is. The value is not changed further.
+- **Nothing is dropped, nothing is overwritten.** Two labels that become one key (`cost-center` and `cost_center`) are refused as `databricks-tag-collision`. More than the 50 tags a Unity Catalog securable holds is refused as `databricks-tags-too-many`. `fluid validate` reports both.
+
+A contract with no labels gets the module it always did.
+
+An assignment that already exists is imported before the first apply, best-effort as grants are, so a run after lost state adopts it instead of failing. Removing a label destroys only its assignment. That holds no data, so it does not need `--allow-data-loss`: the apply prints it, as it does a revoked grant.
+
+`fluid verify` reads the table's and its schema's tags into a `governance_tags` dimension. Every tag the contract implies must be there with its value. A missing or changed tag is `CRITICAL`, with `fluid apply` as the fix. A tag someone else set is ignored, and a contract with no labels skips the dimension. The tag list is paginated: verify follows every page, and a repeated page token or more than 100 pages is an error, not a pass.
+
+::: warning Tags on a table a dbt build writes
+Databricks does not document whether a table keeps its tags across the `CREATE OR REPLACE` a dbt `table` materialization runs, and forge-cli has not proven it. If tags go missing after a build, `fluid apply` sets them again. `fluid verify` is the gate.
+:::
+
+Not run against a live workspace.
+
+### Column masks and row filters
+
+*On forge-cli `main`, not yet in a release ([forge-cli #785](https://github.com/Agenticstiger/forge-cli/pull/785)).*
+
+`policy.authz.columnRestrictions` and `policy.authz.rowFilters` were refused on Databricks. They are now enforced by Unity Catalog itself: forge-cli creates SQL functions and binds them on the table with `ALTER TABLE ... SET ROW FILTER` and `ALTER COLUMN ... SET MASK`. The engine then rewrites a restricted principal's query, whichever tool sends it. The semantics are the ones GCP and AWS give the same fields, with the differences noted below.
+
+```yaml
+exposes:
+  - exposeId: orders
+    # binding and contract.schema as above, with a `region` column
+    policy:
+      authz:
+        readers:
+          - "group:data-analysts"
+          - "group:contractors"
+        columnRestrictions:
+          - principal: group:data-analysts
+            columns: [amount]
+            access: mask
+            mask: last_four        # last_four, first_four or nullify
+          - principal: group:contractors
+            columns: [amount, ordered_at]
+            access: deny
+        rowFilters:               # fluidVersion 0.7.6 (preview)
+          - principal: group:data-analysts
+            where: "region = 'EMEA'"
+```
+
+#### Why `fluid apply` binds them, outside OpenTofu
+
+The `databricks/databricks` provider (1.140.0) has no function resource and no mask or filter attribute on `databricks_sql_table` ([terraform-provider-databricks #4550](https://github.com/databricks/terraform-provider-databricks/issues/4550)). So the statements run on the SQL warehouse `DATABRICKS_WAREHOUSE_ID` names, through the SQL Statement Execution API, in two hooks `fluid apply` runs around `tofu apply`:
+
+| Hook | Does |
+| --- | --- |
+| Before `tofu apply` | Binds the masks and filter on every table that already exists, so a grant the apply adds lands on a protected table. A filter that needs a column the apply adds is held, until the real one can bind, by a deny-all row filter. A failure here stops the run before `tofu apply`. |
+| After `tofu apply` | Binds what is still missing, on the tables the apply created (empty at that moment), and drops what the contract no longer restricts. |
+
+- **Only what differs runs.** The live bindings are read from the Tables API first, so a second apply executes no statement. `--mode dry-run` prints the statements and runs none.
+- **Removed restrictions are dropped after the apply** (`DROP ROW FILTER`, `DROP MASK`). The apply prints it as an access-widening change. It is not gated by `--allow-data-loss`, since no data is lost. Only a filter or mask whose function carries this module's `fluid_` prefix is ever dropped.
+- **A binding made by hand is never replaced silently.** Where the contract asks for a row filter or mask and the table has one whose function lacks the `fluid_` prefix, the run stops before any change, on any table, and names the table, the column and the live function. Remove it, or move its rule into the contract.
+- **A failed `tofu apply` still binds.** A table the apply created, its grants and the dbt job that fills it can exist with no mask or filter. A bind-only pass runs before the apply's own error is raised: it binds what exists, closes what it cannot bind, skips a table that was never created and drops nothing. The run still exits with `opentofu_apply_failed`.
+- **dbt rebuilds keep them.** Databricks documents that a row filter and masks survive the `CREATE OR REPLACE TABLE` a dbt build runs. This is not proven against a live workspace.
+- **The `[databricks]` extra is needed at apply** for such a contract, and the run says so when it is missing: `pip install 'data-product-forge[databricks]'`.
+
+#### `fluid generate iac` refuses such a contract
+
+The module `fluid generate iac` writes holds no mask or filter, and a plain `tofu apply` of it would create the table and grant `SELECT` with none of them, exposing unmasked data to the principals the contract restricts. So it refuses, as `databricks-enforcement-outside-module`, before it writes a module:
+
+- use `fluid apply`, which binds the masks and filters before it grants, and revokes access when it cannot (`--mode dry-run` shows the statements), or
+- remove the restrictions from the contract.
+
+`fluid apply`, `fluid plan` and `fluid validate` are unaffected.
+
+#### What the functions are
+
+Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. Superseded functions are not dropped; they are harmless metadata.
+
+The hashed name can be computed from the contract, so someone with `CREATE FUNCTION` on the schema could create it first with a body that returns the value unmasked. So after each create, and before any bind, forge-cli reads the function back. Its owner (the identity the run authenticates as), body, parameters and return type must be the expected ones, whitespace aside. A function that is not is never bound, and the run prints what differs.
+
+#### What a restriction means
+
+- **A denied column reads `NULL`.** Unity Catalog has no column-level grant, so `access: deny` becomes a mask that returns `NULL` (cast to the column's type) for the principal. The column stays listed in the table's schema.
+- **A mask returns the value masked**: `last_four` is `XXXXX` and the last four characters, `first_four` the first four characters and `XXXXX`, `nullify` is `NULL`. A value of four characters or fewer is its SHA-256 in hex instead, and a `NULL` stays `NULL`, as on AWS. `last_four` and `first_four` need a string column (`string`, `varchar`, `char`); `nullify` takes any.
+- **One mask per column**, the Unity Catalog limit, so the function combines every restriction on the column. A rule belongs to the principal that names it, not to the column: one principal may read a column `nullify`ed and another `last_four`ed (GCP and AWS refuse that). The function has one branch per rule, strictest first: deny, `nullify`, `first_four`, `last_four`. A member of several groups gets the strictest that matches, and everyone else reads the value.
+- **One row filter per table.** A restricted principal's members read the union of the rows its principals' predicates select. A reader no filter names reads every row.
+- **Identities are tested both ways.** Logical principals resolve through `binding.principals`, and every resolved identity is tested as a group and as the current user, `(is_account_group_member('<name>') OR current_user() = '<name>')`, whatever the principal's prefix. A `group:` principal may be mapped to a service principal's application id or a user's email, and a test of the wrong kind would match no one while the grant to that identity still applied. A name that is both a group and a user is restricted either way, which errs closed.
+
+#### Row filter predicates
+
+A predicate is contract text that becomes a function body, so it is never spliced in. It is parsed as one boolean expression (sqlglot, Databricks dialect), checked node by node against an allowlist, and written back from the tree with its columns re-quoted.
+
+| Allowed | |
+| --- | --- |
+| Operators | comparisons, `AND`, `OR`, `NOT`, `IS [NOT] NULL`, `IN`, `BETWEEN`, `LIKE`, `ILIKE`, `+`, `-`, `*` |
+| Values | literals, `CAST`, and the table's columns |
+| Functions | `lower`, `upper`, `length`, `trim`, `coalesce`, `abs` |
+
+Anything else is refused as `databricks-row-filter-invalid`: a `;`, a comment, a subquery, a session function such as `current_user()`, a column the table does not have, and a predicate that reads no column.
+
+#### If a bind fails
+
+A mask or filter that cannot be bound must not leave the table readable. After a failed bind, including a failed read of the table, forge-cli closes it in order:
+
+1. **A deny-all row filter** is bound for the restricted identities (a zero-column function, `RETURN NOT <any restricted identity>`, content-hashed and checked like the others). It blocks them whatever grant path gives them the table: a group they are also in, a schema or catalog grant.
+2. **If that cannot be bound**, or would replace a row filter this module did not create, `SELECT` (and `ALL PRIVILEGES`) on the table is revoked from every grantee but its owner, listed through the permissions API.
+3. **Paths it cannot close are named.** A grant inherited from the schema or the catalog is not one a table-level `REVOKE` reaches. The run lists each with the statement to run.
+
+The message says exactly what was done, and the run exits non-zero (`databricks-enforcement-failed`). Fix the cause and run `fluid apply` again: it binds first, replacing a deny-all filter, and grants again afterwards.
+
+#### A job that writes a table not yet protected
+
+A dbt job that writes a restricted table must not fill it before it is bound. When the table is missing, a binding is missing or differs, a bound function is not the expected one, or the live state cannot be read, the job is created with `pause_status: PAUSED` on its schedule or continuous block, and the apply says so:
+
+```text
+job 'fluid sales.orders_dbx transform' is created paused (pause_status PAUSED): it writes main.sales.orders, whose masks and row filter are not bound yet, and a run before that would fill an unprotected table. The next fluid apply, once they are bound, starts its schedule; an explicit run-now works meanwhile.
+```
+
+The next `fluid apply`, once the bindings match, unpauses it in place, with no drift from unpausing it by hand. A manual job has no trigger to pause. `fluid validate` and the pure compile never read the workspace.
+
+#### What masks and filters refuse
+
+Refused rather than dropped, since a table applied without them would be readable without what the contract promises:
+
+| Refusal | Why |
+| --- | --- |
+| `databricks-column-allow-unmapped`: `access: allow` | An allow list would hide the column from every reader it does not name, the owner and the pipelines included, and Unity Catalog has no column grant to express it. Use `deny` for the principals who must not read it, or `mask`. |
+| `databricks-mask-type`: `last_four` or `first_four` on a non-string column | Those rules mask text. Mask a string column, or use `nullify`. |
+| `databricks-principal-kind`: a principal with no prefix, or a `domain:` one | There is no Unity Catalog identity to test for. Write `group:<name>`, `user:<email>` or `serviceAccount:<name>` and map it in `binding.principals`. |
+| `databricks-row-filter-invalid` | A predicate outside the allowlist above. |
+| `databricks-enforcement-outside-module` | `fluid generate iac` (above). |
+| `databricks-governance-unmapped`: `policy.privacy.masking`, `policy.privacy.rowLevelPolicy`, `binding.governance` | Not mapped. Landing-time masking and ABAC policies are not; enforce access with grants and with `columnRestrictions` and `rowFilters`. |
+
+`fluid verify` reads the bindings back into a `row_filter_masks` dimension (see [`fluid verify`](#fluid-verify)).
+
+::: warning Not proven live
+Proven against the in-process stand-in with a real `tofu` apply, with the function bodies evaluated in DuckDB. Not run against a live workspace: that `CREATE FUNCTION IF NOT EXISTS`, `SET ROW FILTER` (with `ON ()` as well) and `SET MASK` behave as the stand-in models them; that `SET` replaces a binding already on the table (if it does not, a changed predicate or the interim filter fails closed with the old binding in place); that a function's `routine_definition` is its body as written; that `current_user()` is a service principal's application id; and what a warehouse of each type enforces.
+:::
 
 ## dbt builds as jobs
 
@@ -283,8 +490,10 @@ models:
 `fluid validate` refuses what would apply with exit 0 and not be enforced:
 
 - a host in the contract, on a binding or a build;
-- Iceberg, masks, row filters, column restrictions, a `packaging` block;
-- a `binding.location` key the module would drop (`path`, `region` and others);
+- Iceberg and a `packaging` block;
+- the governance fields that are not mapped (`policy.privacy.masking`, `policy.privacy.rowLevelPolicy`, `binding.governance`), a column restriction or row filter Unity Catalog cannot express, and a label set that collides or exceeds 50 tags (see [Column masks and row filters](#what-masks-and-filters-refuse) and [Governance tags](#governance-tags));
+- a `binding.location.region` that is not a plain lower-case region name, two exposes that declare different regions, and, with a `sovereignty` block, a placement the policy refuses (see [Residency](#residency));
+- a `binding.location` key the module would drop (`path` and others). `region` is read: see [Residency](#residency);
 - duplicate partitions;
 - a column type Databricks has no mapping for (it would be created as `string`), or would reject.
 
@@ -299,6 +508,7 @@ fluid plan contract.fluid.yaml --out plans/plan.json
 fluid apply contract.fluid.yaml --yes
 fluid verify contract.fluid.yaml
 fluid diff contract.fluid.yaml
+fluid publish contract.fluid.yaml
 fluid doctor --verbose
 fluid auth logout databricks <profile>
 ```
@@ -307,11 +517,14 @@ fluid auth logout databricks <profile>
 
 ### `fluid verify`
 
-Install the extra first: `pip install 'data-product-forge[databricks]'`. Verify reads the live Unity Catalog table and checks three things:
+Install the extra first: `pip install 'data-product-forge[databricks]'`. Verify reads the live Unity Catalog table and checks these:
 
 1. **Columns** against the contract. A missing column or a changed type is `CRITICAL`; an extra column is `INFO`; a nullability mismatch is graded as for the other warehouses.
 2. **`USE CATALOG`** for every reader (or `ALL PRIVILEGES`), read from the catalog's effective permissions. A reader without it is `CRITICAL`, and the finding carries the `GRANT` its owner runs. A privilege a group conveys counts ([forge-cli #775](https://github.com/Agenticstiger/forge-cli/pull/775)).
-3. **Jobs**: each dbt build that writes the expose has exactly one job of its name. None means `fluid apply` did not run or the job was deleted. Several mean an apply without its state created a duplicate.
+3. **Residency** (`residency`): the workspace's metastore region against `binding.location.region`. Skipped when the contract declares none. See [Residency](#residency).
+4. **Governance tags** (`governance_tags`): every tag the contract implies is on the table and its schema, with its value. Skipped with no labels. See [Governance tags](#governance-tags).
+5. **Column masks and row filter** (`row_filter_masks`): the expected, content-hashed function names against the table's live `row_filter` and each column's `mask`, and each bound function read back for its owner (this verify's identity or the table's owner), body, parameters and return type. A missing or different binding is `CRITICAL`, with `fluid apply` as the fix. Skipped when the contract restricts nothing. See [Column masks and row filters](#column-masks-and-row-filters).
+6. **Jobs**: each dbt build that writes the expose has exactly one job of its name. None means `fluid apply` did not run or the job was deleted. Several mean an apply without its state created a duplicate.
 
 A missing table is `CRITICAL` ("run `fluid apply`"). A failure to reach the workspace is reported as a result, not a traceback, and no message carries a token.
 
@@ -330,6 +543,22 @@ A missing table is `CRITICAL` ("run `fluid apply`"). A failure to reach the work
 The row also says whether `databricks-sdk` is installed, and gives the install command when it is not.
 
 It never opens a connection, never prints a token, and never fails `fluid doctor`. The `fluid forge` welcome scan lists Databricks among the detected clouds when `DATABRICKS_HOST` is set with a token, an OAuth pair or a profile name.
+
+### `fluid publish`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #780](https://github.com/Agenticstiger/forge-cli/pull/780)).*
+
+The Command Center cannot link a Databricks table to its workspace unless it is told which workspace holds it. For a product on `platform: databricks`, `fluid publish` adds `metadata.workspace_host` to the asset it sends to the [Command Center](../concepts/command-center.md#what-fluid-publish-sends), so the Command Center can build a console link.
+
+- **Source**: `DATABRICKS_HOST`, never the contract. A contract cannot name a host (see [Credentials](#credentials)). The value is normalised and checked as the provider checks it: `https://`, or plain `http://` only to a loopback host.
+- **Value**: scheme and host only, `https://<host>[:port]`. A path, query or fragment is dropped.
+- **Left out, not an error**, when:
+  - `DATABRICKS_HOST` is unset, not acceptable (plain `http://` to a host that is not loopback) or malformed;
+  - it carries user-info (`https://user:password@host`), which would otherwise travel with the link;
+  - the product's platform is not Databricks;
+  - the checkout's project config named the Command Center endpoint. The runner's environment is not the checkout's to send, the rule publish already follows for `{{ env.* }}` placeholders and the operator's credential.
+
+The console link itself is built on the Command Center side.
 
 ### `fluid auth logout databricks`
 
@@ -352,6 +581,9 @@ It keeps every other profile, writes the file back owner-only (`0600`) and never
 - **Shared schemas.** A schema shared between products needs the packaging modes, which are refused for Databricks for now.
 - **dbt rebuild drops `NOT NULL`** unless the model declares it (above).
 - **The catalog is never created or granted.** Create it and grant `USE CATALOG` yourself.
+- **A denied column is still listed.** Unity Catalog has no column-level grant, so a denied column is a mask that reads `NULL` (see [Column masks and row filters](#column-masks-and-row-filters)).
+- **Masks and row filters come from `fluid apply` alone.** `fluid generate iac` refuses a contract that has them, and a module applied by hand would have none.
+- **Landing-time masking is not mapped.** `policy.privacy.masking` is refused.
 - **Empty folders stay.** The `.fluid/<product>/<build>` folders above `files/` are not managed; only `files/` and below are.
 
 ## How it is tested
