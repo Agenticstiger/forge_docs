@@ -611,7 +611,7 @@ The runner calls `tofu` with `-json`, so every diagnostic arrives as one JSON li
 ```
 
 - `detail` is the provider's own text, cut at 800 characters. `more_errors: <n>` follows when the run printed further error diagnostics.
-- Output with no diagnostic (a crash, a timeout) falls back to the first `Error:` line, or to the exit code.
+- Output with no diagnostic (a crash, a timeout) falls back to the text from its first `Error:` on, cut at 800 characters, or to `tofu apply exited <exit code>` when there is none.
 - Fixing the cause and re-running `fluid apply` normally continues where it stopped, because the resources created before the failure are already in state. `tofu state list` in the workdir (`.fluid/iac/<provider>/<safe-id>/`) shows which.
 - A state-lock error adds a suggestion to wait for the other run or run `tofu force-unlock <id>`; see [Locking](../concepts/state.md#locking). A plan that fails on a held lock gets the same suggestion.
 - The raw output tail goes to the log under `--debug`.

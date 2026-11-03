@@ -701,7 +701,7 @@ policy:
 For each filter, `fluid apply` emits a `google_bigquery_row_access_policy` whose `filter_predicate` is the predicate and whose grantees are every identity of the principal. It emits one more, `fluid_all_rows` with the predicate `TRUE`, for every other reader and writer of the expose, because BigQuery shows a principal that no row access policy names no row at all. An identity a filter names is never in that policy: BigQuery shows a principal the union of the policies that name it.
 
 - **The predicate is parsed**, not trusted. A statement separator, a comment, a subquery, or a column the expose's schema does not declare is refused with kind `row-filter`, so the text written into the policy is the predicate and nothing else.
-- **A filter on a view is refused** (`row-filter-view`): row access policies attach to tables, so filter the table the view reads. So is a filter on a GCP binding that is not a BigQuery table, and a principal filtered twice in one expose (combine the two predicates with `AND`).
+- **A filter on a view is refused** (`row-filter-view`): row access policies attach to tables, so filter the table the view reads. A filter on a GCP binding that is not a BigQuery table is refused too, as `gcp-governance-unsupported-target`. A principal filtered twice in one expose is refused as `row-filter`: combine the two predicates with `AND`.
 - **Builds keep the policies.** A full-refresh load into BigQuery is `WRITE_TRUNCATE_DATA`, which replaces the rows and keeps the table's row access policies, policy tags and partitioning. `WRITE_TRUNCATE` would remove every row access policy of the table.
 
 ### Data Masking

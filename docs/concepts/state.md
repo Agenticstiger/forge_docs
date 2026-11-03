@@ -129,6 +129,9 @@ add `.tflock` to get the lock object.
 }
 ```
 
+OpenTofu's own S3 backend page does not list the lock object's permissions, so
+run a `fluid apply --dry-run` with each role before you roll the change out.
+
 **No lock.** On an OpenTofu older than 1.10, or one whose version cannot be
 read, the flag is skipped. `fluid apply` logs a WARNING with the event
 `s3_state_unlocked` that says why, and the state is unlocked, as before.
@@ -136,7 +139,8 @@ Upgrade OpenTofu. [`--ensure-opentofu`](../cli/apply.md) installs a pinned build
 only when `tofu` is missing or older than 1.6.0, so it does not bring a 1.6 to
 1.9 install up to date. To turn
 the lock off on purpose, for a role that cannot write the lock object, set
-`FLUID_TOFU_S3_LOCKFILE=0` (`false`, `no` and `off` also work). `fluid doctor
+`FLUID_TOFU_S3_LOCKFILE=0` (`false`, `no` and `off` also work) in the environment
+of the job that runs `fluid apply`: a project `.env` cannot set it. `fluid doctor
 --env` lists the variable.
 
 **A workdir kept from before.** OpenTofu refuses a backend config that changed
@@ -152,7 +156,8 @@ every later run then fails with `Error acquiring the state lock` and a lock ID.
 Make sure no other run is active, then run `tofu force-unlock <ID>` in the
 contract's OpenTofu working directory (`.fluid/iac/<provider>/<safe-id>/`, under
 `--workspace-dir`). A failed apply, and a plan that fails on a held lock, print
-this hint.
+this hint ([forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786),
+on `main`, not yet in a release).
 
 **Timeouts.** A `tofu` call that runs past `FLUID_TOFU_TIMEOUT_SECONDS` used to
 be killed, which left the lock behind. It is now interrupted with SIGINT, so

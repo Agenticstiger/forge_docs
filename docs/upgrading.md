@@ -585,7 +585,8 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   when the installed OpenTofu is 1.10 or newer. Before you upgrade, give every role that runs
   `fluid apply` (a `--dry-run` included), `fluid diff` or `fluid verify --state-drift` against S3
   state `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on `<key>.tflock`, or set
-  `FLUID_TOFU_S3_LOCKFILE=0` for it. A plan-only CI role fails without one of the two. A run killed
+  `FLUID_TOFU_S3_LOCKFILE=0` in the job's environment (a project `.env` cannot set it). A plan-only
+  CI role fails without one of the two. A run killed
   hard can leave the lock behind: `tofu force-unlock <ID>` in the contract's workdir clears it. An
   older OpenTofu logs `s3_state_unlocked` and keeps working, unlocked. See [Locking](./concepts/state.md#locking).
 - **A column type Glue or BigQuery cannot hold is refused**
