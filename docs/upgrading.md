@@ -611,6 +611,15 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   that emits the scheduled Lambda warns `schedule_placeholder_lambda`: the function only logs its
   tasks, and the roles `fluid-workflow-execution` and `EventBridgeSchedulerRole` must already exist.
   See [Schedule names and refusals](./providers/aws.md#schedule-names-and-refusals).
+- **A build mode refuses an id the build phase cannot use, before anything is applied**
+  ([#803](https://github.com/Agenticstiger/forge-cli/pull/803)). `fluid apply --mode
+  amend-and-build` and `replace-and-build` check `id` and every `builds[].id` before the apply
+  hooks, `tofu` and any build. Each id must start with a letter or `_`, use only letters, digits,
+  `_`, `.` and `-`, and be at most 128 characters. Such an id (`1orders`, or a longer one) passes
+  `fluid validate`. On the OpenTofu engine the product used to be provisioned and the run then
+  stopped with "Unexpected error". Now the run stops first with `apply_build_identifier_invalid`.
+  Rename the id. A renamed `id` gets a new `.fluid/iac/<provider>/<id>` workdir, and its builds
+  start without their cursors and watermarks. See [Build ids](./cli/apply.md#build-ids).
 - **`fluid doctor --strict` and a readable failed apply**
   ([#786](https://github.com/Agenticstiger/forge-cli/pull/786)). `fluid doctor --strict` exits `1`
   when the summary says "Action needed", copilot readiness included; the default exit code does not

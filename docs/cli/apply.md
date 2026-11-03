@@ -197,6 +197,29 @@ The check runs after the [plan binding](#plan-binding) checks and the [mode gate
 
 There is no flag to skip the check. Run `fluid validate <contract> --env <env>` to see every error, fix them, and apply again.
 
+### Build ids
+
+*On forge-cli `main`, not yet in a release ([forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803)).* Under `--mode amend-and-build` or `replace-and-build`, `fluid apply` also checks `id` and every `builds[].id` right after the schema check. This happens on both engines, before the apply hooks, `tofu` and any build.
+
+The build phase keeps each build's run records, cursors and watermarks under `.fluid/runs/<id>/<build id>/`, so its rule is narrower than the schema's. An id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. So `fluid validate` and `fluid plan` pass an id such as `1orders`, and `fluid apply` refuses it:
+
+```bash
+fluid apply contract.fluid.yaml --mode amend-and-build --yes
+```
+
+```text
+❌ apply_build_identifier_invalid  [ERR_APPLY_BUILD_IDENTIFIER_INVALID]
+  field: contract.id
+  value: '1orders'
+  hint: The build phase keeps each build's run records, cursors and watermarks under .fluid/runs/<contract.id>/<build.id>/, so both ids must start with a letter or underscore, use only letters, digits, '_', '.' and '-', and be at most 128 characters. The contract schema allows more, so fluid validate and fluid plan accept it. Nothing was applied.
+
+💡 Suggestions:
+  • Rename the id to fit, for example orders_v1 instead of 1orders, and apply again
+  • A renamed id starts over: its builds get new cursors and watermarks under .fluid/runs/, and a renamed contract.id gets a new OpenTofu workdir under .fluid/iac/<provider>/
+```
+
+Before this change only the build runner checked these ids. On the OpenTofu engine the runner starts after `tofu apply`, so the product was provisioned first, and the run then stopped with "Unexpected error". A mode without a build phase is not checked, and neither is a contract without `builds`.
+
 ## Plan binding
 
 When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` runs three gates on it before it builds or provisions anything, on both engines:
@@ -578,6 +601,7 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `plan_env_mismatch` | A build mode is given an `--env` that differs from the plan's. |
 | `bundle_env_mismatch` | `--env` differs from the env a bundle was built for. |
 | `apply_build_id_requires_build_mode` | `--build-id` with a mode that runs no build. |
+| `apply_build_identifier_invalid` | *(On forge-cli `main`, not yet in a release, [forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803).)* A build mode, and an `id` or `builds[].id` the build phase cannot use. Nothing is applied. See [Build ids](#build-ids). |
 | `apply_mode_data_loss_blocked` | `replace` or `replace-and-build` without `--allow-data-loss`. |
 | `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. *(On forge-cli `main`, not yet in a release, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793).)* Also a plan that changes the column types of a Glue table in place. |
 | `opentofu_plan_failed` | `tofu plan` failed. *(On forge-cli `main`, not yet in a release, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786).)* A plan that failed on a held state lock suggests `tofu force-unlock <id>`. |
