@@ -98,7 +98,7 @@ Discovery runs a 4-layer pipeline, in order:
 | Layer | What it does | Use case |
 |-------|-------------|----------|
 | **1. Entry points** | Scans pip-installed packages for `fluid_build.providers` entry points | Third-party providers installed via `pip install` |
-| **2. Built-in modules** | Imports the curated defaults: `local`, `gcp`, `aws`, `snowflake` | The apply-capable providers that ship with Fluid Forge (`fluid providers` additionally surfaces `datamesh_manager` and `redshift`) |
+| **2. Built-in modules** | Imports the curated defaults: `local`, `gcp`, `aws`, `snowflake` | The apply-capable providers that ship with Fluid Forge |
 | **3. Subpackage scan** | Scans `fluid_build/providers/*` for any remaining modules | Catches providers added to the package tree |
 | **4. Fallback** | Re-attempts imports if registry is still empty | Recovers from import ordering issues |
 

@@ -2,6 +2,10 @@
 
 Publish FLUID data products and contracts to Entropy Data / Data Mesh Manager, and manage the products and teams stored there.
 
+::: tip Not a provider
+*(from 0.27.0)* Data Mesh Manager is a catalog, not an infrastructure provider. `--provider datamesh-manager` (or `datamesh_manager`) exits 2 with `Provider 'datamesh-manager' was retired: Data Mesh Manager is a catalog, not a provider; use fluid publish --target datamesh-manager (or fluid datamesh-manager)`. Publishing is unchanged: `fluid publish --target datamesh-manager` (aliases `entropy-data`, `dmm`) and this command.
+:::
+
 ## Syntax
 
 ```bash

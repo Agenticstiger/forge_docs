@@ -27,7 +27,9 @@ Orchestration guidance prefers `fluid generate schedule --scheduler airflow` ove
 
 ## Overview
 
-The AWS provider turns a FLUID contract into cloud resources:
+The AWS provider turns a FLUID contract into cloud resources.
+
+*(from 0.27.0)* Redshift is part of this provider, not a provider of its own: a contract whose `builds[].execution.runtime.platform` is `redshift` is served by `aws`, and `--provider redshift` exits 2 with `Provider 'redshift' was retired: Redshift is part of the aws provider; use --provider aws`. `binding.platform: redshift` was never valid in any schema; bind to `aws`.
 
 - **Plan and apply** — S3 buckets, Glue databases and Glue tables. No Athena workgroup is created: Athena queries run in a workgroup you already have, and `fluid verify` uses `primary` unless you pass `--athena-workgroup`.
 - **Lake Formation governance** — location registration, principal grants, column-limited grants, LF-tags (TBAC), row filters and the bucket policy that goes with the grants. See [Lake Formation](#lake-formation).
