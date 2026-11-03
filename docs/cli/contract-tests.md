@@ -104,7 +104,7 @@ Both compare the columns of a contract with an earlier version of it. They diffe
 | Column order | Compared | Not compared |
 | Columns of a 0.7.x contract | Compared | Compared on forge-cli `main`; not compared through 0.26.0 |
 
-*The `diff --baseline` reading of a 0.7.x contract's columns is on forge-cli `main`, not yet in a release ([forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789)).*
+*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* The last row describes that change.
 
 Use `contract-tests` when a person should look at every schema change, and `diff --baseline` when the pipeline should stop only on a change that breaks consumers. A pipeline can run both. Through 0.26.0 only `contract-tests` sees the columns of a 0.7.x contract, so it is the column gate on those releases: `fluid diff --baseline` prints `No changes detected.` after a column is removed from the `csv-basics` template (measured on 0.26.0).
 
