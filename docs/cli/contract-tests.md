@@ -64,7 +64,7 @@ The signature is, per expose, the `exposeId` and the ordered list of `(name, typ
 | Columns reordered | `<expose>: column order changed` |
 | Expose removed or added | `expose '<id>' is in the baseline but not in the contract`, or `is not in the baseline` |
 
-The command does not classify a change as breaking or safe. A widening such as `INTEGER` to `BIGINT`, and an added nullable column, both fail. If you want that judgement, use [`fluid diff --baseline --fail-on-breaking`](./diff.md#contract-version-diff), subject to the limit below, or update the baseline when you accept the change:
+The command does not classify a change as breaking or safe. A widening such as `INTEGER` to `BIGINT`, and an added nullable column, both fail. If you want that judgement, use [`fluid diff --baseline --fail-on-breaking`](./diff.md#contract-version-diff), subject to the limit below through 0.26.0, or update the baseline when you accept the change:
 
 ```bash
 fluid contract-tests contract.fluid.yaml --write-baseline baseline.schema.json
@@ -97,5 +97,5 @@ Commit `baseline.schema.json` next to the contract. Regenerate it in the same pu
 
 - Before 0.16.5 this command always reported that a contract was compatible, because the comparison it called did not exist. A green result from an earlier version proves nothing; write a baseline and run it again.
 - Pair with [`fluid contract-validation`](./contract-validation.md) when you also need to validate the contract against deployed resources.
-- `fluid diff --baseline` is the contract-aware comparison that separates breaking from non-breaking changes. As of 0.18.1 it reads columns from `exposes[].schema`, so for a contract that declares columns under `exposes[].contract.schema`, as the `fluid init` directory templates do, it printed `No changes detected` after a column was removed from the `customer-360` contract, while `fluid contract-tests` reported `column removed`. For the schema gate, use `contract-tests`.
+- `fluid diff --baseline` is the contract-aware comparison that separates breaking from non-breaking changes. Through 0.26.0 it reads columns from `exposes[].schema`, so for a contract that declares columns under `exposes[].contract.schema`, as the `fluid init` directory templates do, it printed `No changes detected` after a column was removed from the `customer-360` contract, while `fluid contract-tests` reported `column removed`. On those versions, use `contract-tests` for the schema gate. *(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* `fluid diff --baseline` reads `exposes[].contract.schema` too and reports that removal as breaking.
 - [`fluid diff`](./diff.md) also covers drift against the last apply (`--state`, `--exit-on-drift`); `contract-tests` does not.

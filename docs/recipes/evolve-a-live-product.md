@@ -155,9 +155,9 @@ $ fluid contract-tests contract.fluid.yaml --write-baseline contract-baseline.js
 Before 0.16.5, `fluid contract-tests` reported every contract as compatible.
 A pipeline that relied on it on an older CLI was not gated.
 
-::: warning `fluid diff --baseline` does not see column changes (0.18.1)
+::: warning `fluid diff --baseline` does not see column changes (through 0.26.0)
 [`fluid diff --baseline <old> --fail-on-breaking`](../cli/diff.md#contract-version-diff)
-is meant to classify changes as breaking or not. As of 0.18.1 it reads
+is meant to classify changes as breaking or not. Through 0.26.0 it reads
 columns from `exposes[].schema`, while a valid 0.7.x contract declares them
 under `exposes[].contract.schema`, so it compares no columns at all. Removing
 `amount` and retyping `order_id` between two valid contracts gives:
@@ -170,9 +170,13 @@ $ echo $?
 0
 ```
 
-Use `fluid contract-tests` as the column gate until this is fixed. `fluid plan`
+On those versions, use `fluid contract-tests` as the column gate. `fluid plan`
 does not compare a contract with its previous version either.
 :::
+
+*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* `fluid diff --baseline` reads
+`exposes[].contract.schema` too, so a removed column is breaking and
+`--fail-on-breaking` exits 1.
 
 ## 3. Gate on drift before you plan
 
