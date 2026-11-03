@@ -581,6 +581,19 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   `user:` or `serviceAccount:` prefix, and a predicate outside the allowlist. `fluid generate iac`
   now refuses such a contract (`databricks-enforcement-outside-module`): use `fluid apply`. A dbt job
   that writes a table not yet protected is created paused, and the next `fluid apply` unpauses it.
+- **Databricks retention, bronze landing and scoped grants**
+  ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open). `lifecycle.expire` was
+  refused (`databricks-retention-unmapped`). It is accepted now for a table rebuilt in full on every
+  run, when `lifecycle.retention` covers the Delta history (30 days by default); `fluid verify` checks
+  it. A DuckDB acquisition that writes a Databricks expose now uploads Parquet to the volume
+  `DATABRICKS_STAGING_VOLUME` names and loads the table, where it wrote a local file; it needs
+  `DATABRICKS_WAREHOUSE_ID` too, and refuses a source mode other than `full_refresh`
+  (`databricks-landing-unsupported`). `policy.privacy.masking` is accepted for such an expose.
+  An `accessPolicy` grant with `resources` was refused whatever it named
+  (`databricks-grant-scope-unmapped`). The three shapes forge-cli can evaluate are placed now, only on
+  the tables they name; any other path is still refused. A superseded `fluid_` function is dropped after a successful apply.
+  See [Retention](./providers/databricks.md#retention) and
+  [Landing a DuckDB acquisition](./providers/databricks.md#landing-a-duckdb-acquisition).
 - **S3 state is locked** ([forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787)),
   when the installed OpenTofu is 1.10 or newer. Before you upgrade, give every role that runs
   `fluid apply` (a `--dry-run` included), `fluid diff` or `fluid verify --state-drift` against S3

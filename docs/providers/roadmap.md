@@ -25,10 +25,10 @@ ODPS and ODCS are spec exporters, not providers ([`fluid exporters`](../cli/expo
 
 | Contract field | GCP | AWS | Snowflake | Databricks (on forge-cli `main`, not yet in a release) |
 |---|---|---|---|---|
-| `accessPolicy.grants` | dataset IAM members | not emitted; access is `binding.governance.lakeFormation.grants` | compiled by `fluid policy-compile`, not applied | one `databricks_grant` per principal |
+| `accessPolicy.grants` | dataset IAM members | not emitted; access is `binding.governance.lakeFormation.grants` | compiled by `fluid policy-compile`, not applied | one `databricks_grant` per principal, scoped by `resources` to the tables it names |
 | `policy.authz.columnRestrictions` | Data Catalog policy tags; with `access: mask`, a BigQuery data policy *(0.19.0)* | Lake Formation excluded columns | not read | Unity Catalog column masks; a denied column reads `NULL` |
-| `policy.privacy.masking` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | not read | refused |
-| `exposes[].lifecycle.expire` *(0.7.6)* | expiring DAY partitions | S3 lifecycle rule | not read | refused |
+| `policy.privacy.masking` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | not read | applied at landing by the DuckDB acquisition runner; refused on an expose another build writes |
+| `exposes[].lifecycle.expire` *(0.7.6)* | expiring DAY partitions | S3 lifecycle rule | not read | a Delta history limit, for a table rebuilt in full (`databricks-retention-*` otherwise) |
 | `binding.encryption.kms` *(0.7.6)* | Cloud KMS key ring and key | KMS key as the bucket default | not read | refused |
 | `policy.authz.rowFilters` *(0.7.6)* | a `google_bigquery_row_access_policy` per filter *(0.19.0)* | a Lake Formation data cells filter per filter *(0.19.0)* | not read | a Unity Catalog row filter |
 | Governance labels | labels on the dataset, table and key *(0.19.0)* | tags on the bucket and key, parameters on the Glue table *(0.19.0)* | not read | Unity Catalog tags |
