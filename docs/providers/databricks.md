@@ -15,7 +15,8 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **Plan & Apply**: a schema, a managed Delta table and one grant per principal, through OpenTofu
 - ✅ **Existing catalog**: `location.database` names a catalog that must already exist. forge-cli reads it and never creates, grants on or destroys it
 - ✅ **dbt builds as jobs**: a dbt build whose `execution.runtime.platform` is `databricks` becomes a serverless job that Databricks runs on its own trigger
-- ✅ **Verify**: `fluid verify` checks the live table's columns, `USE CATALOG` for every reader and that each dbt job exists exactly once
+- ✅ **Residency**: `binding.location.region` is checked against the contract's `sovereignty` policy and against the workspace's metastore (see [Residency](#residency))
+- ✅ **Verify**: `fluid verify` checks the live table's columns, `USE CATALOG` for every reader, the residency, and that each dbt job exists exactly once
 - ✅ **One pinned credential**: the workspace comes from `DATABRICKS_HOST` only, and a run never falls back to a stray profile
 - ⚠️ **Live drift**: `fluid diff` has no Databricks inspector yet (see [`fluid diff`](#fluid-diff))
 - ❌ **Iceberg, masks, row filters, column restrictions, `packaging`**: `fluid validate` refuses them rather than apply something that is not enforced (see [What validate refuses](#what-validate-refuses))
@@ -173,6 +174,60 @@ A table that already exists is imported before the first apply, not replaced. It
 
   Or leave the table out of the contract, or let a dbt build write it.
 
+## Governance
+
+What a contract says about where its data lives and who may read it, and what forge-cli does with each field on Databricks. Each part below says what is enforced, where, and what `fluid verify` reads back.
+
+| Contract | On Databricks | Verify dimension |
+| --- | --- | --- |
+| `binding.location.region` with `sovereignty` | Held by the policy at `fluid validate`, `fluid apply` and `generate iac`, and checked against the workspace's metastore at plan time (see [Residency](#residency)) | `residency` |
+
+### Residency
+
+*On forge-cli `main`, not yet in a release ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)).*
+
+A workspace is in one region. A contract's [`sovereignty`](../concepts/sovereignty.md) policy is checked for a Databricks expose as it is for the other clouds, from the region the expose declares in `binding.location.region`:
+
+```yaml
+sovereignty:
+  jurisdiction: EU
+  deniedRegions: [us-west-2]
+  enforcementMode: strict
+
+exposes:
+  - exposeId: orders
+    binding:
+      platform: databricks
+      format: delta_table
+      location:
+        database: main
+        schema: sales
+        table: orders
+        region: eu-central-1     # the region of the workspace DATABRICKS_HOST names
+```
+
+The rules:
+
+- **A declared region is held to the policy** (`allowedRegions`, `deniedRegions`, `jurisdiction`) like any cloud region.
+- **With a `sovereignty` block, no region is a finding.** An error under `enforcementMode: strict`, a warning under `advisory`. Where the data lives cannot be checked without one.
+- **The policy holds at apply, not only at validate.** `fluid apply` and `fluid generate iac` refuse a placement the policy forbids with `SovereigntyViolationError`, before any module is written, so before `tofu init`, an import or an adoption.
+- **The spelling is exact.** The region must be a plain lower-case name: lower-case letters, digits and hyphens, starting with a letter, 2 to 63 characters, no spaces (`eu-central-1`, `westeurope`, `europe-west3`). Anything else is refused as `databricks-region-invalid`. It is not lower-cased for you: the policy compares the text as written, so `US-WEST-2` would otherwise pass a `deniedRegions: [us-west-2]` check and still plan against a workspace in us-west-2.
+- **One region per contract.** The module applies to one workspace (`DATABRICKS_HOST`). Two Databricks exposes that declare different regions are refused as `databricks-region-conflict`.
+- **The declaration is checked against the workspace, at plan time.** With a region declared, the module reads the workspace's metastore (`data.databricks_current_metastore`), and every schema it owns carries a precondition that the metastore's region equals the declared one. `tofu plan` fails, `--mode dry-run` included, before anything is written, when `DATABRICKS_HOST` names a workspace elsewhere:
+
+  ```text
+  The contract declares binding.location.region eu-central-1, but the workspace DATABRICKS_HOST names is in us-west-2. Residency is checked against the workspace's metastore. Point DATABRICKS_HOST at a workspace in eu-central-1, or correct binding.location.region.
+  ```
+
+  The precondition sits on every schema the module owns, whichever expose declared the region.
+- **No region and no `sovereignty` block** gives the module it always did.
+
+`fluid verify` reads the workspace's metastore summary and reports a `residency` dimension: it passes when the region matches the declaration (compared without regard to case), fails with the fix when it does not, and is skipped when the contract declares none. A mismatch raises the result to `CRITICAL`.
+
+::: warning Not proven live
+Whether a real metastore reports its region in the spelling a contract declares (GCP's `europe-west3`, for one) is not proven against a live workspace, nor is a workspace with no metastore assigned, where the plan should fail on the data source. If the spelling differs, the plan fails and names both regions.
+:::
+
 ## dbt builds as jobs
 
 A build with an `engine` of `dbt` or `dbt-databricks` and `execution.runtime.platform: databricks` runs in the workspace, not on the machine that applies. `fluid apply` provisions one serverless job per build with a dbt task. Databricks runs it on the SQL warehouse `DATABRICKS_WAREHOUSE_ID` names, in the catalog and schema of the first Databricks expose the build writes (`builds[].outputs`). The job is named `fluid <product> <build>`.
@@ -284,7 +339,7 @@ models:
 
 - a host in the contract, on a binding or a build;
 - Iceberg, masks, row filters, column restrictions, a `packaging` block;
-- a `binding.location` key the module would drop (`path`, `region` and others);
+- a `binding.location` key the module would drop (`path` and others). `region` is read: see [Residency](#residency);
 - duplicate partitions;
 - a column type Databricks has no mapping for (it would be created as `string`), or would reject.
 
