@@ -299,14 +299,15 @@ This is contract-aware comparison, not generic schema differencing. The diff und
 - **Expose changes** — an expose added (non-breaking) or removed (breaking).
 - **Upstreams** — `consumes[]` entries added or removed.
 - **Policy narrowing** — `agentPolicy` and `sovereignty.allowedRegions` changes.
-- **Columns** — a column removed (breaking) or added, a type widened (safe) or narrowed (breaking), `DECIMAL(p,s)` and `VARCHAR(n)` precision, nested `fields[]`, and PII annotation drift. *(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract, a column whose `sensitivity` becomes or stops being `pii` or `phi` is `column_pii_added` or `column_pii_removed`, and any other change to it is `column_sensitivity_changed`, all info. A column the dbt engine builds as a key (a `primary-key` tag, a `semanticType` of `identifier` or `primary_key`, or a `labels.constraint` of `primary_key` or `unique`) that stops being `required` is `primary_key_nullable` (breaking).
-- **Quality severity escalation** — a rule promoted to a stricter severity. *(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract that is a rule in `contract.dq.rules`, `contract.quality` or a column's `quality` whose severity becomes `error` or `critical`. `critical` fails a run as `error` does, so `critical` to `error` is not an escalation.
+- **Columns** — a column removed or added, a column that becomes NOT NULL or nullable, a type change, nested `fields[]`, and the `pii` flag. [Which column changes are breaking](#which-column-changes-are-breaking) lists each rule. *(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract, a column whose `sensitivity` becomes or stops being `pii` or `phi` is `column_pii_added` or `column_pii_removed`, and any other change to it is `column_sensitivity_changed`, all info. A column the dbt engine builds as a key (a `primary-key` tag, a `semanticType` of `identifier` or `primary_key`, or a `labels.constraint` of `primary_key` or `unique`) that stops being `required` is `primary_key_nullable` (breaking).
+- **Names declared twice** — an expose id, column or nested field that the new contract declares more than once. See [A name declared twice](#a-name-declared-twice).
+- **Quality severity escalation** — a test in `exposes[].quality.tests[]` promoted to `error`. *(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract that is a rule in `contract.dq.rules`, `contract.quality` or a column's `quality` whose severity becomes `error` or `critical`. `critical` fails a run as `error` does, so `critical` to `error` is not an escalation.
 
-::: warning Through 0.26.0, the column rules read `exposes[].schema`
-`fluid diff --baseline` finds an expose's columns at `exposes[].schema`. A contract that `fluid validate` accepts declares them at `exposes[].contract.schema`, and rejects `schema` directly under the expose. On such a contract, removing a column or narrowing `DECIMAL(10,2)` to `DECIMAL(6,2)` reports `No changes detected.` and `--fail-on-breaking` exits 0 (measured). Expose, `consumes[]`, sovereignty and metadata changes are reported as shown above. Do not use `--fail-on-breaking` as the only guard against a column change. [`fluid contract-tests`](./contract-tests.md) is the column gate, and [Evolve a live product](../recipes/evolve-a-live-product.md#_2-check-the-change-against-the-baseline) shows it in a pipeline.
+The column rules for a 0.7.x contract, the stricter type rules and the repeated-name check are not in a release yet. Each section below says which forge-cli pull request carries it.
+
+::: warning Through 0.26.0, the columns of a 0.7.x contract are not compared
+Through 0.26.0, `fluid diff --baseline` finds an expose's columns at `exposes[].schema` only. A contract that `fluid validate` accepts declares them at `exposes[].contract.schema`, and rejects `schema` directly under the expose. On such a contract those releases report `No changes detected.` and `--fail-on-breaking` exits 0 after a column is removed, retyped, added as NOT NULL or declared twice (measured on 0.26.0). An expose added or removed is still reported. On those releases do not use `--fail-on-breaking` as the only guard against a column change: [`fluid contract-tests`](./contract-tests.md#choosing-between-contract-tests-and-diff) is the column gate, and [Evolve a live product](../recipes/evolve-a-live-product.md#_2-check-the-change-against-the-baseline) shows it in a pipeline.
 :::
-
-*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* The column rules read `exposes[].contract.schema` when the expose has no `schema`, and a column with `required: true` is NOT NULL. A removed column, a type change that is not a widening and an added `required: true` column are breaking, so `--fail-on-breaking` exits 1 on them. A finding names its column at `exposes[N].contract.schema.<column>`.
 
 `--fail-on-breaking` makes the command exit `1` on any breaking change, so it can serve as a contract-compatibility gate. `--format json` or `markdown` print a structured report to stdout for PR comments or release notes, and the JSON envelope is also written to `--out`. `--baseline` cannot be combined with `--env` or `--state` (`diff_modes_mutually_exclusive`, exit 2): an overlay and a prior report belong to drift mode.
 
@@ -317,6 +318,170 @@ This is contract-aware comparison, not generic schema differencing. The diff und
 ```
 
 Through 0.26.0, the text and JSON on stdout were wrapped at the terminal width, 80 columns in CI. A long entry, such as a removed column's description, put a line break inside a JSON string, so `--format json | jq` failed. Read the envelope from `--out` on those versions.
+
+::: warning A gate that passed can start failing
+*(Not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789), [#802](https://github.com/Agenticstiger/forge-cli/pull/802).)*
+
+The release that carries these changes reads the columns of a 0.7.x contract, applies the type rules below and reports a name declared twice. A pipeline that runs `fluid diff --baseline --fail-on-breaking` and passes on 0.26.0 can exit `1` after the upgrade, on a contract nobody changed. A contract that declares a column twice exits `1` even when it is compared with an identical copy of itself (measured). [Findings that change for a contract already compared](#findings-that-change-for-a-contract-already-compared) lists findings that were `non_breaking`, `info` or not reported on 0.26.0, and [Both contracts must be valid](#both-contracts-must-be-valid) describes another way a gate can start failing. Run the gate once on the contract you release from, and read what it reports, before it blocks a merge.
+:::
+
+### Which column changes are breaking
+
+*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)*
+
+The diff reads an expose's columns from `exposes[].contract.schema`, where a 0.7.x contract keeps them. When the expose also has a flat `exposes[].schema`, it reads that one and ignores `contract.schema` (measured). A column is NOT NULL when it has `required: true`, or the older `nullable: false`. A finding for a 0.7.x column is at `exposes[N].contract.schema.<column>`, and one for a flat column is at `exposes[N].schema.<column>`. A nullability finding ends in the key the contract uses, `.required` for a 0.7.x column.
+
+| Change to a column | Severity | `kind` |
+| --- | --- | --- |
+| Removed | `breaking` | `column_removed` |
+| Added, nullable | `non_breaking` | `column_added` |
+| Added, NOT NULL | `breaking` | `column_added` |
+| Becomes NOT NULL | `breaking` | `column_nullable_tightened` |
+| Becomes nullable (not a `primaryKey` column) | `non_breaking` | `column_nullable_loosened` |
+| A `primaryKey` column becomes nullable | `breaking` | `primary_key_nullable` |
+| Type changes | see [Type changes](#type-changes) | `column_type_widened`, `column_type_changed`, `column_type_param_changed`, `column_type_normalized` |
+| Description or `pii` flag changes | `info` | `column_description_changed`, `column_pii_added`, `column_pii_removed` |
+
+Only a `breaking` finding makes `--fail-on-breaking` exit `1`. A `non_breaking` or `info` finding is listed and the run exits `0` (measured). Take the [`csv-basics` template](./init.md) as `v1`, and as `v2` the same contract without `days_since_last_purchase`, with `total_purchases` retyped from `INTEGER` to `VARCHAR`, and with a required `country` column added. This run exits `1` (measured):
+
+```bash
+fluid diff v2/contract.fluid.yaml --baseline v1/contract.fluid.yaml --fail-on-breaking
+```
+
+```text
+BREAKING (3)
+------------
+  column_removed                   exposes[0].contract.schema.days_since_last_purchase: column 'days_since_last_purchase' removed from expose 'customers_clean'
+  column_added                     exposes[0].contract.schema.country: NOT NULL column 'country' added to expose 'customers_clean' (breaks inserts that don't supply a value)
+  column_type_changed              exposes[0].contract.schema.total_purchases.type: column 'total_purchases' type changed INTEGER -> VARCHAR (not a widening cast)
+
+Summary: 3 breaking, 0 non-breaking, 0 info
+```
+
+### Type changes
+
+*(Not yet in a release, [forge-cli #802](https://github.com/Agenticstiger/forge-cli/pull/802).)*
+
+When a column has a type on both sides, a change is `non_breaking` only when it is on one of the lists below, and `breaking` otherwise, except a change in formatting alone, which is `info`. A type name that is plain ASCII is upper-cased before it is compared, and the findings print it upper-cased. The lists follow the widening and length-and-precision tables in forge-cli's `changelog_rules.py`, and the example rows were run as single changed columns (measured).
+
+**A different base type** widens only along these lines, and only into a type that declares no parameters of its own:
+
+| From | Widens to |
+| --- | --- |
+| `smallint` | `int`, `int32`, `int64`, `integer`, `bigint`, `long` |
+| `int` | `integer`, `bigint`, `long`, `decimal`, `numeric`, `double` |
+| `integer` | `bigint`, `long`, `decimal`, `double` |
+| `int32` | `int64`, `bigint`, `long`, `decimal`, `double` |
+| `float` | `double` |
+| `varchar` | `text`, `string` |
+| `string` | `text` |
+| `date` | `datetime`, `timestamp` |
+
+A change of base type that is not in this table is `breaking` (`column_type_changed`). That covers a narrowing such as `bigint` to `int`, a synonym such as `integer` to `int`, and a move out of a family such as `int` to `float`, `float` to `decimal` or `numeric`, or `time` to `timestamp` or `datetime`. `int` to `decimal(5,0)` is `breaking` because the new type declares parameters, while `int` to a bare `decimal` widens.
+
+**The same type with other parameters** is compared parameter by parameter:
+
+- A bigger parameter is a widening only for a type whose parameter is a length or a precision: `varchar`, `varchar2`, `nvarchar`, `nvarchar2`, `char`, `nchar`, `character`, `string`, `text`, `varbinary`, `float`, `time`, `timestamp` (also `timestamp_ntz`, `timestamp_ltz` and `timestamp_tz`), `datetime`, `datetime2` and the decimal family (`decimal`, `dec`, `numeric`, `number`, `bignumeric`). On any other type, such as `geometry` or `binary`, a bigger parameter is `breaking`.
+- A decimal's precision and scale are compared as its integer digits (precision minus scale) and its scale. It widens only when neither falls.
+- A narrowing is a change where no parameter grows and one shrinks (for a decimal: its integer digits and its scale): `breaking`, kind `column_type_changed`.
+- Parameters that move in different directions, a parameter on one side only, or a different number of parameters are `breaking`, kind `column_type_param_changed`.
+
+A widening is `non_breaking` with kind `column_type_widened`:
+
+| Old | New | Why |
+| --- | --- | --- |
+| `varchar(50)` | `varchar(100)` | A bigger length |
+| `timestamp(3)` | `timestamp(6)` | A bigger precision |
+| `decimal(10,2)` | `decimal(12,2)` | Precision grew and scale held |
+| `decimal(10,2)` | `decimal(12,4)` | Integer digits held (8) and scale grew (2 to 4) |
+
+A narrowing is `breaking` with kind `column_type_changed`:
+
+| Old | New | Why |
+| --- | --- | --- |
+| `varchar(100)` | `varchar(50)` | A smaller length |
+| `decimal(10,2)` | `decimal(6,2)` | Integer digits fell from 8 to 4 |
+
+A change that is neither is `breaking` with kind `column_type_param_changed`:
+
+| Old | New | Why |
+| --- | --- | --- |
+| `varchar` | `varchar(10)` | Only the new type has a parameter |
+| `decimal(10,2)` | `decimal` | Only the old type has parameters |
+| `decimal(10,2)` | `decimal(12,1)` | Precision grew, scale fell |
+| `decimal(10,2)` | `decimal(11,4)` | Scale grew, integer digits fell from 8 to 7 |
+| `geometry(4326)` | `geometry(32633)` | The parameter is a spatial reference id, not a size |
+| `binary(16)` | `binary(32)` | `binary` is not a length or precision type |
+
+**Type text the diff cannot order:**
+
+- A type name with a non-ASCII character is compared as written, so it matches nothing but itself, and the finding says why: `int` to `ınt` (a dotless "ı") is `breaking`, with the text `column '...' type changed INT -> ınt (a type name with non-ASCII characters matches no other type)`.
+- Parameters that are not plain integers, such as `enum('a','b')` or `varchar(max)`, cannot be ordered. The type is a different type when its text differs after ASCII case folding, so `enum('a','b')` to `enum('a','b','c')` and `varchar(max)` to `varchar(200)` are `breaking` (`column_type_changed`). Case inside quotes is still folded: `enum('a')` and `enum('A')` compare equal and report nothing.
+- Formatting alone is not a type change. Whitespace around integer parameters, or leading zeros in them, is `info` (`column_type_normalized`): `decimal(10, 2)` to `decimal(10,2)`. A change of ASCII case reports nothing: `varchar` to `VARCHAR`. Whitespace inside text the diff cannot order is a difference: `enum('a', 'b')` to `enum('a','b')` is `breaking` (`column_type_changed`).
+
+A nested field (`fields[]` under a column) follows the same rules, and its kinds start with `nested_`, such as `nested_column_type_changed`.
+
+### Findings that change for a contract already compared
+
+*(Not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789), [#802](https://github.com/Agenticstiger/forge-cli/pull/802).)*
+
+A contract that keeps its columns at `exposes[].schema` was compared on 0.26.0, and the new rules change what it reports: type changes are judged more strictly, `required: true` counts as NOT NULL, and a repeated name is a finding. Each row was one change to one column, run on 0.26.0 and on the branch of forge-cli #802 (measured). The draft [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805) refuses a pre-0.7 contract, as [Both contracts must be valid](#both-contracts-must-be-valid) says, so in a release that carries it these rows no longer apply:
+
+| Change | On 0.26.0 | Now |
+| --- | --- | --- |
+| `int` to `float` | `non_breaking` | `breaking` |
+| `int` to `decimal(5,0)` | `non_breaking` | `breaking` |
+| `time` to `timestamp` | `non_breaking` | `breaking` |
+| `float` to `decimal` | `non_breaking` | `breaking` |
+| `decimal(10,2)` to `decimal(11,4)` | `non_breaking` | `breaking` |
+| `geometry(4326)` to `geometry(32633)` | `non_breaking` | `breaking` |
+| `varchar` to `varchar(10)` | `info` | `breaking` |
+| `decimal(10,2)` to `decimal` | `info` | `breaking` |
+| `enum('a','b')` to `enum('a','b','c')` | `info` | `breaking` |
+| `int` to `ınt` (a dotless "ı") | no finding | `breaking` |
+| A column added with `required: true` | `non_breaking` | `breaking` |
+| `required: true` added to a column | no finding | `breaking` |
+| A column declared twice | no finding | `breaking` |
+
+### A name declared twice
+
+*(Not yet in a release, [forge-cli #802](https://github.com/Agenticstiger/forge-cli/pull/802).)*
+
+The comparison matches exposes, columns and nested fields by name and keeps the last of a repeated name, so an earlier declaration is not compared with the baseline. A name that the **new** contract declares more than once is therefore `breaking` (an expose is matched by its `exposeId`, or its `id`):
+
+| Repeated | `kind` |
+| --- | --- |
+| Expose id | `expose_duplicate_id` |
+| Column | `column_duplicate_name` |
+| Nested field | `nested_field_duplicate_name` |
+
+A finding for an expose is at `exposes[N]`, the last declaration. One for a column is at `exposes[N].contract.schema.<column>`, or at `exposes[N].schema.<column>` for a flat column, as for [column changes](#which-column-changes-are-breaking). One for a nested field is at the column's path, then `.fields.<field>`. The diff reports a repeat in an expose both files have and in an expose that is new, and whatever the baseline holds (measured). So a contract that already declares a name twice is reported against itself until one declaration is removed. This is the `csv-basics` template with its `email` column declared twice, compared with itself (measured):
+
+```bash
+fluid diff customers.fluid.yaml --baseline customers.fluid.yaml --fail-on-breaking
+```
+
+```text
+BREAKING (1)
+------------
+  column_duplicate_name            exposes[0].contract.schema.email: column 'email' is declared 2 times in expose 'customers_clean'; keep one (a later declaration hides an earlier one)
+
+Summary: 1 breaking, 0 non-breaking, 0 info
+```
+
+The run exits `1`. Remove one `email` declaration from the new file, and the run exits `0` with `No changes detected.`, though the baseline still declares it twice (measured).
+
+### What is not compared
+
+**Column order.** Moving a column prints `No changes detected.` (measured). [`fluid contract-tests`](./contract-tests.md) fails on it.
+
+With forge-cli [#789](https://github.com/Agenticstiger/forge-cli/pull/789) and [#802](https://github.com/Agenticstiger/forge-cli/pull/802) alone, three more changes to a 0.7.x contract report nothing, or less than they could (measured on the branch of #802):
+
+- Changing a column's `sensitivity` from `internal` to `pii` is not a finding.
+- Raising the `severity` of a rule in `exposes[].contract.dq` from `warn` to `error` is not a finding. `quality_severity_escalated` is reported only for `exposes[].quality.tests[]`, which `fluid validate` rejects in a 0.7.x contract.
+- A column that becomes nullable is `non_breaking` (`column_nullable_loosened`), even when it carries a `primary-key` tag, a `semanticType` of `identifier` or a `labels.constraint` of `primary_key`. The `primary_key_nullable` finding needs a `primaryKey`, which `fluid validate` rejects in a 0.7.x contract.
+
+The draft [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805) compares all three; see the **Columns** and **Quality severity escalation** items above.
 
 ### Both contracts must be valid
 

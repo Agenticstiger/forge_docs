@@ -467,7 +467,9 @@ refs, keys beside a `$ref`, pointers, refs in overlays or a workspace
 
 `fluid diff --baseline` compares two resolved documents, so moving content
 between the root and its fragments is never reported as a change: a split
-product against its own flat original prints `No changes detected.`
+product against its own flat original prints `No changes detected.` Through
+0.26.0 it does not compare the columns of a 0.7.x contract; see
+[`fluid diff`](../cli/diff.md#contract-version-diff).
 
 The baseline needs its fragments. A root copied out of its tree on its own,
 for example with `git show main:customer-360/contract.fluid.yaml > /tmp/old.yaml`,
