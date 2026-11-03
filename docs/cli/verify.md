@@ -100,7 +100,7 @@ For the Athena options the flag wins over the environment variable.
 | BigQuery | Structure, types, constraints and location; `row_count`; masking; retention, encryption and `columnRestrictions` (policy tags) when the expose declares them. |
 | S3 and Glue (Athena) | Table, columns, prefix and an Athena read; row count; masking; retention, encryption and Lake Formation column restrictions when the expose declares them. |
 | Snowflake | Structure, types and constraints. |
-| Databricks | Structure, types and constraints; `USE CATALOG` for every reader; each dbt job exists exactly once. On forge-cli `main`, not yet released: the workspace's region against `binding.location.region`, the governance tags, and the bound column masks and row filter; with [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), the Delta history against `lifecycle.expire`. |
+| Databricks | Structure, types and constraints; `USE CATALOG` for every reader; each dbt job exists exactly once. On forge-cli `main`, not yet released: the workspace's region against `binding.location.region`, the governance tags, and the bound column masks and row filter; with [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, the Delta history against `lifecycle.expire`. |
 
 Dataset and table access grants (`accessPolicy.grants`) are not checked on any platform as of 0.18.1. [Governance parity](../concepts/governance-parity.md) sets what each cloud emits beside what verify reads back.
 
@@ -267,14 +267,14 @@ A Databricks table is checked for three things, and for four more where the cont
 
 - **Columns** against the contract, as for the other warehouses.
 - **`USE CATALOG`** for every reader. forge-cli never grants it, so a reader without it is `CRITICAL` and the finding carries the `GRANT` statement the catalog's owner runs.
-- **Jobs**: each dbt build that writes the expose has exactly one job of its name. None, or several, is `CRITICAL`. A job that is `PAUSED` while its table's masks or row filter are not in place is `CRITICAL` too (forge-cli #801, not yet in a release).
+- **Jobs**: each dbt build that writes the expose has exactly one job of its name. None, or several, is `CRITICAL`. A job that is `PAUSED` while its table's masks or row filter are not in place is `CRITICAL` too (forge-cli #801, on `main`, not yet in a release).
 
 The four that depend on the contract are on forge-cli `main`, not yet in a release, and each is skipped when the contract declares nothing for it:
 
 - **Residency** (`residency`): the workspace's metastore region against `binding.location.region`. A mismatch is `CRITICAL`, with the fix. See [Residency](../providers/databricks.md#residency) ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)).
 - **Governance tags** (`governance_tags`): every tag the contract's labels imply is on the table and its schema with its value. A missing or changed tag is `CRITICAL`, fixed by `fluid apply`; a tag someone else set is ignored. See [Governance tags](../providers/databricks.md#governance-tags) ([#779](https://github.com/Agenticstiger/forge-cli/pull/779)).
 - **Column masks and row filter** (`row_filter_masks`): the table's live row filter and column masks against the expected functions, each bound function read back for its owner, body, parameters and return type. A missing or different binding is `CRITICAL`, fixed by `fluid apply`. See [Column masks and row filters](../providers/databricks.md#column-masks-and-row-filters) ([#785](https://github.com/Agenticstiger/forge-cli/pull/785)).
-- **Retention** (`retention`, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open): the table's live `delta.logRetentionDuration` and `delta.deletedFileRetentionDuration` against `lifecycle.retention`. A history longer than the retention is `CRITICAL`, fixed by the `ALTER TABLE … SET TBLPROPERTIES` the finding carries; predictive optimization off is a warning. See [Retention](../providers/databricks.md#retention).
+- **Retention** (`retention`, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release): the table's live `delta.logRetentionDuration` and `delta.deletedFileRetentionDuration` against `lifecycle.retention`. A history longer than the retention is `CRITICAL`, fixed by the `ALTER TABLE … SET TBLPROPERTIES` the finding carries; predictive optimization off is a warning. See [Retention](../providers/databricks.md#retention).
 
 `USE CATALOG` is checked per table, so a grant scoped to one expose is checked only on that table.
 
