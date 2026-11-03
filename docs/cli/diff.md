@@ -299,14 +299,39 @@ This is contract-aware comparison, not generic schema differencing. The diff und
 - **Expose changes** — an expose added (non-breaking) or removed (breaking).
 - **Upstreams** — `consumes[]` entries added or removed.
 - **Policy narrowing** — `agentPolicy` and `sovereignty.allowedRegions` changes.
-- **Columns** — a column removed (breaking) or added, a type widened (safe) or narrowed (breaking), `DECIMAL(p,s)` and `VARCHAR(n)` precision, nested `fields[]`, and PII annotation drift.
-- **Quality severity escalation** — a rule promoted to a stricter severity.
+- **Columns** — a column removed (breaking) or added, a type widened (safe) or narrowed (breaking), `DECIMAL(p,s)` and `VARCHAR(n)` precision, nested `fields[]`, and PII annotation drift. *(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract, a column whose `sensitivity` becomes or stops being `pii` or `phi` is `column_pii_added` or `column_pii_removed`, and any other change to it is `column_sensitivity_changed`, all info. A column the dbt engine builds as a key (a `primary-key` tag, a `semanticType` of `identifier` or `primary_key`, or a `labels.constraint` of `primary_key` or `unique`) that stops being `required` is `primary_key_nullable` (breaking).
+- **Quality severity escalation** — a rule promoted to a stricter severity. *(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract that is a rule in `contract.dq.rules`, `contract.quality` or a column's `quality` whose severity becomes `error` or `critical`. `critical` fails a run as `error` does, so `critical` to `error` is not an escalation.
 
-::: warning As of 0.18.1, the column rules read `exposes[].schema`
+::: warning Through 0.26.0, the column rules read `exposes[].schema`
 `fluid diff --baseline` finds an expose's columns at `exposes[].schema`. A contract that `fluid validate` accepts declares them at `exposes[].contract.schema`, and rejects `schema` directly under the expose. On such a contract, removing a column or narrowing `DECIMAL(10,2)` to `DECIMAL(6,2)` reports `No changes detected.` and `--fail-on-breaking` exits 0 (measured). Expose, `consumes[]`, sovereignty and metadata changes are reported as shown above. Do not use `--fail-on-breaking` as the only guard against a column change. [`fluid contract-tests`](./contract-tests.md) is the column gate, and [Evolve a live product](../recipes/evolve-a-live-product.md#_2-check-the-change-against-the-baseline) shows it in a pipeline.
 :::
 
+*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* The column rules read `exposes[].contract.schema` when the expose has no `schema`, and a column with `required: true` is NOT NULL. A removed column, a type change that is not a widening and an added `required: true` column are breaking, so `--fail-on-breaking` exits 1 on them. A finding names its column at `exposes[N].contract.schema.<column>`.
+
 `--fail-on-breaking` makes the command exit `1` on any breaking change, so it can serve as a contract-compatibility gate. `--format json` or `markdown` print a structured report to stdout for PR comments or release notes, and the JSON envelope is also written to `--out`. `--baseline` cannot be combined with `--env` or `--state` (`diff_modes_mutually_exclusive`, exit 2): an overlay and a prior report belong to drift mode.
+
+*(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* Names from the contract are printed as data. In text, a control, bidi or invisible character in a name is spelled out (`\x1b`, `\u202e`), so a name cannot drive the terminal or forge a line, and each entry is one line. In Markdown, the path and the description are each one code span, so a name adds no link, image, HTML comment or heading and mentions no one. Credential-shaped values (`password=...`, `api key: ...`) are masked in every format and in `--out`. An entry reads:
+
+```markdown
+- **column_removed** `exposes[0].contract.schema.email` — `column 'email' removed from expose 'orders'`
+```
+
+Through 0.26.0, the text and JSON on stdout were wrapped at the terminal width, 80 columns in CI. A long entry, such as a removed column's description, put a line break inside a JSON string, so `--format json | jq` failed. Read the envelope from `--out` on those versions.
+
+### Both contracts must be valid
+
+*(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* Version diff validates both files before it compares them, against the schema their `fluidVersion` names, as `fluid plan` does. The rules read only the shapes a schema allows, so through 0.26.0 a contract no schema accepts could hide a change: a column retyped from `decimal(18,2)` to the number `18` passed `--fail-on-breaking` with exit 0. An invalid file now stops the run with exit 2, and nothing is printed to stdout or written to `--out`:
+
+```text
+❌ diff_contract_invalid  [ERR_DIFF_CONTRACT_INVALID]
+  invalid: ['new']
+  errors: {'new': ['exposes[0].contract.schema[5].type: 18 is not valid under any of the given schemas']}
+  message: ``fluid diff --baseline`` compares valid contracts only: the new contract new.fluid.yaml has 1 error(s). Run ``fluid validate new.fluid.yaml`` for the full report.
+```
+
+Each schema error is also logged as `diff_contract_schema_error`. A pre-0.7 contract is refused with the upgrade `fluid validate` asks for, so a pre-0.7 baseline cannot be diffed against its 0.7.x rewrite: compare two 0.7.x revisions.
+
+With `--baseline`, the command exits `0` when no breaking change gates the run, `1` when `--fail-on-breaking` finds one, and `2` when a contract is not valid or an argument is wrong. Exit 2 is `diff(1)`'s "trouble", so an invalid contract never reads as either verdict. A file that cannot be loaded at all exits 1 with `diff_failed`, as in the `$ref` example below.
 
 ### Contracts split with `$ref`
 
