@@ -191,6 +191,8 @@ platform, location and schema of the **first** expose, the contract YAML, and
 `version` key that the contract schema does not have, and `exposes[].version`
 is not used.
 
+For a product whose platform is Databricks the body also carries `metadata.workspace_host`, the workspace's `https://<host>[:port]` from `DATABRICKS_HOST` (never from the contract), so the Command Center can link the table. It is left out when `DATABRICKS_HOST` is unset or not acceptable, carries user-info, or when the checkout's project config named the endpoint. See [Databricks](../providers/databricks.md#fluid-publish).
+
 **Visibility comes from the contract.** `is_public` is `true` only when the
 contract is classified `public`: `metadata.classification: public`, or, when
 that is not set, every expose's `policy.classification` (or legacy

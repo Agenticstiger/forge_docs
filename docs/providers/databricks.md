@@ -386,6 +386,7 @@ fluid plan contract.fluid.yaml --out plans/plan.json
 fluid apply contract.fluid.yaml --yes
 fluid verify contract.fluid.yaml
 fluid diff contract.fluid.yaml
+fluid publish contract.fluid.yaml
 fluid doctor --verbose
 fluid auth logout databricks <profile>
 ```
@@ -417,6 +418,22 @@ A missing table is `CRITICAL` ("run `fluid apply`"). A failure to reach the work
 The row also says whether `databricks-sdk` is installed, and gives the install command when it is not.
 
 It never opens a connection, never prints a token, and never fails `fluid doctor`. The `fluid forge` welcome scan lists Databricks among the detected clouds when `DATABRICKS_HOST` is set with a token, an OAuth pair or a profile name.
+
+### `fluid publish`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #780](https://github.com/Agenticstiger/forge-cli/pull/780)).*
+
+The Command Center cannot link a Databricks table to its workspace unless it is told which workspace holds it. For a product on `platform: databricks`, `fluid publish` adds `metadata.workspace_host` to the asset it sends to the [Command Center](../concepts/command-center.md#what-fluid-publish-sends), so the Command Center can build a console link.
+
+- **Source**: `DATABRICKS_HOST`, never the contract. A contract cannot name a host (see [Credentials](#credentials)). The value is normalised and checked as the provider checks it: `https://`, or plain `http://` only to a loopback host.
+- **Value**: scheme and host only, `https://<host>[:port]`. A path, query or fragment is dropped.
+- **Left out, not an error**, when:
+  - `DATABRICKS_HOST` is unset, not acceptable (plain `http://` to a host that is not loopback) or malformed;
+  - it carries user-info (`https://user:password@host`), which would otherwise travel with the link;
+  - the product's platform is not Databricks;
+  - the checkout's project config named the Command Center endpoint. The runner's environment is not the checkout's to send, the rule publish already follows for `{{ env.* }}` placeholders and the operator's credential.
+
+The console link itself is built on the Command Center side.
 
 ### `fluid auth logout databricks`
 
