@@ -554,7 +554,7 @@ carries the full upgrade notes of both releases.
 
 ## On forge-cli `main` since 0.26.0 (not yet released)
 
-These changes are merged and in no release yet. Most fail closed where a contract used to apply without them, so read them before the next upgrade. The Databricks ones come first; see [Databricks](./providers/databricks.md). The OpenTofu, AWS and GCP ones follow.
+These changes are merged and in no release yet. Most fail closed where a contract used to apply without them, so read them before the next upgrade. The Databricks ones come first; see [Databricks](./providers/databricks.md). The OpenTofu, AWS and GCP ones follow, then `fluid diff --baseline`.
 
 - **A Databricks contract with a `sovereignty` block and no `binding.location.region` is now a finding**
   ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)): an error under
@@ -627,6 +627,19 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   where it used to print the raw tail of `tofu`'s `-json` stream; a script that matched that text
   needs the new one. See [`fluid doctor`](./cli/doctor.md#strict) and
   [A failed OpenTofu apply](./cli/apply.md#a-failed-opentofu-apply).
+- **`fluid diff --baseline` compares a 0.7.x contract's columns**
+  ([forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789)). It read only `exposes[].schema`, so a removed column, a type
+  change that is not a widening and an added `required: true` column passed
+  `--fail-on-breaking`. A pipeline that runs it can start exiting 1. See
+  [Contract version diff](./cli/diff.md#contract-version-diff).
+- **`fluid diff --baseline` refuses a contract its schema does not accept**
+  ([forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805)): exit 2, `diff_contract_invalid`. Run `fluid validate` on
+  both files first. A pre-0.7 baseline is refused too. It also reports more breaking changes
+  in a 0.7.x contract: a quality rule whose severity becomes `error` or `critical`, and a key
+  column (a `primary-key` tag, `semanticType: identifier`, ...) that stops being `required`.
+  A `sensitivity` change is an info
+  finding. A bot that parses `--format markdown` now finds the path and the description each
+  in a code span. See [Both contracts must be valid](./cli/diff.md#both-contracts-must-be-valid).
 
 ## DuckDB 1.x to 2.x
 
