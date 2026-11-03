@@ -169,17 +169,17 @@ The contract has its own version (`fluidVersion`), separate from the data produc
 fluid diff v2/contract.fluid.yaml --baseline v1/contract.fluid.yaml --fail-on-breaking
 ```
 
-Through 0.26.0, that mode reads each expose's columns from `exposes[].schema`, which is not where a `0.7.x` contract keeps them (`exposes[].contract.schema`). Removing a column from `exposes[].contract.schema` is reported as `No changes detected` and `--fail-on-breaking` exits 0. It does report a removed or added expose, and an expose removed from the new file exits 1:
+*On forge-cli `main`, not yet in a release ([forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789)).* The diff reads each expose's columns from `exposes[].contract.schema` and sorts each column change it compares into breaking, non-breaking or info. Removing a column from the [`csv-basics` template](../cli/init.md) exits 1 (measured):
 
 ```text
 BREAKING (1)
 ------------
-  expose_removed                   exposes[1]: expose 'second' removed (downstream consumers will fail)
+  column_removed                   exposes[0].contract.schema.days_since_last_purchase: column 'days_since_last_purchase' removed from expose 'customers_clean'
 
 Summary: 1 breaking, 0 non-breaking, 0 info
 ```
 
-On those versions, review column changes yourself. *(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* It reads `exposes[].contract.schema` too, so removing a column from it is breaking and `--fail-on-breaking` exits 1. See [`fluid diff`](../cli/diff.md#contract-version-diff) for the command, and [Evolve a live product](../recipes/evolve-a-live-product.md) for a gate that does catch them.
+Through 0.26.0, `fluid diff --baseline` reads columns from `exposes[].schema`, which a `0.7.x` contract does not have, so the same run prints `No changes detected.` and exits 0 (measured on 0.26.0). On those releases [`fluid contract-tests`](../cli/contract-tests.md) is the column gate. See [`fluid diff`](../cli/diff.md#contract-version-diff) for which column changes are breaking, and [Evolve a live product](../recipes/evolve-a-live-product.md) for the `contract-tests` gate in a pipeline, with a diff run beside it.
 
 ## Common patterns
 

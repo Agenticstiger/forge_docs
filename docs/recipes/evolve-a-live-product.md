@@ -10,7 +10,9 @@ description: Version a change, check it against what consumers rely on, gate on 
 A product is deployed and has consumers. This recipe adds a column to it the
 way a pipeline should: version the change, check it, make sure nobody changed
 the target by hand, apply, verify, and keep the record the next change needs.
-Every command below was run against the `local` provider with CLI 0.18.1.
+Every command below was run against the `local` provider with CLI 0.18.1,
+except the `fluid diff --baseline` runs in step 2, which need a CLI newer than
+0.26.0 (see the note there).
 
 **Prerequisites:** the build reads a CSV with DuckDB, which a plain
 `pip install data-product-forge` does not include. Install the `local` extra:
@@ -155,28 +157,54 @@ $ fluid contract-tests contract.fluid.yaml --write-baseline contract-baseline.js
 Before 0.16.5, `fluid contract-tests` reported every contract as compatible.
 A pipeline that relied on it on an older CLI was not gated.
 
-::: warning `fluid diff --baseline` does not see column changes (through 0.26.0)
-[`fluid diff --baseline <old> --fail-on-breaking`](../cli/diff.md#contract-version-diff)
-is meant to classify changes as breaking or not. Through 0.26.0 it reads
-columns from `exposes[].schema`, while a valid 0.7.x contract declares them
-under `exposes[].contract.schema`, so it compares no columns at all. Removing
-`amount` and retyping `order_id` between two valid contracts gives:
+To stop the pipeline only on a change that breaks consumers, compare the
+contract with the revision it replaces.
+[`fluid diff --baseline`](../cli/diff.md#contract-version-diff) sorts each
+change into breaking, non-breaking or info, and `--fail-on-breaking` exits `1`
+only for a breaking one. Here `previous.fluid.yaml` is the contract as the last
+release had it, for example from
+`git show v1.0.0:contract.fluid.yaml > previous.fluid.yaml`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789)).*
+Adding `status` is non-breaking:
 
 ```console
 $ fluid diff contract.fluid.yaml --baseline previous.fluid.yaml --fail-on-breaking
-No changes detected.
-Summary: 0 breaking, 0 non-breaking, 0 info
+NON-BREAKING (1)
+----------------
+  column_added                     exposes[0].contract.schema.status: column 'status' added to expose 'orders_summary'
+
+Summary: 0 breaking, 1 non-breaking, 0 info
 $ echo $?
 0
 ```
 
-On those versions, use `fluid contract-tests` as the column gate. `fluid plan`
-does not compare a contract with its previous version either.
-:::
+Removing `amount` and retyping `order_id` to `VARCHAR`, between two valid
+contracts, is breaking:
 
-*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* `fluid diff --baseline` reads
-`exposes[].contract.schema` too, so a removed column is breaking and
-`--fail-on-breaking` exits 1.
+```console
+$ fluid diff contract.fluid.yaml --baseline previous.fluid.yaml --fail-on-breaking
+BREAKING (2)
+------------
+  column_removed                   exposes[0].contract.schema.amount: column 'amount' removed from expose 'orders_summary'
+  column_type_changed              exposes[0].contract.schema.order_id.type: column 'order_id' type changed INTEGER -> VARCHAR (not a widening cast)
+
+Summary: 2 breaking, 0 non-breaking, 0 info
+$ echo $?
+1
+```
+
+[Which column changes are breaking](../cli/diff.md#which-column-changes-are-breaking)
+lists the rules, including which type changes count as a widening.
+
+::: warning Through 0.26.0, `fluid diff --baseline` does not see these changes
+Through 0.26.0 it reads columns from `exposes[].schema`, while a
+valid 0.7.x contract declares them under `exposes[].contract.schema`, so it
+compares no columns at all. Both runs above print `No changes detected.` and
+exit `0` there (measured on 0.26.0). Use `fluid contract-tests`, above, as the
+column gate on those releases. `fluid plan` does not compare a contract with
+its previous version either.
+:::
 
 ## 3. Gate on drift before you plan
 
@@ -360,6 +388,11 @@ fluid apply runtime/plan.json --yes
 fluid verify contract.fluid.yaml --strict
 cp runtime/plan.json runtime/last-applied.plan.json
 ```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789)).*
+To stop on breaking changes only, add
+`fluid diff contract.fluid.yaml --baseline previous.fluid.yaml --fail-on-breaking`
+before the drift check, as in step 2.
 
 When the contract uses [per-environment overlays](./per-environment-overlays.md),
 add `--env <name>` to each `fluid` command.
