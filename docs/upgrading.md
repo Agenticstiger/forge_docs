@@ -582,7 +582,7 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   now refuses such a contract (`databricks-enforcement-outside-module`): use `fluid apply`. A dbt job
   that writes a table not yet protected is created paused, and the next `fluid apply` unpauses it.
 - **Databricks retention, bronze landing and scoped grants**
-  ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open). `lifecycle.expire` was
+  ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release). `lifecycle.expire` was
   refused (`databricks-retention-unmapped`). It is accepted now for a table rebuilt in full on every
   run, when `lifecycle.retention` covers the Delta history (30 days by default); `fluid verify` checks
   it. A DuckDB acquisition that writes a Databricks expose now uploads Parquet to the volume
