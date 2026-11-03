@@ -20,6 +20,9 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **One pinned credential**: the workspace comes from `DATABRICKS_HOST` only, and a run never falls back to a stray profile
 - ⚠️ **Live drift**: `fluid diff` has no Databricks inspector yet (see [`fluid diff`](#fluid-diff))
 - ✅ **Column masks, row filters, denied columns**: Unity Catalog SQL functions that `fluid apply` binds on the table (see [Column masks and row filters](#column-masks-and-row-filters))
+- ✅ **Retention**: `lifecycle.expire` is accepted for a table rebuilt in full on every run, and `fluid verify` checks the table's Delta history against it (see [Retention](#retention))
+- ✅ **Landing from a DuckDB acquisition**: the acquisition runner uploads Parquet to a Unity Catalog volume and loads the table with `INSERT OVERWRITE`, applying `policy.privacy.masking` before the data leaves the machine (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition))
+- ✅ **Scoped grants**: an `accessPolicy` grant with `resources` is placed only on the tables it names (see [Scoping a grant to an expose](#scoping-a-grant-to-an-expose))
 - ❌ **Iceberg, `packaging`, and the governance fields that are not mapped**: `fluid validate` refuses them rather than apply something that is not enforced (see [What validate refuses](#what-validate-refuses))
 
 ## Prerequisites
@@ -29,6 +32,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 | OpenTofu `1.6.0` or newer on `PATH` | `fluid apply` runs `tofu`. An older one stops the run. |
 | A Unity Catalog workspace with an existing catalog | The catalog is read, never created. The identity that applies needs `USE CATALOG` and `CREATE SCHEMA` on it. |
 | A SQL warehouse, its id in `DATABRICKS_WAREHOUSE_ID` | Every table statement runs on it, and so do the dbt jobs. Find the id under SQL Warehouses, Connection details. The id is not a secret. |
+| A Unity Catalog volume of its own, `/Volumes/<catalog>/<schema>/<volume>` in `DATABRICKS_STAGING_VOLUME` | Only for a DuckDB acquisition that lands in Databricks (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)). |
 | `pip install 'data-product-forge[databricks]'` | The extra brings `databricks-sdk`. Only `fluid verify` needs it. |
 
 ## Credentials
@@ -139,7 +143,32 @@ Permissions map to table privileges: `read`, `select` and `query` to `SELECT`; `
 
 A principal is a user's email, a group's name or a service principal's application id, written bare. A `user:` or `group:` prefix is stripped. A service account or domain principal has no Unity Catalog counterpart, so map it in `binding.principals` or the run is refused.
 
+A grant with `resources` goes only on the tables it names (see [Scoping a grant to an expose](#scoping-a-grant-to-an-expose)).
+
 A grant is authoritative for its principal. If the schema already existed and other teams share it, each principal the contract names keeps `USE_SCHEMA` alone on it. Give a product its own schema.
+
+### Scoping a grant to an expose
+
+*In [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open and not yet in a release.*
+
+An `accessPolicy` grant may name the exposes it is for in `resources`. Databricks evaluates three shapes, and a grant without `resources` is for every expose:
+
+```yaml
+accessPolicy:
+  grants:
+    - principal: group:data-analysts
+      permissions: [read]
+      resources:
+        - "$.exposes[?(@.exposeId=='orders')]"
+```
+
+| `resources` entry | Grant goes on |
+| --- | --- |
+| `$.exposes[?(@.exposeId=='<id>')]` (either quote, spaces allowed) | The table of that expose. Repeat the entry for several exposes. |
+| `$.exposes[*]` or `$.exposes` | Every expose's table. |
+| No `resources` | Every expose's table. |
+
+Anything else is refused as `databricks-grant-scope-unmapped`, rather than placed on more tables than the contract names: a path forge-cli cannot evaluate, a blank entry, or an `exposeId` the contract does not have. `fluid verify` checks `USE CATALOG` per table, so a scoped principal is checked only on the tables it was granted. A reader named in `policy.authz.readers` or `writers` is for that expose alone, as before.
 
 ### `USE CATALOG` is the owner's to grant
 
@@ -184,6 +213,7 @@ What a contract says about where its data lives and who may read it, and what fo
 | --- | --- | --- |
 | `binding.location.region` with `sovereignty` | Held by the policy at `fluid validate`, `fluid apply` and `generate iac`, and checked against the workspace's metastore at plan time (see [Residency](#residency)) | `residency` |
 | `labels`, and the classification, jurisdiction, regulation and residency a contract carries | Unity Catalog tags on the schema and the table (see [Governance tags](#governance-tags)) | `governance_tags` |
+| `lifecycle.expire` with `lifecycle.retention` | Accepted for a table rebuilt in full on every run, when the retention covers the table's Delta history (see [Retention](#retention)) | `retention` |
 | `policy.authz.columnRestrictions` and `rowFilters` | SQL functions bound on the table as column masks and a row filter, by `fluid apply` only (see [Column masks and row filters](#column-masks-and-row-filters)) | `row_filter_masks` |
 
 ### Residency
@@ -217,13 +247,13 @@ The rules:
 - **The policy holds at apply, not only at validate.** `fluid apply` and `fluid generate iac` refuse a placement the policy forbids with `SovereigntyViolationError`, before any module is written, so before `tofu init`, an import or an adoption.
 - **The spelling is exact.** The region must be a plain lower-case name: lower-case letters, digits and hyphens, starting with a letter, 2 to 63 characters, no spaces (`eu-central-1`, `westeurope`, `europe-west3`). Anything else is refused as `databricks-region-invalid`. It is not lower-cased for you: the policy compares the text as written, so `US-WEST-2` would otherwise pass a `deniedRegions: [us-west-2]` check and still plan against a workspace in us-west-2.
 - **One region per contract.** The module applies to one workspace (`DATABRICKS_HOST`). Two Databricks exposes that declare different regions are refused as `databricks-region-conflict`.
-- **The declaration is checked against the workspace, at plan time.** With a region declared, the module reads the workspace's metastore (`data.databricks_current_metastore`), and every schema it owns carries a precondition that the metastore's region equals the declared one. `tofu plan` fails, `--mode dry-run` included, before anything is written, when `DATABRICKS_HOST` names a workspace elsewhere:
+- **The declaration is checked against the workspace, at plan time.** With a region declared, the module reads the workspace's metastore (`data.databricks_current_metastore`), and every schema it owns carries a precondition that the metastore's region equals the declared one. `tofu plan` fails, `--mode dry-run` included, before anything is written, when `DATABRICKS_HOST` names a workspace elsewhere. The run stops with `opentofu_plan_failed` and kind `databricks-residency-region`, and prints one line with both regions and the fix (the wording from [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open and not yet in a release):
 
   ```text
-  The contract declares binding.location.region eu-central-1, but the workspace DATABRICKS_HOST names is in us-west-2. Residency is checked against the workspace's metastore. Point DATABRICKS_HOST at a workspace in eu-central-1, or correct binding.location.region.
+  the contract declares binding.location.region eu-central-1, but the workspace DATABRICKS_HOST names is in us-west-2. Point DATABRICKS_HOST at a workspace in eu-central-1, or correct binding.location.region.
   ```
 
-  The precondition sits on every schema the module owns, whichever expose declared the region.
+  When the plan output does not show the live region, the line says "in a region the plan output does not show". The precondition sits on every schema the module owns, whichever expose declared the region.
 - **No region and no `sovereignty` block** gives the module it always did.
 
 `fluid verify` reads the workspace's metastore summary and reports a `residency` dimension: it passes when the region matches the declaration (compared without regard to case), fails with the fix when it does not, and is skipped when the contract declares none. A mismatch raises the result to `CRITICAL`.
@@ -317,7 +347,7 @@ The module `fluid generate iac` writes holds no mask or filter, and a plain `tof
 
 #### What the functions are
 
-Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. Superseded functions are not dropped; they are harmless metadata.
+Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. A superseded function is dropped by `fluid apply` after the apply succeeds ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open and not yet in a release), when no table in the schema uses it and the run's identity owns it, and the run prints `dropped superseded function <name>`. Only `fluid_rf_<table>_…`, `fluid_mask_<table>_<column>_…` and deny-all functions of the contract's tables are candidates. A function owned by another identity, or by an owner that cannot be read, is left and printed as `left function <name>: …`. A `DROP` that fails prints `note: superseded function <name> was not dropped: …` and the apply still succeeds. When a schema's tables or functions cannot all be read, nothing in it is dropped.
 
 The hashed name can be computed from the contract, so someone with `CREATE FUNCTION` on the schema could create it first with a body that returns the value unmasked. So after each create, and before any bind, forge-cli reads the function back. Its owner (the identity the run authenticates as), body, parameters and return type must be the expected ones, whitespace aside. A function that is not is never bound, and the run prints what differs.
 
@@ -349,6 +379,8 @@ A mask or filter that cannot be bound must not leave the table readable. After a
 2. **If that cannot be bound**, or would replace a row filter this module did not create, `SELECT` (and `ALL PRIVILEGES`) on the table is revoked from every grantee but its owner, listed through the permissions API.
 3. **Paths it cannot close are named.** A grant inherited from the schema or the catalog is not one a table-level `REVOKE` reaches. The run lists each with the statement to run.
 
+The lock leaves the table's owner and the identity of the run alone: revoking from the run's own identity would lock it out of the table it has to repair. When the owner is unreadable the message says so. When the contract restricts the owner or the run's identity, the message names that as an open path, with the `ALTER TABLE … OWNER TO` statement to run, since an owner reads its table whatever is revoked ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open and not yet in a release).
+
 The message says exactly what was done, and the run exits non-zero (`databricks-enforcement-failed`). Fix the cause and run `fluid apply` again: it binds first, replacing a deny-all filter, and grants again afterwards.
 
 #### A job that writes a table not yet protected
@@ -372,13 +404,37 @@ Refused rather than dropped, since a table applied without them would be readabl
 | `databricks-principal-kind`: a principal with no prefix, or a `domain:` one | There is no Unity Catalog identity to test for. Write `group:<name>`, `user:<email>` or `serviceAccount:<name>` and map it in `binding.principals`. |
 | `databricks-row-filter-invalid` | A predicate outside the allowlist above. |
 | `databricks-enforcement-outside-module` | `fluid generate iac` (above). |
-| `databricks-governance-unmapped`: `policy.privacy.masking`, `policy.privacy.rowLevelPolicy`, `binding.governance` | Not mapped. Landing-time masking and ABAC policies are not; enforce access with grants and with `columnRestrictions` and `rowFilters`. |
+| `databricks-governance-unmapped`: `policy.privacy.rowLevelPolicy`, `binding.governance` | Not mapped. ABAC policies are not; enforce access with grants and with `columnRestrictions` and `rowFilters`. |
+| `databricks-governance-unmapped`: `policy.privacy.masking` on an expose that a DuckDB acquisition does not alone write | Landing-time masking is applied only by the acquisition runner, so an expose written by a dbt build or by no build would hold the unmasked values. Write it with a DuckDB acquisition build (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)), or remove the masking and use `columnRestrictions`. |
 
 `fluid verify` reads the bindings back into a `row_filter_masks` dimension (see [`fluid verify`](#fluid-verify)).
 
 ::: warning Not proven live
 Proven against the in-process stand-in with a real `tofu` apply, with the function bodies evaluated in DuckDB. Not run against a live workspace: that `CREATE FUNCTION IF NOT EXISTS`, `SET ROW FILTER` (with `ON ()` as well) and `SET MASK` behave as the stand-in models them; that `SET` replaces a binding already on the table (if it does not, a changed predicate or the interim filter fails closed with the old binding in place); that a function's `routine_definition` is its body as written; that `current_user()` is a service principal's application id; and what a warehouse of each type enforces.
 :::
+
+### Retention
+
+*In [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open and not yet in a release.*
+
+Nothing on Databricks deletes rows by age. What can make a retention promise true is the table's shape: a table rebuilt in full on every run holds no row older than the last run, except in its Delta history, the old data files Delta keeps for time travel. `VACUUM` removes those once they are older than the table's retention, and predictive optimization runs `VACUUM` on Unity Catalog managed tables. So `lifecycle.expire: true` is accepted when:
+
+- **Every build that writes the expose rewrites the whole table.** That is a dbt build whose model for the table resolves to `materialized: table` and whose selection includes the model, or a DuckDB acquisition with `properties.source.mode: full_refresh`. forge-cli reads the dbt project to resolve the materialization as dbt does: the model's `config()` call beats its `config:` in a properties YAML, which beats `dbt_project.yml` by the most specific path, and the default is `view`. A value forge-cli cannot read statically (`var()`, a conditional `config()`) is refused, not guessed.
+- **`lifecycle.retention` covers the Delta history.** It must be at least the larger of `delta.logRetentionDuration` (30 days by default) and `delta.deletedFileRetentionDuration` (7 days by default), so at least `P30D` unless the dbt model declares shorter values in its `tblproperties`. A year counts as 365 days and a month as 28, so a retention is never read as longer than it is.
+
+forge-cli does not set those table properties, since dbt owns a dbt-written table's definition, and it does not check that the build runs often enough to stay inside the retention. That cadence is yours to keep.
+
+| Refusal | Why |
+| --- | --- |
+| `databricks-retention-period` | No `lifecycle.retention`, or one that is not an ISO 8601 duration. |
+| `databricks-retention-unmapped` | No build writes the expose, a build is neither dbt nor a DuckDB acquisition, or an acquisition sets no `properties.source.mode`: nothing says the table is rebuilt in full. |
+| `databricks-retention-incremental` | A dbt model materialized `incremental` or `snapshot`, or an acquisition whose source mode is not `full_refresh`: earlier rows stay, and a Delta history limit cannot expire them. |
+| `databricks-retention-not-table` | A dbt model materialized as anything but `table` (dbt's default is `view`). |
+| `databricks-retention-dbt-unresolved` | The dbt project is a Git URL, cannot be found, or the model's materialization or `tblproperties` cannot be read. Point `repository` at a local project. |
+| `databricks-retention-not-selected` | The build's `properties.model` or `properties.select` does not include the model, or selects it only through graph operators, tags, configs or state that forge-cli cannot evaluate. Select it by name. |
+| `databricks-retention-too-short` | `lifecycle.retention` is shorter than the history. The message names the whole day count that covers it. |
+
+`fluid verify` is the gate on the live table, in a `retention` dimension (see [`fluid verify`](#fluid-verify)).
 
 ## dbt builds as jobs
 
@@ -485,13 +541,39 @@ models:
 ```
 :::
 
+## Landing a DuckDB acquisition
+
+*In [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open and not yet in a release.*
+
+A DuckDB acquisition build (`pattern: acquisition`, `engine: duckdb`) whose expose is on Databricks used to write a local file and report success with nothing in Databricks. It now lands the data in the table `fluid apply` created, in three steps:
+
+1. **Mask and stage.** The runner applies `policy.privacy.masking` (hash, tokenize, encrypt or mask columns) and writes Parquet under `.fluid/staging`, so masked values are all that leaves the machine.
+2. **Upload.** The file goes through the Files API, in one `PUT` (5 GiB limit), to `<volume>/<product>/<build>/<run id>/<file>.parquet`. The volume is `DATABRICKS_STAGING_VOLUME`, `/Volumes/<catalog>/<schema>/<volume>` with three plain identifiers, read from the environment only: a contract that named a path could aim the upload anywhere the credential reaches. Give staging a volume of its own.
+3. **Load.** One statement runs on `DATABRICKS_WAREHOUSE_ID`: `INSERT OVERWRITE c.s.t (cols) SELECT cols FROM read_files('<the staged file>', format => 'parquet')`. It is a full refresh by column name that reads only this run's file, and it keeps the table's definition, grants, tags, row filter and masks. The run fails when the rows loaded differ from the rows in the file.
+
+The staged files are always deleted: after success, after a failure, after a short load and on Ctrl-C (an `INSERT` the warehouse has answered for is cancelled first). A file that cannot be deleted fails the run and is named first. Each load also deletes what earlier runs of the same build left under `<volume>/<product>/<build>/`, but only run-id-named directories holding nothing but Parquet files, all more than an hour old; this runs under the deploy credential, which is why the volume should be its own. The run record carries `facets.databricks_load`: the table, the rows, where the count came from, the staging path, whether the staged files were deleted and how many earlier runs' leftovers were swept.
+
+The runner never creates or alters a table. A missing table fails the run and names `fluid apply`. A build with more than one stream is refused when it runs.
+
+::: warning Not proven live
+Proven against an in-process stand-in. Not run against a live workspace: what `read_files` and `INSERT OVERWRITE` accept on a managed table that carries a mask and a row filter, the Files API's limits, `GetTable` serving the retention properties, and predictive optimization.
+:::
+
+What is refused, before the table exists where `fluid validate` or `fluid apply` can tell:
+
+| Refusal | Why |
+| --- | --- |
+| `databricks-landing-unsupported` | An acquisition writing a Databricks expose with a source mode other than `full_refresh`, or a sink format other than `parquet`. A `{{ env.X }}` placeholder there is skipped only by `fluid validate`; at apply one still unresolved is refused. |
+| `databricks-masking-invalid` | A `policy.privacy.masking` rule the runner cannot apply, such as `k_anonymity`, an unknown strategy, or `masking` that is not a list. |
+| `databricks-governance-unmapped` | `policy.privacy.masking` on an expose that is not written only by DuckDB acquisitions (see [What masks and filters refuse](#what-masks-and-filters-refuse)). |
+
 ## What validate refuses
 
 `fluid validate` refuses what would apply with exit 0 and not be enforced:
 
 - a host in the contract, on a binding or a build;
 - Iceberg and a `packaging` block;
-- the governance fields that are not mapped (`policy.privacy.masking`, `policy.privacy.rowLevelPolicy`, `binding.governance`), a column restriction or row filter Unity Catalog cannot express, and a label set that collides or exceeds 50 tags (see [Column masks and row filters](#what-masks-and-filters-refuse) and [Governance tags](#governance-tags));
+- the governance fields that are not mapped (`policy.privacy.rowLevelPolicy`, `binding.governance`, and `policy.privacy.masking` on an expose a DuckDB acquisition does not alone write), a `lifecycle.expire` the table's shape cannot keep (see [Retention](#retention)), an acquisition the landing cannot run (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)), an `accessPolicy` grant whose `resources` forge-cli cannot evaluate (see [Scoping a grant to an expose](#scoping-a-grant-to-an-expose)), a column restriction or row filter Unity Catalog cannot express, and a label set that collides or exceeds 50 tags (see [Column masks and row filters](#what-masks-and-filters-refuse) and [Governance tags](#governance-tags));
 - a `binding.location.region` that is not a plain lower-case region name, two exposes that declare different regions, and, with a `sovereignty` block, a placement the policy refuses (see [Residency](#residency));
 - a `binding.location` key the module would drop (`path` and others). `region` is read: see [Residency](#residency);
 - duplicate partitions;
@@ -524,7 +606,10 @@ Install the extra first: `pip install 'data-product-forge[databricks]'`. Verify 
 3. **Residency** (`residency`): the workspace's metastore region against `binding.location.region`. Skipped when the contract declares none. See [Residency](#residency).
 4. **Governance tags** (`governance_tags`): every tag the contract implies is on the table and its schema, with its value. Skipped with no labels. See [Governance tags](#governance-tags).
 5. **Column masks and row filter** (`row_filter_masks`): the expected, content-hashed function names against the table's live `row_filter` and each column's `mask`, and each bound function read back for its owner (this verify's identity or the table's owner), body, parameters and return type. A missing or different binding is `CRITICAL`, with `fluid apply` as the fix. Skipped when the contract restricts nothing. See [Column masks and row filters](#column-masks-and-row-filters).
-6. **Jobs**: each dbt build that writes the expose has exactly one job of its name. None means `fluid apply` did not run or the job was deleted. Several mean an apply without its state created a duplicate.
+6. **Jobs**: each dbt build that writes the expose has exactly one job of its name. None means `fluid apply` did not run or the job was deleted. Several mean an apply without its state created a duplicate. A job that is `PAUSED` while its table's masks or row filter are not in place also fails, with `fluid apply` as the fix.
+7. **Retention** (`retention`, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), open and not yet in a release): skipped when the contract sets no `lifecycle.expire`. It reads the live table's `delta.logRetentionDuration` and `delta.deletedFileRetentionDuration` (Delta's defaults when unset). `fail`, `CRITICAL`, when the longer of the two exceeds `lifecycle.retention` or one is not an interval; the fix is the `ALTER TABLE … SET TBLPROPERTIES` that sets both, or a longer retention. `warn` when predictive optimization is off for the table (enable it, or schedule `VACUUM`), or when Unity Catalog returned no table properties and Delta's defaults were assumed (check `SHOW TBLPROPERTIES`). See [Retention](#retention).
+
+`USE CATALOG` is checked per table, so a [scoped grant's](#scoping-a-grant-to-an-expose) principal is checked only where it was granted.
 
 A missing table is `CRITICAL` ("run `fluid apply`"). A failure to reach the workspace is reported as a result, not a traceback, and no message carries a token.
 
@@ -583,7 +668,8 @@ It keeps every other profile, writes the file back owner-only (`0600`) and never
 - **The catalog is never created or granted.** Create it and grant `USE CATALOG` yourself.
 - **A denied column is still listed.** Unity Catalog has no column-level grant, so a denied column is a mask that reads `NULL` (see [Column masks and row filters](#column-masks-and-row-filters)).
 - **Masks and row filters come from `fluid apply` alone.** `fluid generate iac` refuses a contract that has them, and a module applied by hand would have none.
-- **Landing-time masking is not mapped.** `policy.privacy.masking` is refused.
+- **Landing-time masking needs a DuckDB acquisition.** `policy.privacy.masking` is applied by the acquisition runner before the data leaves the machine, so an expose written by anything else is refused (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)).
+- **Retention is a Delta history limit.** It holds only for a table rebuilt in full. forge-cli does not set the table's retention properties and does not check that the build runs within the retention (see [Retention](#retention)).
 - **Empty folders stay.** The `.fluid/<product>/<build>` folders above `files/` are not managed; only `files/` and below are.
 
 ## How it is tested
