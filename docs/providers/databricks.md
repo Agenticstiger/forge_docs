@@ -361,7 +361,7 @@ job 'fluid sales.orders_dbx transform' is created paused (pause_status PAUSED): 
 
 The next `fluid apply`, once the bindings match, unpauses it in place, with no drift from unpausing it by hand. A manual job has no trigger to pause. `fluid validate` and the pure compile never read the workspace.
 
-#### What is refused
+#### What masks and filters refuse
 
 Refused rather than dropped, since a table applied without them would be readable without what the contract promises:
 
@@ -491,7 +491,7 @@ models:
 
 - a host in the contract, on a binding or a build;
 - Iceberg and a `packaging` block;
-- the governance fields that are not mapped (`policy.privacy.masking`, `policy.privacy.rowLevelPolicy`, `binding.governance`), a column restriction or row filter Unity Catalog cannot express, and a label set that collides or exceeds 50 tags (see [Column masks and row filters](#what-is-refused) and [Governance tags](#governance-tags));
+- the governance fields that are not mapped (`policy.privacy.masking`, `policy.privacy.rowLevelPolicy`, `binding.governance`), a column restriction or row filter Unity Catalog cannot express, and a label set that collides or exceeds 50 tags (see [Column masks and row filters](#what-masks-and-filters-refuse) and [Governance tags](#governance-tags));
 - a `binding.location.region` that is not a plain lower-case region name, two exposes that declare different regions, and, with a `sovereignty` block, a placement the policy refuses (see [Residency](#residency));
 - a `binding.location` key the module would drop (`path` and others). `region` is read: see [Residency](#residency);
 - duplicate partitions;
