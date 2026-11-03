@@ -554,7 +554,7 @@ carries the full upgrade notes of both releases.
 
 ## On forge-cli `main` since 0.26.0 (not yet released)
 
-These Databricks changes are merged and in no release yet. They fail closed where a contract used to apply without them, so read them before the next upgrade. See [Databricks](./providers/databricks.md).
+These changes are merged and in no release yet. The Databricks ones fail closed where a contract used to apply without them, so read them before the next upgrade. See [Databricks](./providers/databricks.md).
 
 - **A Databricks contract with a `sovereignty` block and no `binding.location.region` is now a finding**
   ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)): an error under
@@ -581,6 +581,34 @@ These Databricks changes are merged and in no release yet. They fail closed wher
   `user:` or `serviceAccount:` prefix, and a predicate outside the allowlist. `fluid generate iac`
   now refuses such a contract (`databricks-enforcement-outside-module`): use `fluid apply`. A dbt job
   that writes a table not yet protected is created paused, and the next `fluid apply` unpauses it.
+- **`redshift` and `datamesh-manager` are no longer providers.** `--provider` or `FLUID_PROVIDER` naming
+  either one now exits 2. For `redshift` the message points to `--provider aws`; for Data Mesh Manager,
+  to `fluid publish --target datamesh-manager`. A contract's `runtime.platform: redshift` is served by
+  `aws`, so it needs no change. A plugin cannot claim either name. See
+  [Retired provider names](./cli/providers.md#retired-provider-names).
+
+## Extras in 0.27.0 and the install change in 0.28.0
+
+*(from 0.27.0)* Four extras are new. In 0.27.0 the base install still contains all of their packages, so installing them changes nothing yet.
+
+| Extra | Installs | For |
+| --- | --- | --- |
+| `litellm`, alias `ai` | `litellm` | The AI backend of `fluid forge`, `fluid forge data-model`, `fluid ai setup` and the copilot |
+| `mcp` | `mcp` | The MCP server SDK: `fluid mcp serve`, MCP output ports and the keyless `mcp-sampling` provider |
+| `lineage` | `openlineage-python` | Lineage events when `OPENLINEAGE_URL` is set |
+| `standard` | `litellm` and `mcp` | Today's full AI and MCP behaviour |
+
+The extras that already exist are `all`, `aws`, `catalogs`, `copilot`, `databricks`, `datahub`, `dev`, `docs`, `gcp`, `keyring`, `local`, `odcs-strict`, `odps`, `opds`, `postgres`, `sdk`, `snowflake`, `test-emulators`, `test-emulators-heavy`, `tui`, `vector` and `viz`.
+
+**Coming in 0.28.0 (announced, not released):** litellm, mcp and openlineage leave the base install, which shrinks from 86 packages and 211 MB to 41 packages and 39.5 MB. If you use AI forge or MCP, install:
+
+```bash
+pip install "data-product-forge[standard]"
+```
+
+or `[ai]`, `[mcp]` or `[lineage]` for one of them. If you only run `validate`, `plan`, `apply`, `bundle`, `generate iac` and `doctor`, you need nothing. Put the extra in `FLUID_PACKAGE_SPEC` in CI before you move.
+
+*(from 0.27.0)* When an optional package is missing, the CLI prints one line naming the extra and exits 1; see [Production troubleshooting](./advanced/production-troubleshooting.md#an-optional-package-is-not-installed). `fluid doctor` prints one line announcing the 0.28.0 move, and no longer imports litellm: it reads the version from package metadata, so it is faster and makes no network call for litellm's cost map.
 
 ## DuckDB 1.x to 2.x
 

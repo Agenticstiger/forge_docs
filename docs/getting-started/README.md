@@ -46,6 +46,12 @@ The `local` extra installs DuckDB (`duckdb>=1.5.0`), pandas and numpy, which the
 | `gcp` | BigQuery | Google Cloud client libraries, `dbt-bigquery` |
 | `aws` | S3, Glue, Athena | `boto3` |
 | `snowflake` | Snowflake | `snowflake-connector-python`, `dbt-snowflake` |
+| `litellm` (alias `ai`) | *(from 0.27.0)* The AI backend for `fluid forge`, `fluid forge data-model`, `fluid ai setup` and the copilot | `litellm` |
+| `mcp` | *(from 0.27.0)* The MCP server SDK for `fluid mcp serve`, MCP output ports and the keyless `mcp-sampling` provider | `mcp` |
+| `lineage` | *(from 0.27.0)* Emitting OpenLineage events when `OPENLINEAGE_URL` is set | `openlineage-python` |
+| `standard` | *(from 0.27.0)* `litellm` and `mcp` together: the AI and MCP behaviour a base install has today | `litellm`, `mcp` |
+
+The table lists the extras a first project needs. [Upgrading](../upgrading.md#extras-in-0-27-0-and-the-install-change-in-0-28-0) lists every extra, and what changes for a base install in 0.28.0.
 
 ```bash
 pip install "data-product-forge[local,gcp]"           # several extras at once

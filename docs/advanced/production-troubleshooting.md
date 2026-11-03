@@ -247,6 +247,26 @@ Update the key at the source `fluid ai status` reports, the provider environment
 
 [`fluid ai test`](../cli/ai.md#ai-test) is the connectivity check. As of 0.18.1, `fluid ai test` with no provider configured and no `--provider` fails with `❌ Unexpected error: name 'detect_ollama_available' is not defined` and exit code 2. Name the provider, or run `fluid ai setup` first. `fluid ai test --provider <name> --json` prints a report with `ok`, `exit_code` and, on failure, an `error` object with `code`, `message` and `suggestions`.
 
+## An optional package is not installed
+
+**Symptom:** a command exits 1 with one line naming the feature, the package and the extra:
+
+```text
+<feature> needs <pkg>, which is not installed.
+
+    pip install 'data-product-forge[<extra>]'
+```
+
+*(from 0.27.0; the wording may still change)* The line names the exact extra. Run that command, then run the command again. Nothing else is wrong with the contract or the environment.
+
+| Feature | Package | Extra |
+|---|---|---|
+| `fluid forge`, `fluid forge data-model`, `fluid ai setup`, the copilot | `litellm` | `ai` (alias of `litellm`), or `standard` |
+| `fluid mcp serve`, MCP output ports, the keyless `mcp-sampling` provider | `mcp` | `mcp`, or `standard` |
+| Lineage events when `OPENLINEAGE_URL` is set | `openlineage-python` | `lineage` |
+
+Through 0.27.0 a base install contains all three, so you meet this only if you removed one. From 0.28.0 a base install omits them. A pipeline of only `validate`, `plan`, `apply`, `bundle`, `generate iac` and `doctor` needs none of them. In CI, put the extra in `FLUID_PACKAGE_SPEC` or in your install step.
+
 ## Where logs live
 
 | Setting | Effect |

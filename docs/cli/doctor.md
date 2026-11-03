@@ -167,6 +167,10 @@ CLI command error
 
 The exit code is `1`. Leave `--extended` out unless your project provides its own `scripts/diagnose.sh`.
 
+## The 0.28.0 install change
+
+*(from 0.27.0)* `fluid doctor` prints one line announcing that litellm, mcp and openlineage leave the base install in 0.28.0, and which extra to install. It no longer imports litellm: it reads the version from the package metadata, so it runs faster and makes no network call for litellm's cost map.
+
 ## Installing what doctor checks
 
 The `fix:` line for a missing binary, and the `doc` field in `--json` output, point at this page. A warning matters only when you use the command that needs the tool.
@@ -179,6 +183,7 @@ The `fix:` line for a missing binary, and the `doc` field in `--json` output, po
 | `helm`, `kubectl` | Managed-mode acquisition engines that provision infrastructure with Helm on Kubernetes. | [Helm install guide](https://helm.sh/docs/intro/install/) and [Kubernetes tools](https://kubernetes.io/docs/tasks/tools/). |
 | `duckdb` | The `local` provider and DuckDB acquisition builds. | `pip install "data-product-forge[local]"`, which installs `duckdb` at the version the CLI requires for its contract-SQL sandbox. See [DuckDB sandbox](../advanced/duckdb-sandbox.md). |
 | `dlt` | `dlt` acquisition builds. | `pip install dlt`. As of 0.18.1 `data-product-forge` has no `dlt` extra. |
+| `litellm`, `mcp`, `openlineage` | *(from 0.27.0)* AI forge, `fluid mcp serve` and lineage emission. | Part of a base install through 0.27.0. From 0.28.0: `pip install "data-product-forge[standard]"`, or `[ai]`, `[mcp]` or `[lineage]` for one. |
 | `httpx` | A core dependency of the CLI. | Installed with `data-product-forge`; a failure here points to a broken Python environment. |
 | `snowflake.connector` | The `snowflake` provider. | `pip install "data-product-forge[snowflake]"`. The `fix:` line for this check reads `pip install snowflake`, which is not the package that provides the connector; use the extra. |
 
