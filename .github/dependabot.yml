@@ -7,6 +7,14 @@ updates:
     labels:
       - "dependencies"
     open-pull-requests-limit: 5
+    groups:
+      # Each @vuepress/* package pins an exact @vuepress/helper version, so
+      # bumped one at a time they rewrite the same package-lock.json lines
+      # and conflict with each other (#163/#164, then #177/#179).
+      vuepress:
+        patterns:
+          - "vuepress"
+          - "@vuepress/*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
