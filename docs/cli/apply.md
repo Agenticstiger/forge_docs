@@ -197,6 +197,29 @@ The check runs after the [plan binding](#plan-binding) checks and the [mode gate
 
 There is no flag to skip the check. Run `fluid validate <contract> --env <env>` to see every error, fix them, and apply again.
 
+### Build ids
+
+*On forge-cli `main`, not yet in a release ([forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803)).* Under `--mode amend-and-build` or `replace-and-build`, `fluid apply` also checks `id` and every `builds[].id` right after the schema check. This happens on both engines, before the apply hooks, `tofu` and any build.
+
+The build phase keeps each build's run records, cursors and watermarks under `.fluid/runs/<id>/<build id>/`, so its rule is narrower than the schema's. An id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. So `fluid validate` and `fluid plan` pass an id such as `1orders`, and `fluid apply` refuses it:
+
+```bash
+fluid apply contract.fluid.yaml --mode amend-and-build --yes
+```
+
+```text
+❌ apply_build_identifier_invalid  [ERR_APPLY_BUILD_IDENTIFIER_INVALID]
+  field: contract.id
+  value: '1orders'
+  hint: The build phase keeps each build's run records, cursors and watermarks under .fluid/runs/<contract.id>/<build.id>/, so both ids must start with a letter or underscore, use only letters, digits, '_', '.' and '-', and be at most 128 characters. The contract schema allows more, so fluid validate and fluid plan accept it. Nothing was applied.
+
+💡 Suggestions:
+  • Rename the id to fit, for example orders_v1 instead of 1orders, and apply again
+  • A renamed id starts over: its builds get new cursors and watermarks under .fluid/runs/, and a renamed contract.id gets a new OpenTofu workdir under .fluid/iac/<provider>/
+```
+
+Before this change only the build runner checked these ids. On the OpenTofu engine the runner starts after `tofu apply`, so the product was provisioned first, and the run then stopped with "Unexpected error". A mode without a build phase is not checked, and neither is a contract without `builds`.
+
 ## Plan binding
 
 When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` runs three gates on it before it builds or provisions anything, on both engines:
@@ -297,6 +320,15 @@ Removing a resource that only grants access is a revocation, not a loss, and pas
 A Cloud KMS key's IAM grant is not exempt: without it BigQuery cannot decrypt the table. Any removal of a type not in the list counts, so removing a bucket's lifecycle or server-side-encryption configuration, or a product's KMS key, needs `--allow-data-loss` even though no object is deleted. See [AWS](../providers/aws.md). If the plan's per-resource events do not account for every removal in its summary (an older `tofu`, a truncated stream), the gate counts every removal.
 
 Some governance changes cannot be made to a live BigQuery table in place and plan its replacement, which this gate refuses without the flag: adding retention (`expire: true`) to a table that exists, adding or changing its Cloud KMS key, and removing `expire`. Roll these out as: plan, review the replacement, apply with `--allow-data-loss`, then run the build again to land the data. See [GCP](../providers/gcp.md).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793)).* The gate also holds a plan that destroys nothing but changes existing data in place. On AWS, a Glue table whose column types change plans as a plain update, yet the Parquet files written under the old type may stop reading until they are rewritten. `fluid apply`, its `--dry-run` included, refuses until `--allow-data-loss` is set, and names each table and each `column: old -> new`:
+
+```text
+❌ opentofu_data_loss_gate  [ERR_OPENTOFU_DATA_LOSS_GATE]
+  error: plan changes existing data in place (Glue table <database>.<table>: column types change in place (<column>: string -> smallint); files written under the old type may stop reading until they are rewritten, and reverting the column type restores reads); `tofu` does not snapshot data — re-run with --allow-data-loss to proceed
+```
+
+Reverting the column type in the contract restores reads. A difference in spacing alone, such as `decimal(10, 2)` and `decimal(10,2)`, is no change and never trips the gate. When an AWS plan has in-place updates and its change list cannot be read back, the gate fails closed and needs the flag as well. Why a table gets new column types after an upgrade is in [AWS column types](../providers/aws.md#column-types).
 
 ### Region-move guard
 
@@ -569,8 +601,11 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `plan_env_mismatch` | A build mode is given an `--env` that differs from the plan's. |
 | `bundle_env_mismatch` | `--env` differs from the env a bundle was built for. |
 | `apply_build_id_requires_build_mode` | `--build-id` with a mode that runs no build. |
+| `apply_build_identifier_invalid` | *(On forge-cli `main`, not yet in a release, [forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803).)* A build mode, and an `id` or `builds[].id` the build phase cannot use. Nothing is applied. See [Build ids](#build-ids). |
 | `apply_mode_data_loss_blocked` | `replace` or `replace-and-build` without `--allow-data-loss`. |
-| `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. |
+| `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. *(On forge-cli `main`, not yet in a release, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793).)* Also a plan that changes the column types of a Glue table in place. |
+| `opentofu_plan_failed` | `tofu plan` failed. *(On forge-cli `main`, not yet in a release, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786).)* A plan that failed on a held state lock suggests `tofu force-unlock <id>`. |
+| `opentofu_apply_failed` | `tofu apply` failed. See [A failed OpenTofu apply](#a-failed-opentofu-apply). |
 | `opentofu_region_moved` | State holds the contract's resources in another region than its bindings name. |
 | `packaging_transition_blocked` | A container's ownership flips under existing state. See [Packaging modes](#packaging-modes). |
 | `iceberg_catalog_move_blocked` | *(since 0.20.0, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707))* State holds Glue resources an earlier release created for an AWS Iceberg table that now lives in another catalog. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), since 0.20.0)* Or it holds the Snowflake EXTERNAL VOLUME an earlier release created for a Snowflake Iceberg table in an external catalog. See [Iceberg catalog-move guard](#iceberg-catalog-move-guard). |
@@ -579,6 +614,33 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `generate_iac_provider_mismatch` | `--provider` contradicts the contract's binding. |
 | `unsupported_binding` | The OpenTofu module cannot provision part of the contract as declared, and refuses it rather than drop it; the `kind:` line says which part. *(since 0.20.0, [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715))* Kind `mwaa-environment-not-emitted`: an `aws` contract with `orchestration.engine: airflow` and an `orchestration.schedule` asks for an MWAA environment, which the module cannot create. See [Scheduling on AWS](../providers/aws.md#scheduling-on-aws). |
 | `opentofu_engine_no_tofu` | The OpenTofu engine needs `tofu` and it is not on `PATH`. Install it, or pass `--ensure-opentofu`. |
+
+### A failed OpenTofu apply
+
+*On forge-cli `main`, not yet in a release ([forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786)).*
+
+The runner calls `tofu` with `-json`, so every diagnostic arrives as one JSON line. Through 0.26.0 a failed apply printed the last 800 characters of that stream, a run of `{"@level": ...}` objects and no way forward. It now reads the first error diagnostic and prints what failed and where:
+
+```text
+❌ opentofu_apply_failed  [ERR_OPENTOFU_APPLY_FAILED]
+  error: <summary> (<resource address>)
+  resource: <resource address>
+  detail: <the provider's explanation>
+
+💡 Suggestions:
+  • OpenTofu records state as it goes, so resources created before the failure are normally tracked
+  • Fix the cause named above, then re-run 'fluid apply' to continue
+  • Re-run with --debug to see the raw tofu output
+  • To see what exists, run 'tofu state list' in <the contract's OpenTofu workdir>
+```
+
+- `detail` is the provider's own text, cut at 800 characters. `more_errors: <n>` follows when the run printed further error diagnostics.
+- Output with no diagnostic (a crash, a timeout) falls back to the text from its first `Error:` on, cut at 800 characters, or to `tofu apply exited <exit code>` when there is none.
+- Fixing the cause and re-running `fluid apply` normally continues where it stopped, because the resources created before the failure are already in state. `tofu state list` in the workdir (`.fluid/iac/<provider>/<safe-id>/`) shows which.
+- A state-lock error adds a suggestion to wait for the other run or run `tofu force-unlock <id>`; see [Locking](../concepts/state.md#locking). A plan that fails on a held lock gets the same suggestion.
+- The raw output tail goes to the log under `--debug`.
+
+Everything a CLI error prints, its context values and its suggestions, now goes through the redactor the logs use. A provider message that carries an access key id, a bearer token or a URL password is masked, and control characters are spelled out.
 
 ## Notes
 

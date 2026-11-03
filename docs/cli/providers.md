@@ -24,10 +24,9 @@ fluid providers
 {
   "providers": [
     "aws",
-    "datamesh_manager",
+    "databricks",
     "gcp",
     "local",
-    "redshift",
     "snowflake"
   ]
 }
@@ -47,8 +46,8 @@ With `--debug`, each name becomes an object. This is the first entry, trimmed:
       "info": {
         "name": "aws",
         "display_name": "Amazon Web Services",
-        "supported_platforms": ["aws", "s3", "redshift", "athena", "glue"],
-        "tags": ["aws", "cloud", "s3", "glue", "athena", "redshift"],
+        "supported_platforms": ["aws", "s3", "athena", "glue"],
+        "tags": ["aws", "cloud", "s3", "glue", "athena"],
         ...
       }
     },
@@ -59,6 +58,19 @@ With `--debug`, each name becomes an object. This is the first entry, trimmed:
 
 `source` is `explicit` for providers the CLI registers itself and `entrypoint` for providers discovered through the `fluid_build.providers` entry-point group. In the 0.18.1 install used for this page `snowflake` was the one reported as `entrypoint`. `--debug` also writes discovery log lines to the terminal before the JSON.
 
+## Retired provider names
+
+*(from 0.27.0)* `redshift` and `datamesh-manager` (also spelled `datamesh_manager`) are no longer providers. Naming either one, with `--provider` or `FLUID_PROVIDER`, exits 2 with a message that says where to go instead:
+
+```text
+Provider 'redshift' was retired: Redshift is part of the aws provider; use --provider aws
+Provider 'datamesh-manager' was retired: Data Mesh Manager is a catalog, not a provider; use fluid publish --target datamesh-manager (or fluid datamesh-manager)
+```
+
+- **Redshift** objects apply through the `aws` provider. A contract whose `builds[].execution.runtime.platform` is `redshift` is served by `aws`. `binding.platform: redshift` was never valid in any schema; bind to `aws`.
+- **Data Mesh Manager** publishing is unchanged: [`fluid publish --target datamesh-manager`](./publish.md) (aliases `entropy-data`, `dmm`) and [`fluid datamesh-manager`](./datamesh-manager.md).
+- A third-party plugin cannot claim either name. Discovery skips it with a WARNING.
+
 ## When a provider cannot be found
 
 A command reaches a provider by one of two routes, and each fails with its own message.
@@ -66,7 +78,7 @@ A command reaches a provider by one of two routes, and each fails with its own m
 **1. You name it: `--provider` or `FLUID_PROVIDER`.** The flag is global, so it goes before the subcommand (`fluid --provider gcp ...`) or in the environment. The value is checked against the list above before the command runs. Anything else exits 2:
 
 ```text
-⚠️ Unknown provider 'nope' — installed providers: aws, datamesh_manager, gcp, local, redshift, snowflake (see `fluid providers`)
+⚠️ Unknown provider 'nope' — installed providers: aws, databricks, gcp, local, snowflake (see `fluid providers`)
 ```
 
 This check carries no `ERR_` code. A subcommand that also declares its own `--provider` (for example `fluid export`) is checked the same way after parsing. `--provider gcp` additionally prints `Provider 'gcp' requires --project to be specified` unless the global `--project` (or `FLUID_PROJECT`) is set; the line is a warning, and the command carries on.
@@ -82,8 +94,7 @@ The contract (or bindings file) names a provider that is not registered. Here `b
 ```text
 ❌ provider_unknown  [ERR_PROVIDER_UNKNOWN]
   requested: azure
-  available: ['aws', 'datamesh_manager', 'gcp', 'local', 'redshift',
-'snowflake']
+  available: ['aws', 'databricks', 'gcp', 'local', 'snowflake']
 
 💡 Suggestions:
   • Run 'fluid providers' to see the available providers
@@ -179,6 +190,6 @@ As of 0.18.1:
 ## Notes
 
 - These are deployment targets: providers that `fluid apply` can provision infrastructure against.
-- `datamesh_manager` and `redshift` are registered here and are not in the `provider` role that [`fluid plugins`](./plugins.md) lists. That role holds the providers discovered through entry points, and `fluid providers` holds the larger registry.
+- Providers the CLI registers itself are not all in the `provider` role that [`fluid plugins`](./plugins.md) lists. That role holds the providers discovered through entry points, and `fluid providers` holds the larger registry.
 - Spec-export formats (ODCS, ODPS, ODPS-Bitol) are **not** providers; they do not deploy infrastructure. List them with [`fluid exporters`](./exporters.md) instead.
 - See the [provider guides](/forge_docs/providers/) for target-specific documentation.

@@ -14,7 +14,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 
 ## Provider overview
 
-`fluid providers` reports `aws`, `databricks`, `datamesh_manager`, `gcp`, `local`, `redshift` and `snowflake`. These have a provider page:
+`fluid providers` reports `aws`, `databricks`, `gcp`, `local` and `snowflake` *(from 0.27.0; `redshift` and `datamesh_manager` were retired: Redshift applies through `aws`, and Data Mesh Manager is a catalog you publish to with `fluid publish --target datamesh-manager`)*. These have a provider page:
 
 | Provider | Plan / Apply | Scheduling docs stance | Status |
 | --- | --- | --- | --- |

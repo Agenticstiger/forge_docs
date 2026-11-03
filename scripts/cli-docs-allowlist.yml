@@ -71,6 +71,12 @@ flag_oracle_ok:
                      # prints the command's options and
                      # `fluid generate-custom-scaffold --help` prints the
                      # top-level usage. The pages document the name that runs.
+  - docs/cli/doctor.md::--strict
+                     # `fluid doctor --strict` is on forge-cli `main` (forge-cli
+                     # #786), after the pinned 0.26.0, so the pinned parser does
+                     # not know the flag. Scoped to this one flag on this one
+                     # page. Remove the entry when the pin moves to the release
+                     # that carries it.
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

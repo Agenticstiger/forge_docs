@@ -90,10 +90,79 @@ on. Bucket names are global: create the bucket yourself, and never point
 `--state-backend` at a name you did not create.
 
 The backend block `fluid apply` emits for S3 sets only `bucket` and `key`. It
-sets no `dynamodb_table` and no `use_lockfile`, so S3 state is not locked: run
-the applies of one state key one at a time. OpenTofu's own `gcs` backend locks
-state itself.
+sets no `dynamodb_table` and no `use_lockfile`, so through 0.26.0 S3 state is
+not locked: run the applies of one state key one at a time. On forge-cli `main`,
+`tofu init` is asked to lock it; see [Locking](#locking). OpenTofu's own `gcs`
+backend locks state itself.
 :::
+
+## Locking
+
+*On forge-cli `main`, not yet in a release ([forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787)).*
+
+A scheduled apply and a manual one, or an apply and a teardown, must not write
+the same state at once. OpenTofu's `gcs` backend locks state itself. For S3,
+`fluid apply` asks OpenTofu for its native lock file: when the installed
+OpenTofu is 1.10 or newer, `tofu init` runs with
+`-backend-config=use_lockfile=true`. The flag is on the command line only, so
+the emitted `main.tf.json` does not change.
+
+While a command holds the lock, OpenTofu keeps an object named `<key>.tflock`
+beside the state object, for example
+`fluid/analytics.customer_events_v1/aws/terraform.tfstate.tflock`, and deletes
+it when the command ends. A second command that finds it fails with
+`Error acquiring the state lock`.
+
+**Every role that touches the state needs the lock object.** `tofu plan` takes
+the lock too. So every role that runs `fluid apply` (a `--dry-run` included),
+`fluid diff` or `fluid verify --state-drift` against S3 state needs these
+permissions on `<key>.tflock`, next to its access to the state object. A
+plan-only CI role that could read the state and nothing else fails on its first
+run after the upgrade. The `state:` line an apply prints names the state object;
+add `.tflock` to get the lock object.
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+  "Resource": "arn:aws:s3:::<your-state-bucket>/<key>.tflock"
+}
+```
+
+OpenTofu's own S3 backend page does not list the lock object's permissions, so
+run a `fluid apply --dry-run` with each role before you roll the change out.
+
+**No lock.** On an OpenTofu older than 1.10, or one whose version cannot be
+read, the flag is skipped. `fluid apply` logs a WARNING with the event
+`s3_state_unlocked` that says why, and the state is unlocked, as before.
+Upgrade OpenTofu. [`--ensure-opentofu`](../cli/apply.md) installs a pinned build
+only when `tofu` is missing or older than 1.6.0, so it does not bring a 1.6 to
+1.9 install up to date. To turn
+the lock off on purpose, for a role that cannot write the lock object, set
+`FLUID_TOFU_S3_LOCKFILE=0` (`false`, `no` and `off` also work) in the environment
+of the job that runs `fluid apply`: a project `.env` cannot set it. `fluid doctor
+--env` lists the variable.
+
+**A workdir kept from before.** OpenTofu refuses a backend config that changed
+since a working directory was initialised. So `fluid apply` adds `-reconfigure`
+to `tofu init` once, and only when the directory recorded this same S3 bucket
+and key (and region, when the module names one) without the lock. The same
+happens in reverse when you opt out of a directory that had locking on. Any
+other difference in the saved backend still surfaces OpenTofu's own "Backend
+configuration changed" error: fluid never repoints state silently.
+
+**A stale lock.** A run that is killed hard can leave `<key>.tflock` behind, and
+every later run then fails with `Error acquiring the state lock` and a lock ID.
+Make sure no other run is active, then run `tofu force-unlock <ID>` in the
+contract's OpenTofu working directory (`.fluid/iac/<provider>/<safe-id>/`, under
+`--workspace-dir`). A failed apply, and a plan that fails on a held lock, print
+this hint ([forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786),
+on `main`, not yet in a release).
+
+**Timeouts.** A `tofu` call that runs past `FLUID_TOFU_TIMEOUT_SECONDS` used to
+be killed, which left the lock behind. It is now interrupted with SIGINT, so
+OpenTofu stops and releases the lock, and it is killed only if it has not exited
+30 seconds later. The call still reports exit code 124.
 
 ## The provider is part of the key
 

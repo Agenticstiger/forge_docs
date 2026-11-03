@@ -1,7 +1,7 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.18.1`<br>  <!-- cli-version: historical -->
+**Docs Baseline:** CLI `0.18.1`. A part marked *(since …)* or *(on forge-cli `main`)* describes a later change.<br>  <!-- cli-version: historical -->
 **Services:** BigQuery, Cloud Storage, Pub/Sub, IAM, Data Catalog policy tags, Cloud KMS
 
 > **Why it matters**
@@ -199,6 +199,7 @@ See [OpenTofu state](../concepts/state.md) for the key and the one-time move fro
 | `binding.labels` | resource labels, next to `managed_by: fluid` and `fluid_contract: <id>` |
 | `accessPolicy.grants` | `google_bigquery_dataset_iam_member` / `google_storage_bucket_iam_member` ([Access grants](#access-grants-accesspolicy)) |
 | `policy.authz.columnRestrictions` | Data Catalog taxonomy, policy tags and reader grants ([Column restrictions](#column-restrictions-policy-tags)) |
+| `policy.authz.rowFilters` *(0.7.6)* | A `google_bigquery_row_access_policy` per filter, and one that selects every row for the other readers ([Row filters](#row-filters)) |
 | `exposes[].lifecycle.expire` *(0.7.6)* | DAY partitions with `expiration_ms` ([Retention](#retention-0-7-6)) |
 | `binding.encryption.kms` *(0.7.6)* | Cloud KMS key ring and key, used by the dataset and table ([Encryption](#encryption-at-rest-cmek-0-7-6)) |
 
@@ -217,16 +218,74 @@ Contract types are written as BigQuery types:
 | `datetime` | `DATETIME` |
 | `date`, `time`, `json`, `bytes` (`blob`) | `DATE`, `TIME`, `JSON`, `BYTES` |
 
-A bare `array` is written as `ARRAY`, which is not a BigQuery column type; declare a typed column or a JSON column instead. `fluid verify` treats BigQuery's legacy names (`INTEGER`, `FLOAT`, `BOOLEAN`, `RECORD`) as equal to `INT64`, `FLOAT64`, `BOOL` and `STRUCT`; see [`fluid verify`](../cli/verify.md#bigquery).
+Through 0.26.0 a bare `array` was written as `ARRAY`, which is not a BigQuery column type, and a `struct` as a `STRUCT` with no fields, which BigQuery rejects at apply, after it created the dataset. The element type of `array(string)` was dropped. `fluid verify` treats BigQuery's legacy names (`INTEGER`, `FLOAT`, `BOOLEAN`, `RECORD`) as equal to `INT64`, `FLOAT64`, `BOOL` and `STRUCT`; see [`fluid verify`](../cli/verify.md#bigquery).
+
+#### Exact, warned and refused types
+
+*On forge-cli `main`, not yet in a release ([forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793)).*
+
+Every contract type is classified once, as one of three:
+
+- **Exact.** The BigQuery type holds every value the declared type does.
+- **Warned.** A fallback is written and `fluid validate` warns, so `--strict` fails.
+- **Refused.** There is no faithful form. `fluid validate`, `fluid generate iac` and `fluid apply` refuse with an `unsupported_binding` error of kind `column-type`.
+
+One function decides for those three commands, so a contract that passes `fluid validate` cannot fail `fluid generate iac` on a type. The type name is matched in lower case, and a parenthesised length is ignored, so `varchar(255)` is `varchar`. A BigQuery view carries no schema and is not checked. The mapping, with every spelling it recognises:
+
+| Contract type | BigQuery type |
+|---|---|
+| `string`, `str`, `text`, `varchar`, `varchar2`, `nvarchar`, `char`, `nchar`, `character`, `clob`, `uuid`, `uniqueidentifier`, `guid`, `enum` | `STRING` |
+| `integer`, `int`, `int2`, `int4`, `int8`, `int16`, `int32`, `int64`, `tinyint`, `smallint`, `mediumint`, `bigint`, `long`, `longint`, `serial`, `bigserial`, `year` | `INT64` |
+| `float`, `float4`, `float8`, `float32`, `float64`, `double`, `double precision`, `real` | `FLOAT64` |
+| `numeric`, `decimal`, `dec`, `number`, `money` | `NUMERIC` |
+| `bignumeric` | `BIGNUMERIC` |
+| `boolean`, `bool`, `bit` (`bit(1)`) | `BOOL` |
+| `timestamp`, `timestamptz`, `timestamp_tz`, `timestamp_ltz`, `timestamp with time zone`, `timestamp without time zone` | `TIMESTAMP` |
+| `datetime`, `datetime2`, `smalldatetime`, `timestamp_ntz`, `timestampntz` | `DATETIME` |
+| `date` | `DATE` |
+| `time` | `TIME` |
+| `interval` | `INTERVAL` |
+| `bytes`, `binary`, `varbinary`, `blob`, `bytea`, `raw`, `hll` | `BYTES` |
+| `json`, `jsonb`, `variant`, `super` | `JSON` |
+| `geography`, `point` | `GEOGRAPHY` |
+
+BigQuery decimal precision and scale are still not emitted: `decimal(p,s)` is `NUMERIC` whatever it declares.
+
+**Warned.** `fluid validate` warns, and the column is written as shown:
+
+- `geometry` and `geom` become `GEOGRAPHY`. They are planar and `GEOGRAPHY` is spherical, so the same coordinates mean other shapes and distances. Declare `geography` if the coordinates are on the sphere.
+- A `decimal(p,s)`, `numeric(p,s)`, `dec(p,s)` or `number(p,s)` wider than a `NUMERIC` holds, which is 29 integer and 9 fractional digits, becomes `NUMERIC` and would overflow at load. Declare `bignumeric` if the values need that range.
+
+```text
+expose '<exposeId>': column '<column>' is declared 'geometry', which is planar, and BigQuery has only the spherical GEOGRAPHY; it is written as 'GEOGRAPHY'. Declare geography if the coordinates are on the sphere.
+```
+
+**Refused.**
+
+- `array`, `struct`, `map`, `object`, `record` and `row`, and `array(string)` and the like. BigQuery holds them only as a REPEATED column of an element type or a RECORD with fields, and the contract schema cannot declare those yet.
+- `bit(n)` with n over 1, which is a bit string, and BigQuery has none.
+- A type no table maps, and a type whose parameters are not ASCII.
+
+One refusal names the expose, every column it cannot hold with its declared type and why, and the fix:
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: column-type
+  error: expose '<exposeId>': BigQuery cannot hold its columns as declared: '<column>' is declared 'array', which BigQuery holds only as a REPEATED column of an element type or a RECORD with fields, and the contract schema cannot declare them yet.
+  remediation: ["Column '<column>': Declare json or string for now; typed nested columns are planned."]
+```
+
+The BigQuery emitter no longer falls back to the ODCS table for these types. A contract with an `array` or `struct` column that validated before now fails with `column-type`; declare the column `json`, which BigQuery stores as its JSON type, or `string`.
 
 ### Not emitted
 
 These are not produced by the 0.18.1 GCP module. A contract key for them is either absent from the schema or accepted and ignored:
 
-- BigQuery row-level security (`CREATE ROW ACCESS POLICY`) and dynamic data masking (data policies).
 - VPC Service Controls.
 - Partitioning, clustering, table expiration, materialized or authorized views from `binding.properties` (`partitioning`, `clustering`, `materialized`, `authorized`). `binding.properties` passes validation and the module ignores these keys. Partitioning comes only from [retention](#retention-0-7-6).
 - Service accounts, routines, external tables and Cloud Run services.
+
+BigQuery row-level security and data-policy masking are not in this list, because 0.19.0 added both. A contract's [row filters](#row-filters) become BigQuery row access policies, and a column restriction with `access: mask` becomes a BigQuery data policy; see [Data Masking](#data-masking).
 
 ---
 
@@ -627,12 +686,31 @@ User has neither fine-grained reader nor masked get permission to get data prote
 
 `fluid policy-apply` is a different path, and in 0.18.1 it changes nothing on GCP: it reports the compiled bindings and returns `applied: 0`. Both the dataset IAM and the policy tags that enforce column restrictions are provisioned by `fluid apply`. See [`fluid policy apply`](../cli/policy-apply.md#what-each-provider-does).
 
+### Row filters
+
+*(since 0.19.0, `fluidVersion: "0.7.6"`)* `exposes[].policy.authz.rowFilters[]` lets a principal read only the rows a predicate selects. Each entry is `{principal, where, name?}`, and a principal has at most one filter per expose. A reader that no filter names reads every row.
+
+```yaml
+policy:
+  authz:
+    rowFilters:
+      - principal: "group:analysts@company.example.com"
+        where: "region = 'EU'"        # region is a column of contract.schema
+```
+
+For each filter, `fluid apply` emits a `google_bigquery_row_access_policy` whose `filter_predicate` is the predicate and whose grantees are every identity of the principal. It emits one more, `fluid_all_rows` with the predicate `TRUE`, for every other reader and writer of the expose, because BigQuery shows a principal that no row access policy names no row at all. An identity a filter names is never in that policy: BigQuery shows a principal the union of the policies that name it.
+
+- **The predicate is parsed**, not trusted. A statement separator, a comment, a subquery, or a column the expose's schema does not declare is refused with kind `row-filter`, so the text written into the policy is the predicate and nothing else.
+- **A filter on a view is refused** (`row-filter-view`): row access policies attach to tables, so filter the table the view reads. A filter on a GCP binding that is not a BigQuery table is refused too, as `gcp-governance-unsupported-target`. A principal filtered twice in one expose is refused as `row-filter`: combine the two predicates with `AND`.
+- **Builds keep the policies.** A full-refresh load into BigQuery is `WRITE_TRUNCATE_DATA`, which replaces the rows and keeps the table's row access policies, policy tags and partitioning. `WRITE_TRUNCATE` would remove every row access policy of the table.
+
 ### Data Masking
 
-Two kinds of masking exist, and only one is applied on GCP:
+Masking reaches a BigQuery column in two ways, and a third is not emitted:
 
 - **Masking at landing (applied).** A DuckDB acquisition build applies `policy.privacy.masking` while it writes the staged Parquet file, so BigQuery receives treated values. Since 0.17.0, `fluid verify` fails (CRITICAL) a masked BigQuery column whose values lack the strategy's shape.
-- **BigQuery dynamic data masking (not emitted).** No BigQuery data policy is created, so a reader with table access sees the stored value. Use [column restrictions](#column-restrictions-policy-tags) to keep a column from a principal. The AWS side is [masking at landing](./aws.md#masking-at-landing); what the platform enforces overall is on [Governance](../advanced/governance.md#what-the-platform-enforces).
+- **A column restriction with `access: mask` (applied, since 0.19.0, `fluidVersion: "0.7.6"`).** The masked columns get a policy tag of their own, a BigQuery data policy (`LAST_FOUR_CHARACTERS`, `FIRST_FOUR_CHARACTERS` or `ALWAYS_NULL`, for `mask: last_four`, `first_four` or `nullify`) and `roles/bigquerydatapolicy.maskedReader` for the masked principals. A masked principal reads the same column, masked; a fine-grained reader of the tag reads it raw. The grant can take a minute or two to apply.
+- **BigQuery dynamic data masking from `policy.privacy.masking` (not emitted).** That field creates no BigQuery data policy, so a reader with table access sees the stored value. Use [column restrictions](#column-restrictions-policy-tags) to keep a column from a principal, or to mask it. The AWS side is [masking at landing](./aws.md#masking-at-landing); what the platform enforces overall is on [Governance](../advanced/governance.md#what-the-platform-enforces).
 
 ```yaml
 policy:

@@ -9,7 +9,7 @@ API.
 > their canonical data-product registry. Forge-cli reads existing
 > DMM products and produces a Fluid contract that can be published
 > back to DMM (closing the loop with the existing
-> [DMM provider](../datamesh-manager.md) on the publish side).
+> [`fluid datamesh-manager`](../datamesh-manager.md) command on the publish side).
 
 ## Install
 
@@ -174,5 +174,5 @@ fluid apply contract.fluid.yaml --yes
 
 - [Catalog overview](./overview.md) — the unified publish-side flow
 - [Catalog index](README.md) — source-side catalog reading
-- [DMM provider page](../datamesh-manager.md) — for the
+- [`fluid datamesh-manager` page](../datamesh-manager.md) — for the
   full publish workflow (`fluid datamesh-manager publish --with-contract`).

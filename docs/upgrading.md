@@ -554,7 +554,7 @@ carries the full upgrade notes of both releases.
 
 ## On forge-cli `main` since 0.26.0 (not yet released)
 
-These Databricks changes are merged and in no release yet. They fail closed where a contract used to apply without them, so read them before the next upgrade. See [Databricks](./providers/databricks.md).
+These changes are merged and in no release yet. Most fail closed where a contract used to apply without them, so read them before the next upgrade. The Databricks ones come first; see [Databricks](./providers/databricks.md). The OpenTofu, AWS and GCP ones follow.
 
 - **A Databricks contract with a `sovereignty` block and no `binding.location.region` is now a finding**
   ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)): an error under
@@ -581,6 +581,52 @@ These Databricks changes are merged and in no release yet. They fail closed wher
   `user:` or `serviceAccount:` prefix, and a predicate outside the allowlist. `fluid generate iac`
   now refuses such a contract (`databricks-enforcement-outside-module`): use `fluid apply`. A dbt job
   that writes a table not yet protected is created paused, and the next `fluid apply` unpauses it.
+- **S3 state is locked** ([forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787)),
+  when the installed OpenTofu is 1.10 or newer. Before you upgrade, give every role that runs
+  `fluid apply` (a `--dry-run` included), `fluid diff` or `fluid verify --state-drift` against S3
+  state `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on `<key>.tflock`, or set
+  `FLUID_TOFU_S3_LOCKFILE=0` in the job's environment (a project `.env` cannot set it). A plan-only
+  CI role fails without one of the two. A run killed
+  hard can leave the lock behind: `tofu force-unlock <ID>` in the contract's workdir clears it. An
+  older OpenTofu logs `s3_state_unlocked` and keeps working, unlocked. See [Locking](./concepts/state.md#locking).
+- **A column type Glue or BigQuery cannot hold is refused**
+  ([#793](https://github.com/Agenticstiger/forge-cli/pull/793)). A column typed `array`, `struct`,
+  `map`, `object`, `record` or `row` fails `fluid validate`, `fluid generate iac` and `fluid apply`
+  with `column-type`; declare it `json` or `string`. On Glue, `geography`, `geometry`, `geom`,
+  `point`, `hll`, a decimal Hive rejects and `bit(n)` over one bit are refused too. Some types are
+  still written with a fallback and now warn, so `fluid validate --strict` fails until you declare
+  the type you mean: on Glue `json`, `jsonb`, `variant`, `super`, `time`, `interval` and
+  `bignumeric` (written as `string`), on BigQuery `geometry`, `geom` and a decimal wider than a
+  `NUMERIC` holds. The first apply on a Glue table an earlier release created changes the types of columns
+  that were `string` (`smallint`, `timestamptz` and the rest now get their Hive type), and
+  `fluid apply` refuses until `--allow-data-loss`: Parquet written under the old schema may stop
+  reading until it is rewritten, and reverting the column type restores reads. Until that apply,
+  `fluid verify` and `fluid diff` report the mismatch. See [AWS column types](./providers/aws.md#column-types)
+  and [BigQuery column types](./providers/gcp.md#exact-warned-and-refused-types).
+- **An AWS schedule is no longer dropped silently**
+  ([#794](https://github.com/Agenticstiger/forge-cli/pull/794)). A dotted or long contract id gets a
+  valid name, with a hash when it had to change. Any AWS plan the plan validator refuses now fails
+  `fluid generate iac` and `fluid apply` even for a contract with no schedule, where it used to emit
+  the module and exit `0`; `fluid plan` already refused these, so run it before you upgrade. A plan
+  that emits the scheduled Lambda warns `schedule_placeholder_lambda`: the function only logs its
+  tasks, and the roles `fluid-workflow-execution` and `EventBridgeSchedulerRole` must already exist.
+  See [Schedule names and refusals](./providers/aws.md#schedule-names-and-refusals).
+- **A build mode refuses an id the build phase cannot use, before anything is applied**
+  ([#803](https://github.com/Agenticstiger/forge-cli/pull/803)). `fluid apply --mode
+  amend-and-build` and `replace-and-build` check `id` and every `builds[].id` before the apply
+  hooks, `tofu` and any build. Each id must start with a letter or `_`, use only letters, digits,
+  `_`, `.` and `-`, and be at most 128 characters. Such an id (`1orders`, or a longer one) passes
+  `fluid validate`. On the OpenTofu engine the product used to be provisioned and the run then
+  stopped with "Unexpected error". Now the run stops first with `apply_build_identifier_invalid`.
+  Rename the id. A renamed `id` gets a new `.fluid/iac/<provider>/<id>` workdir, and its builds
+  start without their cursors and watermarks. See [Build ids](./cli/apply.md#build-ids).
+- **`fluid doctor --strict` and a readable failed apply**
+  ([#786](https://github.com/Agenticstiger/forge-cli/pull/786)). `fluid doctor --strict` exits `1`
+  when the summary says "Action needed", copilot readiness included; the default exit code does not
+  change. A failed OpenTofu apply names the first error, its resource and the provider's detail,
+  where it used to print the raw tail of `tofu`'s `-json` stream; a script that matched that text
+  needs the new one. See [`fluid doctor`](./cli/doctor.md#strict) and
+  [A failed OpenTofu apply](./cli/apply.md#a-failed-opentofu-apply).
 
 ## DuckDB 1.x to 2.x
 

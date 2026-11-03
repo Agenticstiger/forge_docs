@@ -119,6 +119,11 @@ sovereignty policy (the platform would choose); dataset_analytics: Region 'US' n
 
 On Databricks, `generate iac` holds the same policy: with a `sovereignty` block, a Databricks binding with no `binding.location.region`, or one in a region the policy forbids, raises `SovereigntyViolationError` before a module is written. It also refuses, as `databricks-enforcement-outside-module`, a contract with column masks or row filters, because Unity Catalog enforces them through functions that `fluid apply` binds around `tofu apply` and a plain `tofu apply` of the module would grant unmasked access. Both are on forge-cli `main`, not yet in a release. See [Databricks](../providers/databricks.md#residency).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793), [forge-cli #794](https://github.com/Agenticstiger/forge-cli/pull/794)).* Two more refusals, both for AWS and GCP unless noted:
+
+- **A column type the table cannot hold.** An `array`, `struct`, `map`, `object`, `record` or `row` column, a `bit(n)` over one bit, and a type no table maps are refused with kind `column-type`, as are `geography`, `geometry`, `geom`, `point` and `hll` on Glue. `fluid validate` raises the same refusal from the same function. See [Glue column types](../providers/aws.md#column-types) and [BigQuery column types](../providers/gcp.md#exact-warned-and-refused-types).
+- **An AWS plan the AWS plan validator rejects.** The planner's refusal is no longer swallowed, so `generate iac` exits non-zero where it used to write a module without the resources the refused plan held. This holds for every validator refusal, a contract with no schedule included; `fluid plan` already refused these. See [Schedule names and refusals](../providers/aws.md#schedule-names-and-refusals).
+
 Principals are refused when they cannot be real identities. A principal in a reserved top-level domain (`.example`, `.test`, `.invalid`, `.localhost`), or one that is not an IAM member at all, fails with kind `principal-placeholder`:
 
 ```text
@@ -254,7 +259,8 @@ Detection is deliberately conservative: over-flagging asks a human to look, unde
 ## Operational requirements
 
 - **`tofu ≥ 1.6.0` on `PATH`.** `require_tofu_version()` catches the silent `terraform`-on-`PATH`-as-`tofu` mixup at apply time.
-- **Subprocess timeout:** default `1800` seconds per `tofu` invocation. Override via `FLUID_TOFU_TIMEOUT_SECONDS=<seconds>`.
+- **Subprocess timeout:** default `1800` seconds per `tofu` invocation. Override via `FLUID_TOFU_TIMEOUT_SECONDS=<seconds>`. *(On forge-cli `main`, not yet in a release, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787).)* A call that runs past it is interrupted first, so OpenTofu releases its state lock, and killed only if it is still running 30 seconds later.
+- **S3 state lock.** *(On forge-cli `main`, not yet in a release, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787).)* With OpenTofu 1.10 or newer, `tofu init` locks S3 state through a `<key>.tflock` object; the module `generate iac` writes does not change. Every role that plans or applies needs `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on it, or `FLUID_TOFU_S3_LOCKFILE=0`. See [Locking](../concepts/state.md#locking).
 
 ## Security gates
 

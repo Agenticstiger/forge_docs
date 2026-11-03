@@ -5,7 +5,7 @@ Check that the CLI and the machine it runs on are ready: copilot configuration, 
 ## Syntax
 
 ```bash
-fluid doctor [--scope SCOPE] [--env] [--json] [--features-only] [--extended] [--out-dir DIR] [--verbose]
+fluid doctor [--scope SCOPE] [--env] [--json] [--features-only] [--strict] [--extended] [--out-dir DIR] [--verbose]
 ```
 
 ## Examples
@@ -55,6 +55,7 @@ fluid doctor --env
 | `--env` | List the recognised `FLUID_*` runtime switches with their current value, source and default behaviour. See [`--env`](#env-the-runtime-switches). |
 | `--json` | Machine-readable output. What it contains depends on the other flags; see [`--json`](#json-output). |
 | `--features-only` | Run only the feature-availability check and skip the rest of the default run. |
+| `--strict` | *(On forge-cli `main`, not yet in a release, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786).)* Exit `1` whenever the summary says "Action needed", copilot readiness included. See [`--strict`](#strict). |
 | `--extended`, `--comprehensive` | Also run a `scripts/diagnose.sh` that you provide in the current directory. See [`--extended`](#extended). |
 | `--out-dir DIR` | Where `--extended` writes its diagnostic files. Default `runtime/diag`. |
 | `--verbose`, `-v` | Show detailed output. |
@@ -68,7 +69,34 @@ fluid doctor --env
 - **Provider readiness**: under `--verbose`, a **Databricks Provider** row reports `Not configured` when no `DATABRICKS_*` workspace variable is set, and otherwise whether the credential resolves under the same rules `fluid apply` uses, whether `DATABRICKS_WAREHOUSE_ID` is set and whether `databricks-sdk` is installed. It never opens a connection and never changes the exit code. See [Databricks](../providers/databricks.md#fluid-doctor-and-the-welcome-scan).
 - **Feature availability**: a table of CLI components (the schema manager, the sovereignty and agent-policy validators, the provider action parsers for GCP, AWS and Snowflake, the dbt engine, the copilot, the LiteLLM backend and the agent web tools), each marked available, not available or not installed. `--features-only` prints just this table.
 
-It prints a summary panel followed by the readiness and backend tables; the feature table appears under `--verbose` or when a feature is missing. The exit code is `1` when a feature the CLI treats as critical is unavailable, and `0` otherwise. A missing LLM key, a missing Snowflake driver and a missing dbt install do not change it.
+It prints a summary panel followed by the readiness and backend tables; the feature table appears under `--verbose` or when a feature is missing. The exit code is `1` when a feature the CLI treats as critical is unavailable, and `0` otherwise. A missing LLM key, a missing Snowflake driver and a missing dbt install do not change it, except that [`--strict`](#strict) also fails a copilot that is not ready.
+
+## `--strict`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786)).*
+
+The summary panel says **Action needed** when a feature check fails or the copilot is not ready (its readiness table says "Setup needed"). Through 0.26.0 only the first case changed the exit code. A copilot that was not ready printed "Action needed" and the run still exited `0`, so a CI gate on `fluid doctor` could never fail for it.
+
+With `--strict`, `fluid doctor` exits `1` whenever the summary says "Action needed", in the text report and with `--json`. The default exit code does not change.
+
+```bash
+fluid doctor --strict
+```
+
+`--json` carries the reason. Next to `store_backend` the payload now has `copilot_ready` and `action_needed`, so a CI job can tell a failed feature check from a copilot that is not set up:
+
+```bash
+fluid doctor --json | jq '{copilot_ready, action_needed}'
+```
+
+```json
+{
+  "copilot_ready": false,
+  "action_needed": true
+}
+```
+
+`--strict` belongs to the default run. `--features-only` prints no summary, and `--scope` and `--env` run their own checks, so all three ignore it.
 
 ## `--scope`: what each scope checks
 
@@ -105,7 +133,7 @@ The shape depends on which surface you asked for:
 | --- | --- |
 | `fluid doctor --scope <s> --json` | `{"scope", "ok", "results": [...]}`, one result per check. |
 | `fluid doctor --env --json` | `{"env": [...], "telemetry": {...}}`. |
-| `fluid doctor --json` (no `--scope`, no `--env`) | Only the memory-store section: `{"store_backend": {...}}`. Per-check results need `--scope`. |
+| `fluid doctor --json` (no `--scope`, no `--env`) | The memory-store section, `{"store_backend": {...}}`. *(On forge-cli `main`, not yet in a release, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786).)* It also carries `copilot_ready` and `action_needed`; see [`--strict`](#strict). Per-check results need `--scope`. |
 
 A scoped result looks like this:
 
