@@ -30,8 +30,8 @@ ODPS and ODCS are spec exporters, not providers ([`fluid exporters`](../cli/expo
 | `policy.privacy.masking` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | not read | refused |
 | `exposes[].lifecycle.expire` *(0.7.6)* | expiring DAY partitions | S3 lifecycle rule | not read | refused |
 | `binding.encryption.kms` *(0.7.6)* | Cloud KMS key ring and key | KMS key as the bucket default | not read | refused |
-| `policy.authz.rowFilters` *(0.7.6)* | not in this table's 0.18.1 check | not in this table's 0.18.1 check | not read | a Unity Catalog row filter |
-| Governance labels | not in this table's 0.18.1 check | not in this table's 0.18.1 check | not read | Unity Catalog tags |
+| `policy.authz.rowFilters` *(0.7.6)* | a `google_bigquery_row_access_policy` per filter *(0.19.0)* | a Lake Formation data cells filter per filter *(0.19.0)* | not read | a Unity Catalog row filter |
+| Governance labels | labels on the dataset, table and key *(0.19.0)* | tags on the bucket and key, parameters on the Glue table *(0.19.0)* | not read | Unity Catalog tags |
 
 Masking is applied when the data lands; no cloud receives a dynamic masking policy. [Governance parity](../concepts/governance-parity.md) compares AWS and GCP in full. The [GCP](./gcp.md#security-governance), [AWS](./aws.md) and [Snowflake](./snowflake.md#snowflake-native-security) pages give the detail.
 
