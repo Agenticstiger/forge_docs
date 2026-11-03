@@ -2,7 +2,7 @@
 
 Deploy data products to Amazon Web Services (S3, Glue, Athena, Lake Formation) with the same contract and CLI commands you use for the other providers.
 
-**Docs Baseline:** CLI `0.18.1`<br>  <!-- cli-version: historical -->
+**Docs Baseline:** CLI `0.18.1`. A part marked *(since …)* or *(on forge-cli `main`)* describes a later change.<br>  <!-- cli-version: historical -->
 **`fluid apply` creates:** S3 buckets, Glue databases and tables, Lake Formation registrations and grants, KMS keys, S3 lifecycle rules<br>
 **`fluid verify` reads:** Glue, Athena, S3, KMS, Lake Formation
 
@@ -200,6 +200,66 @@ LIMIT 5;
 
 The Glue table exists, empty, as soon as `fluid apply` finishes; it has rows once a build has written objects under `data/bitcoin/prices/`.
 
+### Column types
+
+*On forge-cli `main`, not yet in a release ([forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793)).*
+
+Each column of `contract.schema` is written to the Glue table as a Hive type. Every contract type is classified once, as one of three:
+
+- **Exact.** The Hive type holds every value the declared type does.
+- **Warned.** Glue has no such type, so the column is written as `string` and `fluid validate` warns. `--strict` turns the warning into a failure.
+- **Refused.** There is no faithful form. `fluid validate`, `fluid generate iac` and `fluid apply` refuse with an `unsupported_binding` error of kind `column-type`.
+
+One function decides for `fluid validate`, `fluid generate iac` and `fluid apply`, so a contract that passes `fluid validate` cannot fail `fluid generate iac` on a type. The type name is matched in lower case, and a parenthesised length is ignored, so `varchar(255)` is `varchar`. A binding that gets no Glue table is not checked: one with no `location.database` and `location.table`, or an Iceberg table that lives in another catalog.
+
+| Contract type | Glue (Hive) type |
+|---|---|
+| `string`, `str`, `text`, `varchar`, `varchar2`, `nvarchar`, `char`, `nchar`, `character`, `clob`, `uuid`, `uniqueidentifier`, `guid`, `enum` | `string` |
+| `tinyint` | `tinyint` |
+| `smallint`, `int2`, `int16`, `year` | `smallint` |
+| `int`, `integer`, `int4`, `int32`, `mediumint`, `serial` | `int` |
+| `bigint`, `int8`, `int64`, `long`, `longint`, `bigserial` | `bigint` |
+| `float`, `float4`, `float32`, `real` | `float`; `float(n)` with n over 24 is `double` |
+| `double`, `double precision`, `float8`, `float64` | `double` |
+| `boolean`, `bool`, `bit` (`bit(1)`) | `boolean` |
+| `date` | `date` |
+| `timestamp`, `datetime`, `datetime2`, `smalldatetime`, `timestamptz`, `timestamp_tz`, `timestamp_ltz`, `timestamp_ntz`, `timestampntz`, `timestamp with time zone`, `timestamp without time zone` | `timestamp`. Hive has no zone-aware timestamp, so the zone-aware types keep the UTC instant and not the offset |
+| `binary`, `bytes`, `varbinary`, `blob`, `bytea`, `raw` | `binary` |
+| `money` | `decimal(19,4)` |
+| `decimal(p,s)`, `numeric(p,s)`, `dec(p,s)`, `number(p,s)` | `decimal(p,s)`, written without spaces, for p from 1 to 38 and s no larger than p. A bare `decimal`, `numeric`, `dec` or `number` is `decimal(38,9)` |
+
+**Warned.** `json`, `jsonb`, `variant`, `super`, `time`, `interval` and `bignumeric` have no Hive form but keep their value as text, so they are written as `string` and `fluid validate` warns:
+
+```text
+expose '<exposeId>': column '<column>' is declared 'json', which Hive has no json type for; it is written as 'string'. Declare string to store the text on purpose; this warning then goes away.
+```
+
+**Refused.**
+
+- `array`, `struct`, `map`, `object`, `record` and `row`, and `array(string)` and the like. Glue holds them only with element or field types, and the contract schema cannot declare those yet.
+- `bit(n)` with n over 1, which is a bit string, and Hive has none.
+- `geography`, `geometry`, `geom` and `point`. Which encoding a spatial value takes, WKT text or WKB bytes, is the writer's to say; declare `string` (WKT) or `binary` (WKB), whichever the data holds.
+- `hll`, an engine-specific sketch with no Hive column type. Declare `binary` to store its bytes.
+- A decimal Hive rejects: a precision over 38 or 0, or a scale over the precision.
+- A type no table maps, and a type whose parameters are not ASCII.
+
+One refusal names the expose, every column it cannot hold with its declared type and why, and the fix:
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: column-type
+  error: expose '<exposeId>': AWS Glue cannot hold its columns as declared: '<column>' is declared 'array', which Glue holds only with its element or field types, and the contract schema cannot declare them yet.
+  remediation: ["Column '<column>': Declare json or string for now; typed nested columns are planned."]
+```
+
+::: warning A table an earlier release applied changes in place
+Through 0.26.0 the Glue emitter mapped 22 type names and wrote every other one as `string`. That was 47 of the 79 types the schema admits, among them `smallint`, `tinyint`, `int2`, `int4`, `int8`, `real`, `money`, `bit`, `year`, `datetime2`, `timestamptz`, `varbinary` and `blob`, and every array, struct, map, object, record and row. A table an earlier release applied has `string` columns where the table above now has a Hive type, so the next `fluid apply` changes those column types in place, for example `string` to `smallint`.
+
+Parquet files written under the old schema, by an Athena `INSERT` or `CTAS` or by dbt, hold strings. After `string` to `smallint`, Athena fails every read of them until they are rewritten. Reverting the column type in the contract restores reads. An in-place type change is an update and not a delete, so the data-loss gate used to let it through. It now holds `fluid apply`, and its `--dry-run`, until you pass `--allow-data-loss`, and it names each table and each `column: old -> new`; see the [OpenTofu data-loss gate](../cli/apply.md#opentofu-data-loss-gate). A difference in spacing alone, such as `decimal(10, 2)` and `decimal(10,2)`, is no change, and an added or removed column does not trip the gate.
+
+Until that apply, `fluid verify` and `fluid diff` compare the live table with the new mapping and report the mismatch on those columns: CRITICAL from `verify`, drift from `diff`. `verify`'s "require table recreation" wording is wrong for them, because a re-apply updates the column in place. A consumer that compares these columns as strings (`small = '5'`) may need changes.
+:::
+
 ### Shared vs. isolated containers
 
 ::: tip New in `0.13.0` (`0.7.6` preview, opt-in)
@@ -283,6 +343,7 @@ That output comes from the real apply path with the state read replaced by one t
 - **Local state** (the default) is in `.fluid/iac/aws/<id>/` under the workspace directory (`--workspace-dir`, default the current directory), where `<id>` is the contract id with `.` and `-` written as `_`. The apply prints the module's path and a `state:` line.
 - **Remote state** takes `--state-backend s3://<bucket>/<key>` or the `FLUID_STATE_BACKEND` variable. A key you write is used as written. A bucket with no key gets `fluid/<contract id>/aws/terraform.tfstate` when the spec comes from `FLUID_STATE_BACKEND` or the contract has a `packaging` block.
 - **A bucket-only `--state-backend` on a contract with no `packaging` block** gets the shared key `fluid/terraform.tfstate`, which every such contract on that bucket uses. Name a key, or use `FLUID_STATE_BACKEND`, so two products do not share a state.
+- **Locking.** *(On forge-cli `main`, not yet in a release, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787).)* With OpenTofu 1.10 or newer, `tofu init` locks S3 state through a `<key>.tflock` object beside the state object. `tofu plan` takes the lock too, so every role that runs `fluid apply` (a `--dry-run` included), `fluid diff` or `fluid verify --state-drift` needs `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on `<key>.tflock`, or must set `FLUID_TOFU_S3_LOCKFILE=0`. Through 0.26.0 S3 state is not locked. See [Locking](../concepts/state.md#locking).
 
 State that a release before the per-provider key wrote at `fluid/<contract id>/terraform.tfstate` is moved to the new key by the first apply, with OpenTofu's own `init -migrate-state`. When the old key holds another provider's state (a gcp apply that finds the aws state there), the apply leaves it and logs that the old key holds the other provider's state. A key that names no provider and holds another cloud's resources is refused with `state_shared_with_another_provider`.
 
@@ -427,7 +488,31 @@ Next to the bucket, the Glue database and the Glue table, the module gets an `aw
 
 - The schedule and the function name IAM roles the module does not create: `arn:aws:iam::<account>:role/EventBridgeSchedulerRole` and `arn:aws:iam::<account>:role/fluid-workflow-execution`. They have to exist in the account.
 - The function logs each `orchestration.tasks` entry of type `provider_action` and returns. It calls no AWS API and runs none of the contract's builds.
-- Lambda function names take letters, digits, hyphens and underscores only. With a dot in the contract id (`sales.orders_daily`) the AWS planner fails, and the module is written without the schedule, the function and the permission, with exit 0. Use an id without dots for a scheduled AWS contract.
+- Lambda function names take letters, digits, hyphens and underscores only. Through 0.26.0, a dot in the contract id (`sales.orders_daily`) made the AWS planner fail, and the module was written without the schedule, the function and the permission, with exit 0. An id over about 49 characters did the same. On those releases, give a scheduled AWS contract a short id without dots. The next release fixes it; see [Schedule names and refusals](#schedule-names-and-refusals).
+
+#### Schedule names and refusals
+
+*On forge-cli `main`, not yet in a release ([forge-cli #794](https://github.com/Agenticstiger/forge-cli/pull/794)).*
+
+- **A dotted or long contract id gets a valid schedule.** Every name the schedule planner derives from an id goes through one helper: the workflow and trigger Lambda functions, their permission statement ids, the schedule, the event rules, the state machine and the MWAA environment name. It replaces each character the service refuses with `-`, and cuts the name to the service's limit. A name that had to change at all ends in `-` and eight hex digits of a SHA-256 of the whole id, so `a.b` and `a-b` cannot share one Lambda, and two long ids with the same start stay apart. A name the service already accepts is left as written, so nothing already deployed is renamed. The contract id `sales.orders_daily` gets the function `fluid-workflow-sales-orders_daily-<8 hex digits>`.
+- **A refusal is no longer swallowed.** A plan the AWS plan validator rejects, an orchestration task the planner rejects and a failure of the schedule planner now raise a `PlanValidationError`. `fluid generate iac` exits non-zero and `fluid apply` stops. Both used to log `Planned EventBridge schedule`, write the Glue and S3 resources without a Lambda, a permission or a schedule, and exit 0. A planner that could not run at all (no SDK, no credentials) stays best-effort. This holds for every validator refusal: a contract with no schedule that the validator refuses, for a bad Glue name say, now fails `generate iac` and `apply` too, where it used to emit the module without a word. `fluid plan` already refused these, so the [11-stage pipeline](../walkthrough/11-stage-pipeline.md) is unaffected.
+- **The placeholder is announced.** Every plan that emits the scheduled Lambda logs a WARNING with the event `schedule_placeholder_lambda`. It says that the Lambda only logs each task and does not run the product's builds, and names both roles, `arn:aws:iam::<account>:role/fluid-workflow-execution` and `arn:aws:iam::<account>:role/EventBridgeSchedulerRole`, which are referenced by name and not created: they must already exist in the account.
+- **Dotted S3 bucket names are accepted.** The plan validator's bucket rule allows dots: lowercase letters, digits, dots and hyphens, 3 to 63 characters, a letter or digit at each end, no `..`, `.-`, `-.` or `--`, and not shaped like an IP address. It refused any dot, which was harmless while its refusals were swallowed and would fail an apply now that they stop `generate iac` and `apply`.
+- **An account that cannot be resolved is named.** When no AWS account can be resolved (no `AWS_ACCOUNT_ID`, and no credentials for `sts:GetCallerIdentity`), a contract that declares orchestration (a schedule, triggers or tasks) is refused by name, before any name is derived from it. Before, the account reached a bucket name as `None-fluid-staging`, and the validator refused that name without naming the cause. A contract without orchestration needs no native plan and applies its exposes as before. The sovereignty check runs first either way. `fluid generate iac` reaches no cloud and passes a placeholder account instead.
+
+  ```text
+  The AWS account id could not be resolved. Set AWS_ACCOUNT_ID, or configure AWS credentials (environment, profile or role) so that sts:GetCallerIdentity succeeds.
+  ```
+
+  When the cause is a missing boto3, the message says so, because blaming credentials would send you to the wrong place:
+
+  ```text
+  The AWS account id could not be resolved: boto3 is not installed, so sts:GetCallerIdentity cannot be called. Install it with pip install 'data-product-forge[aws]', or set AWS_ACCOUNT_ID.
+  ```
+- **A contract value cannot run as code in the scheduled Lambda.** The planner used to splice task params and the contract id into the Lambda's Python source inside quote marks. A task param that carried a quote mark closed the literal and ran as code on every schedule tick, under `fluid-workflow-execution`, and the schema accepts any task params. An id with a trailing newline left a Lambda that was a syntax error. Every value now reaches the source as a Python `repr()` literal.
+- **The same contract emits the same module on every run.** The AWS planner ordered its actions through a `set`, so a Lambda permission, schedule target, event-source mapping or S3 notification named the function by literal ARN in one run and by `${aws_lambda_function.<name>.arn}` in the next. Actions now keep the order they were planned in. Modules without a Lambda are byte-identical to before.
+
+A real scheduling path, with the Lambda running the builds and the two roles emitted, is not built yet.
 
 To keep Airflow, run the DAGs on an MWAA environment you create in your own VPC, or one you already run: [MWAA on AWS](../advanced/airflow.md#mwaa-on-aws) has the steps.
 
@@ -1041,6 +1126,9 @@ The release notes for [`0.16.0`](../RELEASE_NOTES_0.16.0.md) and [`0.17.0`](../R
 - **since 0.20.0, [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709):** the `iceberg_catalog_move_blocked` guard flags an expose's Glue database and table when that expose's own Glue table is in state, so a Glue database left by a removed expose no longer blocks the apply. An expose that names a `location.database` and no `location.table` has no Glue table, so its Glue database is flagged when state holds it and the module no longer declares it. When the guard cannot read the state, it logs an `iceberg_catalog_move_probe_skipped` WARNING. `fluid diff` refuses an Iceberg `location.catalog` value FLUID does not know, as `fluid validate` and `fluid apply` do, and a typo no longer also draws a Lake Formation refusal. See [Upgrading an AWS contract that names another catalog](../advanced/source-aligned-acquisition.md#upgrading-an-aws-contract-that-names-another-catalog).
 - **since 0.20.0, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714):** `fluid apply` validates the contract against its schema before it plans, in every mode. A contract `fluid validate` rejects used to reach `tofu` and could apply with exit 0; it now stops with `apply_contract_invalid`. Run `fluid validate contract.fluid.yaml --env <env>` before you upgrade. See [Contract validation](../cli/apply.md#contract-validation).
 - **since 0.20.0, [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715):** a contract with `orchestration.engine: airflow` and an `orchestration.schedule` fails `fluid apply` and `fluid generate iac` with `unsupported_binding`, kind `mwaa-environment-not-emitted`. It used to apply with exit 0 and create no MWAA environment. Set `orchestration.engine: none` to schedule through EventBridge Scheduler, or run the DAGs on an MWAA environment you own; see [Scheduling on AWS](#scheduling-on-aws). Planned operations the module does not create are now named in a WARNING line.
+- **On forge-cli `main`, not yet in a release, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787):** S3 state is locked on OpenTofu 1.10 or newer. Every role that plans or applies needs `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on `<key>.tflock`, or `FLUID_TOFU_S3_LOCKFILE=0`; see [Locking](../concepts/state.md#locking).
+- **On forge-cli `main`, not yet in a release, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793):** column types reach Glue faithfully or are refused. A column typed `array`, `struct`, `map`, `object`, `record` or `row` now fails `fluid validate`, `fluid generate iac` and `fluid apply` with `column-type`, where it validated and was written as `string`. The first apply on a table an earlier release created changes the types of columns that were `string`, and needs `--allow-data-loss`. See [Column types](#column-types).
+- **On forge-cli `main`, not yet in a release, [forge-cli #794](https://github.com/Agenticstiger/forge-cli/pull/794):** a schedule is never dropped silently. A dotted or long contract id gets a valid, hashed name; an AWS plan the validator refuses now fails `fluid generate iac` and `fluid apply` even without a schedule; a plan that emits the scheduled Lambda warns `schedule_placeholder_lambda`. See [Schedule names and refusals](#schedule-names-and-refusals).
 
 ## How far this has been exercised
 

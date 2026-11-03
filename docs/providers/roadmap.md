@@ -26,20 +26,20 @@ ODPS and ODCS are spec exporters, not providers ([`fluid exporters`](../cli/expo
 | Contract field | GCP | AWS | Snowflake | Databricks (on forge-cli `main`, not yet in a release) |
 |---|---|---|---|---|
 | `accessPolicy.grants` | dataset IAM members | not emitted; access is `binding.governance.lakeFormation.grants` | compiled by `fluid policy-compile`, not applied | one `databricks_grant` per principal |
-| `policy.authz.columnRestrictions` | Data Catalog policy tags | Lake Formation excluded columns | not read | Unity Catalog column masks; a denied column reads `NULL` |
+| `policy.authz.columnRestrictions` | Data Catalog policy tags; with `access: mask`, a BigQuery data policy *(0.19.0)* | Lake Formation excluded columns | not read | Unity Catalog column masks; a denied column reads `NULL` |
 | `policy.privacy.masking` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | applied at landing by the DuckDB acquisition runner; checked by `fluid verify` | not read | refused |
 | `exposes[].lifecycle.expire` *(0.7.6)* | expiring DAY partitions | S3 lifecycle rule | not read | refused |
 | `binding.encryption.kms` *(0.7.6)* | Cloud KMS key ring and key | KMS key as the bucket default | not read | refused |
 | `policy.authz.rowFilters` *(0.7.6)* | a `google_bigquery_row_access_policy` per filter *(0.19.0)* | a Lake Formation data cells filter per filter *(0.19.0)* | not read | a Unity Catalog row filter |
 | Governance labels | labels on the dataset, table and key *(0.19.0)* | tags on the bucket and key, parameters on the Glue table *(0.19.0)* | not read | Unity Catalog tags |
 
-Masking is applied when the data lands; no cloud receives a dynamic masking policy. [Governance parity](../concepts/governance-parity.md) compares AWS and GCP in full. The [GCP](./gcp.md#security-governance), [AWS](./aws.md) and [Snowflake](./snowflake.md#snowflake-native-security) pages give the detail.
+`policy.privacy.masking` is applied when the data lands; no cloud receives a dynamic masking policy from it. On GCP, a column restriction with `access: mask` does get a BigQuery data policy *(0.19.0)*. [Governance parity](../concepts/governance-parity.md) compares AWS and GCP in full. The [GCP](./gcp.md#security-governance), [AWS](./aws.md) and [Snowflake](./snowflake.md#snowflake-native-security) pages give the detail.
 
 ## Not built yet
 
 Not emitted as of 0.18.1 (checked against the GCP and Snowflake emitters):
 
-- **GCP:** BigQuery row-level security, BigQuery dynamic data masking, VPC Service Controls, partitioning and clustering from `binding.properties`.
+- **GCP:** BigQuery dynamic data masking from `policy.privacy.masking`, VPC Service Controls, partitioning and clustering from `binding.properties`. BigQuery row-level security and a data policy for a column restriction with `access: mask` were added in 0.19.0, so they are not in this list.
 - **Snowflake:** grants from `accessPolicy`, masking and row access policies from the contract's `policy` fields.
 - **Azure** as a `fluid apply` target.
 
