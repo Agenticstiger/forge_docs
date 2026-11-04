@@ -114,6 +114,8 @@ The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments rea
 | `FLUID_DISABLE_CC_DETECTION` | `fluid market`, `fluid marketplace` | `true`, `1` or `yes` skips the Command Center auto-detection. |
 | `FLUID_API_URL` | `fluid marketplace` | Explicit marketplace API URL; wins over detection. |
 
+The Command Center reporter reads a CA bundle from `REQUESTS_CA_BUNDLE`, or `CURL_CA_BUNDLE` when that is unset. *(on `main`, not yet in a release)* If the path cannot be loaded, the reporter is disabled for the run with a warning; TLS verification is never relaxed. See [Reporting to the Command Center](../cli/apply.md).
+
 `fluid apply` registers each run at `POST /api/v1/executions` and closes it with a `PATCH`, best effort: an unreachable Command Center costs a warning line and at most the timeout, never the exit code. With no organization, nothing is sent. It reports the product id, contract version, hash, env, provider, mode, state location, resource addresses, change counts, timings and the builds it ran. It does not send secrets, headers or `tofu` output. Under Jenkins (`JENKINS_URL` set) the runner is tagged `jenkins`.
 
 ## Generated pipelines and Airflow workers
@@ -149,7 +151,7 @@ See [Airflow](./airflow.md) for which variables reach `fluid apply` on the worke
 | `DBT_ADAPTER_PACKAGE` | Overrides the pip package that fallback installs. Without it the install is `dbt-<adapter><2` plus `dbt-core<2`; setting it is how you opt in to dbt 2. |
 | `FLUID_SOURCE_DATABASE`, `FLUID_SOURCE_SCHEMA` | Read through dbt's `env_var()` in generated `sources.yml`: when set, they supply a source's database and schema before the dbt target's own. |
 | `FLUID_ROLLBACK_KEEP_LAST_N` | Per-product retention of `.fluid/rollback-state.json`. Default `20`. |
-| `FLUID_OPENLINEAGE_URL` (or the standard `OPENLINEAGE_URL`) | Base URL of an OpenLineage receiver. Without one, no lineage is emitted. |
+| `FLUID_OPENLINEAGE_URL` (or the standard `OPENLINEAGE_URL`) | Base URL of an OpenLineage receiver. Without one, no lineage is emitted. *(from 0.28.0)* Emitting needs the `lineage` extra. |
 | `FLUID_OPENLINEAGE_ENDPOINT` | Path appended to the URL. |
 | `FLUID_OPENLINEAGE_API_KEY` (or `OPENLINEAGE_API_KEY`) | Bearer key for the receiver. |
 | `FLUID_OPENLINEAGE_TIMEOUT_SECONDS` | Request timeout. Default `5`. |
@@ -315,7 +317,7 @@ Read by `fluid mcp output-port`; see [MCP](./mcp.md).
 |---|---|
 | `FLUID_PROVIDERS` | Comma-separated provider modules to load instead of the default set. |
 | `FLUID_PLUGIN_STRICT_COMPAT` | `1`, `true` or `yes` fails on a plugin compatibility mismatch instead of warning. |
-| `FLUID_PLUGINS_ALLOWLIST`, `FLUID_PLUGINS_BLOCKLIST` | Allow or block plugins by name. See [plugins](../cli/plugins.md). |
+| `FLUID_PLUGINS_ALLOWLIST`, `FLUID_PLUGINS_BLOCKLIST` | Allow or block plugins by name. Names match case-insensitively, with `-` equal to `_`. An allowlist entry of the form `<distribution>:<name>` (`acme-fluid-aws:aws`) is the operator grant that lets an IaC plugin take a built-in platform name, and restricts nothing else. See [plugins](../cli/plugins.md#operator-governance). |
 
 ## Variables with no effect in 0.18.1
 

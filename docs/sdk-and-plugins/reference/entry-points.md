@@ -267,6 +267,26 @@ Multiple registrations per group are fine — both `steward-required` and `cost-
 | Register an `InfraProvider` for `fluid apply` to dispatch to | `fluid_build.providers` |
 | Register a `CatalogAdapter` that `fluid publish` runs | `fluid_build.catalog_adapters` |
 
+## Shipping an IaC plugin
+
+*(on `main`, not yet in a release)* A package adds a platform to `fluid generate iac` and `fluid apply` with an `fluid_build.iac_providers` entry point. The entry-point name is the platform:
+
+```toml
+[project.entry-points."fluid_build.iac_providers"]
+onprem = "my_pkg.iac:OnPremIacPlugin"
+```
+
+The target is a class (instantiated with no arguments) or an instance that implements `fluid_build.iac.base.IacProviderPlugin`; `binding.platform: onprem` then selects it.
+
+- **It loads on first use.** Only the entry-point name is read at startup. The plugin is imported the first time a contract's `binding.platform` (or `fluid generate iac --provider`) needs it, so `fluid --help` and `fluid providers` run no plugin code. The allow/block lists and the reserved names are checked before the import; the plugin's `requires_cli` is checked right after it.
+- **The schema decides which platforms exist.** `binding.platform` is a closed enum in every shipped schema, so a plugin serves a platform the schema lists and no built-in emitter serves (`kubernetes`, `postgres`, `kafka`). Opening the enum is a schema change.
+- **Selecting it.** A contract's `binding.platform` is auto-detected. The global `--provider` flag accepts built-in providers only.
+- **Built-in names are reserved.** An entry point that claims `aws`, `gcp`, `snowflake`, `confluent`, `databricks`, an alias of one (`s3`, `glue`, `athena`, `google`, `gcs`, `bigquery`, `duckdb`, ...) or `local` is skipped without being imported, with a WARNING `iac_provider_name_reserved` that names its distribution. The plugin's own `name`, the Terraform provider's local name, is not reserved.
+- **The operator grant.** A plugin replaces a built-in only when the operator adds a distribution-qualified entry to `FLUID_PLUGINS_ALLOWLIST`, such as `acme-fluid-aws:aws`. A qualified entry restricts no other plugin. A bare allowlist that omits the name, or a blocklist entry for it, cancels the grant. See the [trust model](./trust-model.md#operator-governance-—-allowlist-and-blocklist).
+- **Retired names can never be granted.** `redshift` and `datamesh-manager` are skipped whatever the allowlist says.
+- **Two distributions shipping one name are both refused.** For a name that is not reserved, a WARNING `iac_provider_name_ambiguous` names both and neither is imported; block the name with `FLUID_PLUGINS_BLOCKLIST` or uninstall one.
+- **Names compare case-insensitively, with `-` equal to `_`**, in the allow and block lists and in the platform name.
+
 ## Several groups from one package
 
 ```toml
@@ -300,6 +320,8 @@ my-catalog = "my_pkg.catalog:MyCatalogAdapter"
 ```
 
 Each line is independent: register only the groups your plugin needs. A package can register against multiple groups (e.g. a scaffold + its associated validator both ship from the same plugin).
+
+A `fluid_build.providers` entry point follows the same rules as an IaC plugin (on `main`, not yet in a release): only its name is read until a command uses the provider, and the built-in names `aws`, `gcp`, `snowflake`, `databricks` and `local` are reserved. An entry point that claims one is skipped without being imported, with a WARNING `provider_builtin_name_reserved` that names its distribution, unless the operator grants it with a distribution-qualified `FLUID_PLUGINS_ALLOWLIST` entry such as `acme-fluid-gcp:gcp`. Calling `register_provider` for a built-in name from your own code is refused the same way; it only accepts the in-tree class (or an explicit `override=True`).
 
 ## Inspecting what's registered
 
@@ -358,8 +380,10 @@ Either is your sanity check after `pip install` — if a plugin doesn't show up,
 
 The CLI gates the code-executing entry-point groups **before load** with two operator env vars (the scaffold engine applies the same policy to `fluid_build.custom_scaffolds` itself):
 
-- **`FLUID_PLUGINS_ALLOWLIST`** — comma-separated entry-point names; if set, only these load.
-- **`FLUID_PLUGINS_BLOCKLIST`** — comma-separated entry-point names; these never load.
+- **`FLUID_PLUGINS_ALLOWLIST`** — comma-separated entry-point names; if it holds a bare name, only listed names load. A `<distribution>:<name>` entry only grants that distribution an override of a reserved built-in name and restricts nothing (on `main`, not yet in a release).
+- **`FLUID_PLUGINS_BLOCKLIST`** — comma-separated entry-point names; these never load, and the blocklist wins over the allowlist.
+
+Names match case-insensitively, with `-` and `_` treated as the same character (on `main`, not yet in a release).
 
 A blocked plugin's code never executes. Governed groups: `providers`, `validators`, `catalog_adapters`, `commands`, `apply_hooks`, `extension_schemas`, `extension_validators`, `modeling_techniques`, `source_adapters`, `iac_providers`, `llm_providers`, and `custom_scaffolds` (enforced by the engine). `fluid plugins` surfaces each plugin's allow/block status.
 

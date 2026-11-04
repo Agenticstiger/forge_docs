@@ -668,6 +668,58 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   A `sensitivity` change is an info
   finding. A bot that parses `--format markdown` now finds the path and the description each
   in a code span. See [Both contracts must be valid](./cli/diff.md#both-contracts-must-be-valid).
+- **A provider plugin that replaces a built-in provider now needs the operator's grant**
+  ([forge-cli #812](https://github.com/Agenticstiger/forge-cli/pull/812)). A `fluid_build.providers`
+  entry point that claims `aws`, `gcp`, `snowflake`, `databricks` or `local` is skipped without
+  being imported unless `FLUID_PLUGINS_ALLOWLIST` grants it, for example `acme-fluid-gcp:gcp`.
+  `fluid providers` now lists providers without importing them, and `azure` is no longer accepted
+  as a provider name anywhere.
+- **An IaC plugin that replaces a built-in platform now needs the operator's grant**
+  ([forge-cli #807](https://github.com/Agenticstiger/forge-cli/pull/807)). A package on the
+  `fluid_build.iac_providers` entry point is imported only when a contract's `binding.platform` needs
+  it. An entry point that claims `aws`, `gcp`, `snowflake`, `confluent`, `databricks`, an alias such as
+  `glue` or `bigquery`, or `local` is skipped without being imported, with a WARNING. To keep an
+  override you rely on, add a distribution-qualified entry to `FLUID_PLUGINS_ALLOWLIST`, for example
+  `acme-fluid-aws:aws`; it restricts no other plugin. `redshift` and `datamesh-manager` can never be
+  granted, and two distributions that ship the same platform name are both refused. Allow and block
+  names now match case-insensitively with `-` equal to `_`. The global `--provider` flag accepts
+  built-in providers only; a plugin platform is reached through `binding.platform`. See
+  [Shipping an IaC plugin](./sdk-and-plugins/reference/entry-points.md#shipping-an-iac-plugin).
+- **Redirects and CA bundles**
+  ([forge-cli #804](https://github.com/Agenticstiger/forge-cli/pull/804)). The Data Mesh Manager
+  client refuses a redirect to another origin instead of forwarding its API key; the error names the
+  new origin and says to update `DMM_API_URL`. A `REQUESTS_CA_BUNDLE` or `CURL_CA_BUNDLE` that names a
+  path that cannot be loaded switches the Command Center reporter off for the run with a warning;
+  TLS is never relaxed. See [`fluid datamesh-manager`](./cli/datamesh-manager.md#configuration) and
+  [Command Center reporting](./cli/apply.md).
+- **`redshift` and `datamesh-manager` are no longer providers.** `--provider` or `FLUID_PROVIDER` naming
+  either one now exits 2. For `redshift` the message points to `--provider aws`; for Data Mesh Manager,
+  to `fluid publish --target datamesh-manager`. A contract's `runtime.platform: redshift` is served by
+  `aws`, so it needs no change. A plugin cannot claim either name. See
+  [Retired provider names](./cli/providers.md#retired-provider-names).
+
+## Extras in 0.27.0 and the install change in 0.28.0
+
+*(from 0.27.0)* Four extras are new. In 0.27.0 the base install still contains all of their packages, so installing them changes nothing yet.
+
+| Extra | Installs | For |
+| --- | --- | --- |
+| `litellm`, alias `ai` | `litellm` | The AI backend of `fluid forge`, `fluid forge data-model`, `fluid ai setup` and the copilot |
+| `mcp` | `mcp` | The MCP server SDK: `fluid mcp serve`, MCP output ports and the keyless `mcp-sampling` provider |
+| `lineage` | `openlineage-python` | Lineage events when `OPENLINEAGE_URL` is set |
+| `standard` | `litellm` and `mcp` | Today's full AI and MCP behaviour |
+
+The extras that already exist are `all`, `aws`, `catalogs`, `copilot`, `databricks`, `datahub`, `dev`, `docs`, `gcp`, `local`, `odcs-strict`, `odps`, `opds`, `postgres`, `sdk`, `snowflake`, `test-emulators`, `test-emulators-heavy`, `tui`, `vector` and `viz`.
+
+**Coming in 0.28.0 (announced, not released):** litellm, mcp and openlineage leave the base install, which shrinks from 88 packages to 41 (Linux, Python 3.12, resolved with uv). If you use AI forge or MCP, install:
+
+```bash
+pip install "data-product-forge[standard]"
+```
+
+or `[ai]`, `[mcp]` or `[lineage]` for one of them. If you only run `validate`, `plan`, `apply`, `bundle`, `generate iac` and `doctor`, you need nothing. Put the extra in `FLUID_PACKAGE_SPEC` in CI before you move.
+
+*(from 0.27.0)* When an optional package is missing, the CLI prints a message naming the feature, the package and the extra, then exits 1 with no traceback; see [Production troubleshooting](./advanced/production-troubleshooting.md#an-optional-package-is-not-installed). `fluid doctor` prints `AI/MCP move to extras in 0.28.0: pip install 'data-product-forge[standard]'` once per run, and reads the litellm version from package metadata instead of importing it.
 
 ## DuckDB 1.x to 2.x
 
