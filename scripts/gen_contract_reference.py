@@ -258,6 +258,10 @@ class Walker:
         self.rows: list[Row] = []
         self.index: dict[tuple[str, str], Row] = {}
         self.shared: dict[str, tuple[str, int]] = {}
+        # (ref, path) of each $ref being expanded right now, outermost first.
+        # A self-referential definition (0.7.7's `nestedType`) would otherwise
+        # recurse for ever; the repeat gets a row that points back instead.
+        self.active: list[tuple[str, str]] = []
 
     # -- resolution ---------------------------------------------------------
 
@@ -272,9 +276,12 @@ class Walker:
             ref = node["$ref"]
             if not ref.startswith("#/$defs/"):
                 die(f"non-local $ref {ref!r} is not supported")
-            target = self.defs.get(ref[len("#/$defs/"):])
-            if target is None:
-                die(f"dangling $ref {ref!r}")
+            # `#/$defs/<name>` or a pointer into one (`#/$defs/column/properties/type`).
+            target: Any = self.defs
+            for part in ref[len("#/$defs/"):].split("/"):
+                target = target.get(part) if isinstance(target, dict) else None
+                if target is None:
+                    die(f"dangling $ref {ref!r}")
             sibling = {k: v for k, v in node.items() if k != "$ref"}
             node = {**target, **sibling}
         return node
@@ -484,11 +491,14 @@ class Walker:
             when=when,
         )
         self.add_row(row)
+        ancestor = self.ancestor_of(node)
         first = self.shared_elsewhere(node, path, when)
-        if first is not None:
+        if ancestor is not None:
+            row.description = _append(row.description, self.same_as(ancestor))
+        elif first is not None:
             row.description = _append(row.description, self.same_as(first))
         else:
-            self.record_shared(node, path, when, lambda: self.children(path, eff, row, when, prefix=""))
+            self.descend(node, path, when, lambda: self.children(path, eff, row, when, prefix=""))
         return row
 
     # -- shared definitions -------------------------------------------------
@@ -506,6 +516,21 @@ class Walker:
         if seen is None or seen[0] == path or seen[1] < SHARE_MIN_ROWS:
             return None
         return seen[0]
+
+    def ancestor_of(self, node: Any) -> str | None:
+        """Path of the open expansion of the same $ref, if `node` repeats one."""
+        ref = node.get("$ref") if isinstance(node, dict) else None
+        return next((p for r, p in self.active if r == ref), None) if ref else None
+
+    def descend(self, node: Any, path: str, when: str | None, expand_children: Any) -> None:
+        ref = node.get("$ref") if isinstance(node, dict) else None
+        if ref:
+            self.active.append((ref, path))
+        try:
+            self.record_shared(node, path, when, expand_children)
+        finally:
+            if ref:
+                self.active.pop()
 
     def record_shared(self, node: Any, path: str, when: str | None, expand_children: Any) -> None:
         before = len(self.rows)
@@ -537,11 +562,14 @@ class Walker:
         if isinstance(items, dict):
             ieff = self.resolve(items)
             item_path = path + "[]"
+            ancestor = self.ancestor_of(items)
             first = self.shared_elsewhere(items, item_path, when)
-            if first is not None:
+            if ancestor is not None:
+                row.description = _append(row.description, self.same_as(ancestor))
+            elif first is not None:
                 row.description = _append(row.description, self.same_as(first))
             else:
-                self.record_shared(items, item_path, when, lambda: self.children(item_path, ieff, row, when, prefix="Each item: "))
+                self.descend(items, item_path, when, lambda: self.children(item_path, ieff, row, when, prefix="Each item: "))
             for alt in self.alts(ieff):
                 ad = alt.get("description")
                 if ad and ad not in row.description:
