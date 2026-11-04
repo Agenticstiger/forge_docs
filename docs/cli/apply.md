@@ -201,7 +201,7 @@ There is no flag to skip the check. Run `fluid validate <contract> --env <env>` 
 
 *On forge-cli `main`, not yet in a release ([forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803)).* Under `--mode amend-and-build` or `replace-and-build`, `fluid apply` also checks `id` and every `builds[].id` right after the schema check. This happens on both engines, before the apply hooks, `tofu` and any build.
 
-The build phase keeps each build's run records, cursors and watermarks under `.fluid/runs/<id>/<build id>/`, so its rule is narrower than the schema's. An id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. So `fluid validate` and `fluid plan` pass an id such as `1orders`, and `fluid apply` refuses it:
+The build phase keeps each build's run records, cursors and watermarks under `.fluid/runs/<id>/<build id>/`, so its rule is narrower than the schema's. An id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. So `fluid validate` and `fluid plan` pass an id such as `1orders`, though on forge-cli `main` both [warn about it](./validate.md#an-id-the-build-phase-refuses) ([forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813)), and `fluid apply` refuses it:
 
 ```bash
 fluid apply contract.fluid.yaml --mode amend-and-build --yes
@@ -211,7 +211,7 @@ fluid apply contract.fluid.yaml --mode amend-and-build --yes
 ❌ apply_build_identifier_invalid  [ERR_APPLY_BUILD_IDENTIFIER_INVALID]
   field: contract.id
   value: '1orders'
-  hint: The build phase keeps each build's run records, cursors and watermarks under .fluid/runs/<contract.id>/<build.id>/, so both ids must start with a letter or underscore, use only letters, digits, '_', '.' and '-', and be at most 128 characters. The contract schema allows more, so fluid validate and fluid plan accept it. Nothing was applied.
+  hint: The build phase keeps each build's run records, cursors and watermarks under .fluid/runs/<contract.id>/<build.id>/, so both ids must start with a letter or underscore, use only letters, digits, '_', '.' and '-', and be at most 128 characters. The contract schema allows more, so fluid validate and fluid plan only warn about it. Nothing was applied.
 
 💡 Suggestions:
   • Rename the id to fit, for example orders_v1 instead of 1orders, and apply again

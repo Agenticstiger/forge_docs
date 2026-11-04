@@ -642,6 +642,12 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   `apply_build_id_not_found`, which lists the contract's build ids. The exit code is still
   `1`. A Command Center run records the event `apply_build_id_not_found` where it recorded
   `build_not_found:<id>`. See [Build ids](./cli/apply.md#build-ids).
+- **`fluid validate` and `fluid plan` warn about an id the build phase refuses**
+  ([#813](https://github.com/Agenticstiger/forge-cli/pull/813)). For a contract with
+  `builds`, an `id` or `builds[].id` that starts with a digit or is longer than 128 characters is
+  a validate warning, so `fluid validate --strict` fails on it. `fluid plan` prints it and still
+  writes the plan. Rename the id: `fluid apply` in a build mode refuses it anyway. See
+  [An id the build phase refuses](./cli/validate.md#an-id-the-build-phase-refuses).
 - **`fluid doctor --strict` and a readable failed apply**
   ([#786](https://github.com/Agenticstiger/forge-cli/pull/786)). `fluid doctor --strict` exits `1`
   when the summary says "Action needed", copilot readiness included; the default exit code does not

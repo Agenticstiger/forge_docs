@@ -400,6 +400,24 @@ For a build of the last kind, `fluid apply --mode amend-and-build` prints:
 
 The check runs on the contract file and on a bundle's resolved contract, not in [workspace mode](#validating-without-a-contract-path).
 
+## An id the build phase refuses
+
+*On forge-cli `main`, not yet in a release ([forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813)).* The build phase puts `id` and each `builds[].id` in directory names and generated code, so its rule is narrower than the schema's: an id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. For a contract with `builds`, `fluid validate` warns about such an id:
+
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+⚠️  1 warning(s)
+Validation completed in 0.003s
+
+Validation Warnings:
+====================
+ 1. contract.id '1orders' cannot be used by the build phase, which puts it in directory names and generated code, so it must start with a letter or underscore, use only letters, digits, '_', '.' and '-', and be at most 128 characters. fluid apply in a build mode (amend-and-build, replace-and-build) refuses this id before it applies anything. Rename it to fit.
+```
+
+Without `--strict` it exits `0`; with it, `1`. `--format json` lists it under `warnings`. The warning names the first id that fails, the one [`fluid apply` refuses](./apply.md#build-ids); after a rename, validate again for the next. A contract without `builds` is not checked. [`fluid plan`](./plan.md#notes) prints the same warning and still writes the plan.
+
+The check runs on the contract file and on a bundle's resolved contract, not in [workspace mode](#validating-without-a-contract-path).
+
 ## Validating a bundle (`.tgz`)
 
 Pass a bundle built with `fluid bundle --format tgz` and `fluid validate` checks the bundle itself and the contract inside it:
