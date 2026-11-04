@@ -415,7 +415,7 @@ A change that is neither is `breaking` with kind `column_type_param_changed`:
 
 **Type text the diff cannot order:**
 
-- A type name with a non-ASCII character is compared as written, so it matches nothing but itself, and the finding says why: `int` to `ınt` (a dotless "ı") is `breaking`, with the text `column '...' type changed INT -> ınt (a type name with non-ASCII characters matches no other type)`.
+- A type name with a non-ASCII character is compared as written, so it matches no other type name, and the finding says why.
 - Parameters that are not plain integers, such as `enum('a','b')` or `varchar(max)`, cannot be ordered. The type is a different type when its text differs after ASCII case folding, so `enum('a','b')` to `enum('a','b','c')` and `varchar(max)` to `varchar(200)` are `breaking` (`column_type_changed`). Case inside quotes is still folded: `enum('a')` and `enum('A')` compare equal and report nothing.
 - Formatting alone is not a type change. Whitespace around integer parameters, or leading zeros in them, is `info` (`column_type_normalized`): `decimal(10, 2)` to `decimal(10,2)`. A change of ASCII case reports nothing: `varchar` to `VARCHAR`. Whitespace inside text the diff cannot order is a difference: `enum('a', 'b')` to `enum('a','b')` is `breaking` (`column_type_changed`).
 
@@ -438,7 +438,6 @@ A contract that keeps its columns at `exposes[].schema` was compared on 0.26.0, 
 | `varchar` to `varchar(10)` | `info` | `breaking` |
 | `decimal(10,2)` to `decimal` | `info` | `breaking` |
 | `enum('a','b')` to `enum('a','b','c')` | `info` | `breaking` |
-| `int` to `ınt` (a dotless "ı") | no finding | `breaking` |
 | A column added with `required: true` | `non_breaking` | `breaking` |
 | `required: true` added to a column | no finding | `breaking` |
 | A column declared twice | no finding | `breaking` |
