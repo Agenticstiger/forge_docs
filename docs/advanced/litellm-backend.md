@@ -1,9 +1,9 @@
 # LiteLLM Backend
 
-[LiteLLM](https://github.com/BerriAI/litellm) is the LLM backend for the `openai`, `anthropic`, `gemini` and `ollama` providers. It is a core dependency of `data-product-forge`: there is no extra to install and no toggle. The `mcp-sampling` provider and the local agent CLIs (`claude-code`, `codex`, `cursor`, `kiro`) do not go through it; see [LLM Providers](./llm-providers.md).
+[LiteLLM](https://github.com/BerriAI/litellm) is the LLM backend for the `openai`, `anthropic`, `gemini` and `ollama` providers. It is a core dependency of `data-product-forge` up to 0.27.0; from 0.28.0 it is installed with the `litellm` extra (alias `ai`) or `standard`. The `mcp-sampling` provider and the local agent CLIs (`claude-code`, `codex`, `cursor`, `kiro`) do not go through it; see [LLM Providers](./llm-providers.md).
 
 ::: tip Where this fits
-LiteLLM is a hard dependency of core `data-product-forge` (`litellm>=1.83.7,<2` on Python 3.11 and later). The `litellm` extra still exists and is empty, so `pip install "data-product-forge[litellm]"` installs nothing beyond the base package. The companion [LLM Providers](./llm-providers.md) page covers which providers `--llm-provider` accepts and which environment variables to set; this page covers the routing layer.
+LiteLLM is a hard dependency of core `data-product-forge` (`litellm>=1.83.7,<2` on Python 3.11 and later) up to 0.27.0. *(from 0.27.0)* The `litellm` extra, with the alias `ai`, names it, and `standard` adds `mcp`. In 0.27.0 the base install still contains litellm, so installing the extra changes nothing yet. *(from 0.28.0)* litellm leaves the base install: `fluid forge`, `fluid forge data-model`, `fluid ai setup` and the copilot then need `pip install "data-product-forge[standard]"` (or `[ai]`). The companion [LLM Providers](./llm-providers.md) page covers which providers `--llm-provider` accepts and which environment variables to set; this page covers the routing layer. See [Upgrading](../upgrading.md#extras-in-0-27-0-and-the-install-change-in-0-28-0).
 :::
 
 ## Which providers you can select

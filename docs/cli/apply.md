@@ -482,6 +482,8 @@ Each `fluid apply` registers itself with a Command Center when one is configured
 
 It sends no secret: no request header from your environment, no environment value and no `tofu` output, whose text can carry attribute values. The runner is reported as `jenkins` when `JENKINS_URL` is set, else `cli`.
 
+*(on `main`, not yet in a release)* The reporter follows a redirect only within the endpoint's origin; a redirect to another origin is not followed and the event is reported as not sent. If `REQUESTS_CA_BUNDLE` (or, when that is unset, `CURL_CA_BUNDLE`) names a file or directory that cannot be loaded, the reporter is switched off for the run with a warning, `Command Center reporter disabled: <variable> is set to '<path>', which cannot be loaded as a CA bundle (<reason>).` The apply itself carries on, and TLS verification is never relaxed.
+
 The Command Center's host check refuses private and cloud-metadata addresses unless `FLUID_COMMAND_CENTER_HOST_ALLOWLIST` names the host; loopback is allowed.
 
 **Switch it off** with `FLUID_COMMAND_CENTER_ENABLED=false`; the apply then prints `command center: run not reported (FLUID_COMMAND_CENTER_ENABLED is off)` when a Command Center is configured. The [environment variables](../advanced/environment-variables.md#command-center) page lists the other settings.

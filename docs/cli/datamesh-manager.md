@@ -123,6 +123,8 @@ fluid dmm delete-contract my-org.customer360-contract --yes   # contracts are se
 | `DMM_AUTO_APPROVE_ACCESS` | Set to `true` to auto-approve generated Access agreements. Keep unset for production review flows. |
 | `DMM_ALLOW_INSECURE_HTTP` | Set to `true` only when intentionally sending credentials to a non-local HTTP endpoint. Localhost HTTP is allowed for local development. |
 
+*(on `main`, not yet in a release)* The client refuses to follow a redirect to another origin, so the API key and the request body never leave the origin `DMM_API_URL` names. The command fails with `Refused to follow a redirect from the Entropy Data API: <reason>. The API key and request body were not sent there; if the API moved, update DMM_API_URL.` The reason names the origins. Set `DMM_API_URL` to the new address.
+
 The generic catalog adapter accepts the same behavior through `~/.fluid/config.yaml`:
 
 ```yaml

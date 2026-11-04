@@ -109,6 +109,8 @@ Two operator env vars gate the code-executing entry-point groups before a plugin
 - `FLUID_PLUGINS_ALLOWLIST` — comma-separated entry-point names; if set, only these load.
 - `FLUID_PLUGINS_BLOCKLIST` — comma-separated entry-point names; these never load.
 
+Names match case-insensitively, with `-` and `_` equal, and the blocklist wins. *(on `main`, not yet in a release)* An allowlist entry written `<distribution>:<name>`, for example `acme-fluid-aws:aws`, is not a name to allow. It is the grant that lets an installed [IaC plugin](/forge_docs/sdk-and-plugins/reference/entry-points.html#shipping-an-iac-plugin) take a built-in platform name, and it restricts nothing: an allowlist made only of such entries leaves every other plugin allowed.
+
 A blocked plugin's code is not loaded. `fluid plugins` surfaces each plugin's allow/block status so you can confirm the gate before relying on it. A blocked *provider* then fails with [`ERR_PROVIDER_BLOCKED_BY_POLICY`](./providers.md#err-provider-blocked-by-policy) when a contract binds to it.
 
 The version-compat gate is opt-in: `FLUID_PLUGIN_STRICT_COMPAT=1` refuses to load a plugin whose declared `requires_cli` (a PEP 440 specifier from the SDK's `PluginMetadata`) the running CLI version does not satisfy. Unset, a mismatch only warns.

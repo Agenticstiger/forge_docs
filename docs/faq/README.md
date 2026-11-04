@@ -37,6 +37,10 @@ Or for an isolated CLI install: `pipx install "data-product-forge[local]"`.
 
 The same cause as above: the `[local]` extra is missing. Install `data-product-forge[local]`, which pins `duckdb>=1.5.0` for the contract-SQL sandbox.
 
+## A command says `needs <package>, which is not installed`.
+
+*(from 0.27.0)* An optional package is missing. The message names the extra: run the `pip install 'data-product-forge[<extra>]'` line it prints. From 0.28.0 the AI, MCP and lineage packages are no longer in the base install, so `pip install 'data-product-forge[standard]'` restores AI forge and MCP. See [Production troubleshooting](/forge_docs/advanced/production-troubleshooting.html#an-optional-package-is-not-installed).
+
 ## A local output file contains `id,value` and `1,materialized`.
 
 That is the placeholder the local planner writes when it has no SQL to run, for example for a Python or acquisition build in the default `fluid apply` mode. The apply still reports success. Run the build with `--mode amend-and-build`; see [the default mode takes a simpler path](../walkthrough/local.md#the-default-mode-takes-a-simpler-path).
