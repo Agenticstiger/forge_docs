@@ -299,9 +299,9 @@ This is contract-aware comparison, not generic schema differencing. The diff und
 - **Expose changes** — an expose added (non-breaking) or removed (breaking).
 - **Upstreams** — `consumes[]` entries added or removed.
 - **Policy narrowing** — `agentPolicy` and `sovereignty.allowedRegions` changes.
-- **Columns** — a column removed or added, a column that becomes NOT NULL or nullable, a type change, nested `fields[]`, and the `pii` flag. [Which column changes are breaking](#which-column-changes-are-breaking) lists each rule. *(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract, a column whose `sensitivity` becomes or stops being `pii` or `phi` is `column_pii_added` or `column_pii_removed`, and any other change to it is `column_sensitivity_changed`, all info. A column the dbt engine builds as a key (a `primary-key` tag, a `semanticType` of `identifier` or `primary_key`, or a `labels.constraint` of `primary_key` or `unique`) that stops being `required` is `primary_key_nullable` (breaking).
+- **Columns** — a column removed or added, a column that becomes NOT NULL or nullable, a type change, nested `fields[]`, and the `pii` flag. [Which column changes are breaking](#which-column-changes-are-breaking) lists each rule. *(Not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract, a column whose `sensitivity` becomes or stops being `pii` or `phi` is `column_pii_added` or `column_pii_removed`, and any other change to it is `column_sensitivity_changed`, all info. A column that carries a key marker (a `primary-key` tag, a `semanticType` of `identifier` or `primary_key`, a `labels.constraint` of `primary_key` or `unique`, or a truthy `labels.unique`) and stops being `required` is `primary_key_nullable` (breaking).
 - **Names declared twice** — an expose id, column or nested field that the new contract declares more than once. See [A name declared twice](#a-name-declared-twice).
-- **Quality severity escalation** — a test in `exposes[].quality.tests[]` promoted to `error`. *(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract that is a rule in `contract.dq.rules`, `contract.quality` or a column's `quality` whose severity becomes `error` or `critical`. `critical` fails a run as `error` does, so `critical` to `error` is not an escalation.
+- **Quality severity escalation** — a test in `exposes[].quality.tests[]` promoted to `error`. *(Not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract that is a rule in `contract.dq.rules`, `contract.quality` or a column's `quality` whose severity becomes `error` or `critical`. `critical` fails a run as `error` does, so `critical` to `error` is not an escalation.
 
 The column rules for a 0.7.x contract, the stricter type rules and the repeated-name check are not in a release yet. Each section below says which forge-cli pull request carries it.
 
@@ -311,7 +311,7 @@ Through 0.26.0, `fluid diff --baseline` finds an expose's columns at `exposes[].
 
 `--fail-on-breaking` makes the command exit `1` on any breaking change, so it can serve as a contract-compatibility gate. `--format json` or `markdown` print a structured report to stdout for PR comments or release notes, and the JSON envelope is also written to `--out`. `--baseline` cannot be combined with `--env` or `--state` (`diff_modes_mutually_exclusive`, exit 2): an overlay and a prior report belong to drift mode.
 
-*(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* Names from the contract are printed as data. In text, a control, bidi or invisible character in a name is spelled out (`\x1b`, `\u202e`), so a name cannot drive the terminal or forge a line, and each entry is one line. In Markdown, the path and the description are each one code span, so a name adds no link, image, HTML comment or heading and mentions no one. Credential-shaped values (`password=...`, `api key: ...`) are masked in every format and in `--out`. An entry reads:
+*(Not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* Names from the contract are printed as data. In text, a control, bidi or invisible character in a name is spelled out (`\x1b`, `\u202e`), so a name cannot drive the terminal or forge a line, and each entry is one line. In Markdown, the path and the description are each one code span, so a name adds no link, image, HTML comment or heading and mentions no one. Credential-shaped values (`password=...`, `api key: ...`) are masked in every format and in `--out`. An entry reads:
 
 ```markdown
 - **column_removed** `exposes[0].contract.schema.email` — `column 'email' removed from expose 'orders'`
@@ -425,7 +425,7 @@ A nested field (`fields[]` under a column) follows the same rules, and its kinds
 
 *(Not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789), [#802](https://github.com/Agenticstiger/forge-cli/pull/802).)*
 
-A contract that keeps its columns at `exposes[].schema` was compared on 0.26.0, and the new rules change what it reports: type changes are judged more strictly, `required: true` counts as NOT NULL, and a repeated name is a finding. Each row was one change to one column, run on 0.26.0 and on the branch of forge-cli #802 (measured). The draft [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805) refuses a pre-0.7 contract, as [Both contracts must be valid](#both-contracts-must-be-valid) says, so in a release that carries it these rows no longer apply:
+A contract that keeps its columns at `exposes[].schema` was compared on 0.26.0, and the new rules change what it reports: type changes are judged more strictly, `required: true` counts as NOT NULL, and a repeated name is a finding. Each row was one change to one column, run on 0.26.0 and on the branch of forge-cli #802 (measured). [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805) refuses a pre-0.7 contract, as [Both contracts must be valid](#both-contracts-must-be-valid) says, so in a release that carries it these rows no longer apply:
 
 | Change | On 0.26.0 | Now |
 | --- | --- | --- |
@@ -480,11 +480,11 @@ With forge-cli [#789](https://github.com/Agenticstiger/forge-cli/pull/789) and [
 - Raising the `severity` of a rule in `exposes[].contract.dq` from `warn` to `error` is not a finding. `quality_severity_escalated` is reported only for `exposes[].quality.tests[]`, which `fluid validate` rejects in a 0.7.x contract.
 - A column that becomes nullable is `non_breaking` (`column_nullable_loosened`), even when it carries a `primary-key` tag, a `semanticType` of `identifier` or a `labels.constraint` of `primary_key`. The `primary_key_nullable` finding needs a `primaryKey`, which `fluid validate` rejects in a 0.7.x contract.
 
-The draft [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805) compares all three; see the **Columns** and **Quality severity escalation** items above.
+[forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805) compares all three; see the **Columns** and **Quality severity escalation** items above.
 
 ### Both contracts must be valid
 
-*(On forge-cli `main`, not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* Version diff validates both files before it compares them, against the schema their `fluidVersion` names, as `fluid plan` does. The rules read only the shapes a schema allows, so through 0.26.0 a contract no schema accepts could hide a change: a column retyped from `decimal(18,2)` to the number `18` passed `--fail-on-breaking` with exit 0. An invalid file now stops the run with exit 2, and nothing is printed to stdout or written to `--out`:
+*(Not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* Version diff validates both files before it compares them, against the schema their `fluidVersion` names, as `fluid plan` does. The rules read only the shapes a schema allows, so through 0.26.0 a contract no schema accepts could hide a change: a column retyped from `decimal(18,2)` to the number `18` passed `--fail-on-breaking` with exit 0. An invalid file now stops the run with exit 2, and nothing is printed to stdout or written to `--out`:
 
 ```text
 ❌ diff_contract_invalid  [ERR_DIFF_CONTRACT_INVALID]
