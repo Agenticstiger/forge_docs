@@ -614,6 +614,7 @@ export default defineUserConfig({
                 '/advanced/airflow.md',
                 '/advanced/blueprints.md',
                 '/advanced/source-aligned-acquisition.md',
+                '/advanced/managed-flink-iceberg.md',
                 '/advanced/duckdb-sandbox.md'
               ]
             },
