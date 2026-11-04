@@ -87,7 +87,7 @@ The contract is loaded the way `fluid plan` loads it, with `$ref` fragments and 
 ```yaml
 - name: Schema gate
   run: |
-    pip install data-product-forge==0.26.0
+    pip install data-product-forge==0.27.0
     fluid contract-tests contract.fluid.yaml --baseline baseline.schema.json
 ```
 
@@ -102,9 +102,9 @@ Both compare the columns of a contract with an earlier version of it. They diffe
 | Compares with | A signature file that `--write-baseline` wrote and you commit | The previous revision of the contract file |
 | Fails on | Any change to a column's name, type, nullability or position, an added column included (exit `2`) | A `breaking` finding, with `--fail-on-breaking` (exit `1`). An added nullable column passes |
 | Column order | Compared | Not compared |
-| Columns of a 0.7.x contract | Compared | Compared on forge-cli `main`; not compared through 0.26.0 |
+| Columns of a 0.7.x contract | Compared | Compared from 0.27.0; not compared through 0.26.0 |
 
-*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* The last row describes that change.
+*(since 0.27.0, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789))* The last row describes that change.
 
 Use `contract-tests` when a person should look at every schema change, and `diff --baseline` when the pipeline should stop only on a change that breaks consumers. A pipeline can run both. Through 0.26.0 only `contract-tests` sees the columns of a 0.7.x contract, so it is the column gate on those releases: `fluid diff --baseline` prints `No changes detected.` after a column is removed from the `csv-basics` template (measured on 0.26.0).
 

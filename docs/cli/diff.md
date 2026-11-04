@@ -299,9 +299,9 @@ This is contract-aware comparison, not generic schema differencing. The diff und
 - **Expose changes** — an expose added (non-breaking) or removed (breaking).
 - **Upstreams** — `consumes[]` entries added or removed.
 - **Policy narrowing** — `agentPolicy` and `sovereignty.allowedRegions` changes.
-- **Columns** — a column removed or added, a column that becomes NOT NULL or nullable, a type change, and a change to a column's `sensitivity` or description. [Which column changes are breaking](#which-column-changes-are-breaking) lists each rule. *(Not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract, a column whose `sensitivity` becomes or stops being `pii` or `phi` is `column_pii_added` or `column_pii_removed`, and any other change to it is `column_sensitivity_changed`, all info. A column that carries a key marker (a `primary-key` tag, a `semanticType` of `identifier` or `primary_key`, a `labels.constraint` of `primary_key` or `unique`, or a truthy `labels.unique`) and stops being `required` is `primary_key_nullable` (breaking).
+- **Columns** — a column removed or added, a column that becomes NOT NULL or nullable, a type change, and a change to a column's `sensitivity` or description. [Which column changes are breaking](#which-column-changes-are-breaking) lists each rule. *(since 0.27.0, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805))* In a 0.7.x contract, a column whose `sensitivity` becomes or stops being `pii` or `phi` is `column_pii_added` or `column_pii_removed`, and any other change to it is `column_sensitivity_changed`, all info. A column that carries a key marker (a `primary-key` tag, a `semanticType` of `identifier` or `primary_key`, a `labels.constraint` of `primary_key` or `unique`, or a truthy `labels.unique`) and stops being `required` is `primary_key_nullable` (breaking).
 - **Names declared twice** — an expose id, column or nested field that the new contract declares more than once. See [A name declared twice](#a-name-declared-twice).
-- **Quality severity escalation** — a rule promoted to a stricter severity. *(Not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* In a 0.7.x contract that is a rule in `contract.dq.rules`, `contract.quality` or a column's `quality` whose severity becomes `error` or `critical`. `critical` fails a run as `error` does, so `critical` to `error` is not an escalation.
+- **Quality severity escalation** — a rule promoted to a stricter severity. *(since 0.27.0, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805))* In a 0.7.x contract that is a rule in `contract.dq.rules`, `contract.quality` or a column's `quality` whose severity becomes `error` or `critical`. `critical` fails a run as `error` does, so `critical` to `error` is not an escalation.
 
 The column rules for a 0.7.x contract, the stricter type rules and the repeated-name check are not in a release yet. Each section below says which forge-cli pull request carries it.
 
@@ -311,7 +311,7 @@ Through 0.26.0, `fluid diff --baseline` finds an expose's columns at `exposes[].
 
 `--fail-on-breaking` makes the command exit `1` on any breaking change, so it can serve as a contract-compatibility gate. `--format json` or `markdown` print a structured report to stdout for PR comments or release notes, and the JSON envelope is also written to `--out`. `--baseline` cannot be combined with `--env` or `--state` (`diff_modes_mutually_exclusive`, exit 2): an overlay and a prior report belong to drift mode.
 
-*(Not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* Names from the contract are printed as data. In text, a control, bidi or invisible character in a name is spelled out (`\x1b`, `\u202e`), so a name cannot drive the terminal or forge a line, and each entry is one line. In Markdown, the path and the description are each one code span, so a name adds no link, image, HTML comment or heading and mentions no one. Credential-shaped values (`password=...`, `api key: ...`) are masked in every format and in `--out`. An entry reads:
+*(since 0.27.0, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805))* Names from the contract are printed as data. In text, a control, bidi or invisible character in a name is spelled out (`\x1b`, `\u202e`), so a name cannot drive the terminal or forge a line, and each entry is one line. In Markdown, the path and the description are each one code span, so a name adds no link, image, HTML comment or heading and mentions no one. Credential-shaped values (`password=...`, `api key: ...`) are masked in every format and in `--out`. An entry reads:
 
 ```markdown
 - **column_removed** `exposes[0].contract.schema.email` — `column 'email' removed from expose 'orders'`
@@ -320,14 +320,14 @@ Through 0.26.0, `fluid diff --baseline` finds an expose's columns at `exposes[].
 Through 0.26.0, the text and JSON on stdout were wrapped at the terminal width, 80 columns in CI. A long entry, such as a removed column's description, put a line break inside a JSON string, so `--format json | jq` failed. Read the envelope from `--out` on those versions.
 
 ::: warning A gate that passed can start failing
-*(Not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789), [#802](https://github.com/Agenticstiger/forge-cli/pull/802).)*
+*(since 0.27.0, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789), [#802](https://github.com/Agenticstiger/forge-cli/pull/802))*
 
-The release that carries these changes reads the columns of a 0.7.x contract, applies the type rules below and reports a name declared twice. A pipeline that runs `fluid diff --baseline --fail-on-breaking` and passes on 0.26.0 can exit `1` after the upgrade, on a contract nobody changed. A contract that declares a column twice exits `1` even when it is compared with an identical copy of itself (measured). [Both contracts must be valid](#both-contracts-must-be-valid) describes another way a gate can start failing. Run the gate once on the contract you release from, and read what it reports, before it blocks a merge.
+From 0.27.0, `fluid diff --baseline` reads the columns of a 0.7.x contract, applies the type rules below and reports a name declared twice. A pipeline that runs `fluid diff --baseline --fail-on-breaking` and passes on 0.26.0 can exit `1` after the upgrade, on a contract nobody changed. A contract that declares a column twice exits `1` even when it is compared with an identical copy of itself (measured). [Both contracts must be valid](#both-contracts-must-be-valid) describes another way a gate can start failing. Run the gate once on the contract you release from, and read what it reports, before it blocks a merge.
 :::
 
 ### Which column changes are breaking
 
-*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)*
+*(since 0.27.0, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789))*
 
 The diff reads an expose's columns from `exposes[].contract.schema`, where a 0.7.x contract keeps them. A column is NOT NULL when it has `required: true`. A finding is at `exposes[N].contract.schema.<column>`, and a nullability finding ends in `.required`. The rows for a key column and for `sensitivity` come from forge-cli [#805](https://github.com/Agenticstiger/forge-cli/pull/805); the **Columns** item above says what counts as a key.
 
@@ -360,7 +360,7 @@ Summary: 3 breaking, 0 non-breaking, 0 info
 
 ### Type changes
 
-*(Not yet in a release, [forge-cli #802](https://github.com/Agenticstiger/forge-cli/pull/802).)*
+*(since 0.27.0, [forge-cli #802](https://github.com/Agenticstiger/forge-cli/pull/802))*
 
 When a column has a type on both sides, a change is `non_breaking` only when it is on one of the lists below, and `breaking` otherwise, except a change in formatting alone, which is `info`. A type name that is plain ASCII is upper-cased before it is compared, and the findings print it upper-cased. The lists follow the widening and length-and-precision tables in forge-cli's `changelog_rules.py`, and the example rows were run as single changed columns (measured).
 
@@ -421,7 +421,7 @@ A change that is neither is `breaking` with kind `column_type_param_changed`:
 
 ### A name declared twice
 
-*(Not yet in a release, [forge-cli #802](https://github.com/Agenticstiger/forge-cli/pull/802).)*
+*(since 0.27.0, [forge-cli #802](https://github.com/Agenticstiger/forge-cli/pull/802))*
 
 The comparison matches exposes, columns and nested fields by name and keeps the last of a repeated name, so an earlier declaration is not compared with the baseline. A name that the **new** contract declares more than once is therefore `breaking` (an expose is matched by its `exposeId`, or its `id`):
 
@@ -453,7 +453,7 @@ The run exits `1`. Remove one `email` declaration from the new file, and the run
 
 ### Both contracts must be valid
 
-*(Not yet in a release, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805).)* Version diff validates both files before it compares them, against the schema their `fluidVersion` names, as `fluid plan` does. The rules read only the shapes a schema allows, so through 0.26.0 a contract no schema accepts could hide a change: a column retyped from `decimal(18,2)` to the number `18` passed `--fail-on-breaking` with exit 0. An invalid file now stops the run with exit 2, and nothing is printed to stdout or written to `--out`:
+*(since 0.27.0, [forge-cli #805](https://github.com/Agenticstiger/forge-cli/pull/805))* Version diff validates both files before it compares them, against the schema their `fluidVersion` names, as `fluid plan` does. The rules read only the shapes a schema allows, so through 0.26.0 a contract no schema accepts could hide a change: a column retyped from `decimal(18,2)` to the number `18` passed `--fail-on-breaking` with exit 0. An invalid file now stops the run with exit 2, and nothing is printed to stdout or written to `--out`:
 
 ```text
 ❌ diff_contract_invalid  [ERR_DIFF_CONTRACT_INVALID]

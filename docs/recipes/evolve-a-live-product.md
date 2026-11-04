@@ -165,7 +165,7 @@ only for a breaking one. Here `previous.fluid.yaml` is the contract as the last
 release had it, for example from
 `git show v1.0.0:contract.fluid.yaml > previous.fluid.yaml`.
 
-*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)*
+*(since 0.27.0, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789))*
 Adding `status` is non-breaking:
 
 ```console
@@ -389,7 +389,7 @@ fluid verify contract.fluid.yaml --strict
 cp runtime/plan.json runtime/last-applied.plan.json
 ```
 
-*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)*
+*(since 0.27.0, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789))*
 To stop on breaking changes only, add
 `fluid diff contract.fluid.yaml --baseline previous.fluid.yaml --fail-on-breaking`
 before the drift check, as in step 2.

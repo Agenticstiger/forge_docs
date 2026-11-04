@@ -47,7 +47,7 @@ The root of the contract accepts only the keys the schema defines; any other top
 |---|---|
 | `0.7.6` | Latest stable, and the default since `0.26.0`. Adds the fields listed in [Builds, Exposes, Bindings](./builds-exposes-bindings.md#fields-that-need-fluidversion-0-7-6). |
 | `0.7.1` to `0.7.5` | Accepted. `fluid init --quickstart` writes `0.7.5`. |
-| `0.7.7` | **Preview.** Accepted only when the file names it. Identical to `0.7.6` at open. |
+| `0.7.7` | **Preview.** Accepted only when the file names it. Adds nested column types and the managed Flink `stream` and `mapping` blocks to `0.7.6`. |
 | `0.4.x` to `0.6.x` | Rejected with `ERR_CONTRACT_VERSION_UNSUPPORTED`. |
 
 `fluid version --format json` prints the same lists under `spec_versions`. A key that belongs to a newer schema fails on an older `fluidVersion`: a `consumers:` block in a `0.7.5` file is `root: Additional properties are not allowed ('consumers' was unexpected)`.
@@ -169,7 +169,7 @@ The contract has its own version (`fluidVersion`), separate from the data produc
 fluid diff v2/contract.fluid.yaml --baseline v1/contract.fluid.yaml --fail-on-breaking
 ```
 
-*(On forge-cli `main`, not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789).)* The diff reads each expose's columns from `exposes[].contract.schema` and sorts each column change it compares into breaking, non-breaking or info. Removing a column from the [`csv-basics` template](../cli/init.md) exits 1 (measured):
+*(since 0.27.0, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789))* The diff reads each expose's columns from `exposes[].contract.schema` and sorts each column change it compares into breaking, non-breaking or info. Removing a column from the [`csv-basics` template](../cli/init.md) exits 1 (measured):
 
 ```text
 BREAKING (1)

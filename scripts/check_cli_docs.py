@@ -1403,6 +1403,25 @@ def refresh_releases(checkout: str, ref: str = "origin/main") -> int:
         match = _RELEASE_COMMIT_RE.match(subject)
         if match and match.group(1) in set(versions):
             release_commits.append((match.group(1), sha))
+    # 0.24.0-0.26.0 were not cut by a `chore(release)` commit: 0.24.0 and 0.25.0
+    # were tagged on ordinary feature/fix commits and 0.26.0 on
+    # `release: cut v0.26.0 changelog entry`. For a changelog release the subject
+    # rule did not find, the tag `v<version>` is the release; accept it only when
+    # it sits on the ref's first-parent line, like every other release commit.
+    found = {version for version, _ in release_commits}
+    first_parent = set(git("log", ref, "--first-parent", "--format=%H").split())
+    for version in versions:
+        if version in found:
+            continue
+        probe = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"v{version}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        tagged = probe.stdout.strip()
+        if probe.returncode == 0 and tagged in first_parent:
+            release_commits.append((version, tagged))
     release_commits.sort(key=lambda item: _release_key(item[0]))
     if not release_commits:
         sys.exit(f"ERROR: found no `chore(release)` commit on {ref} in {repo}")

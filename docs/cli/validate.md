@@ -308,7 +308,7 @@ A schema version you fetched into the cache earlier is listed too, marked `(cach
 | Version | Status |
 | --- | --- |
 | `0.7.6` | Latest **stable**, since `0.26.0`. A contract with no `fluidVersion` is validated against it. |
-| `0.7.7` | **Preview.** It validates only when a contract declares `fluidVersion: "0.7.7"` or you pass `--schema-version 0.7.7`; it is never chosen automatically. At open it is identical to `0.7.6`. |
+| `0.7.7` | **Preview.** It validates only when a contract declares `fluidVersion: "0.7.7"` or you pass `--schema-version 0.7.7`; it is never chosen automatically. It adds nested column types and the `stream` and `mapping` blocks (in `$defs/embeddedLogicPattern`, so any embedded-logic build can use them, not only a managed Flink build) to `0.7.6`; see [Managed Flink to Iceberg](../advanced/managed-flink-iceberg.md). |
 
 The fields that need `0.7.6` include `lifecycle.expire`, `binding.encryption.kms`, `binding.principals`, `packaging`, and `upstreamWorkspace` / `upstreamDigest`. A contract that declares `0.7.5` and uses one of them fails with an error such as `exposes[1].lifecycle: Additional properties are not allowed ('expire' was unexpected)`.
 
@@ -389,8 +389,8 @@ Without `--strict` it exits `0`; with it, `1`. `--format json` lists it under `w
 | --- | --- | --- |
 | `engine: dbt`, `dbt-<adapter>` or `python`, or any build the python runner takes: no engine, `spark`, `glue` or `custom` without a `runtime.platform` of its own, an ingestion engine without `pattern: acquisition` | Its runner refuses the trigger, so `fluid apply --mode amend-and-build` fails on the build (exit `1`) and nothing else runs it. | Yes |
 | Inline SQL (`engine: sql`, or `pattern: embedded-logic` with `properties.sql`) on the local DuckDB engine or Snowflake, or a `duckdb`, `airbyte`, `meltano` or `dlt` acquisition | Runs only when `fluid apply` runs builds; no scheduler starts it. | Yes |
-| A `kafka-connect` or `debezium` acquisition, `engine: flink`, or `properties.language: flink_sql` | The connector or job keeps running on its platform. | No |
-| `engine: spark`, `glue` or `custom` with a `runtime.platform` other than `local`, or inline SQL on a platform with no embedded-SQL executor | forge-cli does not run it, so `fluid apply --mode amend-and-build` leaves it to that platform, as it does a Flink job, and records it as skipped with `reason: runs_outside_forge`. | No |
+| A `kafka-connect` or `debezium` acquisition, `engine: flink`, or `properties.language: flink_sql` | The connector or job keeps running on its platform. *(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* A 0.7.7 Flink build with `parameters.flink.management: operator` is deployed by forge-cli, which then leaves it running; see [Managed Flink to Iceberg](../advanced/managed-flink-iceberg.md). | No |
+| `engine: spark`, `glue` or `custom` with a `runtime.platform` other than `local`, or inline SQL on a platform with no embedded-SQL executor | forge-cli does not run it, so `fluid apply --mode amend-and-build` leaves it to that platform, as it does a Flink job that is not managed (0.7.6 and earlier), and records it as skipped with `reason: runs_outside_forge`. | No |
 
 For a build of the last kind, `fluid apply --mode amend-and-build` prints:
 
@@ -402,7 +402,7 @@ The check runs on the contract file and on a bundle's resolved contract, not in 
 
 ## An id the build phase refuses
 
-*On forge-cli `main`, not yet in a release ([forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813)).* The build phase puts `id` and each `builds[].id` in directory names and generated code, so its rule is narrower than the schema's: an id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. For a contract with `builds`, `fluid validate` warns about such an id:
+*(since 0.27.0, [forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813))* The build phase puts `id` and each `builds[].id` in directory names and generated code, so its rule is narrower than the schema's: an id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. For a contract with `builds`, `fluid validate` warns about such an id:
 
 ```text
 ✅ Valid FLUID contract (schema v0.7.5)
@@ -417,6 +417,23 @@ Validation Warnings:
 Without `--strict` it exits `0`; with it, `1`. `--format json` lists it under `warnings`. The warning names the first id that fails, the one [`fluid apply` refuses](./apply.md#build-ids); after a rename, validate again for the next. A contract without `builds` is not checked. [`fluid plan`](./plan.md#notes) prints the same warning and still writes the plan.
 
 The check runs on the contract file and on a bundle's resolved contract, not in [workspace mode](#validating-without-a-contract-path).
+
+## A value that ends in a line break
+
+*(since 0.27.0, [forge-cli #799](https://github.com/Agenticstiger/forge-cli/pull/799))* A YAML `|` block scalar keeps its final line break, so `id: |` followed by `bronze.orders` is the string `bronze.orders` plus a newline. JSON Schema reads `$` in a `pattern` as the end of the value, but the Python library that runs it also let `$` match just before a final newline, so `fluid validate` used to accept such a value under every bundled schema version, 0.7.1 to 0.7.7. It now refuses it at its path, and adds a hint when the line break is the only problem:
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.6)
+Validation completed in 0.002s
+
+Validation Errors:
+==================
+ 1. id: 'bronze.orders\n' does not match '^[A-Za-z0-9_][A-Za-z0-9_.-]*[A-Za-z0-9_]$|^[A-Za-z0-9_]$' (it ends in a line break, which a YAML | or > block keeps and |- or >- drops)
+```
+
+Write the value with `|-` or `>-`, which drops the final line break, or as a plain scalar (`id: bronze.orders`). The same check covers fragments and bundles, and the other JSON Schema checks (`fluid odcs validate`, `fluid validate-artifacts`, and the ODPS, OPDS and Ossie checks) carry the same hint *(since 0.27.0, [forge-cli #811](https://github.com/Agenticstiger/forge-cli/pull/811); the hint itself came with [forge-cli #799](https://github.com/Agenticstiger/forge-cli/pull/799))*. A `sink.catalogAuth` field gets no hint, because its value is never shown. The schemas themselves are unchanged.
+
+*([forge-cli #797](https://github.com/Agenticstiger/forge-cli/pull/797), since 0.27.0)* The validators that are not JSON Schema (quality-check selectors, catalog and JDBC identifiers, project ids, row-filter names, Singer tap names and the like) refuse a trailing line break too, with their usual message; see [Upgrading](../upgrading.md#changes-in-0-27-0).
 
 ## Validating a bundle (`.tgz`)
 
@@ -544,6 +561,7 @@ These checks come with [forge-cli #707](https://github.com/Agenticstiger/forge-c
   - on a sink config that is hand-written, or whose derivation is turned off;
   - on a catalog not reached over REST, that is, any kind but `rest`, `lakekeeper`, `polaris`, `unity` and `snowflake-managed`;
   - next to an override that also sets `rest.auth.type`, `credential`, `token`, `oauth2-server-uri`, `scope`, `audience`, `resource`, `rest.sigv4-enabled` or a `header.Authorization`.
+  - *([forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818), since 0.27.0)* when a host the credential reaches, the catalog's `uri` or the `oauth2ServerUri`, is `http://` (a loopback host included) or a link-local address. A host that is only missing from the operator's `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` and `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` is a warning that carries the `export` line the run needs, because validate may run where those lists are not set; the run itself refuses it. See [Operator allowlists](../advanced/source-aligned-acquisition.md#operator-allowlists).
 
   Where no `catalogAuth` applies, an override or hand-written sink config that sets `credential` or `token` to a literal value is a warning; a value that starts with `env:` or carries a `${...}` expression is not. `fluid validate` does not check that the variable is set, since only the process that runs the sink reads it. See [What `fluid validate` refuses](../advanced/source-aligned-acquisition.md#what-fluid-validate-refuses).
 - **Snowflake.** On `platform: snowflake`, a catalog that Snowflake reaches over Iceberg REST (`rest`, `lakekeeper`, `polaris`, `unity`, `nessie`, `bigquery`) draws the warning described above, which `--strict` turns into an error. `hive`, `jdbc`, `hadoop` and `dynamodb` are an error, because Snowflake has no catalog integration for them. A `lakekeeper` expose is no longer asked for an `s3://` or `gs://` warehouse, and two `catalog: snowflake` exposes that derive one EXTERNAL VOLUME on different storage are caught here rather than failing `fluid apply` mid-emit.

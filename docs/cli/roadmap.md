@@ -23,7 +23,7 @@ roadmap` point at the next truly unshipped milestone.
 
 That first sentence was wrong. It is in the roadmap of 0.18.1 and of 0.26.0, and in the releases between them. forge-cli is a 0.x Beta package, and no 1.0 package has been published. "v1.0" names an internal milestone, the Lean v1 scope, which was completed on 2026-04-23.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786)).* The roadmap says so. It opens like this, and a test fails if it announces a 1.x release while the package is below 1.0:
+*(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* The roadmap says so. It opens like this, and a test fails if it announces a 1.x release while the package is below 1.0:
 
 ```text
 # forge-cli roadmap
@@ -49,7 +49,7 @@ Its sections, as printed by `fluid roadmap | grep '^#'` through 0.26.0:
 ## Milestone v1.5 — MCP Server
 ```
 
-On `main` only the second heading changes, to `## Completed in the Lean v1 milestone (previewed from v1.1+ roadmap)`.
+From 0.27.0 only the second heading changes, to `## Completed in the Lean v1 milestone (previewed from v1.1+ roadmap)`.
 
 Most of it is a changelog-style history of what landed. The two `Milestone` sections at the end carry target dates of 2026-05-07 and 2026-06-11, and the text does not mark either as shipped. It lists no gate list and no milestone after v1.5, so it is not a view of what is planned next.
 

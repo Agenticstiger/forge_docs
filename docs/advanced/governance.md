@@ -233,7 +233,7 @@ Two carve-outs are deliberate:
 
 ### Every cloud binding names its region
 
-Under a `sovereignty` block, an `aws`, `gcp` or `azure` binding with no `location.region` cannot be checked, because the platform would choose where the data goes. The check follows the mode: `strict` refuses, `advisory` warns, `audit` logs.
+Under a `sovereignty` block, an `aws`, `gcp`, `azure` or *(since 0.27.0, [forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778))* `databricks` binding with no `location.region` cannot be checked, because the platform would choose where the data goes. The check follows the mode: `strict` refuses, `advisory` warns, `audit` logs.
 
 ```text
 ❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)

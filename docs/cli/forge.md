@@ -377,7 +377,7 @@ fluid forge --refine ./products/orders.fluid.yaml
 
 Loads the contract, asks "what to change?", feeds the contract verbatim to the LLM as the seed. One question, no full interview.
 
-Before it asks to write the result, the preview compares the regenerated contract with the one it loaded, using the comparison [`fluid diff --baseline`](./diff.md#contract-version-diff) runs, and lists the changes under `BREAKING`, `NON-BREAKING` and `INFO`. Through 0.26.0 the preview printed `No changes vs the existing contract.` for a dropped column or a changed type in a 0.7.x contract, and for a name that the contract declares twice (measured). *(Not yet in a release, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789), [#802](https://github.com/Agenticstiger/forge-cli/pull/802).)* The preview then lists each of them as breaking.
+Before it asks to write the result, the preview compares the regenerated contract with the one it loaded, using the comparison [`fluid diff --baseline`](./diff.md#contract-version-diff) runs, and lists the changes under `BREAKING`, `NON-BREAKING` and `INFO`. Through 0.26.0 the preview printed `No changes vs the existing contract.` for a dropped column or a changed type in a 0.7.x contract, and for a name that the contract declares twice (measured). *(since 0.27.0, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789), [#802](https://github.com/Agenticstiger/forge-cli/pull/802))* The preview then lists each of them as breaking.
 
 ### Slash commands inside the interview
 

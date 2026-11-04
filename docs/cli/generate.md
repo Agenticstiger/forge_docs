@@ -5,7 +5,8 @@ Unified artifact generation from FLUID contracts.
 ## Syntax
 
 ```bash
-fluid generate <transformation|speed-transformation|dbt|dbt-tests|schedule|ci|standard|artifacts|iac|vector>
+fluid generate <transformation|speed-transformation|dbt|dbt-tests|schedule|ci|standard|artifacts|iac|vector|flink>
+fluid generate flink <contract> --out <dir>
 ```
 
 ## Subcommands
@@ -30,6 +31,16 @@ fluid generate artifacts runtime/bundle.tgz --env aws \
 ```
 
 Options: `CONTRACT`, `--out`, `--emit`, `--manifest`, `--env`, `--contract-path`. The output tree, the emit keys, the scheduled-build DAGs and the fragment-layout limitation are on the [`generate artifacts`](./generate-artifacts.md) page. Verify the emitted tree with [`fluid validate-artifacts`](./validate-artifacts.md) (stage 4).
+
+### `fluid generate flink`
+
+*(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* Compiles the managed Flink builds of a [0.7.7 contract](../advanced/managed-flink-iceberg.md) into what `fluid apply` would deploy, and writes it for review. Nothing contacts a cluster.
+
+```bash
+fluid generate flink contract.fluid.yaml --out runtime/flink
+```
+
+It takes the contract, `--out` (`-o`) for the directory (default `runtime/flink`), and `--env` for an environment overlay. It prints `Generated 1 managed Flink application(s) in <dir>`, and `<dir>` holds a `manifest.json` and, under a directory named for each build's deployment namespace (`data-products/` in the example), a `.sql` file (the Flink SQL) and a `.yaml` file (the ConfigMap and the `FlinkDeployment`) for each build. [Managed Flink to Iceberg](../advanced/managed-flink-iceberg.md) covers the whole lane.
 
 ### `fluid generate transformation`
 

@@ -61,7 +61,7 @@ Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it,
 
 ## Contracts do not need a new `fluidVersion`
 
-Upgrading the CLI does not change the schema your contracts declare. `0.26.0` reads
+Upgrading the CLI does not change the schema your contracts declare. `0.27.0` reads
 `fluidVersion` `0.7.1` to `0.7.6`, and `0.7.7` as a preview (the list `fluid version`
 prints). `0.7.6` is stable since `0.26.0`: it is the default, and the contracts forge-cli
 writes declare it. A contract that declares `0.7.5` still validates as `0.7.5`.
@@ -552,9 +552,9 @@ carries the full upgrade notes of both releases.
   whatever the version, and `fluid odcs import` / `fluid odps import` of a document that records
   no version declare `0.7.6`. Re-importing such a document writes a different file.
 
-## On forge-cli `main` since 0.26.0 (not yet released)
+## Changes in 0.27.0
 
-These changes are merged and in no release yet. Most fail closed where a contract used to apply without them, so read them before the next upgrade. The Databricks ones come first; see [Databricks](./providers/databricks.md). The OpenTofu, AWS and GCP ones follow, then `fluid diff --baseline`.
+These changes shipped in 0.27.0. Most fail closed where a contract used to apply without them, so read them before upgrading from 0.26.0 or earlier. The Databricks ones come first; see [Databricks](./providers/databricks.md). The OpenTofu, AWS and GCP ones follow, then `fluid diff --baseline`.
 
 - **A Databricks contract with a `sovereignty` block and no `binding.location.region` is now a finding**
   ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)): an error under
@@ -582,7 +582,7 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   now refuses such a contract (`databricks-enforcement-outside-module`): use `fluid apply`. A dbt job
   that writes a table not yet protected is created paused, and the next `fluid apply` unpauses it.
 - **Databricks retention, bronze landing and scoped grants**
-  ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release). `lifecycle.expire` was
+  ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0). `lifecycle.expire` was
   refused (`databricks-retention-unmapped`). It is accepted now for a table rebuilt in full on every
   run, when `lifecycle.retention` covers the Delta history (30 days by default); `fluid verify` checks
   it. A DuckDB acquisition that writes a Databricks expose now uploads Parquet to the volume
@@ -605,7 +605,7 @@ These changes are merged and in no release yet. Most fail closed where a contrac
 - **A column type Glue or BigQuery cannot hold is refused**
   ([#793](https://github.com/Agenticstiger/forge-cli/pull/793)). A column typed `array`, `struct`,
   `map`, `object`, `record` or `row` fails `fluid validate`, `fluid generate iac` and `fluid apply`
-  with `column-type`; declare it `json` or `string`. On Glue, `geography`, `geometry`, `geom`,
+  with `column-type`; declare it `json` or `string`, or, on AWS with a 0.7.7 contract, declare the column's `fields`, `element`, or `key` and `value` (see [Nested columns](./providers/aws.md#nested-columns)). On Glue, `geography`, `geometry`, `geom`,
   `point`, `hll`, a decimal Hive rejects and `bit(n)` over one bit are refused too. Some types are
   still written with a fallback and now warn, so `fluid validate --strict` fails until you declare
   the type you mean: on Glue `json`, `jsonb`, `variant`, `super`, `time`, `interval` and
@@ -697,6 +697,40 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   to `fluid publish --target datamesh-manager`. A contract's `runtime.platform: redshift` is served by
   `aws`, so it needs no change. A plugin cannot claim either name. See
   [Retired provider names](./cli/providers.md#retired-provider-names).
+- **A Kafka Connect or embedded Debezium Iceberg sink's `catalogAuth` needs the operator's say**
+  ([forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818)). A sink whose
+  `catalogAuth` reaches a non-loopback host fails its run until the operator pairs the variable with
+  the host as `NAME@host` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` and, for a hostname, lists it
+  in `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST`. A catalog or token endpoint on `http://`, a
+  loopback host included, fails `fluid validate`; move it to `https://`. `fluid validate` warns, with
+  the `export` line the run needs, when only an entry is missing. A derived sink whose
+  `binding.location` holds text that starts with `env:`, or holds `${` or a control character, or a
+  `region` that is not one label, now fails `fluid validate` and the run, `catalogAuth` or not;
+  write the value itself. See [Operator allowlists](./advanced/source-aligned-acquisition.md#operator-allowlists).
+- **A value that ends in a line break is refused**
+  ([forge-cli #797](https://github.com/Agenticstiger/forge-cli/pull/797),
+  [#799](https://github.com/Agenticstiger/forge-cli/pull/799),
+  [#811](https://github.com/Agenticstiger/forge-cli/pull/811)). Whole-string validators and
+  schema `pattern`s no longer let a trailing newline through, which an `id: |` block scalar, a
+  `.env` value or a `%0A` in a URL produces. `fluid validate` refuses `id: "orders\n"` under every
+  bundled schema version, with the hint `(it ends in a line break, which a YAML | or > block keeps
+  and |- or >- drops)`; write the value with `|-` or `>-`, or plainly. Strip the value where an
+  environment variable or file sets it. An AWS binding region with whitespace around it is refused
+  (`aws-region-whitespace`). See [A value that ends in a line break](./cli/validate.md#a-value-that-ends-in-a-line-break).
+- **Cloud-metadata addresses are refused even when listed**
+  ([forge-cli #823](https://github.com/Agenticstiger/forge-cli/pull/823)). The acquisition
+  orchestrator guard (kafka_connect, debezium, airbyte) and the OpenLineage emitter now refuse
+  `fd00:ec2::254`, `fd00:ec2::23`, `fd20:ce::254`, `fd00:c1::a9fe:a9fe` and `100.100.100.200`, and
+  any IPv4-mapped or NAT64 address that carries a link-local or metadata address, where they allowed
+  them like any private host. A Tailscale tailnet or an IPv6 cluster on ULA addresses needs no
+  change. See [Network safety](./advanced/network-safety.md).
+- **The orchestrator guard judges the address the connection is pinned to**
+  ([forge-cli #814](https://github.com/Agenticstiger/forge-cli/pull/814)). For kafka_connect,
+  debezium and airbyte, the check on a contract-named `deployment.server_url` no longer resolves the
+  hostname a second time. The name still decides the allowlist and the pinned address decides public
+  or private; a link-local address is refused even for a listed name, and the refusal names both, as
+  in `host 'connect.example.com', connecting to '93.184.216.34', is public`. A URL it cannot parse is
+  refused with "it has no host".
 
 ## Extras in 0.27.0 and the install change in 0.28.0
 

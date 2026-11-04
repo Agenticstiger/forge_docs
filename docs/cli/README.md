@@ -1,6 +1,6 @@
 # CLI Reference
 
-This section tracks the command surface of `forge-cli` `0.26.0`, the release `pip install data-product-forge` installs. `fluid --help` shows the promoted commands.
+This section tracks the command surface of `forge-cli` `0.27.0`, the release `pip install data-product-forge` installs. `fluid --help` shows the promoted commands.
 
 ::: tip Looking up *how to do something* (not *what a command does*)?
 The page you actually want is [**CLI by task →**](./tasks/) — narrative walkthroughs organized around things you might be trying to accomplish, like "deploy to a new cloud", "add quality rules", "debug a failed run", or "add agent governance". Each task page links to the relevant commands. **This** page is the command index, grouped by purpose — better for lookup, worse for onboarding.
@@ -89,6 +89,7 @@ These commands are for production-safety concerns that live alongside the pipeli
 | [`fluid generate-airflow`](./generate-airflow.md) | Compatibility shim for `generate schedule --scheduler airflow` |
 | [`fluid generate iac`](./generate-iac.md) | Review-only emit of an OpenTofu module from a contract |
 | [`fluid generate vector`](./generate-vector.md) | Review-only emit of a pgvector RAG target from a contract |
+| [`fluid generate flink`](./generate.md#fluid-generate-flink) | *(since 0.27.0)* Review-only emit of the Flink SQL, ConfigMap and `FlinkDeployment` of a managed Flink build |
 | [`fluid viz-graph`](./viz-graph.md) | Render the contract as a lineage graph (SVG/HTML/PNG/DOT; DOT only when Graphviz is missing) |
 
 The promoted orchestration path is `fluid generate schedule --scheduler airflow`.

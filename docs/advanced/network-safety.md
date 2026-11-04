@@ -46,6 +46,20 @@ The DataHub, OpenMetadata and Data Mesh Manager registrars that `fluid publish` 
 
 The webhook, federation and Command Center variables take comma-separated host suffixes, matched exactly or as a dotted suffix: `vpn.internal` permits `app.vpn.internal` but not `vpn.internal-evil.example.com`. A host on the list skips the address check.
 
+## Metadata addresses refused even when listed
+
+*(since 0.27.0, [forge-cli #823](https://github.com/Agenticstiger/forge-cli/pull/823))* Three checks allow an internal endpoint but never instance metadata: the guard on an acquisition orchestrator's `deployment.server_url` (kafka_connect, debezium and airbyte), the OpenLineage emitter and the managed Flink host check. They used to refuse only link-local and unspecified addresses, so a cloud's metadata address in ULA or CGNAT space passed like any private host, even with no allowlist entry. They now refuse these, even when the host is listed:
+
+| Address | What it is |
+|---|---|
+| `fd00:ec2::254` | AWS instance metadata over IPv6 |
+| `fd00:ec2::23` | The EKS Pod Identity agent, over IPv6 |
+| `fd20:ce::254` | GCP instance metadata over IPv6 |
+| `fd00:c1::a9fe:a9fe` | Oracle Cloud instance metadata over IPv6 |
+| `100.100.100.200` | Alibaba Cloud instance metadata, inside the CGNAT range |
+
+An IPv4-mapped address (`::ffff:...`) or a NAT64 address (`64:ff9b::/96`) that carries a link-local or one of these metadata addresses is refused too. The surrounding ranges stay allowed: a Tailscale tailnet (CGNAT, `100.100.100.100` included) and an IPv6 cluster on ULA addresses need no change.
+
 ## Cloud metadata and the credential resolver
 
 `FLUID_ALLOW_METADATA_SERVICE=1` lets the metadata-source [credential resolver](./credential-resolver.md) fall back to cloud workload identity. It is off by default, and it is not an SSRF switch: it does not relax the checks above.

@@ -97,10 +97,12 @@ Discovery runs a 4-layer pipeline, in order:
 
 | Layer | What it does | Use case |
 |-------|-------------|----------|
-| **1. Entry points** | Scans pip-installed packages for `fluid_build.providers` entry points | Third-party providers installed via `pip install` |
-| **2. Built-in modules** | Imports the curated defaults: `local`, `gcp`, `aws`, `snowflake` | The apply-capable providers that ship with Fluid Forge |
-| **3. Subpackage scan** | Scans `fluid_build/providers/*` for any remaining modules | Catches providers added to the package tree |
+| **1. Entry points** | Reads the `fluid_build.providers` entry points of every installed package, the five built-ins included (`aws`, `databricks`, `gcp`, `local`, `snowflake`), and records each by name. *(since 0.27.0, [forge-cli #812](https://github.com/Agenticstiger/forge-cli/pull/812))* Nothing is imported at this step | The providers that ship with Fluid Forge, and third-party providers installed via `pip install` |
+| **2. Named modules** | Imports the modules `FLUID_PROVIDERS` names, when the operator sets it | Restricting or adding discovery |
+| **3. Subpackage scan** | Scans `fluid_build/providers/*` for any remaining packages | Catches providers added to the package tree |
 | **4. Fallback** | Re-attempts imports if registry is still empty | Recovers from import ordering issues |
+
+*(since 0.27.0, [forge-cli #812](https://github.com/Agenticstiger/forge-cli/pull/812))* A provider class is imported once, the first time something looks it up by name, and is cached. `fluid providers` lists names from the entry-point metadata and imports no provider (`fluid providers --debug` still imports each one). A built-in name is reserved: a third-party entry point that claims one is skipped before it is imported, with a WARNING naming its distribution, unless the operator grants it in `FLUID_PLUGINS_ALLOWLIST`; see [Plugins](../cli/plugins.md).
 
 Discovery is **lazy** (runs on first access), **idempotent** (subsequent calls are no-ops), and **thread-safe**.
 
@@ -126,6 +128,7 @@ Fluid Forge ships with these providers:
 | **[GCP](./gcp.md)** | BigQuery + GCS | Google Cloud production deployments |
 | **[AWS](./aws.md)** | S3 + Athena + Glue | Amazon Web Services deployments |
 | **[Snowflake](./snowflake.md)** | Snowflake | Enterprise data warehouse deployments |
+| **[Databricks](./databricks.md)** | Unity Catalog + Delta | Databricks deployments |
 
 > **Standards export is not a provider.** ODPS and ODCS serialize a contract to an open spec rather than deploying infrastructure. They are surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html), not `fluid providers` — see [the exporters reference](/forge_docs/cli/exporters.html).
 

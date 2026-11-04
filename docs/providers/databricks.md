@@ -149,7 +149,7 @@ A grant is authoritative for its principal. If the schema already existed and ot
 
 ### Scoping a grant to an expose
 
-*On forge-cli `main`, not yet in a release ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801)).*
+*(since 0.27.0, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801))*
 
 An `accessPolicy` grant may name the exposes it is for in `resources`. Databricks evaluates three shapes, and a grant without `resources` is for every expose:
 
@@ -218,7 +218,7 @@ What a contract says about where its data lives and who may read it, and what fo
 
 ### Residency
 
-*On forge-cli `main`, not yet in a release ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)).*
+*(since 0.27.0, [forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778))*
 
 A workspace is in one region. A contract's [`sovereignty`](../concepts/sovereignty.md) policy is checked for a Databricks expose as it is for the other clouds, from the region the expose declares in `binding.location.region`:
 
@@ -247,7 +247,7 @@ The rules:
 - **The policy holds at apply, not only at validate.** `fluid apply` and `fluid generate iac` refuse a placement the policy forbids with `SovereigntyViolationError`, before any module is written, so before `tofu init`, an import or an adoption.
 - **The spelling is exact.** The region must be a plain lower-case name: lower-case letters, digits and hyphens, starting with a letter, 2 to 63 characters, no spaces (`eu-central-1`, `westeurope`, `europe-west3`). Anything else is refused as `databricks-region-invalid`. It is not lower-cased for you: the policy compares the text as written, so `US-WEST-2` would otherwise pass a `deniedRegions: [us-west-2]` check and still plan against a workspace in us-west-2.
 - **One region per contract.** The module applies to one workspace (`DATABRICKS_HOST`). Two Databricks exposes that declare different regions are refused as `databricks-region-conflict`.
-- **The declaration is checked against the workspace, at plan time.** With a region declared, the module reads the workspace's metastore (`data.databricks_current_metastore`), and every schema it owns carries a precondition that the metastore's region equals the declared one. `tofu plan` fails, `--mode dry-run` included, before anything is written, when `DATABRICKS_HOST` names a workspace elsewhere. The run stops with `opentofu_plan_failed` and kind `databricks-residency-region`, and prints one line with both regions and the fix (the wording from [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release):
+- **The declaration is checked against the workspace, at plan time.** With a region declared, the module reads the workspace's metastore (`data.databricks_current_metastore`), and every schema it owns carries a precondition that the metastore's region equals the declared one. `tofu plan` fails, `--mode dry-run` included, before anything is written, when `DATABRICKS_HOST` names a workspace elsewhere. The run stops with `opentofu_plan_failed` and kind `databricks-residency-region`, and prints one line with both regions and the fix (the wording from [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0):
 
   ```text
   the contract declares binding.location.region eu-central-1, but the workspace DATABRICKS_HOST names is in us-west-2. Point DATABRICKS_HOST at a workspace in eu-central-1, or correct binding.location.region.
@@ -264,7 +264,7 @@ Whether a real metastore reports its region in the spelling a contract declares 
 
 ### Governance tags
 
-*On forge-cli `main`, not yet in a release ([forge-cli #779](https://github.com/Agenticstiger/forge-cli/pull/779)).*
+*(since 0.27.0, [forge-cli #779](https://github.com/Agenticstiger/forge-cli/pull/779))*
 
 A contract's governance labels reach AWS as tags and Glue parameters and GCP as labels. On Databricks they are Unity Catalog tags, one `databricks_entity_tag_assignment` per tag, built from the same source as the other two clouds (`iac/governance_labels.py`). Before this change the Databricks module never read `labels`, and nothing said so.
 
@@ -294,7 +294,7 @@ Not run against a live workspace.
 
 ### Column masks and row filters
 
-*On forge-cli `main`, not yet in a release ([forge-cli #785](https://github.com/Agenticstiger/forge-cli/pull/785)).*
+*(since 0.27.0, [forge-cli #785](https://github.com/Agenticstiger/forge-cli/pull/785))*
 
 `policy.authz.columnRestrictions` and `policy.authz.rowFilters` were refused on Databricks. They are now enforced by Unity Catalog itself: forge-cli creates SQL functions and binds them on the table with `ALTER TABLE ... SET ROW FILTER` and `ALTER COLUMN ... SET MASK`. The engine then rewrites a restricted principal's query, whichever tool sends it. The semantics are the ones GCP and AWS give the same fields, with the differences noted below.
 
@@ -347,7 +347,7 @@ The module `fluid generate iac` writes holds no mask or filter, and a plain `tof
 
 #### What the functions are
 
-Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. A superseded function is dropped by `fluid apply` after the apply succeeds ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release), when no table in the schema uses it and the run's identity owns it, and the run prints `dropped superseded function <name>`. Only `fluid_rf_<table>_…`, `fluid_mask_<table>_<column>_…` and deny-all functions of the contract's tables are candidates. A function owned by another identity, or by an owner that cannot be read, is left and printed as `left function <name>: …`. A `DROP` that fails prints `note: superseded function <name> was not dropped: …` and the apply still succeeds. When a schema's tables or functions cannot all be read, nothing in it is dropped.
+Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. A superseded function is dropped by `fluid apply` after the apply succeeds ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0), when no table in the schema uses it and the run's identity owns it, and the run prints `dropped superseded function <name>`. Only `fluid_rf_<table>_…`, `fluid_mask_<table>_<column>_…` and deny-all functions of the contract's tables are candidates. A function owned by another identity, or by an owner that cannot be read, is left and printed as `left function <name>: …`. A `DROP` that fails prints `note: superseded function <name> was not dropped: …` and the apply still succeeds. When a schema's tables or functions cannot all be read, nothing in it is dropped.
 
 The hashed name can be computed from the contract, so someone with `CREATE FUNCTION` on the schema could create it first with a body that returns the value unmasked. So after each create, and before any bind, forge-cli reads the function back. Its owner (the identity the run authenticates as), body, parameters and return type must be the expected ones, whitespace aside. A function that is not is never bound, and the run prints what differs.
 
@@ -379,7 +379,7 @@ A mask or filter that cannot be bound must not leave the table readable. After a
 2. **If that cannot be bound**, or would replace a row filter this module did not create, `SELECT` (and `ALL PRIVILEGES`) on the table is revoked from every grantee but its owner, listed through the permissions API.
 3. **Paths it cannot close are named.** A grant inherited from the schema or the catalog is not one a table-level `REVOKE` reaches. The run lists each with the statement to run.
 
-The lock leaves the table's owner and the identity of the run alone: revoking from the run's own identity would lock it out of the table it has to repair. When the owner is unreadable the message says so. When the contract restricts the owner or the run's identity, the message names that as an open path, with the `ALTER TABLE … OWNER TO` statement to run, since an owner reads its table whatever is revoked ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release).
+The lock leaves the table's owner and the identity of the run alone: revoking from the run's own identity would lock it out of the table it has to repair. When the owner is unreadable the message says so. When the contract restricts the owner or the run's identity, the message names that as an open path, with the `ALTER TABLE … OWNER TO` statement to run, since an owner reads its table whatever is revoked ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0).
 
 The message says exactly what was done, and the run exits non-zero (`databricks-enforcement-failed`). Fix the cause and run `fluid apply` again: it binds first, replacing a deny-all filter, and grants again afterwards.
 
@@ -415,7 +415,7 @@ Proven against the in-process stand-in with a real `tofu` apply, with the functi
 
 ### Retention
 
-*On forge-cli `main`, not yet in a release ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801)).*
+*(since 0.27.0, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801))*
 
 Nothing on Databricks deletes rows by age. What can make a retention promise true is the table's shape: a table rebuilt in full on every run holds no row older than the last run, except in its Delta history, the old data files Delta keeps for time travel. `VACUUM` removes those once they are older than the table's retention, and predictive optimization runs `VACUUM` on Unity Catalog managed tables. So `lifecycle.expire: true` is accepted when:
 
@@ -543,7 +543,7 @@ models:
 
 ## Landing a DuckDB acquisition
 
-*On forge-cli `main`, not yet in a release ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801)).*
+*(since 0.27.0, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801))*
 
 A DuckDB acquisition build (`pattern: acquisition`, `engine: duckdb`) whose expose is on Databricks used to write a local file and report success with nothing in Databricks. It now lands the data in the table `fluid apply` created, in three steps:
 
@@ -607,7 +607,7 @@ Install the extra first: `pip install 'data-product-forge[databricks]'`. Verify 
 4. **Governance tags** (`governance_tags`): every tag the contract implies is on the table and its schema, with its value. Skipped with no labels. See [Governance tags](#governance-tags).
 5. **Column masks and row filter** (`row_filter_masks`): the expected, content-hashed function names against the table's live `row_filter` and each column's `mask`, and each bound function read back for its owner (this verify's identity or the table's owner), body, parameters and return type. A missing or different binding is `CRITICAL`, with `fluid apply` as the fix. Skipped when the contract restricts nothing. See [Column masks and row filters](#column-masks-and-row-filters).
 6. **Jobs**: each dbt build that writes the expose has exactly one job of its name. None means `fluid apply` did not run or the job was deleted. Several mean an apply without its state created a duplicate. A job that is `PAUSED` while its table's masks or row filter are not in place also fails, with `fluid apply` as the fix.
-7. **Retention** (`retention`, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release): skipped when the contract sets no `lifecycle.expire`. It reads the live table's `delta.logRetentionDuration` and `delta.deletedFileRetentionDuration` (Delta's defaults when unset). `fail`, `CRITICAL`, when the longer of the two exceeds `lifecycle.retention` or one is not an interval; the fix is the `ALTER TABLE … SET TBLPROPERTIES` that sets both, or a longer retention. `warn` when predictive optimization is off for the table (enable it, or schedule `VACUUM`), or when Unity Catalog returned no table properties and Delta's defaults were assumed (check `SHOW TBLPROPERTIES`). See [Retention](#retention).
+7. **Retention** (`retention`, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0): skipped when the contract sets no `lifecycle.expire`. It reads the live table's `delta.logRetentionDuration` and `delta.deletedFileRetentionDuration` (Delta's defaults when unset). `fail`, `CRITICAL`, when the longer of the two exceeds `lifecycle.retention` or one is not an interval; the fix is the `ALTER TABLE … SET TBLPROPERTIES` that sets both, or a longer retention. `warn` when predictive optimization is off for the table (enable it, or schedule `VACUUM`), or when Unity Catalog returned no table properties and Delta's defaults were assumed (check `SHOW TBLPROPERTIES`). See [Retention](#retention).
 
 `USE CATALOG` is checked per table, so a [scoped grant's](#scoping-a-grant-to-an-expose) principal is checked only where it was granted.
 
@@ -631,7 +631,7 @@ It never opens a connection, never prints a token, and never fails `fluid doctor
 
 ### `fluid publish`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #780](https://github.com/Agenticstiger/forge-cli/pull/780)).*
+*(since 0.27.0, [forge-cli #780](https://github.com/Agenticstiger/forge-cli/pull/780))*
 
 The Command Center cannot link a Databricks table to its workspace unless it is told which workspace holds it. For a product on `platform: databricks`, `fluid publish` adds `metadata.workspace_host` to the asset it sends to the [Command Center](../concepts/command-center.md#what-fluid-publish-sends), so the Command Center can build a console link.
 

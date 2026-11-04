@@ -32,13 +32,13 @@ export FLUID_PLUGINS_BLOCKLIST="some-third-party-scaffold"
 
 Names match case-insensitively, with `-` and `_` equal, so `Kube-Rnetes` does not slip past a blocklist entry `kube_rnetes`. The blocklist always wins.
 
-*(on `main`, not yet in a release)* **Taking a built-in name needs a grant.** An IaC plugin may not claim a built-in platform name (`aws`, `gcp`, `snowflake`, `confluent`, `databricks`, an alias such as `glue` or `bigquery`, or `local`); the entry point is skipped before it is imported, with a WARNING that names its distribution. The operator grants one override with a distribution-qualified allowlist entry:
+*(from 0.27.0)* **Taking a built-in name needs a grant.** An IaC plugin may not claim a built-in platform name (`aws`, `gcp`, `snowflake`, `confluent`, `databricks`, an alias such as `glue` or `bigquery`, or `local`), and a provider plugin may not claim a built-in provider name (`aws`, `databricks`, `gcp`, `local` or `snowflake`); the entry point is skipped before it is imported, with a WARNING that names its distribution. The operator grants one override with a distribution-qualified allowlist entry, the same form for both kinds of plugin ([Entry points](./entry-points.md#the-role-level-groups-for-plugin-classes) has the provider side):
 
 ```bash
 export FLUID_PLUGINS_ALLOWLIST="acme-fluid-aws:aws"
 ```
 
-The distribution name is read from the installed package's metadata, not from anything the plugin declares. A qualified entry grants that one entry point and restricts nothing else. If the allowlist also holds bare names and omits the platform, or the blocklist names it, the grant is cancelled with a WARNING. The retired names `redshift` and `datamesh-manager` cannot be granted.
+The distribution name is read from the installed package's metadata, not from anything the plugin declares. A qualified entry grants that one entry point (for example `acme-fluid-gcp:gcp` for a provider) and restricts nothing else. If the allowlist also holds bare names and omits the platform, or the blocklist names it, the grant is cancelled with a WARNING. The retired names `redshift` and `datamesh-manager` cannot be granted.
 
 `fluid plugins` surfaces each plugin's **allow/block status** so an operator can see exactly what would (and wouldn't) load — see [`fluid plugins`](/forge_docs/cli/plugins.html).
 
@@ -177,7 +177,7 @@ Plugins are tested, scanned, and approved by your platform team before showing u
 
 ```toml
 # In your deploy environment's pyproject.toml or requirements:
-data-product-forge==0.26.0
+data-product-forge==0.27.0
 data-product-forge-sdk==0.10.0
 data-product-forge-custom-scaffold==0.4.1
 my-org-validators==1.2.0

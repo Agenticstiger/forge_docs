@@ -64,8 +64,8 @@ Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may ho
 | Variable | Effect |
 |---|---|
 | `FLUID_STATE_BACKEND` | Default of `--state-backend` for `fluid apply`, `fluid diff` and `fluid verify --state-drift`: `s3://<bucket>[/<key>]` or `gcs://<bucket>[/<prefix>]` (see [Remote state](../cli/apply.md#remote-state)). A spec that names only a bucket gives every contract its own key (see below); the flag does not. An empty `--state-backend ""` forces local state for one run. |
-| `FLUID_TOFU_TIMEOUT_SECONDS` | Wall-clock cap per `tofu` invocation. Default `1800`. A timed-out call reports exit code 124. *(On forge-cli `main`, not yet in a release, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787).)* `tofu` is interrupted first, so it releases its state lock, and killed only if it is still running 30 seconds later. |
-| `FLUID_TOFU_S3_LOCKFILE` | *(On forge-cli `main`, not yet in a release, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787).)* `0`, `false`, `no` or `off` stops `fluid apply` from asking `tofu init` to lock S3 state (`-backend-config=use_lockfile=true`, OpenTofu 1.10 or newer). Set it for a role that cannot write `<key>.tflock`, in the environment of the job: a project `.env` cannot set it (see [project `.env` trust](./project-dotenv-trust.md)). Unset, or any other value, keeps the lock on. See [Locking](../concepts/state.md#locking). |
+| `FLUID_TOFU_TIMEOUT_SECONDS` | Wall-clock cap per `tofu` invocation. Default `1800`. A timed-out call reports exit code 124. *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* `tofu` is interrupted first, so it releases its state lock, and killed only if it is still running 30 seconds later. |
+| `FLUID_TOFU_S3_LOCKFILE` | *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* `0`, `false`, `no` or `off` stops `fluid apply` from asking `tofu init` to lock S3 state (`-backend-config=use_lockfile=true`, OpenTofu 1.10 or newer). Set it for a role that cannot write `<key>.tflock`, in the environment of the job: a project `.env` cannot set it (see [project `.env` trust](./project-dotenv-trust.md)). Unset, or any other value, keeps the lock on. See [Locking](../concepts/state.md#locking). |
 | `FLUID_OPENTOFU_VERSION` | Pins the OpenTofu version that [`fluid apply --ensure-opentofu`](../cli/apply.md) installs when `tofu` is missing. |
 | `FLUID_REDSHIFT_WORKGROUP`, `FLUID_REDSHIFT_DATABASE`, `FLUID_REDSHIFT_SQL` | Set by the generated AWS module for its Redshift Serverless statements. They are outputs of the generator, not settings. |
 | `SNOWFLAKE_ORGANIZATION_NAME`, `SNOWFLAKE_ACCOUNT_NAME` | The account identity that the generated module's Snowflake provider 2.x expects. fluid derives them from a `SNOWFLAKE_ACCOUNT` in `<org>-<account>` form when they are not set. |
@@ -80,7 +80,7 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 
 ## Managed Flink (preview)
 
-*On forge-cli's managed Flink branch ([forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784)), not yet on `main` or in a release.* [Managed Flink to Iceberg](./managed-flink-iceberg.md#operator-settings) says what each of these protects. Each takes a comma-separated list. An unset list allows nothing, and a project `.env` cannot set any of them.
+*(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* [Managed Flink to Iceberg](./managed-flink-iceberg.md#operator-settings) says what each of these protects. Each takes a comma-separated list. An unset list allows nothing, and a project `.env` cannot set any of them.
 
 | Variable | Effect |
 |---|---|
@@ -90,10 +90,10 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 | `FLUID_FLINK_SERVICE_ACCOUNT_ALLOWLIST` | The service accounts the job may run as: `name`, in any listed namespace, or `namespace/name`. |
 | `FLUID_FLINK_SECRET_ALLOWLIST` | The Kubernetes Secrets `deployment.secretRefs` may mount, in the same two forms. |
 | `FLUID_FLINK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` `fluid apply` may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>` for that SQL only. The refusal prints the pinned entry. |
-| `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | For managed Flink: every hostname the job contacts (the catalog, an OAuth2 token endpoint, an `s3.endpoint`), and every public IP address. Link-local addresses are always refused. |
-| `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | For managed Flink: a `catalogAuth` variable, as `NAME@host`, for each host that receives it or a token minted from it. |
+| `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | For managed Flink: every hostname the job contacts (the catalog and an OAuth2 token endpoint at apply and verify; at `fluid apply` also an `s3.endpoint`, the Kafka brokers and the schema registry), and every public IP address. Link-local addresses are always refused. Also read by acquisition deployments and by the Kafka Connect and embedded Debezium Iceberg sinks, where it lists a catalog or token-endpoint hostname the worker resolves itself ([Operator allowlists](./source-aligned-acquisition.md#operator-allowlists)). |
+| `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | A `catalogAuth` variable, as `NAME@host`, for each host that receives it or a token minted from it. Read by managed Flink and by the Kafka Connect and embedded Debezium Iceberg sinks ([Operator allowlists](./source-aligned-acquisition.md#operator-allowlists)); acquisition sources use it for their `secretRef`. A bare `NAME` allows every host. |
 
-The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments read them too. The rows give only what they mean for managed Flink.
+The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments read them too. *(since 0.27.0, [forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818))* The Kafka Connect and embedded Debezium Iceberg sinks read them as well, and a project `.env` cannot set either.
 
 ## Command Center
 
@@ -114,7 +114,7 @@ The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments rea
 | `FLUID_DISABLE_CC_DETECTION` | `fluid market`, `fluid marketplace` | `true`, `1` or `yes` skips the Command Center auto-detection. |
 | `FLUID_API_URL` | `fluid marketplace` | Explicit marketplace API URL; wins over detection. |
 
-The Command Center reporter reads a CA bundle from `REQUESTS_CA_BUNDLE`, or `CURL_CA_BUNDLE` when that is unset. *(on `main`, not yet in a release)* If the path cannot be loaded, the reporter is disabled for the run with a warning; TLS verification is never relaxed. See [Reporting to the Command Center](../cli/apply.md).
+The Command Center reporter reads a CA bundle from `REQUESTS_CA_BUNDLE`, or `CURL_CA_BUNDLE` when that is unset. *(from 0.27.0)* If the path cannot be loaded, the reporter is disabled for the run with a warning; TLS verification is never relaxed. See [Reporting to the Command Center](../cli/apply.md).
 
 `fluid apply` registers each run at `POST /api/v1/executions` and closes it with a `PATCH`, best effort: an unreachable Command Center costs a warning line and at most the timeout, never the exit code. With no organization, nothing is sent. It reports the product id, contract version, hash, env, provider, mode, state location, resource addresses, change counts, timings and the builds it ran. It does not send secrets, headers or `tofu` output. Under Jenkins (`JENKINS_URL` set) the runner is tagged `jenkins`.
 

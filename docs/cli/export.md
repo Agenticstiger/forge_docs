@@ -15,7 +15,7 @@ fluid export CONTRACT [--engine ENGINE] [--output-dir DIR] [--provider PROVIDER]
 | `CONTRACT` | Path to FLUID contract file (YAML or JSON). |
 | `--engine` | Orchestration engine: `airflow`, `mwaa`, `dagster`, or `prefect`. Default `airflow`. |
 | `--output-dir`, `-o` | Output directory for generated files. Default `.` (current directory). |
-| `--provider` | Override provider. The flag lists `aws`, `gcp`, `azure` and `snowflake`, but a provider must also be registered in your install: `azure` is rejected with `Unknown provider 'azure'` and exit 2 because `fluid providers` does not list it (see [`fluid providers`](./providers.md#when-a-provider-cannot-be-found)). `gcp` prints `Provider 'gcp' requires --project to be specified` unless the global `--project` is set before the subcommand (`fluid --project <id> export ...`). Default auto-detected from the contract. |
+| `--provider` | Override provider. *(since 0.27.0)* The flag has no fixed list of choices: a name is checked against the providers registered in your install, and one that is not, such as `azure`, is rejected with `Unknown provider 'azure'` and exit 2 (see [`fluid providers`](./providers.md#when-a-provider-cannot-be-found)). `gcp` prints `Provider 'gcp' requires --project to be specified` unless the global `--project` is set before the subcommand (`fluid --project <id> export ...`). Default auto-detected from the contract. |
 | `--env` | Environment overlay to apply (e.g. `dev`, `test`, `prod`). |
 | `--verbose`, `-v` | Verbose output, including file stats and next-step hints. |
 

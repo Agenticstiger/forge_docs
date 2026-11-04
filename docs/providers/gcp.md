@@ -222,7 +222,7 @@ Through 0.26.0 a bare `array` was written as `ARRAY`, which is not a BigQuery co
 
 #### Exact, warned and refused types
 
-*On forge-cli `main`, not yet in a release ([forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793)).*
+*(since 0.27.0, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793))*
 
 Every contract type is classified once, as one of three:
 
@@ -262,7 +262,7 @@ expose '<exposeId>': column '<column>' is declared 'geometry', which is planar, 
 
 **Refused.**
 
-- `array`, `struct`, `map`, `object`, `record` and `row`, and `array(string)` and the like. BigQuery holds them only as a REPEATED column of an element type or a RECORD with fields, and the contract schema cannot declare those yet.
+- `array`, `struct`, `map`, `object`, `record` and `row`, and `array(string)` and the like. BigQuery holds them only as a REPEATED column of an element type or a RECORD with fields. *(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* A 0.7.7 contract can declare a column's `fields`, `element`, or `key` and `value`, and BigQuery still refuses it: the emitter writes neither a REPEATED column nor a RECORD yet.
 - `bit(n)` with n over 1, which is a bit string, and BigQuery has none.
 - A type no table maps, and a type whose parameters are not ASCII.
 
@@ -271,8 +271,8 @@ One refusal names the expose, every column it cannot hold with its declared type
 ```text
 ❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
   kind: column-type
-  error: expose '<exposeId>': BigQuery cannot hold its columns as declared: '<column>' is declared 'array', which BigQuery holds only as a REPEATED column of an element type or a RECORD with fields, and the contract schema cannot declare them yet.
-  remediation: ["Column '<column>': Declare json or string for now; typed nested columns are planned."]
+  error: expose '<exposeId>': BigQuery cannot hold its columns as declared: '<column>' is declared 'array', which BigQuery holds only as a REPEATED column of an element type or a RECORD with fields, and this emitter does not write either yet.
+  remediation: ["Column '<column>': Declare json or string instead."]
 ```
 
 The BigQuery emitter no longer falls back to the ODCS table for these types. A contract with an `array` or `struct` column that validated before now fails with `column-type`; declare the column `json`, which BigQuery stores as its JSON type, or `string`.

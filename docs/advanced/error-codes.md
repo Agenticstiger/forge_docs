@@ -56,7 +56,7 @@ The suggestions below are the CLI's own wording as of 0.18.1. Where a suggestion
 
 `ERR_PROVIDER_NOT_SPECIFIED`. The documentation link lands on [`fluid providers`](../cli/providers.md).
 
-- Pass a provider: --provider local|gcp|snowflake|aws|azure
+- Pass a provider: --provider aws|databricks|gcp|local|snowflake
 - Or set the FLUID_PROVIDER environment variable
 - Run 'fluid providers' to list the available providers
 
@@ -73,9 +73,9 @@ The suggestions below are the CLI's own wording as of 0.18.1. Where a suggestion
 `ERR_PROVIDER_UNKNOWN`. The documentation link lands on [`fluid providers`](../cli/providers.md).
 
 - Run 'fluid providers' to see the available providers
-- Valid built-ins: local, gcp, snowflake, aws, azure
+- Valid built-ins: aws, databricks, gcp, local, snowflake
 
-As of 0.18.1 the second suggestion names `azure`, but `fluid providers` lists `aws`, `datamesh_manager`, `gcp`, `local`, `redshift` and `snowflake`, and `--provider azure` is refused as unknown.
+As of 0.18.1 the second suggestion named `azure`, which no provider serves, and `fluid providers` listed `datamesh_manager` and `redshift`. *(since 0.27.0)* On a stock install, the suggestions and `fluid providers` list the same five names, and `--provider azure` is refused as unknown.
 
 ### provider_blocked_by_policy
 
