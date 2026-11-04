@@ -61,7 +61,7 @@ Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it,
 
 ## Contracts do not need a new `fluidVersion`
 
-Upgrading the CLI does not change the schema your contracts declare. `0.26.0` reads
+Upgrading the CLI does not change the schema your contracts declare. `0.27.0` reads
 `fluidVersion` `0.7.1` to `0.7.6`, and `0.7.7` as a preview (the list `fluid version`
 prints). `0.7.6` is stable since `0.26.0`: it is the default, and the contracts forge-cli
 writes declare it. A contract that declares `0.7.5` still validates as `0.7.5`.
@@ -552,9 +552,9 @@ carries the full upgrade notes of both releases.
   whatever the version, and `fluid odcs import` / `fluid odps import` of a document that records
   no version declare `0.7.6`. Re-importing such a document writes a different file.
 
-## On forge-cli `main` since 0.26.0 (not yet released)
+## Changes in 0.27.0
 
-These changes are merged and in no release yet. Most fail closed where a contract used to apply without them, so read them before the next upgrade. The Databricks ones come first; see [Databricks](./providers/databricks.md). The OpenTofu, AWS and GCP ones follow, then `fluid diff --baseline`.
+These changes shipped in 0.27.0. Most fail closed where a contract used to apply without them, so read them before upgrading from 0.26.0 or earlier. The Databricks ones come first; see [Databricks](./providers/databricks.md). The OpenTofu, AWS and GCP ones follow, then `fluid diff --baseline`.
 
 - **A Databricks contract with a `sovereignty` block and no `binding.location.region` is now a finding**
   ([forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778)): an error under
@@ -582,7 +582,7 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   now refuses such a contract (`databricks-enforcement-outside-module`): use `fluid apply`. A dbt job
   that writes a table not yet protected is created paused, and the next `fluid apply` unpauses it.
 - **Databricks retention, bronze landing and scoped grants**
-  ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release). `lifecycle.expire` was
+  ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0). `lifecycle.expire` was
   refused (`databricks-retention-unmapped`). It is accepted now for a table rebuilt in full on every
   run, when `lifecycle.retention` covers the Delta history (30 days by default); `fluid verify` checks
   it. A DuckDB acquisition that writes a Databricks expose now uploads Parquet to the volume

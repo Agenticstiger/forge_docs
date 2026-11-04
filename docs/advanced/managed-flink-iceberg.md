@@ -5,7 +5,7 @@ description: Declare a Kafka topic's records and how they become Iceberg rows in
 
 # Managed Flink to Iceberg (preview)
 
-*On forge-cli's managed Flink branch ([forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784)), which includes [#809](https://github.com/Agenticstiger/forge-cli/pull/809), [#817](https://github.com/Agenticstiger/forge-cli/pull/817) and [#819](https://github.com/Agenticstiger/forge-cli/pull/819); not yet on `main` or in a release.*
+*(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784), which includes [#809](https://github.com/Agenticstiger/forge-cli/pull/809), [#817](https://github.com/Agenticstiger/forge-cli/pull/817) and [#819](https://github.com/Agenticstiger/forge-cli/pull/819))*
 
 forge-cli can compile, deploy and verify an append-only Kafka → Flink → Iceberg stream that the contract declares:
 - the contract says what the records on a topic are and how they become the rows of an Iceberg table;

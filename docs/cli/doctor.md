@@ -55,7 +55,7 @@ fluid doctor --env
 | `--env` | List the recognised `FLUID_*` runtime switches with their current value, source and default behaviour. See [`--env`](#env-the-runtime-switches). |
 | `--json` | Machine-readable output. What it contains depends on the other flags; see [`--json`](#json-output). |
 | `--features-only` | Run only the feature-availability check and skip the rest of the default run. |
-| `--strict` | *(On forge-cli `main`, not yet in a release, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786).)* Exit `1` whenever the summary says "Action needed", copilot readiness included. See [`--strict`](#strict). |
+| `--strict` | *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* Exit `1` whenever the summary says "Action needed", copilot readiness included. See [`--strict`](#strict). |
 | `--extended`, `--comprehensive` | Also run a `scripts/diagnose.sh` that you provide in the current directory. See [`--extended`](#extended). |
 | `--out-dir DIR` | Where `--extended` writes its diagnostic files. Default `runtime/diag`. |
 | `--verbose`, `-v` | Show detailed output. |
@@ -73,7 +73,7 @@ It prints a summary panel followed by the readiness and backend tables; the feat
 
 ## `--strict`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786)).*
+*(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))*
 
 The summary panel says **Action needed** when a feature check fails or the copilot is not ready (its readiness table says "Setup needed"). Through 0.26.0 only the first case changed the exit code. A copilot that was not ready printed "Action needed" and the run still exited `0`, so a CI gate on `fluid doctor` could never fail for it.
 
@@ -133,7 +133,7 @@ The shape depends on which surface you asked for:
 | --- | --- |
 | `fluid doctor --scope <s> --json` | `{"scope", "ok", "results": [...]}`, one result per check. |
 | `fluid doctor --env --json` | `{"env": [...], "telemetry": {...}}`. |
-| `fluid doctor --json` (no `--scope`, no `--env`) | The memory-store section, `{"store_backend": {...}}`. *(On forge-cli `main`, not yet in a release, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786).)* It also carries `copilot_ready` and `action_needed`; see [`--strict`](#strict). Per-check results need `--scope`. |
+| `fluid doctor --json` (no `--scope`, no `--env`) | The memory-store section, `{"store_backend": {...}}`. *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* It also carries `copilot_ready` and `action_needed`; see [`--strict`](#strict). Per-check results need `--scope`. |
 
 A scoped result looks like this:
 

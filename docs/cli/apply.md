@@ -199,9 +199,9 @@ There is no flag to skip the check. Run `fluid validate <contract> --env <env>` 
 
 ### Build ids
 
-*On forge-cli `main`, not yet in a release ([forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803)).* Under `--mode amend-and-build` or `replace-and-build`, `fluid apply` also checks `id` and every `builds[].id` right after the schema check. This happens on both engines, before the apply hooks, `tofu` and any build.
+*(since 0.27.0, [forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803))* Under `--mode amend-and-build` or `replace-and-build`, `fluid apply` also checks `id` and every `builds[].id` right after the schema check. This happens on both engines, before the apply hooks, `tofu` and any build.
 
-The build phase keeps each build's run records, cursors and watermarks under `.fluid/runs/<id>/<build id>/`, so its rule is narrower than the schema's. An id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. So `fluid validate` and `fluid plan` pass an id such as `1orders`, though on forge-cli `main` both [warn about it](./validate.md#an-id-the-build-phase-refuses) ([forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813)), and `fluid apply` refuses it:
+The build phase keeps each build's run records, cursors and watermarks under `.fluid/runs/<id>/<build id>/`, so its rule is narrower than the schema's. An id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. So `fluid validate` and `fluid plan` pass an id such as `1orders`, though from 0.27.0 both [warn about it](./validate.md#an-id-the-build-phase-refuses) ([forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813)), and `fluid apply` refuses it:
 
 ```bash
 fluid apply contract.fluid.yaml --mode amend-and-build --yes
@@ -220,7 +220,7 @@ fluid apply contract.fluid.yaml --mode amend-and-build --yes
 
 Before this change only the build runner checked these ids. On the OpenTofu engine the runner starts after `tofu apply`, so the product was provisioned first, and the run then stopped with "Unexpected error". A mode without a build phase is not checked, and neither is a contract without `builds`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808)).* Right after that check, `fluid apply` makes sure a `--build-id` names one of the contract's builds. Ids match exactly, case and spaces included, as they do in the build runner. A `--build-id` that matches no `builds[].id` is refused on both engines, before the apply hooks, `tofu` and any build, and the refusal lists the ids the contract has:
+*(since 0.27.0, [forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808))* Right after that check, `fluid apply` makes sure a `--build-id` names one of the contract's builds. Ids match exactly, case and spaces included, as they do in the build runner. A `--build-id` that matches no `builds[].id` is refused on both engines, before the apply hooks, `tofu` and any build, and the refusal lists the ids the contract has:
 
 ```bash
 fluid apply contract.fluid.yaml --mode amend-and-build --build-id make_row --yes
@@ -340,7 +340,7 @@ A Cloud KMS key's IAM grant is not exempt: without it BigQuery cannot decrypt th
 
 Some governance changes cannot be made to a live BigQuery table in place and plan its replacement, which this gate refuses without the flag: adding retention (`expire: true`) to a table that exists, adding or changing its Cloud KMS key, and removing `expire`. Roll these out as: plan, review the replacement, apply with `--allow-data-loss`, then run the build again to land the data. See [GCP](../providers/gcp.md).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793)).* The gate also holds a plan that destroys nothing but changes existing data in place. On AWS, a Glue table whose column types change plans as a plain update, yet the Parquet files written under the old type may stop reading until they are rewritten. `fluid apply`, its `--dry-run` included, refuses until `--allow-data-loss` is set, and names each table and each `column: old -> new`:
+*(since 0.27.0, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793))* The gate also holds a plan that destroys nothing but changes existing data in place. On AWS, a Glue table whose column types change plans as a plain update, yet the Parquet files written under the old type may stop reading until they are rewritten. `fluid apply`, its `--dry-run` included, refuses until `--allow-data-loss` is set, and names each table and each `column: old -> new`:
 
 ```text
 ❌ opentofu_data_loss_gate  [ERR_OPENTOFU_DATA_LOSS_GATE]
@@ -482,7 +482,7 @@ Each `fluid apply` registers itself with a Command Center when one is configured
 
 It sends no secret: no request header from your environment, no environment value and no `tofu` output, whose text can carry attribute values. The runner is reported as `jenkins` when `JENKINS_URL` is set, else `cli`.
 
-*(on `main`, not yet in a release)* The reporter follows a redirect only within the endpoint's origin; a redirect to another origin is not followed and the event is reported as not sent. If `REQUESTS_CA_BUNDLE` (or, when that is unset, `CURL_CA_BUNDLE`) names a file or directory that cannot be loaded, the reporter is switched off for the run with a warning, `Command Center reporter disabled: <variable> is set to '<path>', which cannot be loaded as a CA bundle (<reason>).` The apply itself carries on, and TLS verification is never relaxed.
+*(from 0.27.0)* The reporter follows a redirect only within the endpoint's origin; a redirect to another origin is not followed and the event is reported as not sent. If `REQUESTS_CA_BUNDLE` (or, when that is unset, `CURL_CA_BUNDLE`) names a file or directory that cannot be loaded, the reporter is switched off for the run with a warning, `Command Center reporter disabled: <variable> is set to '<path>', which cannot be loaded as a CA bundle (<reason>).` The apply itself carries on, and TLS verification is never relaxed.
 
 The Command Center's host check refuses private and cloud-metadata addresses unless `FLUID_COMMAND_CENTER_HOST_ALLOWLIST` names the host; loopback is allowed.
 
@@ -587,7 +587,7 @@ These write the native engine's execution report. The OpenTofu engine does not w
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--build-id BUILD_ID` | none | Filter build execution to a specific build by ID from the contract's `builds[]`. Needs `--mode amend-and-build` or `--mode replace-and-build`; any other mode is refused with `apply_build_id_requires_build_mode`. When unset and the mode requires builds, every build runs. *(On forge-cli `main`, not yet in a release, [forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808).)* An id that matches none of the contract's builds is refused with `apply_build_id_not_found` before anything is applied; see [Build ids](#build-ids). |
+| `--build-id BUILD_ID` | none | Filter build execution to a specific build by ID from the contract's `builds[]`. Needs `--mode amend-and-build` or `--mode replace-and-build`; any other mode is refused with `apply_build_id_requires_build_mode`. When unset and the mode requires builds, every build runs. *(since 0.27.0, [forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808))* An id that matches none of the contract's builds is refused with `apply_build_id_not_found` before anything is applied; see [Build ids](#build-ids). |
 | `--delay DELAY` | `2` | Seconds between build iterations. |
 | `--fail-fast` | off | Stop on first failure. |
 | `--no-output` | off | Suppress build script output. |
@@ -622,11 +622,11 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `plan_env_mismatch` | A build mode is given an `--env` that differs from the plan's. |
 | `bundle_env_mismatch` | `--env` differs from the env a bundle was built for. |
 | `apply_build_id_requires_build_mode` | `--build-id` with a mode that runs no build. |
-| `apply_build_identifier_invalid` | *(On forge-cli `main`, not yet in a release, [forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803).)* A build mode, and an `id` or `builds[].id` the build phase cannot use. Nothing is applied. See [Build ids](#build-ids). |
-| `apply_build_id_not_found` | *(On forge-cli `main`, not yet in a release, [forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808).)* A build mode, and a `--build-id` that matches no `builds[].id`. The error lists the ids the contract has. Nothing is applied. See [Build ids](#build-ids). |
+| `apply_build_identifier_invalid` | *(since 0.27.0, [forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803))* A build mode, and an `id` or `builds[].id` the build phase cannot use. Nothing is applied. See [Build ids](#build-ids). |
+| `apply_build_id_not_found` | *(since 0.27.0, [forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808))* A build mode, and a `--build-id` that matches no `builds[].id`. The error lists the ids the contract has. Nothing is applied. See [Build ids](#build-ids). |
 | `apply_mode_data_loss_blocked` | `replace` or `replace-and-build` without `--allow-data-loss`. |
-| `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. *(On forge-cli `main`, not yet in a release, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793).)* Also a plan that changes the column types of a Glue table in place. |
-| `opentofu_plan_failed` | `tofu plan` failed. *(On forge-cli `main`, not yet in a release, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786).)* A plan that failed on a held state lock suggests `tofu force-unlock <id>`. |
+| `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. *(since 0.27.0, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793))* Also a plan that changes the column types of a Glue table in place. |
+| `opentofu_plan_failed` | `tofu plan` failed. *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* A plan that failed on a held state lock suggests `tofu force-unlock <id>`. |
 | `opentofu_apply_failed` | `tofu apply` failed. See [A failed OpenTofu apply](#a-failed-opentofu-apply). |
 | `opentofu_region_moved` | State holds the contract's resources in another region than its bindings name. |
 | `packaging_transition_blocked` | A container's ownership flips under existing state. See [Packaging modes](#packaging-modes). |
@@ -639,7 +639,7 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 
 ### A failed OpenTofu apply
 
-*On forge-cli `main`, not yet in a release ([forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786)).*
+*(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))*
 
 The runner calls `tofu` with `-json`, so every diagnostic arrives as one JSON line. Through 0.26.0 a failed apply printed the last 800 characters of that stream, a run of `{"@level": ...}` objects and no way forward. It now reads the first error diagnostic and prints what failed and where:
 

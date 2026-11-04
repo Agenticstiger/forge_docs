@@ -59,7 +59,7 @@ A contract declares the schema it is written against in `fluidVersion`. The CLI 
 ```
 
 - **0.7.6 is stable.** It is the newest stable schema bundled with the CLI, and the default since CLI `0.26.0`. The [0.7.6 page](./contract-0.7.6.md) is the complete reference.
-- **0.7.7 is a preview.** A contract opts in with `fluidVersion: "0.7.7"`. It is identical to 0.7.6 at open; the [preview delta](./contract-0.7.7-preview.md) lists what differs as fields land.
+- **0.7.7 is a preview.** A contract opts in with `fluidVersion: "0.7.7"`. It adds nested column types and, on a managed Flink build, the `stream` and `mapping` blocks; the [preview delta](./contract-0.7.7-preview.md) lists every field that differs from 0.7.6.
 - **0.7.5 and earlier.** A contract that declares 0.7.5 has fields such as `binding.encryption`, `lifecycle.expire` and `consumes[].upstreamWorkspace` rejected by `fluid validate` as unexpected keys: they are 0.7.6 fields. A few changed rows, such as the masking `params` keys, are accepted by 0.7.5 because it left their parent open; [preview-fields](./preview-fields.md) names them.
 - **0.7.1 to 0.7.5** are also bundled, and a contract that names one of them validates against it. They are not rendered here.
 

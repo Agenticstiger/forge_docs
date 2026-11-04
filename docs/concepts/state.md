@@ -91,14 +91,14 @@ on. Bucket names are global: create the bucket yourself, and never point
 
 The backend block `fluid apply` emits for S3 sets only `bucket` and `key`. It
 sets no `dynamodb_table` and no `use_lockfile`, so through 0.26.0 S3 state is
-not locked: run the applies of one state key one at a time. On forge-cli `main`,
+not locked: run the applies of one state key one at a time. From 0.27.0,
 `tofu init` is asked to lock it; see [Locking](#locking). OpenTofu's own `gcs`
 backend locks state itself.
 :::
 
 ## Locking
 
-*On forge-cli `main`, not yet in a release ([forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787)).*
+*(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))*
 
 A scheduled apply and a manual one, or an apply and a teardown, must not write
 the same state at once. OpenTofu's `gcs` backend locks state itself. For S3,
@@ -157,7 +157,7 @@ Make sure no other run is active, then run `tofu force-unlock <ID>` in the
 contract's OpenTofu working directory (`.fluid/iac/<provider>/<safe-id>/`, under
 `--workspace-dir`). A failed apply, and a plan that fails on a held lock, print
 this hint ([forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786),
-on `main`, not yet in a release).
+since 0.27.0).
 
 **Timeouts.** A `tofu` call that runs past `FLUID_TOFU_TIMEOUT_SECONDS` used to
 be killed, which left the lock behind. It is now interrupted with SIGINT, so

@@ -402,7 +402,7 @@ The check runs on the contract file and on a bundle's resolved contract, not in 
 
 ## An id the build phase refuses
 
-*On forge-cli `main`, not yet in a release ([forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813)).* The build phase puts `id` and each `builds[].id` in directory names and generated code, so its rule is narrower than the schema's: an id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. For a contract with `builds`, `fluid validate` warns about such an id:
+*(since 0.27.0, [forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813))* The build phase puts `id` and each `builds[].id` in directory names and generated code, so its rule is narrower than the schema's: an id must start with a letter or `_`, use only letters, digits, `_`, `.` and `-`, and be at most 128 characters. The schema also accepts a leading digit and any length. For a contract with `builds`, `fluid validate` warns about such an id:
 
 ```text
 ✅ Valid FLUID contract (schema v0.7.5)

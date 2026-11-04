@@ -2,7 +2,7 @@
 
 List the infrastructure providers this install has registered: the deployment targets `--provider` and the contract's `binding.platform` can resolve to.
 
-On `main` (not yet in a release), the list is read from entry-point metadata and imports no provider, so a plugin's code does not run; `--debug` imports each provider to report it. A provider plugin that fails to import is reported, by name and error type, the first time a command uses it.
+From 0.27.0, the list is read from entry-point metadata and imports no provider, so a plugin's code does not run; `--debug` imports each provider to report it. A provider plugin that fails to import is reported, by name and error type, the first time a command uses it.
 
 ## Syntax
 
@@ -77,7 +77,7 @@ Provider 'datamesh-manager' was retired: Data Mesh Manager is a catalog, not a p
 
 A command reaches a provider by one of two routes, and each fails with its own message.
 
-**1. You name it: `--provider` or `FLUID_PROVIDER`.** *(on `main`, not yet in a release)* The check accepts built-in providers only. A platform served by an [IaC plugin](/forge_docs/sdk-and-plugins/reference/entry-points.html#shipping-an-iac-plugin) is reached through the contract's `binding.platform` instead. The flag is global, so it goes before the subcommand (`fluid --provider gcp ...`) or in the environment. The value is checked against the list above before the command runs. Anything else exits 2:
+**1. You name it: `--provider` or `FLUID_PROVIDER`.** *(from 0.27.0)* The check accepts built-in providers only. A platform served by an [IaC plugin](/forge_docs/sdk-and-plugins/reference/entry-points.html#shipping-an-iac-plugin) is reached through the contract's `binding.platform` instead. The flag is global, so it goes before the subcommand (`fluid --provider gcp ...`) or in the environment. The value is checked against the list above before the command runs. Anything else exits 2:
 
 ```text
 ⚠️ Unknown provider 'nope' — installed providers: aws, databricks, gcp, local, snowflake (see `fluid providers`)

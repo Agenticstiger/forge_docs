@@ -32,7 +32,7 @@ export FLUID_PLUGINS_BLOCKLIST="some-third-party-scaffold"
 
 Names match case-insensitively, with `-` and `_` equal, so `Kube-Rnetes` does not slip past a blocklist entry `kube_rnetes`. The blocklist always wins.
 
-*(on `main`, not yet in a release)* **Taking a built-in name needs a grant.** An IaC plugin may not claim a built-in platform name (`aws`, `gcp`, `snowflake`, `confluent`, `databricks`, an alias such as `glue` or `bigquery`, or `local`); the entry point is skipped before it is imported, with a WARNING that names its distribution. The operator grants one override with a distribution-qualified allowlist entry:
+*(from 0.27.0)* **Taking a built-in name needs a grant.** An IaC plugin may not claim a built-in platform name (`aws`, `gcp`, `snowflake`, `confluent`, `databricks`, an alias such as `glue` or `bigquery`, or `local`); the entry point is skipped before it is imported, with a WARNING that names its distribution. The operator grants one override with a distribution-qualified allowlist entry:
 
 ```bash
 export FLUID_PLUGINS_ALLOWLIST="acme-fluid-aws:aws"
@@ -177,7 +177,7 @@ Plugins are tested, scanned, and approved by your platform team before showing u
 
 ```toml
 # In your deploy environment's pyproject.toml or requirements:
-data-product-forge==0.26.0
+data-product-forge==0.27.0
 data-product-forge-sdk==0.10.0
 data-product-forge-custom-scaffold==0.4.1
 my-org-validators==1.2.0

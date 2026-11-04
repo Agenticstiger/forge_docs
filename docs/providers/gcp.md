@@ -222,7 +222,7 @@ Through 0.26.0 a bare `array` was written as `ARRAY`, which is not a BigQuery co
 
 #### Exact, warned and refused types
 
-*On forge-cli `main`, not yet in a release ([forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793)).*
+*(since 0.27.0, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793))*
 
 Every contract type is classified once, as one of three:
 

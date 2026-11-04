@@ -83,7 +83,7 @@ contract-declared loopback host to a reachable one, joined the list in `0.23.0`
 credential may be sent, so neither may come from a file beside the contract.
 :::
 
-::: tip One more on forge-cli `main`, not yet in a release
+::: tip One more since `0.27.0`
 `FLUID_TOFU_S3_LOCKFILE`, which turns S3 state locking off with `=0`, joins the list
 ([forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787)). Whether state is locked is
 the operator's call, never a checkout's: set it in the environment of the job that runs

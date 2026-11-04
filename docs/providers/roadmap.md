@@ -23,7 +23,7 @@ ODPS and ODCS are spec exporters, not providers ([`fluid exporters`](../cli/expo
 
 "Available" covers provisioning and builds. Governance is not the same on every cloud. In 0.18.1:
 
-| Contract field | GCP | AWS | Snowflake | Databricks (on forge-cli `main`, not yet in a release) |
+| Contract field | GCP | AWS | Snowflake | Databricks (from 0.27.0) |
 |---|---|---|---|---|
 | `accessPolicy.grants` | dataset IAM members | not emitted; access is `binding.governance.lakeFormation.grants` | compiled by `fluid policy-compile`, not applied | one `databricks_grant` per principal, scoped by `resources` to the tables it names |
 | `policy.authz.columnRestrictions` | Data Catalog policy tags; with `access: mask`, a BigQuery data policy *(0.19.0)* | Lake Formation excluded columns | not read | Unity Catalog column masks; a denied column reads `NULL` |

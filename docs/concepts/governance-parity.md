@@ -79,7 +79,7 @@ the retention, the restriction or the grants. See
 
 ## Databricks
 
-*On forge-cli `main`, not yet in a release.* The [Databricks](../providers/databricks.md) provider takes the same contract fields. It is not in the AWS and GCP table above, because it enforces some of them where Unity Catalog does, and refuses others.
+*(from 0.27.0)* The [Databricks](../providers/databricks.md) provider takes the same contract fields. It is not in the AWS and GCP table above, because it enforces some of them where Unity Catalog does, and refuses others.
 
 | Policy (contract field) | What `fluid apply` does on Databricks | What `fluid verify` checks |
 |---|---|---|
@@ -88,8 +88,8 @@ the retention, the restriction or the grants. See
 | **Column restrictions**: `columnRestrictions` | A column mask, a SQL function bound on the column. `deny` reads `NULL`, because Unity Catalog has no column grant. [Details](../providers/databricks.md#column-masks-and-row-filters) | Each column's bound mask, read back (`row_filter_masks`). |
 | **Row filters**: `rowFilters` *(0.7.6)* | One row filter function bound on the table. | The bound filter, read back (`row_filter_masks`). |
 | **Access grants**: `accessPolicy.grants`, `policy.authz.readers` and `writers` | One `databricks_grant` per principal. A grant's `resources` (`$.exposes[?(@.exposeId=='x')]`, `$.exposes[*]`, `$.exposes`) place it on the tables it names; any other path is refused (`databricks-grant-scope-unmapped`). [Details](../providers/databricks.md#scoping-a-grant-to-an-expose) | `USE CATALOG` for every reader, per table. |
-| **Retention**: `lifecycle.expire` | Refused unless every writer rebuilds the whole table (a dbt `table` model or a DuckDB acquisition in `full_refresh`) and `lifecycle.retention` covers the Delta history, 30 days by default (`databricks-retention-*`). [Details](../providers/databricks.md#retention) *(forge-cli [#801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release)* | The table's Delta history against the retention (`retention`). |
-| **Landing-time masking**: `policy.privacy.masking` | Applied by the DuckDB acquisition runner before it uploads Parquet to a Unity Catalog volume and loads the table; refused (`databricks-governance-unmapped`) on an expose a DuckDB acquisition does not alone write. [Details](../providers/databricks.md#landing-a-duckdb-acquisition) *(forge-cli [#801](https://github.com/Agenticstiger/forge-cli/pull/801), on `main`, not yet in a release)* | Not applicable. |
+| **Retention**: `lifecycle.expire` | Refused unless every writer rebuilds the whole table (a dbt `table` model or a DuckDB acquisition in `full_refresh`) and `lifecycle.retention` covers the Delta history, 30 days by default (`databricks-retention-*`). [Details](../providers/databricks.md#retention) *(forge-cli [#801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0)* | The table's Delta history against the retention (`retention`). |
+| **Landing-time masking**: `policy.privacy.masking` | Applied by the DuckDB acquisition runner before it uploads Parquet to a Unity Catalog volume and loads the table; refused (`databricks-governance-unmapped`) on an expose a DuckDB acquisition does not alone write. [Details](../providers/databricks.md#landing-a-duckdb-acquisition) *(forge-cli [#801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0)* | Not applicable. |
 | **Encryption at rest**: `binding.encryption` | Refused (`databricks-encryption-unmapped`). | Not applicable. |
 
 Masks and row filters are bound by `fluid apply` around `tofu apply`, not by the module, so `fluid generate iac` refuses a contract that has them.
