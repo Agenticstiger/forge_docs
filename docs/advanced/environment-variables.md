@@ -78,6 +78,23 @@ export FLUID_STATE_BACKEND=s3://<your-state-bucket>     # bucket only: per-contr
 fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 ```
 
+## Managed Flink (preview)
+
+*On forge-cli's managed Flink branch ([forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784)), not yet on `main` or in a release.* [Managed Flink to Iceberg](./managed-flink-iceberg.md#operator-settings) says what each of these protects. Each takes a comma-separated list. An unset list allows nothing, and a project `.env` cannot set any of them.
+
+| Variable | Effect |
+|---|---|
+| `FLUID_FLINK_KUBE_CONTEXT_ALLOWLIST` | The kube contexts a managed Flink build may name in `deployment.context`. |
+| `FLUID_FLINK_NAMESPACE_ALLOWLIST` | The namespaces it may deploy into. |
+| `FLUID_FLINK_IMAGE_ALLOWLIST` | The images it may run: an exact repository, without `:tag` and `@sha256:`, or a prefix ending in `/`. |
+| `FLUID_FLINK_SERVICE_ACCOUNT_ALLOWLIST` | The service accounts the job may run as: `name`, in any listed namespace, or `namespace/name`. |
+| `FLUID_FLINK_SECRET_ALLOWLIST` | The Kubernetes Secrets `deployment.secretRefs` may mount, in the same two forms. |
+| `FLUID_FLINK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` `fluid apply` may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>` for that SQL only. The refusal prints the pinned entry. |
+| `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | For managed Flink: every hostname the job contacts (the catalog, an OAuth2 token endpoint, an `s3.endpoint`), and every public IP address. Link-local addresses are always refused. |
+| `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | For managed Flink: a `catalogAuth` variable, as `NAME@host`, for each host that receives it or a token minted from it. |
+
+The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments read them too. The rows give only what they mean for managed Flink.
+
 ## Command Center
 
 [The Command Center](../concepts/command-center.md) says what each of these sends.

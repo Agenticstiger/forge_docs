@@ -77,6 +77,13 @@ flag_oracle_ok:
                      # not know the flag. Scoped to this one flag on this one
                      # page. Remove the entry when the pin moves to the release
                      # that carries it.
+  - docs/advanced/managed-flink-iceberg.md::fluid generate flink
+                     # `fluid generate flink` is on forge-cli's managed Flink
+                     # branch (forge-cli #784), not on `main` or in the pinned
+                     # 0.26.0, so the pinned parser does not know the
+                     # subcommand. Scoped to this one invocation on this one
+                     # page. Remove the entry when the pin moves to the release
+                     # that carries it.
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

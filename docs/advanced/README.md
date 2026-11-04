@@ -18,6 +18,7 @@ None of it is required reading. Start at [Concepts](../concepts/README.md) for t
 | [Airflow integration](./airflow.md) | How do I turn a contract into an Airflow DAG instead of hand-writing one? |
 | [Blueprints](./blueprints.md) | Is there a template for this shape of data product, so I do not start from an empty file? |
 | [Source-aligned acquisition](./source-aligned-acquisition.md) | How do I declare an ingestion from a source system rather than writing the pipeline that does it? |
+| [Managed Flink to Iceberg (preview)](./managed-flink-iceberg.md) | How do I declare a Kafka topic's records, and the Iceberg rows they become, and have forge-cli run the Flink job? |
 | [DuckDB sandbox](./duckdb-sandbox.md) | What may SQL inside a contract read and write on the local engine, and how do I grant more? |
 
 ## Govern & secure
