@@ -220,6 +220,25 @@ fluid apply contract.fluid.yaml --mode amend-and-build --yes
 
 Before this change only the build runner checked these ids. On the OpenTofu engine the runner starts after `tofu apply`, so the product was provisioned first, and the run then stopped with "Unexpected error". A mode without a build phase is not checked, and neither is a contract without `builds`.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808)).* Right after that check, `fluid apply` makes sure a `--build-id` names one of the contract's builds. Ids match exactly, case and spaces included, as they do in the build runner. A `--build-id` that matches no `builds[].id` is refused on both engines, before the apply hooks, `tofu` and any build, and the refusal lists the ids the contract has:
+
+```bash
+fluid apply contract.fluid.yaml --mode amend-and-build --build-id make_row --yes
+```
+
+```text
+❌ apply_build_id_not_found  [ERR_APPLY_BUILD_ID_NOT_FOUND]
+  build_id: 'make_row'
+  available: ['make_rows']
+  hint: --build-id selects the build whose id equals it exactly, case and spaces included, and no build of the contract has that id. Pass one of the available ids, or drop --build-id to run every build. Nothing was applied.
+
+💡 Suggestions:
+  • Pass one of the available build ids as --build-id: ids match exactly, case included
+  • Run 'fluid apply <contract> --mode amend-and-build' without --build-id to run every build
+```
+
+Before this change the build runner was the only check. On the OpenTofu engine it starts after `tofu apply`, so a mistyped `--build-id` provisioned the product, and the run then stopped with `Build not found` and exit 1. An empty `--build-id` still runs every build, and a contract without `builds` is still not checked.
+
 ## Plan binding
 
 When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` runs three gates on it before it builds or provisions anything, on both engines:
@@ -566,7 +585,7 @@ These write the native engine's execution report. The OpenTofu engine does not w
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--build-id BUILD_ID` | none | Filter build execution to a specific build by ID from the contract's `builds[]`. Needs `--mode amend-and-build` or `--mode replace-and-build`; any other mode is refused with `apply_build_id_requires_build_mode`. When unset and the mode requires builds, every build runs. |
+| `--build-id BUILD_ID` | none | Filter build execution to a specific build by ID from the contract's `builds[]`. Needs `--mode amend-and-build` or `--mode replace-and-build`; any other mode is refused with `apply_build_id_requires_build_mode`. When unset and the mode requires builds, every build runs. *(On forge-cli `main`, not yet in a release, [forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808).)* An id that matches none of the contract's builds is refused with `apply_build_id_not_found` before anything is applied; see [Build ids](#build-ids). |
 | `--delay DELAY` | `2` | Seconds between build iterations. |
 | `--fail-fast` | off | Stop on first failure. |
 | `--no-output` | off | Suppress build script output. |
@@ -602,6 +621,7 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `bundle_env_mismatch` | `--env` differs from the env a bundle was built for. |
 | `apply_build_id_requires_build_mode` | `--build-id` with a mode that runs no build. |
 | `apply_build_identifier_invalid` | *(On forge-cli `main`, not yet in a release, [forge-cli #803](https://github.com/Agenticstiger/forge-cli/pull/803).)* A build mode, and an `id` or `builds[].id` the build phase cannot use. Nothing is applied. See [Build ids](#build-ids). |
+| `apply_build_id_not_found` | *(On forge-cli `main`, not yet in a release, [forge-cli #808](https://github.com/Agenticstiger/forge-cli/pull/808).)* A build mode, and a `--build-id` that matches no `builds[].id`. The error lists the ids the contract has. Nothing is applied. See [Build ids](#build-ids). |
 | `apply_mode_data_loss_blocked` | `replace` or `replace-and-build` without `--allow-data-loss`. |
 | `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. *(On forge-cli `main`, not yet in a release, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793).)* Also a plan that changes the column types of a Glue table in place. |
 | `opentofu_plan_failed` | `tofu plan` failed. *(On forge-cli `main`, not yet in a release, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786).)* A plan that failed on a held state lock suggests `tofu force-unlock <id>`. |

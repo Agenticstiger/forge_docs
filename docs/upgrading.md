@@ -633,6 +633,15 @@ These changes are merged and in no release yet. Most fail closed where a contrac
   stopped with "Unexpected error". Now the run stops first with `apply_build_identifier_invalid`.
   Rename the id. A renamed `id` gets a new `.fluid/iac/<provider>/<id>` workdir, and its builds
   start without their cursors and watermarks. See [Build ids](./cli/apply.md#build-ids).
+- **A build mode refuses a `--build-id` that names no build, before anything is applied**
+  ([#808](https://github.com/Agenticstiger/forge-cli/pull/808)). `fluid apply --mode
+  amend-and-build --build-id <id>` (and `replace-and-build`) checks the id against the
+  contract's `builds[].id` before the apply hooks, `tofu` and any build. Ids match exactly,
+  case and spaces included. On the OpenTofu engine a mistyped id used to provision the
+  product, and the run then stopped with `Build not found`. Now it stops first with
+  `apply_build_id_not_found`, which lists the contract's build ids. The exit code is still
+  `1`. A Command Center run records the event `apply_build_id_not_found` where it recorded
+  `build_not_found:<id>`. See [Build ids](./cli/apply.md#build-ids).
 - **`fluid doctor --strict` and a readable failed apply**
   ([#786](https://github.com/Agenticstiger/forge-cli/pull/786)). `fluid doctor --strict` exits `1`
   when the summary says "Action needed", copilot readiness included; the default exit code does not
