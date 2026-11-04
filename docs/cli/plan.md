@@ -174,6 +174,7 @@ fluid apply runtime/plan.json --mode amend --yes
 ## Notes
 
 - `plan` is the safest place to preview a provider override or environment overlay before you run `apply`.
+- *On forge-cli `main`, not yet in a release ([forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813)).* For a contract with `builds`, `plan` prints the warning [`fluid validate` gives](./validate.md#an-id-the-build-phase-refuses) for an `id` or `builds[].id` the build phase refuses, and still writes the plan, whatever `--mode` says. `fluid apply` in a build mode refuses that id before it applies anything; see [Build ids](./apply.md#build-ids).
 - The generated plan can be passed to [`fluid apply`](./apply.md) — the digests pin the apply to exactly this plan.
 - When planning from a tgz bundle directly, `bundleDigest` is populated from `MANIFEST.json`. When planning from a raw YAML contract, `bundleDigest` is an empty string and only `planDigest` is verified.
 
