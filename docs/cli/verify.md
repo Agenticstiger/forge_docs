@@ -60,6 +60,7 @@ Without `--strict` the same run reports the drift and exits `0`. Remove the extr
 | Option | Description |
 | --- | --- |
 | `--expose`, `--expose-id` | Verify only a specific expose |
+| `--streaming-timeout SECONDS` | *(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* For a [managed Flink](../advanced/managed-flink-iceberg.md) contract: how long to wait for a fresh Iceberg snapshot and a recent checkpoint before the run fails. Default `120`. `0` checks once and does not wait; a negative or non-finite value is refused. It has no effect on any other contract. |
 | `--strict` | Exit non-zero on CRITICAL drift (see [Severity](#severity)). Non-critical drift (nullable-vs-required constraints, extra columns in a warehouse table) is reported and downgraded to a warning. Verification errors fail with or without `--strict`. |
 | `--fail-on-warning` | Exit non-zero on any mismatch, including the non-critical drift `--strict` downgrades. Use it for a CI gate that must not let a required-to-nullable change through. Works with or without `--strict`. |
 | `--out` | Write the JSON verification report to this path. No default: omit it and no report file is written. |
@@ -76,6 +77,14 @@ Without `--strict` the same run reports the drift and exits `0`. Remove the extr
 | `--env` | Apply an environment overlay. See [Per-environment overlays](../recipes/per-environment-overlays.md). An environment with no overlay logs `overlay_not_found` and runs on the base contract; [`--env` and environment overlays](./validate.md#env-and-environment-overlays) says when it fails instead. A stage-1 bundle built for another env is refused with `bundle_env_mismatch`. See [Environments and overlays](../concepts/environments-and-overlays.md#when-no-overlay-matches). |
 
 For the Athena options the flag wins over the environment variable.
+
+**Managed Flink.** *(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* A contract with a [managed Flink](../advanced/managed-flink-iceberg.md) build is verified as a whole: `--expose` is refused. `fluid verify` checks delivery from the catalog and the operator, not the rows. It reads the operator's reconciled spec, a recent checkpoint and the catalog's schema and latest committed snapshot, and waits up to `--streaming-timeout` for them. It prints one line per build and says what it did not check:
+
+```text
+Flink <build>: <status>; snapshot <snapshot id>; checkpoint <checkpoint id>; row-level read-back not checked
+```
+
+`--out` writes the evidence as JSON. The line comes from the CLI's source; no managed Flink cluster was available to capture it.
 
 ## What gets checked
 

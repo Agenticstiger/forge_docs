@@ -329,7 +329,7 @@ The one resource is `aws_s3_bucket.bronze_orders_stream_acme_lake`. Without `buc
   ```
 
   Once the expose names its catalog, a hand-written sink config must select that same catalog (below).
-- **`sink.catalog`.** A streaming build may set `properties.sink.catalog`, but it must name the expose's catalog, because dbt and the modules read only the expose. Spellings are compared after folding. Leave it unset and the sink uses the expose's catalog. *([forge-cli #711](https://github.com/Agenticstiger/forge-cli/pull/711), since 0.20.0)* The schema takes `sink.catalog` from a list, in exactly these spellings: `rest`, `glue`, `nessie`, `unity`, `snowflake-managed` and `hive` on 0.7.5, and those plus `lakekeeper` and `polaris` on the [0.7.6 preview](../cli/validate.md#schema-versions-stable-and-preview). With #707 to #710 alone, 0.7.6 had the 0.7.5 list. A 0.7.5 contract whose expose is in Lakekeeper or Polaris leaves `sink.catalog` unset; setting it fails:
+- **`sink.catalog`.** A streaming build may set `properties.sink.catalog`, but it must name the expose's catalog, because dbt and the modules read only the expose. Spellings are compared after folding. Leave it unset and the sink uses the expose's catalog. *([forge-cli #711](https://github.com/Agenticstiger/forge-cli/pull/711), since 0.20.0)* The schema takes `sink.catalog` from a list, in exactly these spellings: `rest`, `glue`, `nessie`, `unity`, `snowflake-managed` and `hive` on 0.7.5, and those plus `lakekeeper` and `polaris` on [0.7.6](../cli/validate.md#schema-versions-stable-and-preview). With #707 to #710 alone, 0.7.6 had the 0.7.5 list. A 0.7.5 contract whose expose is in Lakekeeper or Polaris leaves `sink.catalog` unset; setting it fails:
 
   ```text
    1. builds[0].properties.sink.catalog: 'lakekeeper' is not one of ['rest', 'glue', 'nessie', 'unity', 'snowflake-managed', 'hive']
@@ -442,11 +442,13 @@ What the checks do not cover:
 
 *([forge-cli #712](https://github.com/Agenticstiger/forge-cli/pull/712), since 0.20.0)* A catalog that requires a token, such as a Lakekeeper behind Keycloak, needs the sink to authenticate. `builds[].properties.sink.catalogAuth` names the environment variable that holds the secret. forge-cli writes `env:<NAME>` into the sink config it derives, and Apache Iceberg's REST client reads the value from the environment of the process that runs the sink. The secret's value is in no config forge-cli writes or pushes.
 
-`catalogAuth` applies to the sink config forge-cli derives for a Kafka Connect build with `sink.format: iceberg` or an embedded Debezium Server build, when the expose's catalog is reached over Iceberg REST: `rest`, `lakekeeper`, `polaris`, `unity` or `snowflake-managed`. It needs the [0.7.6 preview schema](../cli/validate.md#schema-versions-stable-and-preview).
+`catalogAuth` applies to the sink config forge-cli derives for a Kafka Connect build with `sink.format: iceberg` or an embedded Debezium Server build, when the expose's catalog is reached over Iceberg REST: `rest`, `lakekeeper`, `polaris`, `unity` or `snowflake-managed`. It needs schema 0.7.6 or later (0.7.6 is stable since 0.26.0; see [schema versions](../cli/validate.md#schema-versions-stable-and-preview)).
+
+*([forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818), since 0.27.0)* The contract names the variable and the hosts that receive its value, so the operator has to allow both. Every host the credential reaches, the catalog and an OAuth2 token endpoint, must be `https://` (a loopback host included), and the operator pairs the variable with each host in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`; see [Operator allowlists](#operator-allowlists). The examples below use `https://` for that reason.
 
 #### Example: Lakekeeper behind Keycloak
 
-The [Lakekeeper example](#example-stream-into-lakekeeper), for a Lakekeeper that accepts only tokens Keycloak issues for it. `fluidVersion` becomes `"0.7.6"`, and the build's `sink` gains `catalogAuth`; the exposes are unchanged:
+The [Lakekeeper example](#example-stream-into-lakekeeper), for a Lakekeeper that accepts only tokens Keycloak issues for it. `fluidVersion` becomes `"0.7.6"`, the build's `sink` gains `catalogAuth`, and the expose's `location.uri` becomes `https://lakekeeper:8181/catalog`, because the sink sends a token to it; the rest of the exposes are unchanged:
 
 ```yaml
 fluidVersion: "0.7.6"
@@ -466,7 +468,7 @@ builds:
         catalogAuth:
           type: oauth2
           credentialEnv: LAKEKEEPER_CREDENTIAL   # a variable NAME; its value is <client-id>:<client-secret>
-          oauth2ServerUri: http://keycloak:8080/realms/iceberg/protocol/openid-connect/token
+          oauth2ServerUri: https://keycloak:8443/realms/iceberg/protocol/openid-connect/token
           scope: lakekeeper
       kafka-connect:
         streamingSink:
@@ -480,10 +482,22 @@ fluid validate contract.fluid.yaml
 
 ```text
 ✅ Valid FLUID contract (schema v0.7.6)
-Validation completed in 0.001s
+⚠️  1 warning(s)
+Validation completed in 0.013s
+
+Validation Warnings:
+====================
+ 1. iceberg sink (build 'stream_orders'): sink.catalogAuth.credentialEnv names LAKEKEEPER_CREDENTIAL. Iceberg resolves it from the Kafka Connect worker's environment and sends it to hosts this contract names, and the run refuses until the operator allows each: the Iceberg catalog host 'lakekeeper' is a name not in FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST; LAKEKEEPER_CREDENTIAL is not paired with the Iceberg catalog host 'lakekeeper' in FLUID_ACQUISITION_SECRET_REF_ALLOWLIST; the OAuth2 token endpoint host 'keycloak' is a name not in FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST; LAKEKEEPER_CREDENTIAL is not paired with the OAuth2 token endpoint host 'keycloak' in FLUID_ACQUISITION_SECRET_REF_ALLOWLIST. A contract names both the variable and the hosts, so without the operator's lists any variable there could go to a host the contract chose; a hostname needs an entry because the sink resolves it itself, later, where no lookup made here applies. If this is intended, add the entries in the OPERATOR environment (a shell or CI variable, not a project .env, which is ignored for these settings); this keeps the ones set here: export FLUID_ACQUISITION_SECRET_REF_ALLOWLIST="LAKEKEEPER_CREDENTIAL@lakekeeper,LAKEKEEPER_CREDENTIAL@keycloak" FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST="lakekeeper,keycloak". Leave the port off: a host written with a port never matches. A loopback host needs no entry, and a private IP address needs only the pairing
 ```
 
-`fluid validate` reads the variable's name, not its value, so it passes whether or not `LAKEKEEPER_CREDENTIAL` is set where it runs. Set the variable on the Kafka Connect workers ([Where to set the variable](#where-to-set-the-variable)). The Keycloak client and the Lakekeeper settings that go with this contract are in [Lakekeeper and Keycloak](#lakekeeper-and-keycloak).
+`fluid validate` reads the variable's name, not its value, so it passes whether or not `LAKEKEEPER_CREDENTIAL` is set where it runs. It warns, and does not fail, when the operator's lists do not yet allow the hosts, because validate may run where those lists are not set. The warning carries the `export` line the run needs. The Kafka Connect or Debezium Server run refuses the same case with the same text as an error, before it calls anything. With both entries exported, as in [Operator allowlists](#operator-allowlists), the contract validates with no warning:
+
+```text
+✅ Valid FLUID contract (schema v0.7.6)
+Validation completed in 0.013s
+```
+
+Set the variable on the Kafka Connect workers ([Where to set the variable](#where-to-set-the-variable)). The Keycloak client and the Lakekeeper settings that go with this contract are in [Lakekeeper and Keycloak](#lakekeeper-and-keycloak).
 
 The same contract declaring `fluidVersion: "0.7.5"` fails, because the 0.7.5 schema has no `catalogAuth`:
 
@@ -507,7 +521,7 @@ The same contract declaring `fluidVersion: "0.7.5"` fails, because the 0.7.5 sch
 - **`type: bearer`** presents a static token. The variable `tokenEnv` names holds the token. It takes no other field.
 - **`rest.auth.type=oauth2` for both types.** Iceberg sends a static `token` through its OAuth2 auth manager too. forge-cli always emits the property rather than leave Iceberg to infer the auth type from the other properties.
 - **A variable name** is letters, digits and `_`, not starting with a digit, with nothing after it, not even a trailing newline. A name that holds a run of 20 or more letters and digits, with a digit among them, bounded by underscores or the ends of the name, is refused as the shape of a personal access token, such as a Databricks or Unity `dapi` token. The rule is a heuristic: a shorter token, or one with no digit, still passes as a name. A real variable name with such a run passes once you split the run with `_`.
-- **`oauth2ServerUri`** starts with a lowercase `http://` or `https://` and has no `user:password@` part. Iceberg treats any other spelling as a path on the catalog host and sends the credentials there. The query string is not checked, so keep secrets out of it too.
+- **`oauth2ServerUri`** starts with a lowercase `http://` or `https://` and has no `user:password@` part. *(since 0.27.0, [forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818))* `fluid validate` and the run then refuse `http://`; see [Operator allowlists](#operator-allowlists). Iceberg treats any other spelling as a path on the catalog host and sends the credentials there. The query string is not checked, so keep secrets out of it too.
 - **`oauth2ServerUri`, `scope`, `audience` and `resource`** are written as they are. None may hold a `${...}` expression, which Debezium Server would expand in `application.properties` while Kafka Connect would pass it to Iceberg as text, a control character such as a line break or a tab, or a value starting with `env:`, which Iceberg would resolve from the environment. Only the secret comes from the environment.
 
 A message about a `catalogAuth` field that fails a check never shows the field's value, because it may be a secret pasted in place of a name. A variable name appears in a message only after it has passed the name checks.
@@ -521,15 +535,15 @@ The catalog keys of the sink config the Kafka Connect runner derives from the ex
   "iceberg.catalog.type": "rest",
   "iceberg.catalog.warehouse": "analytics",
   "iceberg.catalog.client.region": "eu-west-1",
-  "iceberg.catalog.uri": "http://lakekeeper:8181/catalog",
+  "iceberg.catalog.uri": "https://lakekeeper:8181/catalog",
   "iceberg.catalog.rest.auth.type": "oauth2",
   "iceberg.catalog.credential": "env:LAKEKEEPER_CREDENTIAL",
-  "iceberg.catalog.oauth2-server-uri": "http://keycloak:8080/realms/iceberg/protocol/openid-connect/token",
+  "iceberg.catalog.oauth2-server-uri": "https://keycloak:8443/realms/iceberg/protocol/openid-connect/token",
   "iceberg.catalog.scope": "lakekeeper"
 }
 ```
 
-The runner pushes the config to the Kafka Connect REST API as it is. In forge-cli's live test against Lakekeeper and Keycloak, the connector config Kafka Connect served and stored in its internal config topic held the `env:` reference, and neither it nor the worker's log held the secret.
+The runner pushes the config to the Kafka Connect REST API as it is. When forge-cli's live test against Lakekeeper and Keycloak last ran, on http (its streaming tests are skipped in 0.27.0, which refuses http for `catalogAuth`), the connector config Kafka Connect served and stored in its internal config topic held the `env:` reference, and neither it nor the worker's log held the secret.
 
 The same build as an embedded Debezium Server build, `cdc_orders` (`engine: debezium` and `properties.debezium.deployment.mode: embedded` in place of the `kafka-connect` block), writes these sink lines to `application.properties`:
 
@@ -538,17 +552,76 @@ debezium.sink.type=iceberg
 debezium.sink.iceberg.warehouse=analytics
 debezium.sink.iceberg.table-namespace=streaming
 debezium.sink.iceberg.type=rest
-debezium.sink.iceberg.uri=http://lakekeeper:8181/catalog
+debezium.sink.iceberg.uri=https://lakekeeper:8181/catalog
 debezium.sink.iceberg.client.region=eu-west-1
 debezium.sink.iceberg.rest.auth.type=oauth2
 debezium.sink.iceberg.credential=env:LAKEKEEPER_CREDENTIAL
-debezium.sink.iceberg.oauth2-server-uri=http://keycloak:8080/realms/iceberg/protocol/openid-connect/token
+debezium.sink.iceberg.oauth2-server-uri=https://keycloak:8443/realms/iceberg/protocol/openid-connect/token
 debezium.sink.iceberg.scope=lakekeeper
 ```
 
 The source password, and any other property whose value is a credential, is not written to the file. Its line holds an expression, and forge-cli passes the value to Debezium Server in that environment variable: the `secretRef` from the source connection becomes `debezium.source.database.password=${FLUID_DBZ_SOURCE_DATABASE_PASSWORD}`. Quarkus resolves the expression when the server starts. A `server_binary` wrapper that replaces the environment must pass the `FLUID_DBZ_*` variables through. The file is created readable by your user only (mode 0600). A sink value that starts with `env:` is Iceberg's own reference and is written as it is, as above.
 
 `type: bearer` with `tokenEnv: UC_TOKEN` gives `iceberg.catalog.rest.auth.type=oauth2` and `iceberg.catalog.token=env:UC_TOKEN` on Kafka Connect, and `debezium.sink.iceberg.rest.auth.type=oauth2` and `debezium.sink.iceberg.token=env:UC_TOKEN` on Debezium Server. `audience: lakekeeper` adds `iceberg.catalog.audience=lakekeeper`, and `resource` adds `iceberg.catalog.resource` the same way.
+
+#### Operator allowlists
+
+*([forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818), since 0.27.0)* A contract names the environment variable (`credentialEnv` or `tokenEnv`) and the hosts that receive its value: the catalog (`binding.location.uri`) and, for `oauth2`, the token endpoint (`oauth2ServerUri`). Iceberg resolves `env:<NAME>` on the Kafka Connect worker, or, on embedded Debezium Server, from the `fluid` process's whole environment, so without a limit a contract could send any variable there to a host it picked. The operator sets that limit in two lists:
+
+| Variable | Entry | Allows |
+|---|---|---|
+| `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | `NAME@host` | the variable `NAME` to be sent to `host` |
+| `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | `host` | a hostname the worker will resolve itself |
+
+For each host the credential reaches, the run needs:
+
+- **`https://`.** A loopback host included. `http://` fails `fluid validate`, and nothing lists it away.
+- **The pairing**, `NAME@host` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`, unless the host is loopback.
+- **A host entry for a hostname**, in `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST`, because the worker (or Debezium Server) resolves the name after forge-cli's check, so no lookup made by forge-cli shows where it will connect. `localhost` needs none.
+
+An IP address keeps the deployment host list's rules instead of needing an entry as a name does: a link-local address is never allowed, a private one needs no host entry (only the pairing), and a public one only when listed. A loopback host needs neither entry.
+
+An OAuth2 credential reaches two hosts, so it needs a pairing for the token endpoint and one for the catalog (one entry covers both when they are the same host, as with the Polaris recipe below). The example contract needs:
+
+```bash
+export FLUID_ACQUISITION_SECRET_REF_ALLOWLIST="LAKEKEEPER_CREDENTIAL@lakekeeper,LAKEKEEPER_CREDENTIAL@keycloak"
+export FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST="lakekeeper,keycloak"
+```
+
+Leave the port off: a host written with a port never matches.
+
+Two cautions on how entries match:
+
+- A bare `NAME` entry, with no `@host`, allows that variable to go to every host.
+- A listed hostname also covers its subdomains.
+
+So prefer `NAME@host`, and list the exact host.
+
+The run refuses before it makes any Connect REST call, writes `application.properties` or reads the variable. `fluid validate` may run where the operator's lists are not set, so for a host that only lacks an entry it warns, with the `export` line the run needs (the warning above), and does not fail. It refuses outright, with no `export` line, an `http://` URL and a link-local or unspecified address, which no entry allows. With `oauth2ServerUri: http://keycloak:8080/...`:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): sink.catalogAuth.oauth2ServerUri must be an https:// URL: the OAuth2 token endpoint receives the credential in LAKEKEEPER_CREDENTIAL (the client id and secret) on every request, and http would carry it in clear text, so a loopback host needs https too
+```
+
+With `binding.location.uri: https://169.254.169.254`, a cloud metadata address:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): the Iceberg catalog host '169.254.169.254' (binding.location.uri) is link-local or unspecified, where cloud instance metadata lives; this is refused even with an allowlist entry
+```
+
+Both lists are operator-only: a value set in a project `.env`, `.env.<env>` or `FLUID_SECRETS_FILE` is ignored (`credentials/protected_env.py` lists both). Set them in the shell or the CI job that runs `fluid`. [Network safety](network-safety.md) lists the further metadata addresses that the orchestrator guard, the OpenLineage emitter and the managed Flink host check refuse; this sink check refuses link-local and unspecified addresses only.
+
+Related text checks, which apply whether or not the sink has a `catalogAuth`: `binding.location` text that reaches the derived sink config may not start with `env:`, hold `${`, or hold a control character, and `binding.location.region` must be one host label (letters, digits and inner hyphens, at most 63). Only `sink.catalogAuth` may name a variable. A value is never quoted in the message. With `warehouse: "env:AWS_SECRET_ACCESS_KEY"`:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): binding.location.warehouse starts with env:, or holds ${ or a control character (the value is not shown). The derived sink config hands it to the Kafka Connect worker, where Iceberg's REST catalog replaces a value that starts with env: by that variable from the worker's environment and Kafka Connect resolves a ${provider:key} expression with the worker's config providers, so it could send any variable there to a host the contract chose. Write the value itself; only sink.catalogAuth may name a variable, and the operator pairs it with the hosts it reaches
+```
+
+With `region: "eu-west-1.evil.example"`:
+
+```text
+ 1. iceberg sink (build 'stream_orders'): binding.location.region is not a region name such as eu-central-1 (the value is not shown: at run it may have come from a {{ env.* }} template). The derived sink config passes it to Iceberg's AWS client as client.region, which builds the S3 and Glue endpoint hosts from it, so it must be one host label: letters, digits and inner hyphens, at most 63 characters
+```
 
 #### Where to set the variable
 
@@ -684,7 +757,7 @@ What `catalogAuth` does not cover:
 
 ##### Lakekeeper and Keycloak
 
-This is the setup forge-cli's live test (`tests/integration/test_lakekeeper_oauth_live.py`) streams records through, with Keycloak 26.7.5 and Lakekeeper v0.13.6. It follows the Keycloak recipe in [Lakekeeper's authentication guide](https://github.com/lakekeeper/lakekeeper/blob/v0.13.6/docs/docs/authentication.md).
+This follows the setup forge-cli's live test (`tests/integration/test_lakekeeper_oauth_live.py`) was written against, with Keycloak 26.7.5 and Lakekeeper v0.13.6. That test serves both over http, which 0.27.0 refuses for `catalogAuth`, so its three streaming tests are skipped until the stack runs TLS; only its Lakekeeper-direct test runs. The https URLs below are not exercised by it. It follows the Keycloak recipe in [Lakekeeper's authentication guide](https://github.com/lakekeeper/lakekeeper/blob/v0.13.6/docs/docs/authentication.md).
 
 In the Keycloak realm Lakekeeper trusts (`iceberg` in the example):
 
@@ -697,11 +770,11 @@ A realm imported from a JSON file that lists `clientScopes` gets none of Keycloa
 In Lakekeeper:
 
 ```bash
-LAKEKEEPER__OPENID_PROVIDER_URI=http://keycloak:8080/realms/iceberg
+LAKEKEEPER__OPENID_PROVIDER_URI=https://keycloak:8443/realms/iceberg
 LAKEKEEPER__OPENID_AUDIENCE=lakekeeper
 ```
 
-Lakekeeper reads the realm's discovery document from `LAKEKEEPER__OPENID_PROVIDER_URI` and checks a token's issuer against it. Keycloak derives the issuer from the host the token was requested from, so `oauth2ServerUri` should reach Keycloak by the same host as `LAKEKEEPER__OPENID_PROVIDER_URI` (`keycloak:8080` in the example). Lakekeeper accepts a token issued under another host name only when `LAKEKEEPER__OPENID_ADDITIONAL_ISSUERS` lists that issuer.
+Lakekeeper reads the realm's discovery document from `LAKEKEEPER__OPENID_PROVIDER_URI` and checks a token's issuer against it. Keycloak derives the issuer from the host the token was requested from, so `oauth2ServerUri` should reach Keycloak by the same host as `LAKEKEEPER__OPENID_PROVIDER_URI` (`keycloak:8443` in the example). Lakekeeper accepts a token issued under another host name only when `LAKEKEEPER__OPENID_ADDITIONAL_ISSUERS` lists that issuer.
 
 In the live test, Lakekeeper v0.13.6 refused a request with no token, a malformed token, and a token issued for another audience. It accepted a token with no `aud` claim at all, although `LAKEKEEPER__OPENID_AUDIENCE` was set.
 
@@ -712,7 +785,7 @@ With Polaris's internal authentication, Polaris issues the token itself. The exp
 ```yaml
       location:
         catalog: polaris
-        uri: http://polaris:8181/api/catalog
+        uri: https://polaris:8181/api/catalog
         warehouse: analytics          # the Polaris catalog's name
         # database, table, bucket and region as in the example
 ```
@@ -723,11 +796,11 @@ With Polaris's internal authentication, Polaris issues the token itself. The exp
         catalogAuth:
           type: oauth2
           credentialEnv: POLARIS_CREDENTIAL   # its value: a Polaris principal's <client-id>:<client-secret>
-          oauth2ServerUri: http://polaris:8181/api/catalog/v1/oauth/tokens
+          oauth2ServerUri: https://polaris:8181/api/catalog/v1/oauth/tokens
           scope: PRINCIPAL_ROLE:ALL
 ```
 
-`oauth2ServerUri` is Polaris's own token endpoint here, which Iceberg would also use without it; `catalogAuth` requires it anyway, so the contract names where the credential goes. `PRINCIPAL_ROLE:ALL` requests all of the principal's roles. To activate fewer, list them, space-separated, as `PRINCIPAL_ROLE:<role name>`.
+The catalog and the token endpoint share the host `polaris`, so the operator needs `POLARIS_CREDENTIAL@polaris` and `polaris` in the two lists. `oauth2ServerUri` is Polaris's own token endpoint here, which Iceberg would also use without it; `catalogAuth` requires it anyway, so the contract names where the credential goes. `PRINCIPAL_ROLE:ALL` requests all of the principal's roles. To activate fewer, list them, space-separated, as `PRINCIPAL_ROLE:<role name>`.
 
 With an external identity provider, Polaris validates tokens the provider issues, and its internal token endpoint answers HTTP 501 when its authentication type is `external`. Set `oauth2ServerUri` to the provider's token endpoint and `scope` to the scope the provider expects, and keep `credentialEnv` for the provider's client. Which Polaris principal and roles the token maps to is Polaris configuration; see [Identity Providers](https://github.com/apache/polaris/blob/apache-polaris-1.8.0/site/content/in-dev/unreleased/managing-security/external-idp/_index.md) in the Polaris documentation.
 
@@ -738,7 +811,7 @@ Unity Catalog OSS offers no client-credentials grant for a sink to use, so the s
 ```yaml
       location:
         catalog: unity
-        uri: http://unity:8080/api/2.1/unity-catalog/iceberg
+        uri: https://unity:8080/api/2.1/unity-catalog/iceberg
         warehouse: unity              # the Unity catalog's name
         # database, table, bucket and region as in the example
 ```
@@ -751,13 +824,13 @@ Unity Catalog OSS offers no client-credentials grant for a sink to use, so the s
           tokenEnv: UC_TOKEN
 ```
 
-The token does not come from forge-cli: you obtain it, and when you replace it, set the new value in the variable and restart the process that runs the sink. Name the variable in `tokenEnv`; a token pasted there is refused when it has the token shape above.
+The operator pairs the variable with the catalog host: `UC_TOKEN@unity` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` and `unity` in `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST`. The token does not come from forge-cli: you obtain it, and when you replace it, set the new value in the variable and restart the process that runs the sink. Name the variable in `tokenEnv`; a token pasted there is refused when it has the token shape above.
 
 #### Caveats
 
-- **Keycloak needs Standard Token Exchange.** The published Apache Iceberg Kafka Connect sink (1.9.2 on Confluent Hub) refreshes its token through OAuth 2.0 Token Exchange (RFC 8693), and Iceberg 1.9.2 has no property that turns it off (`token-exchange-enabled` arrives in Iceberg 1.10.0). Keycloak (26.7.5 in the live test) refuses that exchange unless the client has Standard Token Exchange enabled, so enable it on the sink's client. Without it, the sink cannot refresh its token.
+- **Keycloak needs Standard Token Exchange.** The published Apache Iceberg Kafka Connect sink (1.9.2 on Confluent Hub) refreshes its token through OAuth 2.0 Token Exchange (RFC 8693), and Iceberg 1.9.2 has no property that turns it off (`token-exchange-enabled` arrives in Iceberg 1.10.0). Keycloak (26.7.5 in the live test, which showed this when it last ran on http and is skipped in 0.27.0) refuses that exchange unless the client has Standard Token Exchange enabled, so enable it on the sink's client. Without it, the sink cannot refresh its token.
 - **The catalog can move the token endpoint.** Iceberg applies the `overrides` of the catalog's `GET /v1/config` response over the sink's own properties, `oauth2-server-uri` included, before it sets up the session that authenticates the sink's catalog calls. A catalog can therefore have the sink send its credential to another endpoint. Use `catalogAuth` only with a catalog you trust with the credential.
-- **An unset variable drops the property.** Iceberg leaves out a property whose `env:` variable is unset. With `credential` gone, the sink sends its catalog requests with no token. On Kafka Connect nothing stops this before the sink starts: forge-cli cannot see the worker's environment, the connector is created and stays `RUNNING`, and its task fails. In the live test against Lakekeeper, the task failed with this trace, and no table was written:
+- **An unset variable drops the property.** Iceberg leaves out a property whose `env:` variable is unset. With `credential` gone, the sink sends its catalog requests with no token. On Kafka Connect nothing stops this before the sink starts: forge-cli cannot see the worker's environment, the connector is created and stays `RUNNING`, and its task fails. In the live test against Lakekeeper, when it last ran on http (its streaming tests are skipped in 0.27.0), the task failed with this trace, and no table was written:
 
   ```text
   org.apache.iceberg.exceptions.NotAuthorizedException: Not authorized: Missing Authorization Header

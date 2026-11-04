@@ -227,6 +227,9 @@ One function decides for `fluid validate`, `fluid generate iac` and `fluid apply
 | `binary`, `bytes`, `varbinary`, `blob`, `bytea`, `raw` | `binary` |
 | `money` | `decimal(19,4)` |
 | `decimal(p,s)`, `numeric(p,s)`, `dec(p,s)`, `number(p,s)` | `decimal(p,s)`, written without spaces, for p from 1 to 38 and s no larger than p. A bare `decimal`, `numeric`, `dec` or `number` is `decimal(38,9)` |
+| `struct` with `fields` (0.7.7) | `struct<a:string,b:int>`, each field's type mapped as above |
+| `array` with `element` (0.7.7) | `array<string>` |
+| `map` with `key` and `value` (0.7.7) | `map<string,string>`. The key must be a required string |
 
 **Warned.** `json`, `jsonb`, `variant`, `super`, `time`, `interval` and `bignumeric` have no Hive form but keep their value as text, so they are written as `string` and `fluid validate` warns:
 
@@ -236,7 +239,7 @@ expose '<exposeId>': column '<column>' is declared 'json', which Hive has no jso
 
 **Refused.**
 
-- `array`, `struct`, `map`, `object`, `record` and `row`, and `array(string)` and the like. Glue holds them only with element or field types, and the contract schema cannot declare those yet.
+- `array`, `struct`, `map`, `object`, `record` and `row`, and `array(string)` and the like, written bare. Glue holds them only with element or field types, and a contract before 0.7.7 cannot declare those. On a 0.7.7 contract, a column that declares its `fields`, `element`, or `key` and `value` is exact (see [Nested columns](#nested-columns)); one that declares none is still refused.
 - `bit(n)` with n over 1, which is a bit string, and Hive has none.
 - `geography`, `geometry`, `geom` and `point`. Which encoding a spatial value takes, WKT text or WKB bytes, is the writer's to say; declare `string` (WKT) or `binary` (WKB), whichever the data holds.
 - `hll`, an engine-specific sketch with no Hive column type. Declare `binary` to store its bytes.
@@ -248,9 +251,45 @@ One refusal names the expose, every column it cannot hold with its declared type
 ```text
 ❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
   kind: column-type
-  error: expose '<exposeId>': AWS Glue cannot hold its columns as declared: '<column>' is declared 'array', which Glue holds only with its element or field types, and the contract schema cannot declare them yet.
-  remediation: ["Column '<column>': Declare json or string for now; typed nested columns are planned."]
+  error: expose '<exposeId>': AWS Glue cannot hold its columns as declared: '<column>' is declared 'array', which Glue holds only with its element or field types, and none is declared (fields, element, or key and value need contract 0.7.7 or later).
+  remediation: ["Column '<column>': Declare the type's fields, element, or key and value (contract 0.7.7 or later), or declare json or string."]
 ```
+
+### Nested columns
+
+*(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* A 0.7.7 contract declares a nested column with `fields` (a `struct`), `element` (an `array`), or `key` and `value` (a `map`), up to 32 levels deep. Glue holds the declared column as a Hive nested type:
+
+```yaml
+fluidVersion: "0.7.7"
+# ...
+    contract:
+      schema:
+        - name: customer
+          type: struct
+          fields:
+            - name: name
+              type: string
+            - name: age
+              type: integer
+        - name: tags
+          type: array
+          element:
+            type: string
+        - name: attrs
+          type: map
+          key: {type: string, required: true}
+          value: {type: string}
+```
+
+`fluid generate iac` writes these columns into the table's `storage_descriptor`:
+
+```json
+{"name": "customer", "type": "struct<name:string,age:int>"}
+{"name": "tags", "type": "array<string>"}
+{"name": "attrs", "type": "map<string,string>"}
+```
+
+A map key that is not a required string is refused with kind `column-type`, as are other nested types Glue cannot hold. The same declared column on a `gcp` BigQuery table is refused: see [BigQuery column types](./gcp.md#exact-warned-and-refused-types). Without `fluidVersion: "0.7.7"` the schema rejects the `fields`, `element`, `key` and `value` keys.
 
 ::: warning A table an earlier release applied changes in place
 Through 0.26.0 the Glue emitter mapped 22 type names and wrote every other one as `string`. That was 47 of the 79 types the schema admits, among them `smallint`, `tinyint`, `int2`, `int4`, `int8`, `real`, `money`, `bit`, `year`, `datetime2`, `timestamptz`, `varbinary` and `blob`, and every array, struct, map, object, record and row. A table an earlier release applied has `string` columns where the table above now has a Hive type, so the next `fluid apply` changes those column types in place, for example `string` to `smallint`.

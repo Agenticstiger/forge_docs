@@ -90,10 +90,10 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 | `FLUID_FLINK_SERVICE_ACCOUNT_ALLOWLIST` | The service accounts the job may run as: `name`, in any listed namespace, or `namespace/name`. |
 | `FLUID_FLINK_SECRET_ALLOWLIST` | The Kubernetes Secrets `deployment.secretRefs` may mount, in the same two forms. |
 | `FLUID_FLINK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` `fluid apply` may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>` for that SQL only. The refusal prints the pinned entry. |
-| `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | For managed Flink: every hostname the job contacts (the catalog, an OAuth2 token endpoint, an `s3.endpoint`), and every public IP address. Link-local addresses are always refused. |
-| `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | For managed Flink: a `catalogAuth` variable, as `NAME@host`, for each host that receives it or a token minted from it. |
+| `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | For managed Flink: every hostname the job contacts (the catalog and an OAuth2 token endpoint at apply and verify; at `fluid apply` also an `s3.endpoint`, the Kafka brokers and the schema registry), and every public IP address. Link-local addresses are always refused. Also read by acquisition deployments and by the Kafka Connect and embedded Debezium Iceberg sinks, where it lists a catalog or token-endpoint hostname the worker resolves itself ([Operator allowlists](./source-aligned-acquisition.md#operator-allowlists)). |
+| `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | A `catalogAuth` variable, as `NAME@host`, for each host that receives it or a token minted from it. Read by managed Flink and by the Kafka Connect and embedded Debezium Iceberg sinks ([Operator allowlists](./source-aligned-acquisition.md#operator-allowlists)); acquisition sources use it for their `secretRef`. A bare `NAME` allows every host. |
 
-The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments read them too. The rows give only what they mean for managed Flink.
+The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments read them too. *(since 0.27.0, [forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818))* The Kafka Connect and embedded Debezium Iceberg sinks read them as well, and a project `.env` cannot set either.
 
 ## Command Center
 

@@ -55,7 +55,7 @@ Which is why the defaults matter more than they look. Declaring the block is the
 
 ## A cloud binding must name a region it can place
 
-Since 0.17.0 the checker fails closed on AWS, GCP and Azure bindings. A binding with no region used to pass and land wherever the platform chose; a BigQuery dataset with no location lands in the `US` multi-region. Now, with a `sovereignty` block:
+Since 0.17.0 the checker fails closed on AWS, GCP and Azure bindings, and *(since 0.27.0, [forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778))* on Databricks ones. A binding with no region used to pass and land wherever the platform chose; a BigQuery dataset with no location lands in the `US` multi-region. Now, with a `sovereignty` block:
 
 ```bash
 # jurisdiction: EU, allowedRegions: [europe-west1], gcp binding with no region
@@ -201,12 +201,13 @@ For `Global` this is straightforward: the contract asserts no constraint. `Multi
 
 If you need a genuinely multi-jurisdiction product with real limits, name them in `allowedRegions` rather than reaching for `Multi-Region`.
 
-## `apply` re-checks placements on AWS and GCP, and binds the plan by digest
+## `apply` re-checks placements on AWS, GCP and Databricks, and binds the plan by digest
 
-`fluid generate iac` and `fluid apply` refuse an out-of-policy placement on AWS and GCP before any module is written or any resource is created:
+`fluid generate iac` and `fluid apply` refuse an out-of-policy placement on AWS, GCP and Databricks before any module is written or any resource is created:
 
 - **GCP** (since 0.17.0) checks the locations its OpenTofu plugin emits and the actions its planner produces, including regions a resource inherits by default: the planner's `US` dataset default, a provider region a Cloud Scheduler job or staging bucket picks up. A KMS key ring or Data Catalog taxonomy is placed at its dataset's location and checked there.
 - **AWS** checks the region its planner is configured with against the policy.
+- **Databricks** *(since 0.27.0, [forge-cli #778](https://github.com/Agenticstiger/forge-cli/pull/778))* is a region-placed platform that fails closed. Each table is one placement, in the region its expose declares in `binding.location.region`; the policy reads only that declared region. A binding with no region is refused under `strict`. `fluid validate`, `fluid plan --check-sovereignty`, `fluid apply` and `fluid generate iac` all hold the policy; apply and `generate iac` refuse with `SovereigntyViolationError` before a module is written. The region must be a plain lower-case name (`databricks-region-invalid` otherwise), and every expose in a contract must declare the same one (`databricks-region-conflict`), because a contract has one workspace. The generated module then checks that the workspace's metastore is in that region, so `tofu plan` fails, before anything is written, when `DATABRICKS_HOST` names a workspace elsewhere.
 - **Local and Snowflake** have no such gate; `fluid validate` is the check.
 
 The same contract with no region on its gcp binding, run through `generate iac`:

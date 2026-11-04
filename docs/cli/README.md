@@ -89,6 +89,7 @@ These commands are for production-safety concerns that live alongside the pipeli
 | [`fluid generate-airflow`](./generate-airflow.md) | Compatibility shim for `generate schedule --scheduler airflow` |
 | [`fluid generate iac`](./generate-iac.md) | Review-only emit of an OpenTofu module from a contract |
 | [`fluid generate vector`](./generate-vector.md) | Review-only emit of a pgvector RAG target from a contract |
+| [`fluid generate flink`](./generate.md#fluid-generate-flink) | *(since 0.27.0)* Review-only emit of the Flink SQL, ConfigMap and `FlinkDeployment` of a managed Flink build |
 | [`fluid viz-graph`](./viz-graph.md) | Render the contract as a lineage graph (SVG/HTML/PNG/DOT; DOT only when Graphviz is missing) |
 
 The promoted orchestration path is `fluid generate schedule --scheduler airflow`.

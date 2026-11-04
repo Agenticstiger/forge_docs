@@ -605,7 +605,7 @@ These changes shipped in 0.27.0. Most fail closed where a contract used to apply
 - **A column type Glue or BigQuery cannot hold is refused**
   ([#793](https://github.com/Agenticstiger/forge-cli/pull/793)). A column typed `array`, `struct`,
   `map`, `object`, `record` or `row` fails `fluid validate`, `fluid generate iac` and `fluid apply`
-  with `column-type`; declare it `json` or `string`. On Glue, `geography`, `geometry`, `geom`,
+  with `column-type`; declare it `json` or `string`, or, on AWS with a 0.7.7 contract, declare the column's `fields`, `element`, or `key` and `value` (see [Nested columns](./providers/aws.md#nested-columns)). On Glue, `geography`, `geometry`, `geom`,
   `point`, `hll`, a decimal Hive rejects and `bit(n)` over one bit are refused too. Some types are
   still written with a fallback and now warn, so `fluid validate --strict` fails until you declare
   the type you mean: on Glue `json`, `jsonb`, `variant`, `super`, `time`, `interval` and
@@ -697,6 +697,40 @@ These changes shipped in 0.27.0. Most fail closed where a contract used to apply
   to `fluid publish --target datamesh-manager`. A contract's `runtime.platform: redshift` is served by
   `aws`, so it needs no change. A plugin cannot claim either name. See
   [Retired provider names](./cli/providers.md#retired-provider-names).
+- **A Kafka Connect or embedded Debezium Iceberg sink's `catalogAuth` needs the operator's say**
+  ([forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818)). A sink whose
+  `catalogAuth` reaches a non-loopback host fails its run until the operator pairs the variable with
+  the host as `NAME@host` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` and, for a hostname, lists it
+  in `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST`. A catalog or token endpoint on `http://`, a
+  loopback host included, fails `fluid validate`; move it to `https://`. `fluid validate` warns, with
+  the `export` line the run needs, when only an entry is missing. A derived sink whose
+  `binding.location` holds text that starts with `env:`, or holds `${` or a control character, or a
+  `region` that is not one label, now fails `fluid validate` and the run, `catalogAuth` or not;
+  write the value itself. See [Operator allowlists](./advanced/source-aligned-acquisition.md#operator-allowlists).
+- **A value that ends in a line break is refused**
+  ([forge-cli #797](https://github.com/Agenticstiger/forge-cli/pull/797),
+  [#799](https://github.com/Agenticstiger/forge-cli/pull/799),
+  [#811](https://github.com/Agenticstiger/forge-cli/pull/811)). Whole-string validators and
+  schema `pattern`s no longer let a trailing newline through, which an `id: |` block scalar, a
+  `.env` value or a `%0A` in a URL produces. `fluid validate` refuses `id: "orders\n"` under every
+  bundled schema version, with the hint `(it ends in a line break, which a YAML | or > block keeps
+  and |- or >- drops)`; write the value with `|-` or `>-`, or plainly. Strip the value where an
+  environment variable or file sets it. An AWS binding region with whitespace around it is refused
+  (`aws-region-whitespace`). See [A value that ends in a line break](./cli/validate.md#a-value-that-ends-in-a-line-break).
+- **Cloud-metadata addresses are refused even when listed**
+  ([forge-cli #823](https://github.com/Agenticstiger/forge-cli/pull/823)). The acquisition
+  orchestrator guard (kafka_connect, debezium, airbyte) and the OpenLineage emitter now refuse
+  `fd00:ec2::254`, `fd00:ec2::23`, `fd20:ce::254`, `fd00:c1::a9fe:a9fe` and `100.100.100.200`, and
+  any IPv4-mapped or NAT64 address that carries a link-local or metadata address, where they allowed
+  them like any private host. A Tailscale tailnet or an IPv6 cluster on ULA addresses needs no
+  change. See [Network safety](./advanced/network-safety.md).
+- **The orchestrator guard judges the address the connection is pinned to**
+  ([forge-cli #814](https://github.com/Agenticstiger/forge-cli/pull/814)). For kafka_connect,
+  debezium and airbyte, the check on a contract-named `deployment.server_url` no longer resolves the
+  hostname a second time. The name still decides the allowlist and the pinned address decides public
+  or private; a link-local address is refused even for a listed name, and the refusal names both, as
+  in `host 'connect.example.com', connecting to '93.184.216.34', is public`. A URL it cannot parse is
+  refused with "it has no host".
 
 ## Extras in 0.27.0 and the install change in 0.28.0
 

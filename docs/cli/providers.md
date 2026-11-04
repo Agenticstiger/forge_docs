@@ -91,7 +91,7 @@ This check carries no `ERR_` code. A subcommand that also declares its own `--pr
 
 ### `ERR_PROVIDER_UNKNOWN`, exit 2
 
-The contract (or bindings file) names a provider that is not registered. Here `binding.platform: azure` in a quickstart contract:
+The contract (or bindings file) names a provider that is not registered. Here a bindings file for `fluid policy apply` whose binding names `provider: azure`:
 
 ```text
 ❌ provider_unknown  [ERR_PROVIDER_UNKNOWN]
@@ -100,10 +100,10 @@ The contract (or bindings file) names a provider that is not registered. Here `b
 
 💡 Suggestions:
   • Run 'fluid providers' to see the available providers
-  • Valid built-ins: local, gcp, snowflake, aws, azure
+  • Valid built-ins: aws, databricks, gcp, local, snowflake
 ```
 
-Fix: use a name from `available`, or install a package that registers the provider. As of 0.18.1 the second suggestion is wrong about `azure`: it is not registered, so it is not a valid built-in. See [Known gaps](#known-gaps).
+Fix: use a name from `available`, or install a package that registers the provider. Through 0.26.0 the second suggestion listed `azure`, which was not registered. See [Known gaps](#known-gaps).
 
 <a id="err-provider-not-specified"></a>
 
@@ -119,7 +119,7 @@ fluid policy apply bindings.json --mode enforce
 ❌ provider_not_specified  [ERR_PROVIDER_NOT_SPECIFIED]
 
 💡 Suggestions:
-  • Pass a provider: --provider local|gcp|snowflake|aws|azure
+  • Pass a provider: --provider aws|databricks|gcp|local|snowflake
   • Or set the FLUID_PROVIDER environment variable
   • Run 'fluid providers' to list the available providers
 ```
@@ -184,10 +184,8 @@ Fix: choose another name. The reserved names are listed on the `provider-init` p
 
 ## Known gaps
 
-As of 0.18.1:
-
-- `azure` appears in the `--provider` choices of `fluid export` and in the `ERR_PROVIDER_*` suggestions, and `fluid init` and `fluid import` accept `--provider azure` at parse time, but no Azure provider is registered. `fluid --provider azure ...`, `fluid export --provider azure`, `fluid init --provider azure` and `fluid import dbt --provider azure` all exit 2 with `Unknown provider 'azure'`.
-- `confluent` is accepted by `fluid generate iac --provider`, and `databricks` is listed for `fluid contract-validation --provider`. Neither is registered either, so the same global check rejects them with exit 2.
+- Through 0.26.0, `azure` appeared in the `--provider` choices of `fluid export` and in the `ERR_PROVIDER_*` suggestions, but no Azure provider was registered. *(since 0.27.0)* It is in neither, and `fluid --provider azure ...`, `fluid export --provider azure`, `fluid init --provider azure` and `fluid import dbt --provider azure` exit 2 with `Unknown provider 'azure'`.
+- `confluent` is accepted by `fluid generate iac --provider`, because it is an IaC platform, but it is not a provider: the global `fluid --provider confluent ...` exits 2 with `Unknown provider 'confluent'`. `databricks` is registered, so `--provider databricks` is accepted.
 
 ## Notes
 

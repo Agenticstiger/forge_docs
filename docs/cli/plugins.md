@@ -109,7 +109,7 @@ Two operator env vars gate the code-executing entry-point groups before a plugin
 - `FLUID_PLUGINS_ALLOWLIST` — comma-separated entry-point names; if set, only these load.
 - `FLUID_PLUGINS_BLOCKLIST` — comma-separated entry-point names; these never load.
 
-Names match case-insensitively, with `-` and `_` equal, and the blocklist wins. *(from 0.27.0)* An allowlist entry written `<distribution>:<name>`, for example `acme-fluid-aws:aws`, is not a name to allow. It is the grant that lets an installed [IaC plugin](/forge_docs/sdk-and-plugins/reference/entry-points.html#shipping-an-iac-plugin) take a built-in platform name, and it restricts nothing: an allowlist made only of such entries leaves every other plugin allowed.
+Names match case-insensitively, with `-` and `_` equal, and the blocklist wins. *(from 0.27.0)* An allowlist entry written `<distribution>:<name>`, for example `acme-fluid-aws:aws`, is not a name to allow. It is the grant that lets an installed [IaC plugin](/forge_docs/sdk-and-plugins/reference/entry-points.html#shipping-an-iac-plugin) or a [provider plugin](/forge_docs/sdk-and-plugins/reference/entry-points.html#the-role-level-groups-for-plugin-classes) take a built-in name, and it restricts nothing: an allowlist made only of such entries leaves every other plugin allowed.
 
 A blocked plugin's code is not loaded. `fluid plugins` surfaces each plugin's allow/block status so you can confirm the gate before relying on it. A blocked *provider* then fails with [`ERR_PROVIDER_BLOCKED_BY_POLICY`](./providers.md#err-provider-blocked-by-policy) when a contract binds to it.
 

@@ -56,7 +56,7 @@ fluid apply contract.fluid.yaml --yes --mode amend-and-build
 
 Under `--mode amend-and-build`, each build goes to the runner that matches it:
 
-- *(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* a Flink build (`engine: flink`, or `properties.language: flink_sql`) is not run: it is reported as run outside forge-cli (see [Flink jobs](#flink-jobs-engine-flink));
+- *(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* a Flink build (`engine: flink`, or `properties.language: flink_sql`) is not run: it is reported as run outside forge-cli (see [Flink jobs](#flink-jobs-engine-flink)). *(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* The exception is a 0.7.7 build with `properties.parameters.flink.management: operator`, which forge-cli deploys itself; see [Managed Flink to Iceberg](../advanced/managed-flink-iceberg.md);
 - an `acquisition` build runs on its ingestion engine;
 - a build with `engine: sql`, or `pattern: embedded-logic` with `properties.sql`, runs as embedded SQL;
 - a dbt build runs the dbt project at `repository`;
@@ -109,7 +109,9 @@ After that run `out/by_region.parquet` held the second build's rows (`customer_i
 
 ### Flink jobs: `engine: flink`
 
-*(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* A long-running Flink job, typically Flink SQL from Kafka to Kafka on the [Flink Kubernetes Operator](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/) or on AWS Managed Service for Apache Flink, declares `engine: flink` (schema 0.7.6 preview). forge-cli validates and plans the build but ships no runner for it: the platform that runs the job executes it.
+*(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* A long-running Flink job, typically Flink SQL from Kafka to Kafka on the [Flink Kubernetes Operator](https://nightlies.apache.org/flink/flink-kubernetes-operator-docs-main/) or on AWS Managed Service for Apache Flink, declares `engine: flink` (schema 0.7.6 preview). On 0.7.6 and earlier, forge-cli validates and plans the build but ships no runner for it: the platform that runs the job executes it.
+
+*(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* A 0.7.7 build with `properties.parameters.flink.management: operator` is the one case where forge-cli does run the job: it deploys the build to a Kubernetes cluster that runs the Flink Kubernetes Operator, and `fluid plan`, `fluid apply`, `fluid diff` and `fluid verify` handle it. [Managed Flink to Iceberg](../advanced/managed-flink-iceberg.md) covers that preview. The rest of this section describes the 0.7.6 and earlier behaviour, and a 0.7.7 build without `management: operator`.
 
 ```yaml
 fluidVersion: "0.7.6"
@@ -134,7 +136,7 @@ builds:
 ```
 
 - **Deployment settings go under `properties.parameters`.** `embeddedLogicPattern` is closed, so `parallelism` beside `sql` fails validation with `Additional properties are not allowed ('parallelism' was unexpected)`. Name them as the operator does: `parallelism` and `upgradeMode` (`savepoint`, `last-state`, `stateless`) from its job spec, and `flinkConfiguration`.
-- **`fluid apply --mode amend-and-build`** prints `Build 'reconcile' - engine 'flink' runs on kubernetes, outside forge-cli; there is nothing for forge-cli to run.` and counts the build on its own summary line, `Run outside forge-cli: 1`. A contract whose only builds run elsewhere exits 0; it is not "every build was skipped". The apply run report records the build as `skipped` with `reason: runs_outside_forge`.
+- **`fluid apply --mode amend-and-build`**, for a build that is not managed (0.7.6 and earlier, or 0.7.7 without `management: operator`), prints `Build 'reconcile' - engine 'flink' runs on kubernetes, outside forge-cli; there is nothing for forge-cli to run.` and counts the build on its own summary line, `Run outside forge-cli: 1`. A contract whose only builds run elsewhere exits 0; it is not "every build was skipped". The apply run report records the build as `skipped` with `reason: runs_outside_forge`.
 - **No planner runs its SQL.** The local, AWS, GCP and Snowflake planners never turn it into a DuckDB, Athena, BigQuery or Snowflake statement, and the local planner lands nothing for an expose the job writes. In a contract that mixes a Flink build with a local one, name each build's exposes in `outputs`: when it cannot tell which build writes an expose, the local planner lands neither and warns.
 - **Schedules and generated code.** `fluid generate schedule` gives the build no task or DAG, and a contract with no other build has nothing to schedule (exit 0). `fluid generate transformation` says there is no code to generate for it. Leave `execution.trigger` out for a continuous job, or *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* say so with `trigger: {type: continuous}` (see [Continuous builds](#continuous-builds-trigger-type-continuous)).
 - **On 0.7.5**, `engine: flink` fails validation. A 0.7.5 contract declares the same job with `properties.language: flink_sql` (with `engine: sql`, say), and forge-cli treats it the same way.

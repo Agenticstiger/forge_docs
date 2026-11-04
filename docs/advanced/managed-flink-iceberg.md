@@ -272,19 +272,21 @@ export FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST=catalog.example.com,svc.clust
   - Kubernetes pulls by digest, so the tag never decides what runs.
 - **Service accounts and Secrets:** an entry is `name` (in any listed namespace) or `namespace/name`.
 - **Hosts the job contacts:**
-  - These are the catalog, an OAuth2 token endpoint and any `s3.endpoint` in `catalogProperties`.
+  - These are the catalog, an OAuth2 token endpoint and any `s3.endpoint` in `catalogProperties`. *(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* `fluid apply` also checks each Kafka broker in `source.bootstrapServers` and `source.schemaRegistryUrl`, by the same rule, before a kubectl call.
   - A hostname needs an entry in `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` whatever it resolves to, because the job resolves it itself, after fluid has checked it. List a parent domain such as `svc.cluster.local` to cover a cluster's services.
   - An IP address needs an entry only when it is public. A link-local address is always refused.
+  - There is no topic allowlist: within an allowed broker the contract picks the topic, and the broker's ACLs bound that.
 - **Catalog credentials:**
   - A `catalogAuth` variable needs `NAME@host` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` for each host that receives it, before fluid reads it: `LAKEKEEPER_TOKEN@catalog.example.com` for a bearer token.
   - The host must match exactly; a parent domain does not cover it. A bare `NAME` allows every host.
   - An OAuth2 credential needs two entries: one for the token endpoint, which must be `https://`, and one for the catalog, which receives the token minted from it.
-  - A loopback host (`localhost`, `127.0.0.0/8`, `::1`) needs neither entry. `db.localhost` is not loopback.
+  - `fluid verify` sends the token from your machine, where a loopback host (`localhost`, `127.0.0.0/8`, `::1`) is your own machine and needs neither entry. `db.localhost` is not loopback.
+  - `fluid apply` sends the token from the pod, where `localhost` is the pod itself or a sidecar injected into it, so there a loopback host needs its `NAME@host` entry too.
 - **Catalog text:** no other catalog property may start with `env:` or contain `${` or a control character, because Iceberg would resolve it from the job's environment. Only `catalogAuth` references a variable.
 - **Which command checks what:**
   - `fluid apply` (a dry run included), `fluid diff` and `fluid verify` check the deployment targets.
-  - `fluid apply` also checks the catalog, the token endpoint, the `s3.endpoint` and the contract's own SQL.
-  - `fluid verify` also checks the catalog and the token endpoint, because it sends the credential from its own environment.
+  - `fluid apply` also checks the catalog, the token endpoint, the `s3.endpoint`, the Kafka brokers in `source.bootstrapServers`, the `source.schemaRegistryUrl` and the contract's own SQL, and pairs the `catalogAuth` variable with each host that receives it, loopback included.
+  - `fluid verify` also checks the catalog and the token endpoint, because it sends the credential from its own environment; a loopback host needs no pairing there.
 
 All of these are read from the operator's environment, a shell or a CI variable. A project's `.env` cannot set them: see [What a project's `.env` may set](./project-dotenv-trust.md). Checkpoint, savepoint, HA and warehouse locations are not on these lists; scope them with the permissions of the credentials in the allowed Secrets.
 
