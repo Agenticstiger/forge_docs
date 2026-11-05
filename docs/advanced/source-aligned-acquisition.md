@@ -524,6 +524,8 @@ The same contract declaring `fluidVersion: "0.7.5"` fails, because the 0.7.5 sch
 - **`oauth2ServerUri`** starts with a lowercase `http://` or `https://` and has no `user:password@` part. *(since 0.27.0, [forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818))* `fluid validate` and the run then refuse `http://`; see [Operator allowlists](#operator-allowlists). Iceberg treats any other spelling as a path on the catalog host and sends the credentials there. The query string is not checked, so keep secrets out of it too.
 - **`oauth2ServerUri`, `scope`, `audience` and `resource`** are written as they are. None may hold a `${...}` expression, which Debezium Server would expand in `application.properties` while Kafka Connect would pass it to Iceberg as text, a control character such as a line break or a tab, or a value starting with `env:`, which Iceberg would resolve from the environment. Only the secret comes from the environment.
 
+- **Override text.** *On forge-cli `main`, not yet in a release ([forge-cli #830](https://github.com/Agenticstiger/forge-cli/pull/830)).* With `catalogAuth`, a catalog URL that holds `${`, starts with `env:` or holds a control character is refused wherever it is set, in `binding.location.uri` or in an override map, at `fluid validate` and in the run's preflight. The check reads the text before the sink expands it: Debezium Server expands a `${...}` expression when it starts, Kafka Connect resolves a `${provider:path:key}` reference with the worker's config providers, and Iceberg replaces a value that starts with `env:` by that variable. The same text is refused in every other override value Iceberg reads: Kafka Connect `iceberg_catalog_overrides`, the `iceberg.*` keys of `sink_connector_config` except `iceberg.kafka.*`, and every key of an embedded Debezium `server.sink.config`. A storage credential comes from the worker's or the server's own credential chain, not from the contract. Kafka-side keys such as `consumer.override.*` and `iceberg.kafka.*` keep their config providers. A build without `catalogAuth` is unchanged.
+
 A message about a `catalogAuth` field that fails a check never shows the field's value, because it may be a secret pasted in place of a name. A variable name appears in a message only after it has passed the name checks.
 
 #### What the derived config holds
@@ -579,7 +581,7 @@ For each host the credential reaches, the run needs:
 - **The pairing**, `NAME@host` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`, unless the host is loopback.
 - **A host entry for a hostname**, in `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST`, because the worker (or Debezium Server) resolves the name after forge-cli's check, so no lookup made by forge-cli shows where it will connect. `localhost` needs none.
 
-An IP address keeps the deployment host list's rules instead of needing an entry as a name does: a link-local address is never allowed, a private one needs no host entry (only the pairing), and a public one only when listed. A loopback host needs neither entry.
+An IP address keeps the deployment host list's rules instead of needing an entry as a name does: a link-local or cloud metadata address is never allowed, a private one needs no host entry (only the pairing), and a public one only when listed. A loopback host needs neither entry. *On forge-cli `main`, not yet in a release ([forge-cli #828](https://github.com/Agenticstiger/forge-cli/pull/828)).*
 
 An OAuth2 credential reaches two hosts, so it needs a pairing for the token endpoint and one for the catalog (one entry covers both when they are the same host, as with the Polaris recipe below). The example contract needs:
 
@@ -597,19 +599,19 @@ Two cautions on how entries match:
 
 So prefer `NAME@host`, and list the exact host.
 
-The run refuses before it makes any Connect REST call, writes `application.properties` or reads the variable. `fluid validate` may run where the operator's lists are not set, so for a host that only lacks an entry it warns, with the `export` line the run needs (the warning above), and does not fail. It refuses outright, with no `export` line, an `http://` URL and a link-local or unspecified address, which no entry allows. With `oauth2ServerUri: http://keycloak:8080/...`:
+The run refuses before it makes any Connect REST call, writes `application.properties` or reads the variable. `fluid validate` may run where the operator's lists are not set, so for a host that only lacks an entry it warns, with the `export` line the run needs (the warning above), and does not fail. It refuses outright, with no `export` line, an `http://` URL and a link-local, unspecified or cloud metadata address, which no entry allows. *On forge-cli `main`, not yet in a release ([forge-cli #828](https://github.com/Agenticstiger/forge-cli/pull/828)).* With `oauth2ServerUri: http://keycloak:8080/...`:
 
 ```text
  1. iceberg sink (build 'stream_orders'): sink.catalogAuth.oauth2ServerUri must be an https:// URL: the OAuth2 token endpoint receives the credential in LAKEKEEPER_CREDENTIAL (the client id and secret) on every request, and http would carry it in clear text, so a loopback host needs https too
 ```
 
-With `binding.location.uri: https://169.254.169.254`, a cloud metadata address:
+With `binding.location.uri: https://169.254.169.254`, a cloud metadata address, the message reads as follows. *On forge-cli `main`, not yet in a release ([forge-cli #828](https://github.com/Agenticstiger/forge-cli/pull/828)).*
 
 ```text
- 1. iceberg sink (build 'stream_orders'): the Iceberg catalog host '169.254.169.254' (binding.location.uri) is link-local or unspecified, where cloud instance metadata lives; this is refused even with an allowlist entry
+ 1. iceberg sink (build 'stream_orders'): the Iceberg catalog host '169.254.169.254' (binding.location.uri) is link-local, unspecified or a known cloud metadata endpoint; no Iceberg catalog is ever there, and this is refused even with an allowlist entry
 ```
 
-Both lists are operator-only: a value set in a project `.env`, `.env.<env>` or `FLUID_SECRETS_FILE` is ignored (`credentials/protected_env.py` lists both). Set them in the shell or the CI job that runs `fluid`. [Network safety](network-safety.md) lists the further metadata addresses that the orchestrator guard, the OpenLineage emitter and the managed Flink host check refuse; this sink check refuses link-local and unspecified addresses only.
+Both lists are operator-only: a value set in a project `.env`, `.env.<env>` or `FLUID_SECRETS_FILE` is ignored (`credentials/protected_env.py` lists both). Set them in the shell or the CI job that runs `fluid`. [Network safety](network-safety.md) lists the further metadata addresses that the orchestrator guard, the OpenLineage emitter and the managed Flink host check refuse; this sink check refuses those too. *On forge-cli `main`, not yet in a release ([forge-cli #828](https://github.com/Agenticstiger/forge-cli/pull/828)).* It refuses the same addresses as the orchestrator guard, the OpenLineage emitter and the managed Flink host check, even when listed. Before that change it refused link-local and unspecified addresses only.
 
 Related text checks, which apply whether or not the sink has a `catalogAuth`: `binding.location` text that reaches the derived sink config may not start with `env:`, hold `${`, or hold a control character, and `binding.location.region` must be one host label (letters, digits and inner hyphens, at most 63). Only `sink.catalogAuth` may name a variable. A value is never quoted in the message. With `warehouse: "env:AWS_SECRET_ACCESS_KEY"`:
 
