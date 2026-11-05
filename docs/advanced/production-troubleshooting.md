@@ -268,11 +268,15 @@ Update the key at the source `fluid ai status` reports, the provider environment
 
 | Feature | Package | Extra |
 |---|---|---|
-| `fluid forge`, `fluid forge data-model`, `fluid ai setup`, the copilot | `litellm` | `ai` (alias of `litellm`), or `standard` |
-| `fluid mcp serve`, MCP output ports, the keyless `mcp-sampling` provider | `mcp` | `mcp`, or `standard` |
+| `fluid forge` with an API-key provider, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup`, the `fluid init` hand-off to AI, `--agent-loop` | `litellm` | `litellm`, its alias `ai`, or `standard` |
+| `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide`, `mcp-sampling` (it runs inside `fluid mcp serve`) | `mcp` | `mcp`, or `standard` |
 | Lineage events when `OPENLINEAGE_URL` is set | `openlineage-python` | `lineage` |
 
-Through 0.27.0 a base install contains all three, so you meet this only if you removed one. From 0.28.0 a base install omits them. A pipeline of only `validate`, `plan`, `apply`, `bundle`, `generate iac` and `doctor` needs none of them. In CI, put the extra in `FLUID_PACKAGE_SPEC` or in your install step.
+*On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* The `litellm`, `mcp` and `lineage` rows above describe a base install from 0.28.0.
+
+Through 0.27.0 a base install contains all three, so you meet this only if you removed one. From 0.28.0 a base install omits them. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* A pipeline of only `validate`, `plan`, `apply`, `bundle`, `generate iac` and `doctor` needs none of them. In CI, put the extra in `FLUID_PACKAGE_SPEC` or in your install step.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* From 0.28.0 an explicit `--llm-provider` naming an API-key provider (`fluid forge`, `fluid forge data-model`, `--agent-loop`), `fluid ai setup` and the MCP commands (`mcp serve`, `mcp output-port serve`, `scaffold-ide`) stop before they do any work. The forge message names `--llm-provider claude-code` and `--template starter`; the `--agent-loop` message names only `--template starter`; `ai setup` and `init` name `claude-code`, `codex`, `cursor`, `kiro`, `mcp-sampling` and `--template starter`. `fluid init` does not exit 1: it prints the line and the options, then continues in template mode. Lineage is the exception: without `lineage`, `fluid apply` through the OpenTofu engine and acquisition builds print one warning on the console (and log it) and carry on; a native local apply never emits lineage. AWS commands that need boto3 point at `[aws]`; boto3 no longer arrives through litellm. See [Upgrading](../upgrading.md#extras-in-0-27-0-and-the-install-change-in-0-28-0).
 
 ## Where logs live
 

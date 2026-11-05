@@ -37,6 +37,8 @@ Forge may inspect local:
 
 ## Optional helpers
 
+These helpers are not the AI backend. Generating a contract with an API-key provider needs the `litellm` extra (`pip install "data-product-forge[litellm]"`). *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).*
+
 If you want richer Parquet and Avro schema inspection, install the optional discovery helpers:
 
 ```bash

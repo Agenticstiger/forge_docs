@@ -2,6 +2,8 @@
 
 Generate agentic-IDE configuration so an AI-assisted editor can drive Fluid Forge — steering rules, hooks, and an MCP server entry, written from one pack.
 
+Needs the `mcp` extra: `pip install 'data-product-forge[mcp]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* Without it the command writes nothing, prints that line and exits 1 with `[ERR_MCP_SDK_UNAVAILABLE]`, because every entry it writes launches `fluid mcp serve`.
+
 ## Syntax
 
 ```bash

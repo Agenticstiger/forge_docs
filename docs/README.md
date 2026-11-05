@@ -98,7 +98,7 @@ fluid forge
 fluid forge --domain retail
 ```
 
-`fluid init` scaffolds from a fixed template or blueprint. `fluid forge` drafts a contract from the files in your directory with the LLM provider you configure with `fluid ai setup`. To forge a data model from a business intent file and generate dbt from it:
+`fluid init` scaffolds from a fixed template or blueprint. `fluid forge` drafts a contract from the files in your directory with the LLM provider you configure with `fluid ai setup`. An API-key provider needs `pip install "data-product-forge[litellm]"`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* Without an API key, `fluid forge --llm-provider claude-code` uses your Claude Code login, and `fluid forge --template starter` uses no AI. To forge a data model from a business intent file and generate dbt from it:
 
 ```bash
 fluid forge data-model from-intent --example retail > intent.yaml

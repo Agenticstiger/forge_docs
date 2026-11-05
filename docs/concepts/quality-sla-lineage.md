@@ -264,7 +264,7 @@ dist/artifacts/policy/bindings.json
 | **ODPS-Bitol** (Bitol Open Data Product Standard) | `odps-bitol/` | Bitol-aware catalogs |
 | **OPDS** (Open Data Product Specification v4.1, LF/ODPI) | `opds/` | Generic catalog ingest |
 
-OpenLineage is not written to a file. Runs send OpenLineage run events over HTTP when `OPENLINEAGE_URL` (or `FLUID_OPENLINEAGE_URL`) is set: acquisition builds, and `fluid apply` through OpenTofu. Marquez and DataHub accept them. With no URL set, nothing is sent.
+OpenLineage is not written to a file. Runs send OpenLineage run events over HTTP when `OPENLINEAGE_URL` (or `FLUID_OPENLINEAGE_URL`) is set: acquisition builds, and `fluid apply` through OpenTofu. Marquez and DataHub accept them. With no URL set, nothing is sent. Sending needs the `lineage` extra: `pip install 'data-product-forge[lineage]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* Without it, those runs print one warning naming the extra on the console (and log it) and carry on without sending events. A native local apply never emits lineage.
 
 ## Where to look next
 

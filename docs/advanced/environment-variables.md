@@ -151,7 +151,7 @@ See [Airflow](./airflow.md) for which variables reach `fluid apply` on the worke
 | `DBT_ADAPTER_PACKAGE` | Overrides the pip package that fallback installs. Without it the install is `dbt-<adapter><2` plus `dbt-core<2`; setting it is how you opt in to dbt 2. |
 | `FLUID_SOURCE_DATABASE`, `FLUID_SOURCE_SCHEMA` | Read through dbt's `env_var()` in generated `sources.yml`: when set, they supply a source's database and schema before the dbt target's own. |
 | `FLUID_ROLLBACK_KEEP_LAST_N` | Per-product retention of `.fluid/rollback-state.json`. Default `20`. |
-| `FLUID_OPENLINEAGE_URL` (or the standard `OPENLINEAGE_URL`) | Base URL of an OpenLineage receiver. Without one, no lineage is emitted. *(from 0.28.0)* Emitting needs the `lineage` extra. |
+| `FLUID_OPENLINEAGE_URL` (or the standard `OPENLINEAGE_URL`) | Base URL of an OpenLineage receiver. Without one, no lineage is emitted. *(from 0.28.0)* Emitting needs the `lineage` extra. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* |
 | `FLUID_OPENLINEAGE_ENDPOINT` | Path appended to the URL. |
 | `FLUID_OPENLINEAGE_API_KEY` (or `OPENLINEAGE_API_KEY`) | Bearer key for the receiver. |
 | `FLUID_OPENLINEAGE_TIMEOUT_SECONDS` | Request timeout. Default `5`. |

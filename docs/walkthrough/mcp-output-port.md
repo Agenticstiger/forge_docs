@@ -1,6 +1,6 @@
 # Walkthrough: MCP Output Port
 
-**Time:** 10 minutes | **Difficulty:** Beginner | **Prerequisites:** Python 3.10+, pip, Node.js (for the MCP Inspector CLI)
+**Time:** 10 minutes | **Difficulty:** Beginner | **Prerequisites:** Python 3.10+, pip, Node.js (for the MCP Inspector CLI), and the `local` and `mcp` extras (Step 1)
 
 > **Why it matters**
 > Give an AI agent safe, read-only access to a published data product — governed by the same contract that governs people.
@@ -36,13 +36,13 @@ No cloud account, no credentials, no cost. Everything runs on DuckDB reading a l
 
 ## Step 1: Setup
 
-### Install Fluid Forge with the local extra
+### Install Fluid Forge with the local and mcp extras
 
 ```bash
-pip install 'data-product-forge[local]'
+pip install 'data-product-forge[local,mcp]'
 ```
 
-The `[local]` extra pulls in DuckDB (1.5.0 or later), which is the reference engine for the output port. Without it, `fluid mcp output-port doctor` fails its `engine_health` check with `duckdb is not installed`.
+The `[local]` extra pulls in DuckDB (1.5.0 or later), which is the reference engine for the output port. Without it, `fluid mcp output-port doctor` fails its `engine_health` check with `duckdb is not installed`. The `[mcp]` extra pulls in the MCP SDK that `fluid mcp output-port serve` runs on. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* A base install no longer contains it, and `serve` prints `pip install 'data-product-forge[mcp]'` and exits 1. On 0.27.0 the base install has the SDK already and the extra changes nothing.
 
 ### Verify the command is wired
 

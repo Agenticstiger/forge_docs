@@ -25,6 +25,8 @@ export OLLAMA_HOST=http://localhost:11434
 
 ## Choose The Right Entry Point
 
+Every AI row below that uses an API-key provider needs `pip install 'data-product-forge[litellm]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* With an explicit API-key `--llm-provider`, a base install prints that line and exits 1 before doing any work; `--llm-provider claude-code`, `codex`, `cursor` or `kiro` avoids the extra (the last three reuse their own CLI login or key), and `mcp-sampling` works only inside `fluid mcp serve`, which needs `[mcp]`.
+
 | Goal | Command | AI needed |
 | --- | --- | --- |
 | Create a blank contract scaffold | `fluid forge --blank` | No |

@@ -738,22 +738,66 @@ These changes shipped in 0.27.0. Most fail closed where a contract used to apply
 
 | Extra | Installs | For |
 | --- | --- | --- |
-| `litellm`, alias `ai` | `litellm` | The AI backend of `fluid forge`, `fluid forge data-model`, `fluid ai setup` and the copilot |
-| `mcp` | `mcp` | The MCP server SDK: `fluid mcp serve`, MCP output ports and the keyless `mcp-sampling` provider |
+| `litellm`, alias `ai` | `litellm` | The AI backend of `fluid forge`, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup` and the copilot |
+| `mcp` | `mcp` | The MCP server SDK: `fluid mcp serve`, MCP output ports, `fluid scaffold-ide` and the keyless `mcp-sampling` provider |
 | `lineage` | `openlineage-python` | Lineage events when `OPENLINEAGE_URL` is set |
 | `standard` | `litellm` and `mcp` | Today's full AI and MCP behaviour |
 
 The extras that already exist are `all`, `aws`, `catalogs`, `copilot`, `databricks`, `datahub`, `dev`, `docs`, `gcp`, `local`, `odcs-strict`, `odps`, `opds`, `postgres`, `sdk`, `snowflake`, `test-emulators`, `test-emulators-heavy`, `tui`, `vector` and `viz`.
 
-**Coming in 0.28.0 (announced, not released):** litellm, mcp and openlineage leave the base install, which shrinks from 88 packages to 41 (Linux, Python 3.12, resolved with uv). If you use AI forge or MCP, install:
+### The base install in 0.28.0
+
+*On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* litellm, mcp and openlineage-python leave the base install. This is a breaking change to the install, not to any contract or command. Counted with `uv pip compile` for a base install with no extras, the number of packages goes from 88 to 41 (Linux, Python 3.12), from 86 to 45 (Linux, Python 3.10) and from 89 to 40 (Windows, Python 3.12). litellm alone was 30 of them.
+
+The base install keeps the core pipeline: `validate`, `plan`, `apply`, `verify`, `publish`, `generate iac`, `bundle`, `diff`, `doctor`, and template or blank `forge`. If that is all you run, you need nothing.
+
+If you use AI forge, MCP or lineage, name the extra. These install lines also work on 0.27.0, where they change nothing:
 
 ```bash
-pip install "data-product-forge[standard]"
+pip install "data-product-forge[litellm]"   # AI forge; [ai] is the same extra
+pip install "data-product-forge[mcp]"
+pip install "data-product-forge[lineage]"
+pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI and MCP behaviour
 ```
 
-or `[ai]`, `[mcp]` or `[lineage]` for one of them. If you only run `validate`, `plan`, `apply`, `bundle`, `generate iac` and `doctor`, you need nothing. Put the extra in `FLUID_PACKAGE_SPEC` in CI before you move.
+| You run | You need |
+| --- | --- |
+| `fluid forge` with an API-key provider (`--llm-provider openai`, `anthropic`, `gemini`, `ollama`), `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup`, the `fluid init` hand-off to AI, `--agent-loop` | `litellm` (alias `ai`) |
+| `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide` | `mcp` |
+| `OPENLINEAGE_URL` set on `fluid apply` through the OpenTofu engine, or on an acquisition build | `lineage` |
+| An AWS command that needs the account id or calls AWS (`diff`, `verify`, live reads, `apply`) | `aws` |
+| `litellm` and `mcp` together, the AI and MCP packages a 0.27.0 base install had | `standard` |
 
-*(from 0.27.0)* When an optional package is missing, the CLI prints a message naming the feature, the package and the extra, then exits 1 with no traceback; see [Production troubleshooting](./advanced/production-troubleshooting.md#an-optional-package-is-not-installed). `fluid doctor` prints `AI/MCP move to extras in 0.28.0: pip install 'data-product-forge[standard]'` once per run, and reads the litellm version from package metadata instead of importing it.
+`[dev]` and `[all]` include all three. The Docker image profiles already install `[standard]` and `[lineage]`.
+
+**The CLI stops before it does any work.** An explicit `--llm-provider` naming an API-key provider (`fluid forge`, `fluid forge data-model`, `--agent-loop`), `fluid ai setup` and the MCP commands (`mcp serve`, `mcp output-port serve`, `scaffold-ide`) print the exact `pip install` line and exit 1, with no traceback. For AI forge the check runs before the interview reads any context or memory, and before `fluid ai setup` reads the OS keyring or asks for a key. The forge message names `--llm-provider claude-code` (your Claude Code login) and `--template starter`; the `--agent-loop` message names only `--template starter`; `ai setup` and `init` name `claude-code`, `codex`, `cursor`, `kiro`, `mcp-sampling` and `--template starter`. Only Claude Code needs no setup of its own: `codex`, `cursor` and `kiro` reuse their own CLI login or key, and `mcp-sampling` runs inside `fluid mcp serve`, which needs `[mcp]`. `fluid forge data-model` with no provider flags runs offline. `fluid init` does not exit 1: its AI hand-off prints the line and the options, then continues in template mode (it picks Claude Code if `claude` is on `PATH`). Bare interactive `fluid forge` with no provider prints the hint and offers guided mode. Template and blank forge are unchanged. `fluid scaffold-ide` writes nothing without `mcp`, because every entry it writes launches `fluid mcp serve`.
+
+```text
+❌ The MCP server needs mcp, which is not installed.
+
+    pip install 'data-product-forge[mcp]'
+[ERR_MCP_SDK_UNAVAILABLE]
+```
+
+**Lineage is the one that does not stop.** Lineage is emitted only by `fluid apply` through the OpenTofu engine and by acquisition builds; a native local apply never emits it. Without `lineage`, those print one warning naming the extra on the console (and log it) and carry on without sending events.
+
+**AWS needs `aws`.** boto3 used to arrive through litellm. Without it, an AWS command that needs the account id fails with `The AWS account id could not be resolved: boto3 is not installed, so sts:GetCallerIdentity cannot be called`, followed by the install line, instead of the misleading bucket-name error it used to give. Setting `AWS_ACCOUNT_ID` also avoids the lookup.
+
+`fluid doctor` no longer reports a configured provider as ready when litellm is missing; its Next steps panel names the extra.
+
+**Before you move,** put the extra in `FLUID_PACKAGE_SPEC` in CI, or in your own install step.
+
+### Pins that changed with it
+
+*On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* The `mcp` extra now needs `mcp>=1.30,!=2.0.*,!=2.1.*,<3.0` (it was `mcp>=1.22`), because earlier releases have published advisories, among them an SSE session that was not bound to the principal that opened it; `fluid mcp output-port serve` uses that transport. The `litellm` extra excludes litellm 1.107.0, a malicious release since removed from PyPI (MAL-2026-2144).
+
+### Faster `--help`, and nine modules removed
+
+*On forge-cli `main`, not yet in a release ([forge-cli #836](https://github.com/Agenticstiger/forge-cli/pull/836)).* `fluid --help` and each command import only the module of the command being run: about 300 modules on a bare install instead of about 857. The command list and every help line are unchanged.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #832](https://github.com/Agenticstiger/forge-cli/pull/832)).* Nine internal modules that nothing imported are removed: `fluid_build.logging_utils`, `fluid_build.cli.init_samples`, `fluid_build.copilot.schemas.table_metadata`, `fluid_build.providers.local.ducksql`, `.mocks` and `.samples`, and `fluid_build.runtimes.dataform_gcp`, `.dbt_bigquery` and `.dbt_duckdb`. No command or contract behaves differently. It matters only to code that imported one of them directly.
+
+*(from 0.27.0)* When an optional package is missing, the CLI prints a message naming the feature, the package and the extra, then exits 1 with no traceback; see [Production troubleshooting](./advanced/production-troubleshooting.md#an-optional-package-is-not-installed). `fluid doctor` reads the litellm version from package metadata instead of importing it.
 
 ## DuckDB 1.x to 2.x
 

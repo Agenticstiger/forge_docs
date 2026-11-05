@@ -16,6 +16,8 @@ fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
 
 ## Supported providers
 
+The `openai`, `anthropic`, `gemini` and `ollama` providers run through LiteLLM and need `pip install 'data-product-forge[litellm]'` (alias `[ai]`). *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* `mcp-sampling` works only inside `fluid mcp serve`, which needs `[mcp]`. The four local agent CLIs need neither extra; only Claude Code needs no setup of its own, since the others reuse their own CLI login or key.
+
 | Provider | `--llm-provider` | Default model | Notes |
 | --- | --- | --- | --- |
 | Anthropic | `anthropic` (alias `claude`) | `claude-sonnet-4-6` | Tool-forced structured output and provider-native prompt caching. Streamed runs report token usage in cost summaries. |

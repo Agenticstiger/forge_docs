@@ -15,6 +15,8 @@ The first half of this page covers the authoring server. The second half is a de
 
 ### Start the server
 
+Install the MCP SDK first: `pip install 'data-product-forge[mcp]'`. The extra exists since 0.27.0. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* A base install no longer contains `mcp`, and `fluid mcp serve`, `fluid mcp output-port serve` and `fluid scaffold-ide` print that install line and exit 1 before they do any work. See [Upgrading](../upgrading.md#extras-in-0-27-0-and-the-install-change-in-0-28-0).
+
 ```bash
 fluid mcp serve --read-only     # inspection only
 fluid mcp serve                 # full surface, scoped to the working directory
