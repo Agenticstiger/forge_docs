@@ -197,11 +197,13 @@ The exit code is `1`. Leave `--extended` out unless your project provides its ow
 
 ## The 0.28.0 install change
 
-*(from 0.27.0)* `fluid doctor` prints one line once per run:
+*(from 0.27.0)* `fluid doctor` prints one line once per run. On 0.27.0 it reads:
 
 ```text
 AI/MCP move to extras in 0.28.0: pip install 'data-product-forge[standard]'
 ```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* After the change it reads `AI and MCP are extras since 0.28.0: pip install 'data-product-forge[standard]'`, and a configured provider is no longer reported as ready when litellm is missing: the Next steps panel says `<provider> needs litellm, which is not installed` and prints `pip install 'data-product-forge[litellm]'`.
 
 It also reports three optional packages in the AI checks: the LiteLLM backend, the MCP SDK and the OpenLineage client. Each shows its version when installed, or `Not installed (optional)` with the `pip install 'data-product-forge[<extra>]'` line. None of them is imported: doctor reads the version from the package metadata, so it makes no network call for litellm's cost map.
 
@@ -217,7 +219,7 @@ The `fix:` line for a missing binary, and the `doc` field in `--json` output, po
 | `helm`, `kubectl` | Managed-mode acquisition engines that provision infrastructure with Helm on Kubernetes. | [Helm install guide](https://helm.sh/docs/intro/install/) and [Kubernetes tools](https://kubernetes.io/docs/tasks/tools/). |
 | `duckdb` | The `local` provider and DuckDB acquisition builds. | `pip install "data-product-forge[local]"`, which installs `duckdb` at the version the CLI requires for its contract-SQL sandbox. See [DuckDB sandbox](../advanced/duckdb-sandbox.md). |
 | `dlt` | `dlt` acquisition builds. | `pip install dlt`. As of 0.18.1 `data-product-forge` has no `dlt` extra. |
-| `litellm`, `mcp`, `openlineage` | *(from 0.27.0)* AI forge, `fluid mcp serve` and lineage emission. | Part of a base install through 0.27.0. From 0.28.0: `pip install "data-product-forge[standard]"`, or `[ai]`, `[mcp]` or `[lineage]` for one. |
+| `litellm`, `mcp`, `openlineage` | *(from 0.27.0)* AI forge, `fluid mcp serve` and lineage emission. | Part of a base install through 0.27.0. From 0.28.0: `pip install "data-product-forge[standard]"`, or `[ai]`, `[mcp]` or `[lineage]` for one. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* |
 | `httpx` | A core dependency of the CLI. | Installed with `data-product-forge`; a failure here points to a broken Python environment. |
 | `snowflake.connector` | The `snowflake` provider. | `pip install "data-product-forge[snowflake]"`. The `fix:` line for this check reads `pip install snowflake`, which is not the package that provides the connector; use the extra. |
 

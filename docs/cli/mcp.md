@@ -25,6 +25,8 @@ fluid mcp output-port serve ... # consumer-side data-access server
 
 Runs the authoring MCP stdio server so an MCP client can inspect, validate, and edit forge artifacts. It is a foreground process — no daemon, no HTTP port, no background service.
 
+Needs the `mcp` extra: `pip install 'data-product-forge[mcp]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* Without it the command prints that line and exits 1, with `[ERR_MCP_SDK_UNAVAILABLE]` and no traceback.
+
 ### Syntax
 
 ```bash
@@ -81,8 +83,8 @@ Both servers run on the official `mcp` Python SDK.
 
 | | |
 | --- | --- |
-| **Dependency pin** | `mcp>=1.22,<3.0` *(since 0.20.0, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710); 0.19.0 and earlier pin `mcp>=1.20,<3.0`)* |
-| **What a fresh install resolves** | The newest `2.x`. Up to 0.27.0 `mcp` is a core dependency, so `pip install data-product-forge` picks it up. *(from 0.27.0)* The `mcp` extra (and `standard`) names it; *(from 0.28.0)* a base install no longer includes it, and `fluid mcp serve`, MCP output ports and the keyless `mcp-sampling` provider need `pip install "data-product-forge[mcp]"`. A fresh 0.18.1 install resolved `mcp 2.3.0` on 5 Oct 2026. |
+| **Dependency pin** | `mcp>=1.22,<3.0` *(since 0.20.0, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710); 0.19.0 and earlier pin `mcp>=1.20,<3.0`)*. The `mcp` extra then needs `mcp>=1.30,!=2.0.*,!=2.1.*,<3.0`, because earlier releases have published advisories. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* |
+| **What a fresh install resolves** | The newest `2.x`. Up to 0.27.0 `mcp` is a core dependency, so `pip install data-product-forge` picks it up. *(from 0.27.0)* The `mcp` extra (and `standard`) names it; *(from 0.28.0)* a base install no longer includes it, and `fluid mcp serve`, MCP output ports, `fluid scaffold-ide` and the keyless `mcp-sampling` provider need `pip install "data-product-forge[mcp]"`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* A fresh 0.18.1 install resolved `mcp 2.3.0` on 5 Oct 2026. |
 | **Existing environments** | Do not move until you upgrade them. Pinning `mcp>=1.22,<2.0` yourself remains supported. mcp 1.20 and 1.21 fail to import with pydantic 2.14 or later, which removed a private helper they import; keep pydantic below 2.14 if you must stay on them. |
 | **3.x** | Outside the pin. |
 
@@ -97,6 +99,8 @@ On 1.x a client could self-attest identity (`model`, `useCase`, tenant attribute
 ## Consumer: `fluid mcp output-port serve`
 
 Binds **one expose** from a FLUID contract and serves it to MCP clients as a governed, read-only data port. This is distinct from `fluid mcp serve`: the output port queries production data, so its threat model and policy surface differ entirely.
+
+Needs the `mcp` extra as well (`pip install 'data-product-forge[mcp]'`); add `local` for the DuckDB engine, as in `pip install 'data-product-forge[local,mcp]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).*
 
 The server is **read-only by default** and exposes a small surface: an agent can `describe` the data product, `sample` a few rows, and run a predeclared **semantic** `query`. Free-form SQL (`query_sql`) is OFF unless you opt in with `--allow-sql`.
 

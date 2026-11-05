@@ -2,6 +2,8 @@
 
 Configure the AI / LLM provider used by Forge Copilot, test that it works, and inspect the current AI configuration.
 
+`fluid ai setup` needs the `litellm` extra: `pip install 'data-product-forge[litellm]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* Without it, it prints that line, names the keyless ways to author (`fluid forge --llm-provider claude-code|codex|cursor|kiro`, `--llm-provider mcp-sampling`, `fluid forge --template starter`) and exits 1 before it reads the OS keyring or asks for a key.
+
 ## Syntax
 
 ```bash

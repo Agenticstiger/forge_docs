@@ -2,6 +2,8 @@
 
 Author a data product contract with an AI copilot, an offline guided interview, or an empty skeleton. By default forge writes `contract.fluid.yaml` and `.fluid/forge-receipt.json`; a scaffold (`--scaffold`), a CI pipeline (`--ci`) and engine artifacts add files.
 
+AI forge with an API-key provider needs the `litellm` extra (alias `ai`): `pip install 'data-product-forge[litellm]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* Without it, `fluid forge --llm-provider openai` (or `anthropic`, `gemini`, `ollama`) and `fluid forge data-model` print that line and exit 1 with `[ERR_COPILOT_LITELLM_UNAVAILABLE]`, before the interview reads any context or memory. The message names two ways to author without it: `--llm-provider claude-code` (your Claude Code login; `codex`, `cursor`, `kiro` and `mcp-sampling` are keyless too) and `--template starter`. `--blank` and the other templates need no AI. `--llm-provider mcp-sampling` needs the `mcp` extra.
+
 ## Syntax
 
 ```bash

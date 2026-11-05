@@ -1368,6 +1368,8 @@ The emitter is chosen by environment, not by a key in the contract. With no endp
 export OPENLINEAGE_URL=https://marquez.example.com
 ```
 
+Emitting needs the `lineage` extra: `pip install 'data-product-forge[lineage]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).*
+
 `FLUID_OPENLINEAGE_URL` takes precedence over `OPENLINEAGE_URL`. The endpoint path defaults to `api/v1/lineage` (change it with `FLUID_OPENLINEAGE_ENDPOINT`), and `OPENLINEAGE_API_KEY` or `FLUID_OPENLINEAGE_API_KEY` sets the bearer token. A private or loopback endpoint is allowed unless `FLUID_OPENLINEAGE_ALLOW_PRIVATE=false`; link-local addresses, such as cloud metadata endpoints, are blocked either way.
 
 The schema's `lineage` block has one key, `emit`, and no runner reads it. A build with `lineage: { emit: false }` still emits when `OPENLINEAGE_URL` is set. Out-of-tree emitters subclass `LineageEmitter` from `fluid_build.api.lineage`.

@@ -8,7 +8,7 @@ Create a new project: a working example, an empty skeleton, a bundled blueprint,
 fluid init [NAME] [OPTIONS]
 ```
 
-With no mode flag, `fluid init NAME` starts the AI-assisted path (the same copilot as [`fluid forge`](./forge.md)). Every example below picks a mode explicitly, so none of them needs an AI key.
+With no mode flag, `fluid init NAME` starts the AI-assisted path (the same copilot as [`fluid forge`](./forge.md)), which needs `pip install "data-product-forge[litellm]"` for an API-key provider. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* Every example below picks a mode explicitly, so none of them needs an AI key.
 
 ## Examples
 

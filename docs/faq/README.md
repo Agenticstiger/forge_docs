@@ -39,7 +39,7 @@ The same cause as above: the `[local]` extra is missing. Install `data-product-f
 
 ## A command says `needs <package>, which is not installed`.
 
-*(from 0.27.0)* An optional package is missing. The message names the extra: run the `pip install 'data-product-forge[<extra>]'` line it prints. From 0.28.0 the AI, MCP and lineage packages are no longer in the base install, so `pip install 'data-product-forge[standard]'` restores AI forge and MCP. See [Production troubleshooting](/forge_docs/advanced/production-troubleshooting.html#an-optional-package-is-not-installed).
+*(from 0.27.0)* An optional package is missing. The message names the extra: run the `pip install 'data-product-forge[<extra>]'` line it prints. From 0.28.0 the AI, MCP and lineage packages are no longer in the base install, so `pip install 'data-product-forge[standard]'` restores AI forge and MCP, or name one of `[litellm]`, `[mcp]` and `[lineage]`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* See [Production troubleshooting](/forge_docs/advanced/production-troubleshooting.html#an-optional-package-is-not-installed).
 
 ## A local output file contains `id,value` and `1,materialized`.
 

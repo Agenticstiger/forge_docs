@@ -268,11 +268,13 @@ Update the key at the source `fluid ai status` reports, the provider environment
 
 | Feature | Package | Extra |
 |---|---|---|
-| `fluid forge`, `fluid forge data-model`, `fluid ai setup`, the copilot | `litellm` | `ai` (alias of `litellm`), or `standard` |
-| `fluid mcp serve`, MCP output ports, the keyless `mcp-sampling` provider | `mcp` | `mcp`, or `standard` |
+| `fluid forge` with an API-key provider, `fluid forge data-model`, `fluid ai setup`, the `fluid init` hand-off to AI, the agent loop | `litellm` | `litellm`, its alias `ai`, or `standard` |
+| `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide`, the keyless `mcp-sampling` provider | `mcp` | `mcp`, or `standard` |
 | Lineage events when `OPENLINEAGE_URL` is set | `openlineage-python` | `lineage` |
 
-Through 0.27.0 a base install contains all three, so you meet this only if you removed one. From 0.28.0 a base install omits them. A pipeline of only `validate`, `plan`, `apply`, `bundle`, `generate iac` and `doctor` needs none of them. In CI, put the extra in `FLUID_PACKAGE_SPEC` or in your install step.
+Through 0.27.0 a base install contains all three, so you meet this only if you removed one. From 0.28.0 a base install omits them. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* A pipeline of only `validate`, `plan`, `apply`, `bundle`, `generate iac` and `doctor` needs none of them. In CI, put the extra in `FLUID_PACKAGE_SPEC` or in your install step.
+
+From 0.28.0 the command stops before it does any work, and for AI forge the message also names the ways to author without the extra: `--llm-provider claude-code` (or `codex`, `cursor`, `kiro`, `mcp-sampling`) and `--template starter`. Lineage is the exception: without `lineage`, `fluid apply` logs one warning and carries on. AWS commands that need boto3 point at `[aws]`; boto3 no longer arrives through litellm. See [Upgrading](../upgrading.md#extras-in-0-27-0-and-the-install-change-in-0-28-0).
 
 ## Where logs live
 
