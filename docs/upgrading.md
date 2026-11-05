@@ -738,7 +738,7 @@ These changes shipped in 0.27.0. Most fail closed where a contract used to apply
 
 | Extra | Installs | For |
 | --- | --- | --- |
-| `litellm`, alias `ai` | `litellm` | The AI backend of `fluid forge`, `fluid forge data-model`, `fluid ai setup` and the copilot |
+| `litellm`, alias `ai` | `litellm` | The AI backend of `fluid forge`, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup` and the copilot |
 | `mcp` | `mcp` | The MCP server SDK: `fluid mcp serve`, MCP output ports, `fluid scaffold-ide` and the keyless `mcp-sampling` provider |
 | `lineage` | `openlineage-python` | Lineage events when `OPENLINEAGE_URL` is set |
 | `standard` | `litellm` and `mcp` | Today's full AI and MCP behaviour |
@@ -762,15 +762,15 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 
 | You run | You need |
 | --- | --- |
-| `fluid forge` with an API-key provider (`--llm-provider openai`, `anthropic`, `gemini`, `ollama`), `fluid forge data-model`, `fluid ai setup`, the `fluid init` hand-off to AI, the agent loop | `litellm` (alias `ai`) |
+| `fluid forge` with an API-key provider (`--llm-provider openai`, `anthropic`, `gemini`, `ollama`), `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup`, the `fluid init` hand-off to AI, `--agent-loop` | `litellm` (alias `ai`) |
 | `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide` | `mcp` |
-| `fluid apply` with `OPENLINEAGE_URL` set | `lineage` |
-| An AWS command that needs the account id, or any other use of boto3 | `aws` |
-| All of the AI and MCP behaviour a 0.27.0 base install had | `standard` |
+| `OPENLINEAGE_URL` set on `fluid apply` through the OpenTofu engine, or on an acquisition build | `lineage` |
+| An AWS command that needs the account id or calls AWS (`diff`, `verify`, live reads, `apply`) | `aws` |
+| `litellm` and `mcp` together, the AI and MCP packages a 0.27.0 base install had | `standard` |
 
 `[dev]` and `[all]` include all three. The Docker image profiles already install `[standard]` and `[lineage]`.
 
-**The CLI stops before it does any work.** A command that needs a missing package prints the exact `pip install` line and exits 1, with no traceback. For AI forge the check runs before the interview reads any context or memory, and before `fluid ai setup` reads the OS keyring or asks for a key. The message also names ways to author without it: `--llm-provider claude-code` (your Claude Code login; `codex`, `cursor`, `kiro` and `mcp-sampling` are keyless too) and `--template starter`. Template and blank forge are unchanged. `fluid scaffold-ide` writes nothing without `mcp`, because every entry it writes launches `fluid mcp serve`.
+**The CLI stops before it does any work.** An explicit `--llm-provider` naming an API-key provider (`fluid forge`, `fluid forge data-model`, `--agent-loop`), `fluid ai setup` and the MCP commands (`mcp serve`, `mcp output-port serve`, `scaffold-ide`) print the exact `pip install` line and exit 1, with no traceback. For AI forge the check runs before the interview reads any context or memory, and before `fluid ai setup` reads the OS keyring or asks for a key. The forge message names `--llm-provider claude-code` (your Claude Code login) and `--template starter`; the `--agent-loop` message names only `--template starter`; `ai setup` and `init` name `claude-code`, `codex`, `cursor`, `kiro`, `mcp-sampling` and `--template starter`. Only Claude Code needs no setup of its own: `codex`, `cursor` and `kiro` reuse their own CLI login or key, and `mcp-sampling` runs inside `fluid mcp serve`, which needs `[mcp]`. `fluid forge data-model` with no provider flags runs offline. `fluid init` does not exit 1: its AI hand-off prints the line and the options, then continues in template mode (it picks Claude Code if `claude` is on `PATH`). Bare interactive `fluid forge` with no provider prints the hint and offers guided mode. Template and blank forge are unchanged. `fluid scaffold-ide` writes nothing without `mcp`, because every entry it writes launches `fluid mcp serve`.
 
 ```text
 ❌ The MCP server needs mcp, which is not installed.
@@ -779,7 +779,7 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 [ERR_MCP_SDK_UNAVAILABLE]
 ```
 
-**Lineage is the one that does not stop.** Without `lineage`, `fluid apply` logs one warning naming the extra and carries on without sending events.
+**Lineage is the one that does not stop.** Lineage is emitted only by `fluid apply` through the OpenTofu engine and by acquisition builds; a native local apply never emits it. Without `lineage`, those print one warning naming the extra on the console (and log it) and carry on without sending events.
 
 **AWS needs `aws`.** boto3 used to arrive through litellm. Without it, an AWS command that needs the account id fails with `The AWS account id could not be resolved: boto3 is not installed, so sts:GetCallerIdentity cannot be called`, followed by the install line, instead of the misleading bucket-name error it used to give. Setting `AWS_ACCOUNT_ID` also avoids the lookup.
 
