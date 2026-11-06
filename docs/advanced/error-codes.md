@@ -331,6 +331,27 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 
 - Pass the generated-artifacts path produced by 'fluid generate artifacts'
 
+### unsupported_binding, Databricks kinds
+
+`ERR_UNSUPPORTED_BINDING`. Not catalogued, so it prints no curated suggestions: the raise site prints a `kind:` line, the finding and a `remediation:` line, and `fluid validate` prints the same finding as a validation error. A kind names the refusal. Nothing is applied and no module is written. `databricks-tag-value-too-long`, `databricks-comment-unsafe` and `databricks-certification-invalid` came with the Unity Catalog comments, tags and certification *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*. `databricks-tag-collision` and `databricks-tags-too-many` are older (0.27.0) and gained triggers in 0.28.0: a label that meets one of the product's own tag keys, and more than 1,000 column tags. All are raised by `fluid validate`, `fluid generate iac` and `fluid apply`. Each limit is the one Unity Catalog enforces or the provider's escaping needs.
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: databricks-certification-invalid
+  error: exposes[0] (orders): the label certification is 'gold', and Unity Catalog's system.certification_status takes 'certified' or 'deprecated'.
+  remediation: ['Set labels.certification: certified, or remove it; a deprecated product says so with lifecycle.state: deprecated.']
+```
+
+| Kind | Triggered by | Fix |
+|---|---|---|
+| `databricks-tag-collision` | Two labels that become one tag key once `-` is read as `_` (`cost-center` and `cost_center`), or a label that becomes one of the product's own tag keys *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*. Only a key the contract states counts: with no `metadata.productType`, a label `fluid_product_type` is no collision | Rename the label so its key differs |
+| `databricks-tag-value-too-long` | A tag value over 256 characters: the contract's `id`, `name`, `domain`, `metadata.layer`, `metadata.productType`, `metadata.owner.team`, `fluidVersion` or the expose's `version`, or a column's `sensitivity` | Shorten it to 256 characters or fewer. forge-cli refuses rather than cuts, since a cut id names another product |
+| `databricks-tags-too-many` | More than 50 tags on a table or schema, counting the product's own tags with the governance labels, or more than 1,000 column tags on a table *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* | Remove labels until 50 or fewer remain, or classify 1,000 columns or fewer |
+| `databricks-comment-unsafe` | A table or column description that holds a backslash (the provider escapes only quotes in `COMMENT '...'`, and Databricks reads a backslash in a literal as an escape, so a trailing one, or one before a quote, would break the literal) or `${` (Spark may substitute a variable there) | Remove the backslash, or write `$ {` for `${` |
+| `databricks-certification-invalid` | The label `certification` has any value but `certified` (case ignored), on a product that is not `deprecated`. Unity Catalog's `system.certification_status` takes `certified` or `deprecated` | Set `labels.certification: certified` or remove it. Mark a deprecated product with `lifecycle.state: deprecated` |
+
+The `fluid generate iac` and `fluid apply` runs print the refusal and exit before any resource is created. See [Databricks, Comments and product tags](../providers/databricks.md#comments-and-product-tags) and [Certification](../providers/databricks.md#certification). The kinds that came earlier (`databricks-region-invalid`, `databricks-region-conflict`, `databricks-row-filter-invalid` and the others) are described on [Databricks](../providers/databricks.md).
+
 ## AI and copilot
 
 ### copilot_missing_llm_api_key
