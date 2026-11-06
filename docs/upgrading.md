@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.26.0, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.28.0, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -61,7 +61,7 @@ Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it,
 
 ## Contracts do not need a new `fluidVersion`
 
-Upgrading the CLI does not change the schema your contracts declare. `0.27.0` reads
+Upgrading the CLI does not change the schema your contracts declare. `0.28.0` reads
 `fluidVersion` `0.7.1` to `0.7.6`, and `0.7.7` as a preview (the list `fluid version`
 prints). `0.7.6` is stable since `0.26.0`: it is the default, and the contracts forge-cli
 writes declare it. A contract that declares `0.7.5` still validates as `0.7.5`.
@@ -732,26 +732,32 @@ These changes shipped in 0.27.0. Most fail closed where a contract used to apply
   in `host 'connect.example.com', connecting to '93.184.216.34', is public`. A URL it cannot parse is
   refused with "it has no host".
 
-## Extras in 0.27.0 and the install change in 0.28.0
+## Extras in 0.27.0
 
-*(from 0.27.0)* Four extras are new. In 0.27.0 the base install still contains all of their packages, so installing them changes nothing yet.
+*(since 0.27.0)* Four extras were added next to the base install, so you could switch before 0.28.0 took their packages out of it. [Changes in 0.28.0](#changes-in-0-28-0) says what that change does.
 
 | Extra | Installs | For |
 | --- | --- | --- |
 | `litellm`, alias `ai` | `litellm` | The AI backend of `fluid forge`, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup` and the copilot |
 | `mcp` | `mcp` | The MCP server SDK: `fluid mcp serve`, MCP output ports, `fluid scaffold-ide` and the keyless `mcp-sampling` provider |
 | `lineage` | `openlineage-python` | Lineage events when `OPENLINEAGE_URL` is set |
-| `standard` | `litellm` and `mcp` | Today's full AI and MCP behaviour |
+| `standard` | `litellm` and `mcp` | The AI and MCP behaviour a base install had through 0.27.0 |
 
-The extras that already exist are `all`, `aws`, `catalogs`, `copilot`, `databricks`, `datahub`, `dev`, `docs`, `gcp`, `local`, `odcs-strict`, `odps`, `opds`, `postgres`, `sdk`, `snowflake`, `test-emulators`, `test-emulators-heavy`, `tui`, `vector` and `viz`.
+The extras that already existed are `all`, `aws`, `catalogs`, `copilot`, `databricks`, `datahub`, `dev`, `docs`, `gcp`, `local`, `odcs-strict`, `odps`, `opds`, `postgres`, `sdk`, `snowflake`, `test-emulators`, `test-emulators-heavy`, `tui`, `vector` and `viz`. Since 0.28.0 `viz`, `tui` and `odps` are empty aliases: nothing imports `graphviz`, `textual` or `ruamel.yaml`, and `pip install 'data-product-forge[viz]'` still works.
 
-### The base install in 0.28.0
+*(since 0.27.0)* When an optional package is missing, the CLI prints a message naming the feature, the package and the extra, then exits 1 with no traceback; see [Production troubleshooting](./advanced/production-troubleshooting.md#an-optional-package-is-not-installed). `fluid doctor` reads the litellm version from package metadata instead of importing it.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* litellm, mcp and openlineage-python leave the base install. This is a breaking change to the install, not to any contract or command. Counted with `uv pip compile` for a base install with no extras, the number of packages goes from 88 to 41 (Linux, Python 3.12), from 86 to 45 (Linux, Python 3.10) and from 89 to 40 (Windows, Python 3.12). litellm alone was 30 of them.
+## Changes in 0.28.0
+
+These changes shipped in 0.28.0. The first is a breaking change to the install, not to any contract or command: read it before you move a pipeline, a Docker image or a CI install line. After it come the pins that changed with it, the dependency list, the Debezium `.env` names, the Iceberg `catalogAuth` checks, Databricks and the smaller changes.
+
+### The base install
+
+*(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* litellm, mcp and openlineage-python are no longer in the base install; with litellm went boto3, aiohttp, openai, tokenizers and about fifty more packages. Counted with `uv pip compile` for a base install with no extras, the number of packages goes from 88 to 41 (Linux, Python 3.12), from 86 to 45 (Linux, Python 3.10) and from 89 to 40 (Windows, Python 3.12); litellm alone was 30 of them. `packaging` is now a declared base dependency, since it used to arrive through litellm.
 
 The base install keeps the core pipeline: `validate`, `plan`, `apply`, `verify`, `publish`, `generate iac`, `bundle`, `diff`, `doctor`, and template or blank `forge`. If that is all you run, you need nothing.
 
-If you use AI forge, MCP or lineage, name the extra. These install lines also work on 0.27.0, where they change nothing:
+If you use AI forge, MCP or lineage, name the extra. These install lines also work on 0.27.0, where they change nothing.
 
 ```bash
 pip install "data-product-forge[litellm]"   # AI forge; [ai] is the same extra
@@ -762,15 +768,15 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 
 | You run | You need |
 | --- | --- |
-| `fluid forge` with an API-key provider (`--llm-provider openai`, `anthropic`, `gemini`, `ollama`), `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup`, the `fluid init` hand-off to AI, `--agent-loop` | `litellm` (alias `ai`) |
+| `fluid forge` with an API-key provider (`--llm-provider openai`, `anthropic`, `gemini`, `ollama`), `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), the `fluid ai setup` provider wizard (not `--clear` or `--source`), the `fluid init` hand-off to AI, `--agent-loop` | `litellm` (alias `ai`) |
 | `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide` | `mcp` |
 | `OPENLINEAGE_URL` set on `fluid apply` through the OpenTofu engine, or on an acquisition build | `lineage` |
-| An AWS command that needs the account id or calls AWS (`diff`, `verify`, live reads, `apply`) | `aws` |
+| A native AWS plan that must resolve the account id (a contract that declares orchestration), live AWS reads, the Glue catalog import blocks of `apply` | `aws` |
 | `litellm` and `mcp` together, the AI and MCP packages a 0.27.0 base install had | `standard` |
 
 `[dev]` and `[all]` include all three. The Docker image profiles already install `[standard]` and `[lineage]`.
 
-**The CLI stops before it does any work.** An explicit `--llm-provider` naming an API-key provider (`fluid forge`, `fluid forge data-model`, `--agent-loop`), `fluid ai setup` and the MCP commands (`mcp serve`, `mcp output-port serve`, `scaffold-ide`) print the exact `pip install` line and exit 1, with no traceback. For AI forge the check runs before the interview reads any context or memory, and before `fluid ai setup` reads the OS keyring or asks for a key. The forge message names `--llm-provider claude-code` (your Claude Code login) and `--template starter`; the `--agent-loop` message names only `--template starter`; `ai setup` and `init` name `claude-code`, `codex`, `cursor`, `kiro`, `mcp-sampling` and `--template starter`. Only Claude Code needs no setup of its own: `codex`, `cursor` and `kiro` reuse their own CLI login or key, and `mcp-sampling` runs inside `fluid mcp serve`, which needs `[mcp]`. `fluid forge data-model` with no provider flags runs offline. `fluid init` does not exit 1: its AI hand-off prints the line and the options, then continues in template mode (it picks Claude Code if `claude` is on `PATH`). Bare interactive `fluid forge` with no provider prints the hint and offers guided mode. Template and blank forge are unchanged. `fluid scaffold-ide` writes nothing without `mcp`, because every entry it writes launches `fluid mcp serve`.
+**The CLI stops before it does any work.** An explicit `--llm-provider` naming an API-key provider (`fluid forge`, `fluid forge data-model`, `--agent-loop`), the `fluid ai setup` wizard and the MCP commands (`mcp serve`, `mcp output-port serve`, `scaffold-ide`) print the exact `pip install` line and exit 1, with no traceback. `--llm-model` alone resolves to the provider saved with `fluid ai setup`, and to `ollama` when none is saved. For AI forge the check runs before the interview reads any context or memory, and before the `fluid ai setup` wizard reads the OS keyring or asks for a key. The forge message names `--llm-provider claude-code` (your Claude Code login) and `--template starter`; the `--agent-loop` message names only `--template starter`; `ai setup` and `init` name `claude-code`, `codex`, `cursor`, `kiro`, `mcp-sampling` and `--template starter`. Only Claude Code needs no setup of its own: `codex`, `cursor` and `kiro` reuse their own CLI login or key, and `mcp-sampling` runs inside `fluid mcp serve`, which needs `[mcp]`. `fluid forge data-model` with no provider flags runs offline. `fluid init` does not exit 1: its AI hand-off prints the line and the options, then continues in template mode (it picks Claude Code if `claude` is on `PATH`). Bare interactive `fluid forge` with no provider uses Claude Code when it is installed, and otherwise prints the hint and offers guided mode. Template and blank forge are unchanged. `fluid scaffold-ide` writes nothing without `mcp`, because every entry it writes launches `fluid mcp serve`.
 
 ```text
 ❌ The MCP server needs mcp, which is not installed.
@@ -781,7 +787,7 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 
 **Lineage is the one that does not stop.** Lineage is emitted only by `fluid apply` through the OpenTofu engine and by acquisition builds; a native local apply never emits it. Without `lineage`, those print one warning naming the extra on the console (and log it) and carry on without sending events.
 
-**AWS needs `aws`.** boto3 used to arrive through litellm. Without it, an AWS command that needs the account id fails with `The AWS account id could not be resolved: boto3 is not installed, so sts:GetCallerIdentity cannot be called`, followed by the install line, instead of the misleading bucket-name error it used to give. Setting `AWS_ACCOUNT_ID` also avoids the lookup.
+**AWS needs `aws`.** boto3 used to arrive through litellm. Without it, a native AWS plan that cannot resolve the account id fails with `The AWS account id could not be resolved: boto3 is not installed, so sts:GetCallerIdentity cannot be called`, followed by the install line, instead of the misleading bucket-name error it used to give. Only a contract that declares orchestration (`orchestration.schedule`, `triggers` or `tasks`) reaches that plan; other contracts skip it. `fluid apply` without boto3 instead warns that the Glue catalog import blocks are omitted. Setting `AWS_ACCOUNT_ID` avoids the lookup.
 
 `fluid doctor` no longer reports a configured provider as ready when litellm is missing; its Next steps panel names the extra.
 
@@ -789,15 +795,32 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 
 ### Pins that changed with it
 
-*On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* The `mcp` extra now needs `mcp>=1.30,!=2.0.*,!=2.1.*,<3.0` (it was `mcp>=1.22`), because earlier releases have published advisories, among them an SSE session that was not bound to the principal that opened it; `fluid mcp output-port serve` uses that transport. The `litellm` extra excludes litellm 1.107.0, a malicious release since removed from PyPI (MAL-2026-2144).
+*(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* The `mcp` extra now needs `mcp>=1.30,!=2.0.*,!=2.1.*,<3.0` (it was `mcp>=1.22`), because earlier releases have published advisories, among them an SSE session that was not bound to the principal that opened it; `fluid mcp output-port serve` uses that transport. The `litellm` extra excludes litellm 1.107.0, a malicious release since removed from PyPI (MAL-2026-2144).
 
-### Faster `--help`, and nine modules removed
+### The dependency list now matches the imports
 
-*On forge-cli `main`, not yet in a release ([forge-cli #836](https://github.com/Agenticstiger/forge-cli/pull/836)).* `fluid --help` and each command import only the module of the command being run: about 300 modules on a bare install instead of about 857. The command list and every help line are unchanged.
+*(since 0.28.0, [forge-cli #829](https://github.com/Agenticstiger/forge-cli/pull/829))* `typing-extensions` and the Windows-only `colorama` leave the base install, because nothing imports them (`pydantic` and `click` still bring them where needed). `anyio` is named in it. The `[gcp]` extra drops `google-auth-oauthlib` and `google-cloud-iam`. The GCP project-access probe, which is the one user of `google-api-python-client` (still not in `[gcp]`), reports "not checked" when that package is absent, where it used to report "no access". `fluid odcs validate --roundtrip` needs `deepdiff`, which now belongs to the `[odcs-strict]` extra; a missing one says so.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #832](https://github.com/Agenticstiger/forge-cli/pull/832)).* Nine internal modules that nothing imported are removed: `fluid_build.logging_utils`, `fluid_build.cli.init_samples`, `fluid_build.copilot.schemas.table_metadata`, `fluid_build.providers.local.ducksql`, `.mocks` and `.samples`, and `fluid_build.runtimes.dataform_gcp`, `.dbt_bigquery` and `.dbt_duckdb`. No command or contract behaves differently. It matters only to code that imported one of them directly.
+### A project `.env` can no longer configure the embedded Debezium Server
 
-*(from 0.27.0)* When an optional package is missing, the CLI prints a message naming the feature, the package and the extra, then exits 1 with no traceback; see [Production troubleshooting](./advanced/production-troubleshooting.md#an-optional-package-is-not-installed). `fluid doctor` reads the litellm version from package metadata instead of importing it.
+*(since 0.28.0, [forge-cli #833](https://github.com/Agenticstiger/forge-cli/pull/833))* If you set any of these in a project `.env`, `.env.<environment>` or `.env.local`, move it to the shell or the CI job: it is ignored now, with the usual warning. The names are `DEBEZIUM_*`, `QUARKUS_*`, `SMALLRYE_*` and `MP_CONFIG_*` in the forms SmallRye Config matches, `JDK_JAVA_OPTIONS`, `JAVA_OPTS`, `JAVA_HOME`, and the launcher's `EXTRA_CONNECTOR`, `JMX_HOST`, `JMX_PORT`, `JMX_EXPORTER_PORT`, `JMX_EXPORTER_CONFIG` and `OTEL_JAVAAGENT_*`. See [Project dotenv trust](./advanced/project-dotenv-trust.md).
+
+### Iceberg sink `catalogAuth` checks are stricter
+
+*(since 0.28.0, [forge-cli #828](https://github.com/Agenticstiger/forge-cli/pull/828) and [#830](https://github.com/Agenticstiger/forge-cli/pull/830))* On a Kafka Connect or embedded Debezium build with `sink.catalogAuth`, `fluid validate` and the run's preflight now refuse a catalog or token endpoint at a cloud metadata address (AWS, GCP, Oracle and Alibaba, IPv6 and NAT64 forms included) even when you list it, and a catalog URL that holds `${`, starts with `env:` or holds a control character, wherever it is set (`binding.location.uri`, `iceberg_catalog_overrides`, the `iceberg.*` keys of `sink_connector_config` except `iceberg.kafka.*`, `server.sink.config`). A build without `catalogAuth` is unchanged. See [Operator allowlists](./advanced/source-aligned-acquisition.md#operator-allowlists) and [Network safety](./advanced/network-safety.md).
+
+### Databricks tables get tags and comments
+
+*(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* `fluid apply` writes the table comment and column comments from the contract (on a table a dbt build writes, the comments stay dbt's), and every Databricks table gets the product's identity tags (`fluid_product_id`, `fluid_layer`, `fluid_owner_team` and others), which count toward Unity Catalog's 50 tags per securable together with your labels. A contract that used to apply may now be refused: a label that becomes one of those keys (`databricks-tag-collision`), a tag value over 256 characters (`databricks-tag-value-too-long`), more than 1,000 column tags on a table (`databricks-tags-too-many`), and a description holding a backslash or `${` (`databricks-comment-unsafe`). A table is certified through Unity Catalog's `system.certification_status`: `certified` when the label `certification: certified` is set, `deprecated` when `lifecycle.state` is `deprecated`; any other value of the label is refused (`databricks-certification-invalid`). Setting it needs the ASSIGN permission on that governed tag for the deploy identity (from Databricks' documentation; not verified on a live workspace), and the plan names the tables. After a load, *(since 0.28.0, [forge-cli #835](https://github.com/Agenticstiger/forge-cli/pull/835))* the bronze landing deletes the local masked Parquet copy under `.fluid/staging/<build>/` and fails the run if it cannot. See [Databricks](./providers/databricks.md).
+
+### Other changes
+
+- *(since 0.28.0, [forge-cli #840](https://github.com/Agenticstiger/forge-cli/pull/840))* For a local-provider deployment, `fluid publish` reports a relative `location.path` anchored at the contract's directory, so the Command Center gets the file the engine writes. The contract itself is unchanged.
+- *(since 0.28.0, [forge-cli #835](https://github.com/Agenticstiger/forge-cli/pull/835))* `fluid generate iac` prints the reason, fix and doc of a sovereignty refusal, as `fluid apply` does.
+- *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* The CLI prints install hints as written, and masks GitHub, Anthropic and OpenAI keys, JWTs and `password=...` pairs in the error text it prints.
+- *(since 0.28.0, [forge-cli #836](https://github.com/Agenticstiger/forge-cli/pull/836))* `fluid --help` and each command import only the module of the command being run: about 300 modules on a bare install instead of about 857. The command list and every help line are unchanged.
+- *(since 0.28.0, [forge-cli #832](https://github.com/Agenticstiger/forge-cli/pull/832))* Nine internal modules that nothing imported are removed: `fluid_build.logging_utils`, `fluid_build.cli.init_samples`, `fluid_build.copilot.schemas.table_metadata`, `fluid_build.providers.local.ducksql`, `.mocks` and `.samples`, and `fluid_build.runtimes.dataform_gcp`, `.dbt_bigquery` and `.dbt_duckdb`. No command or contract behaves differently. It matters only to code that imported one of them directly.
+
 
 ## DuckDB 1.x to 2.x
 

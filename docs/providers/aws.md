@@ -437,7 +437,7 @@ fluid odcs export contract.fluid.yaml --output standards/product.odcs.yaml
 
 `fluid diff` reads the Glue table in the region `fluid apply` uses and compares its columns and types with the contract. Since `0.18.1` its live check resolves `{{ env.* }}` placeholders in the binding before it reads the target.
 
-`fluid diff` and `fluid verify` read AWS through boto3; install it with `pip install 'data-product-forge[aws]'`. Builds that land data with DuckDB need the `local` extra (`duckdb>=1.5.0`). boto3 used to arrive through litellm, so a base install of 0.28.0 no longer has it: `fluid plan`, `fluid validate` and `fluid generate iac` run without it; install `[aws]` (or set `AWS_ACCOUNT_ID`, where only the account id is needed) before any command that calls AWS or needs the account id: `diff`, `verify`, live reads and `apply`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).*
+AWS reads go through boto3; install it with `pip install 'data-product-forge[aws]'`. Builds that land data with DuckDB need the `local` extra (`duckdb>=1.5.0`). boto3 used to arrive through litellm, so a base install no longer has it: `fluid plan`, `fluid validate` and `fluid generate iac` run without it; install `[aws]` before a command that calls AWS. A native AWS plan that cannot resolve the account id is refused, but only for a contract that declares orchestration (`orchestration.schedule`, `triggers` or `tasks`); other contracts skip the native plan. `fluid apply` without boto3 warns that the Glue catalog import blocks are omitted. Setting `AWS_ACCOUNT_ID` avoids the account lookup. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))*
 
 ## Where a build lands data
 

@@ -39,7 +39,7 @@ The same cause as above: the `[local]` extra is missing. Install `data-product-f
 
 ## A command says `needs <package>, which is not installed`.
 
-*(from 0.27.0)* An optional package is missing. The message names the extra: run the `pip install 'data-product-forge[<extra>]'` line it prints. From 0.28.0 the AI, MCP and lineage packages are no longer in the base install, so `pip install 'data-product-forge[standard]'` restores AI forge and MCP, or name one of `[litellm]`, `[mcp]` and `[lineage]`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* See [Production troubleshooting](/forge_docs/advanced/production-troubleshooting.html#an-optional-package-is-not-installed).
+*(from 0.27.0)* An optional package is missing. The message names the extra: run the `pip install 'data-product-forge[<extra>]'` line it prints. The AI, MCP and lineage packages are not in the base install (they were through 0.27.0), so `pip install 'data-product-forge[standard]'` restores AI forge and MCP, or name one of `[litellm]`, `[mcp]` and `[lineage]`. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* See [Production troubleshooting](/forge_docs/advanced/production-troubleshooting.html#an-optional-package-is-not-installed).
 
 ## A local output file contains `id,value` and `1,materialized`.
 
@@ -58,7 +58,7 @@ pip install --upgrade "data-product-forge[local]"
 fluid version
 ```
 
-Then follow the [upgrade guide](../upgrading.md). It has a checklist for each version you cross, because some upgrades need action: `0.17.0`, for example, moves remote state to a per-provider key for a contract that uses a per-contract state key, and needs one `fluid schedule-sync` to retire old Airflow DAGs if you sync Airflow DAGs, and `0.16.3` changed some results on purpose. Pin an exact version in CI (`data-product-forge==0.27.0`), not a range.
+Then follow the [upgrade guide](../upgrading.md). It has a checklist for each version you cross, because some upgrades need action: `0.17.0`, for example, moves remote state to a per-provider key for a contract that uses a per-contract state key, and needs one `fluid schedule-sync` to retire old Airflow DAGs if you sync Airflow DAGs, and `0.16.3` changed some results on purpose. Pin an exact version in CI (`data-product-forge==0.28.0`), not a range.
 
 Your contracts do not need a new `fluidVersion`: `0.27.0` reads `0.7.1` to `0.7.6`, and `0.7.7` as a preview.
 

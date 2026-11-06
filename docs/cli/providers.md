@@ -136,7 +136,7 @@ Raised when an action in an execution plan names a provider that is missing from
 pip install 'data-product-forge[gcp]'
 ```
 
-The package defines `local`, `gcp`, `snowflake` and `aws` extras, and others for catalogs and tooling; [Upgrading](../upgrading.md#extras-in-0-27-0-and-the-install-change-in-0-28-0) lists them all.
+The package defines `local`, `gcp`, `snowflake` and `aws` extras, and others for catalogs and tooling; [Upgrading](../upgrading.md#changes-in-0-28-0) lists them all.
 
 <a id="err-provider-blocked-by-policy"></a>
 

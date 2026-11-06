@@ -60,7 +60,7 @@ The webhook, federation and Command Center variables take comma-separated host s
 
 An IPv4-mapped address (`::ffff:...`) or a NAT64 address (`64:ff9b::/96`) that carries a link-local or one of these metadata addresses is refused too. The surrounding ranges stay allowed: a Tailscale tailnet (CGNAT, `100.100.100.100` included) and an IPv6 cluster on ULA addresses need no change.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #828](https://github.com/Agenticstiger/forge-cli/pull/828)).* A fourth check, the `catalogAuth` host check of the Kafka Connect and embedded Debezium Iceberg sink, refuses the same addresses, even when the host is listed. See [Operator allowlists](source-aligned-acquisition.md#operator-allowlists).
+*(since 0.28.0, [forge-cli #828](https://github.com/Agenticstiger/forge-cli/pull/828))* A fourth check, the `catalogAuth` host check of the Kafka Connect and embedded Debezium Iceberg sink, refuses the same addresses, even when the host is listed. See [Operator allowlists](source-aligned-acquisition.md#operator-allowlists).
 
 ## Cloud metadata and the credential resolver
 

@@ -181,7 +181,7 @@ For dbt output, the generator fails clearly if it produces zero `models/**/*.sql
 
 ## AI provider runs
 
-A run that calls a provider with an API key needs the `litellm` extra: `pip install 'data-product-forge[litellm]'`. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* Without it the command prints that line and exits 1 before it does any work. `--llm-provider claude-code`, `codex`, `cursor` and `kiro` use that agent's own login instead.
+A run that calls a provider with an API key needs the `litellm` extra: `pip install 'data-product-forge[litellm]'`. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* Without it the command prints that line and exits 1 before it does any work. `--llm-provider claude-code`, `codex`, `cursor` and `kiro` use that agent's own login instead.
 
 Provider keys are never part of the intent file or contract. Export one provider key for the shell session or run `fluid ai setup`:
 
