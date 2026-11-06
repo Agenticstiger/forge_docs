@@ -51,7 +51,7 @@ The `local` extra installs DuckDB (`duckdb>=1.5.0`), pandas and numpy, which the
 | `lineage` | *(from 0.27.0)* Emitting OpenLineage events when `OPENLINEAGE_URL` is set | `openlineage-python` |
 | `standard` | *(from 0.27.0)* `litellm` and `mcp` together: the AI and MCP packages a 0.27.0 base install has | `litellm`, `mcp` |
 
-The table lists the extras a first project needs. From 0.28.0 a base install has none of `litellm`, `mcp` and `openlineage-python`, so name the extra for any AI, MCP or lineage feature you use, for example `pip install "data-product-forge[local,litellm]"`; it works on 0.27.0 too. *On forge-cli `main`, not yet in a release ([forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837)).* [Upgrading](../upgrading.md#extras-in-0-27-0-and-the-install-change-in-0-28-0) lists every extra, and what changes for a base install in 0.28.0.
+The table lists the extras a first project needs. A base install has none of `litellm`, `mcp` and `openlineage-python` (it had them through 0.27.0), so name the extra for any AI, MCP or lineage feature you use, for example `pip install "data-product-forge[local,litellm]"`; it works on 0.27.0 too. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* [Upgrading](../upgrading.md#changes-in-0-28-0) lists every extra, and what changes for a base install in 0.28.0.
 
 ```bash
 pip install "data-product-forge[local,gcp]"           # several extras at once
