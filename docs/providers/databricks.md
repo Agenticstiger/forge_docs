@@ -22,6 +22,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **Column masks, row filters, denied columns**: Unity Catalog SQL functions that `fluid apply` binds on the table (see [Column masks and row filters](#column-masks-and-row-filters))
 - ✅ **Retention**: `lifecycle.expire` is accepted for a table rebuilt in full on every run, and `fluid verify` checks the table's Delta history against it (see [Retention](#retention))
 - ✅ **Landing from a DuckDB acquisition**: the acquisition runner uploads Parquet to a Unity Catalog volume and loads the table with `INSERT OVERWRITE`, applying `policy.privacy.masking` before the data leaves the machine (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition))
+- ✅ **Described in Unity Catalog**: table and column comments from the contract, the product's identity as table tags, a column's `sensitivity` as a column tag, and Unity Catalog's certification (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification)) *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*
 - ✅ **Scoped grants**: an `accessPolicy` grant with `resources` is placed only on the tables it names (see [Scoping a grant to an expose](#scoping-a-grant-to-an-expose))
 - ❌ **Iceberg, `packaging`, and the governance fields that are not mapped**: `fluid validate` refuses them rather than apply something that is not enforced (see [What validate refuses](#what-validate-refuses))
 
@@ -213,6 +214,7 @@ What a contract says about where its data lives and who may read it, and what fo
 | --- | --- | --- |
 | `binding.location.region` with `sovereignty` | Held by the policy at `fluid validate`, `fluid apply` and `generate iac`, and checked against the workspace's metastore at plan time (see [Residency](#residency)) | `residency` |
 | `labels`, and the classification, jurisdiction, regulation and residency a contract carries | Unity Catalog tags on the schema and the table (see [Governance tags](#governance-tags)) | `governance_tags` |
+| `description`, the product's identity, `sensitivity` and the certification label | Table and column comments, product tags on the table, column tags and `system.certification_status` *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification)) | `governance_tags` |
 | `lifecycle.expire` with `lifecycle.retention` | Accepted for a table rebuilt in full on every run, when the retention covers the table's Delta history (see [Retention](#retention)) | `retention` |
 | `policy.authz.columnRestrictions` and `rowFilters` | SQL functions bound on the table as column masks and a row filter, by `fluid apply` only (see [Column masks and row filters](#column-masks-and-row-filters)) | `row_filter_masks` |
 
@@ -245,6 +247,22 @@ The rules:
 - **A declared region is held to the policy** (`allowedRegions`, `deniedRegions`, `jurisdiction`) like any cloud region.
 - **With a `sovereignty` block, no region is a finding.** An error under `enforcementMode: strict`, a warning under `advisory`. Where the data lives cannot be checked without one.
 - **The policy holds at apply, not only at validate.** `fluid apply` and `fluid generate iac` refuse a placement the policy forbids with `SovereigntyViolationError`, before any module is written, so before `tofu init`, an import or an adoption.
+- **The refusal says why.** *(since 0.28.0, [forge-cli #835](https://github.com/Agenticstiger/forge-cli/pull/835))* `fluid generate iac` used to turn the refusal into `generate_iac_failed` and print only the finding. It now prints the error's panel, with the reason, the fix and the doc link, as `fluid apply` does. Captured with `jurisdiction: EU`, `allowedRegions: [eu-central-1]` and a `binding.location.region` of `us-west-2` (terminal width 100):
+
+  ```text
+╭────────────────────────────────── ✗ SovereigntyViolationError ───────────────────────────────────╮
+│ Databricks placement refused by the sovereignty policy: orders: Region 'us-west-2' not in        │
+│ allowed regions list; orders: Region 'us-west-2' (jurisdiction: US) does not match required      │
+│ jurisdiction: EU                                                                                 │
+│ why  contract.sovereignty is enforced (strict) and allows eu-central-1; the tables would be      │
+│ created in the workspace DATABRICKS_HOST names.                                                  │
+│ fix  Set binding.location.region on every databricks expose to the region of the workspace       │
+│ DATABRICKS_HOST names, one the policy allows, or change the policy.                              │
+│ doc  https://agenticstiger.github.io/forge_docs/concepts/sovereignty.html                        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+  ```
+
+  A refusal whose message is too long for the panel's title (one that lists every finding) is printed whole inside the panel, not cut at the border.
 - **The spelling is exact.** The region must be a plain lower-case name: lower-case letters, digits and hyphens, starting with a letter, 2 to 63 characters, no spaces (`eu-central-1`, `westeurope`, `europe-west3`). Anything else is refused as `databricks-region-invalid`. It is not lower-cased for you: the policy compares the text as written, so `US-WEST-2` would otherwise pass a `deniedRegions: [us-west-2]` check and still plan against a workspace in us-west-2.
 - **One region per contract.** The module applies to one workspace (`DATABRICKS_HOST`). Two Databricks exposes that declare different regions are refused as `databricks-region-conflict`.
 - **The declaration is checked against the workspace, at plan time.** With a region declared, the module reads the workspace's metastore (`data.databricks_current_metastore`), and every schema it owns carries a precondition that the metastore's region equals the declared one. `tofu plan` fails, `--mode dry-run` included, before anything is written, when `DATABRICKS_HOST` names a workspace elsewhere. The run stops with `opentofu_plan_failed` and kind `databricks-residency-region`, and prints one line with both regions and the fix (the wording from [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0):
@@ -278,19 +296,105 @@ The tags a contract carries are its and the expose's `labels`, plus `fluid_class
 Two rules shape the keys:
 
 - **A `-` in a key becomes `_`.** A Unity Catalog tag key may not contain `. , - = / :`, and a governance label key is lower-case letters, digits, `_` and `-`. `data-classification` is the tag `data_classification`; `fluid_jurisdiction` stays as it is. The value is not changed further.
-- **Nothing is dropped, nothing is overwritten.** Two labels that become one key (`cost-center` and `cost_center`) are refused as `databricks-tag-collision`. More than the 50 tags a Unity Catalog securable holds is refused as `databricks-tags-too-many`. `fluid validate` reports both.
+- **Nothing is dropped, nothing is overwritten.** Two labels that become one key (`cost-center` and `cost_center`) are refused as `databricks-tag-collision`. More than the 50 tags a Unity Catalog securable holds is refused as `databricks-tags-too-many`. `fluid validate` reports both. *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* On a table, the product's own tags (see [Comments and product tags](#comments-and-product-tags)) count toward the 50 with the governance labels, and a label that becomes one of their keys is also `databricks-tag-collision`.
 
-A contract with no labels gets the module it always did.
+A contract with no labels gets the module it always did. *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* Since 0.28.0 that is no longer so for a table: a contract with no labels still gets the product's own tags on it.
 
 An assignment that already exists is imported before the first apply, best-effort as grants are, so a run after lost state adopts it instead of failing. Removing a label destroys only its assignment. That holds no data, so it does not need `--allow-data-loss`: the apply prints it, as it does a revoked grant.
 
-`fluid verify` reads the table's and its schema's tags into a `governance_tags` dimension. Every tag the contract implies must be there with its value. A missing or changed tag is `CRITICAL`, with `fluid apply` as the fix. A tag someone else set is ignored, and a contract with no labels skips the dimension. The tag list is paginated: verify follows every page, and a repeated page token or more than 100 pages is an error, not a pass.
+`fluid verify` reads the table's and its schema's tags into a `governance_tags` dimension. Every tag the contract implies must be there with its value. A missing or changed tag is `CRITICAL`, with `fluid apply` as the fix. A tag someone else set is ignored, and a module that sets no tag and no comment skips the dimension. The tag list is paginated: verify follows every page, and a repeated page token or more than 100 pages is an error, not a pass.
 
 ::: warning Tags on a table a dbt build writes
 Databricks does not document whether a table keeps its tags across the `CREATE OR REPLACE` a dbt `table` materialization runs, and forge-cli has not proven it. If tags go missing after a build, `fluid apply` sets them again. `fluid verify` is the gate.
 :::
 
 Not run against a live workspace.
+
+### Comments and product tags
+
+*(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*
+
+`fluid apply` describes the table in Unity Catalog from the contract, so it looks like a native one.
+
+**Comments.**
+
+- The table's comment is the expose's `description`, else the product's. A product `description` written as an object contributes its `purpose`.
+- A column's comment is its `contract.schema[].description`.
+- A description with a backslash is refused as `databricks-comment-unsafe`: the provider escapes only quotes when it writes `COMMENT '...'`, and Databricks reads a backslash in a literal as an escape, so a trailing one, or one before a quote, would break the literal. One with `${` is refused as `databricks-comment-unsafe` too, because Spark may replace it with a variable, setting or environment value before the comment is stored.
+
+**Product tags.** Each table carries these tags, built from the contract. A field the contract does not state makes no tag. Only `fluid_domain`, `fluid_layer`, `fluid_product_type` and `fluid_version` are keys AWS Glue and Snowflake already use; `fluid_product_id`, `fluid_product_name`, `fluid_product_version` and `fluid_owner_team` are new.
+
+| Tag | From |
+| --- | --- |
+| `fluid_product_id` | `id` |
+| `fluid_product_name` | `name` |
+| `fluid_domain` | `domain` |
+| `fluid_layer` | `metadata.layer` |
+| `fluid_product_type` | `metadata.productType` |
+| `fluid_product_version` | the expose's `version` |
+| `fluid_version` | `fluidVersion` |
+| `fluid_owner_team` | `metadata.owner.team` |
+
+These count toward Unity Catalog's 50 tags per securable, together with the governance labels, the classification tags and the certification tag. A contract with no labels still carries these. A label that becomes one of these keys is refused as `databricks-tag-collision`, but only for a key the contract states: with no `metadata.productType`, a label `fluid_product_type` is no collision. A tag value longer than 256 characters is refused as `databricks-tag-value-too-long`, rather than cut, since a cut id or name would name another product.
+
+The table's owner is unchanged. The deploy identity keeps owning it, which the masks, the row filter and the fail-safe lock depend on. The owner team is only a tag.
+
+**Column tags.** A column the contract classifies with `sensitivity` carries it as the column tag `fluid_sensitivity`. A table holds at most 1,000 column tags, and more is refused as `databricks-tags-too-many`. A `sensitivity` over 256 characters is refused as `databricks-tag-value-too-long`.
+
+A contract with one classified column and two labels, validated and compiled offline (`fluid generate iac`), gave these table tags, with the column tag on `email`:
+
+```text
+cost_center            cc42
+fluid_domain           sales
+fluid_layer            Gold
+fluid_owner_team       data-engineering
+fluid_product_id       sales.orders_dbx
+fluid_product_name     Orders
+fluid_product_version  1.0.0
+fluid_version          0.7.5
+system.certification_status  certified
+```
+
+Read back on a live workspace on 2026-11-04 (comments, product tags, column tags and `certified`, with an admin token). Not tried live: a non-admin identity holding only ASSIGN.
+
+#### Comments on a dbt-written table
+
+On a table a dbt build writes, the comments stay dbt's. Its `CREATE OR REPLACE` sets the table and column comments from the model (with `persist_docs`), so forge-cli sets none there. The product tags, the column tags and the certification are still set. `fluid validate` passes and, when the contract describes the table or a column, warns. Captured:
+
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+⚠️  1 warning(s)
+Validation completed in 0.021s
+
+Validation Warnings:
+====================
+ 1. exposes[0] (orders) is written by dbt, whose CREATE OR REPLACE sets the table and column comments: Unity Catalog shows the dbt model's descriptions (with persist_docs), not the contract's, so fluid apply sets none.
+```
+
+`fluid verify` checks no comment on such a table.
+
+### Certification
+
+*(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*
+
+Unity Catalog marks an asset as certified or deprecated with the system governed tag `system.certification_status`. forge-cli sets it on each Databricks table from the contract:
+
+| Value | When |
+| --- | --- |
+| `deprecated` | `lifecycle.state` is `deprecated`, on the expose, else on the product. |
+| `certified` | The label `certification: certified` is on the expose, else on the product, and the state is not `deprecated`. |
+
+- **A deprecated product is never shown as certified**, whatever its label.
+- **The label is not also a plain tag.** It becomes the certification tag and no `certification` tag.
+- **Any other value is refused** as `databricks-certification-invalid` (compared in lower case, so `Certified` passes as `certified`), unless the state is `deprecated`, which wins before the label is read. Unity Catalog's tag takes only `certified` and `deprecated`.
+- **Scope.** *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* A `labels.certification` on the product certifies every Databricks table of the product. One on an expose certifies only that expose's table.
+- **ASSIGN.** This tag is a system governed tag, so the deploy identity needs the ASSIGN permission on it, besides `APPLY TAG` on the table. That comes from Databricks' documentation and the SDK's `EntityTagAssignmentsAPI.create`. It was read back live with an admin token (2026-11-04); a non-admin identity holding only ASSIGN was not tried. The apply engine prints a note after the `tofu plan` summary, indented by two spaces, on a dry run too:
+
+```text
+  note: system.certification_status is set on main.sales.orders (certified): a system governed tag, so this identity needs the ASSIGN permission on it, which an account or workspace admin grants, or the tag assignment fails.
+```
+
+The text is the plugin's `plan_notices` output for the example contract, captured offline; the engine adds the `note: ` prefix and the indent.
 
 ### Column masks and row filters
 
@@ -347,7 +451,7 @@ The module `fluid generate iac` writes holds no mask or filter, and a plain `tof
 
 #### What the functions are
 
-Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. A superseded function is dropped by `fluid apply` after the apply succeeds ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0), when no table in the schema uses it and the run's identity owns it, and the run prints `dropped superseded function <name>`. Only `fluid_rf_<table>_…`, `fluid_mask_<table>_<column>_…` and deny-all functions of the contract's tables are candidates. A function owned by another identity, or by an owner that cannot be read, is left and printed as `left function <name>: …`. A `DROP` that fails prints `note: superseded function <name> was not dropped: …` and the apply still succeeds. When a schema's tables or functions cannot all be read, nothing in it is dropped.
+Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. A superseded function is dropped by `fluid apply` after the apply succeeds ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0), when no table in the schema uses it and the run's identity owns it, and the run prints `dropped superseded function <name>`. Only `fluid_rf_<table>_…`, `fluid_mask_<table>_<column>_…` and deny-all functions of the contract's tables are candidates. A function owned by another identity, or by an owner that cannot be read, is left and printed as `left function <name>: …`. A `DROP` that fails prints `note: superseded function <name> was not dropped: …` and the apply still succeeds. When a schema's tables or functions cannot all be read, nothing in it is dropped. *(since 0.28.0, [forge-cli #835](https://github.com/Agenticstiger/forge-cli/pull/835))* `fluid apply --mode dry-run` now lists those drops and runs nothing. For each `fluid_` mask or row-filter function the clean-up would drop, it prints `would drop superseded function <name> (after the apply, if it succeeds)`, and `would leave function <name>: <why>` where it would leave one. It works out the list against the bindings the apply leaves, so a function bound now to a table the contract manages is listed as droppable when the contract no longer expects it. When a schema cannot be read, the dry run prints `note: orphan functions in <catalog>.<schema> not listed: ...`. This is from the code at v0.28.0 and was not run against a live workspace.
 
 The hashed name can be computed from the contract, so someone with `CREATE FUNCTION` on the schema could create it first with a body that returns the value unmasked. So after each create, and before any bind, forge-cli reads the function back. Its owner (the identity the run authenticates as), body, parameters and return type must be the expected ones, whitespace aside. A function that is not is never bound, and the run prints what differs.
 
@@ -522,7 +626,7 @@ Removing a job, an uploaded file or a folder from the contract needs no `--allow
 
 ## Tables a dbt build writes
 
-dbt's `table` materialization rebuilds a table with `CREATE OR REPLACE`. So after the apply creates a table that a dbt build writes (locally or as a job), the module leaves its definition to dbt. It ignores the table's columns, partitions, clustering, properties and comment, and sets no column mapping. Each apply reports the column drift it no longer reconciles, and `fluid verify` is the gate.
+dbt's `table` materialization rebuilds a table with `CREATE OR REPLACE`. So after the apply creates a table that a dbt build writes (locally or as a job), the module leaves its definition to dbt. It ignores the table's columns, partitions, clustering, properties and comment, and sets no column mapping. Each apply reports the column drift it no longer reconciles, and `fluid verify` is the gate. *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* The comment is left to dbt too, so the contract's descriptions are not written there; `fluid validate` warns and says so (see [Comments on a dbt-written table](#comments-on-a-dbt-written-table)). The tags are still set.
 
 ::: warning Known limitation in 0.26.0: the rebuild drops NOT NULL
 The rebuild drops a contract's `required: true`, so `fluid verify` reports the column as a nullability mismatch. The column stays `NOT NULL` only if the dbt model declares it: an enforced model contract with a `not_null` constraint.
@@ -553,10 +657,18 @@ A DuckDB acquisition build (`pattern: acquisition`, `engine: duckdb`) whose expo
 
 The staged files are always deleted: after success, after a failure, after a short load and on Ctrl-C (an `INSERT` the warehouse has answered for is cancelled first). A file that cannot be deleted fails the run and is named first. Each load also deletes what earlier runs of the same build left under `<volume>/<product>/<build>/`, but only run-id-named directories holding nothing but Parquet files, all more than an hour old; this runs under the deploy credential, which is why the volume should be its own. The run record carries `facets.databricks_load`: the table, the rows, where the count came from, the staging path, whether the staged files were deleted and how many earlier runs' leftovers were swept.
 
+*(since 0.28.0, [forge-cli #835](https://github.com/Agenticstiger/forge-cli/pull/835))* After a load that finishes, the landing leaves nothing behind:
+
+- **Volume directories.** After the load, it removes the build's directory `<volume>/<product>/<build>/` and then the product's `<volume>/<product>/`, each only once it lists empty. The Files API deletes only an empty directory, so a directory another run or build still uses stays. On Ctrl-C the empty volume directories are not pruned. The volume itself is never removed. A failure here is logged and does not fail the run, since an empty directory holds no data.
+- **The local copy.** The masked Parquet file under `.fluid/staging/<build>/` is deleted after the load attempt, whether it succeeded or failed, and the build's directory with it once empty. On a load that completed, `facets.databricks_load.local_staging_deleted` says whether it went. After a failed load there is no facet, and the stream's error says so.
+- **When the delete fails.** A local file that cannot be deleted fails the run. The error reads `databricks load: could not delete the local staged copy, which holds the landed data; delete it: <path> (<ExcName>: <reason>)`, after the load's own error if the load failed. The file holds the landed data, so delete it by hand.
+
+From the code and tests at v0.28.0, against the in-process stand-in. The load itself ran live on 2026-11-04; the clean-up above did not.
+
 The runner never creates or alters a table. A missing table fails the run and names `fluid apply`. A build with more than one stream is refused when it runs.
 
-::: warning Not proven live
-Proven against an in-process stand-in. Not run against a live workspace: what `read_files` and `INSERT OVERWRITE` accept on a managed table that carries a mask and a row filter, the Files API's limits, `GetTable` serving the retention properties, and predictive optimization.
+::: warning Proven live on one run
+Proven against an in-process stand-in, and on a live Free Edition workspace on 2026-11-04 (`HONESTLY_TESTED.md`, the 2026-11-04 row): 5 rows loaded, the email column hashed, the staged files deleted from the volume, a second run overwrote the table, and the column masks, the row filter and a scoped grant were enforced after the `INSERT OVERWRITE`. That run also showed the empty volume directories and the local masked copy left behind, which the landing now removes; that clean-up was not re-run live. Not recorded as tried live: the Files API's limits.
 :::
 
 What is refused, before the table exists where `fluid validate` or `fluid apply` can tell:
@@ -576,6 +688,7 @@ What is refused, before the table exists where `fluid validate` or `fluid apply`
 - the governance fields that are not mapped (`policy.privacy.rowLevelPolicy`, `binding.governance`, and `policy.privacy.masking` on an expose a DuckDB acquisition does not alone write), a `lifecycle.expire` the table's shape cannot keep (see [Retention](#retention)), an acquisition the landing cannot run (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)), an `accessPolicy` grant whose `resources` forge-cli cannot evaluate (see [Scoping a grant to an expose](#scoping-a-grant-to-an-expose)), a column restriction or row filter Unity Catalog cannot express, and a label set that collides or exceeds 50 tags (see [Column masks and row filters](#what-masks-and-filters-refuse) and [Governance tags](#governance-tags));
 - a `binding.location.region` that is not a plain lower-case region name, two exposes that declare different regions, and, with a `sovereignty` block, a placement the policy refuses (see [Residency](#residency));
 - a `binding.location` key the module would drop (`path` and others). `region` is read: see [Residency](#residency);
+- a description with a backslash or `${`, a label set that becomes one of the product's own tag keys, a tag value over 256 characters, more than 1,000 column tags on a table, and a `certification` label other than `certified` *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification));
 - duplicate partitions;
 - a column type Databricks has no mapping for (it would be created as `string`), or would reject.
 
@@ -604,7 +717,7 @@ Install the extra first: `pip install 'data-product-forge[databricks]'`. Verify 
 1. **Columns** against the contract. A missing column or a changed type is `CRITICAL`; an extra column is `INFO`; a nullability mismatch is graded as for the other warehouses.
 2. **`USE CATALOG`** for every reader (or `ALL PRIVILEGES`), read from the catalog's effective permissions. A reader without it is `CRITICAL`, and the finding carries the `GRANT` its owner runs. A privilege a group conveys counts ([forge-cli #775](https://github.com/Agenticstiger/forge-cli/pull/775)).
 3. **Residency** (`residency`): the workspace's metastore region against `binding.location.region`. Skipped when the contract declares none. See [Residency](#residency).
-4. **Governance tags** (`governance_tags`): every tag the contract implies is on the table and its schema, with its value. Skipped with no labels. See [Governance tags](#governance-tags).
+4. **Governance tags** (`governance_tags`): every tag the contract implies is on the table and its schema, with its value. Skipped when the module sets no tag and no comment, which a table now seldom satisfies, since it carries the product's tags. See [Governance tags](#governance-tags). *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* It also checks the product's tags on the table, the column tags and the comments (the table's and each described column's must equal the contract's, except on a table a dbt build writes), and reads each tag list to its last page.
 5. **Column masks and row filter** (`row_filter_masks`): the expected, content-hashed function names against the table's live `row_filter` and each column's `mask`, and each bound function read back for its owner (this verify's identity or the table's owner), body, parameters and return type. A missing or different binding is `CRITICAL`, with `fluid apply` as the fix. Skipped when the contract restricts nothing. See [Column masks and row filters](#column-masks-and-row-filters).
 6. **Jobs**: each dbt build that writes the expose has exactly one job of its name. None means `fluid apply` did not run or the job was deleted. Several mean an apply without its state created a duplicate. A job that is `PAUSED` while its table's masks or row filter are not in place also fails, with `fluid apply` as the fix.
 7. **Retention** (`retention`, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0): skipped when the contract sets no `lifecycle.expire`. It reads the live table's `delta.logRetentionDuration` and `delta.deletedFileRetentionDuration` (Delta's defaults when unset). `fail`, `CRITICAL`, when the longer of the two exceeds `lifecycle.retention` or one is not an interval; the fix is the `ALTER TABLE … SET TBLPROPERTIES` that sets both, or a longer retention. `warn` when predictive optimization is off for the table (enable it, or schedule `VACUUM`), or when Unity Catalog returned no table properties and Delta's defaults were assumed (check `SHOW TBLPROPERTIES`). See [Retention](#retention).
