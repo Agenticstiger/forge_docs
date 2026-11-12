@@ -832,6 +832,16 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 - **Ollama calls reach the daemon.** They go to `--llm-endpoint`, else `OLLAMA_HOST`, else `localhost:11434`, and a remote `OLLAMA_HOST` is honoured. See [The Ollama endpoint](./advanced/llm-providers.md#the-ollama-endpoint).
 - **`fluid ai test` probes the real call.** A rejected key exits `3`, a model the provider does not have exits `4`, and other failed calls exit `5`. See [`ai test`](./cli/ai.md#ai-test).
 
+## On forge-cli's `fix/copilot-850-followups` branch
+
+*On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* These follow-ups to the changes above can change what a script, a CI job or an IDE agent sees:
+
+- **No `gemini` fallback.** When nothing names a provider, forge stops with `copilot_no_llm_provider` and says why. It used to fall back to `gemini`, and sent `FLUID_LLM_API_KEY` there whatever key it was. Pass `--llm-provider`, or set `FLUID_LLM_PROVIDER` or the key of exactly one provider. See [No LLM provider is selected](./advanced/production-troubleshooting.md#no-llm-provider-is-selected).
+- **`OLLAMA_HOST` may name any machine everywhere.** The probe for a running Ollama, the default-model pick and `fluid ai setup` no longer swap a non-local host for `localhost`, and `fluid ai test --endpoint` takes an Ollama address on any host.
+- **Forge looks for Ollama models where it sends the call.** With `--llm-endpoint` or `FLUID_LLM_ENDPOINT`, the default-model pick and the model check ask that daemon, and each `--tiered` stage calls it. A `user:password@` in the address now goes as basic auth to the model lookups too, and `OLLAMA_HOST` no longer drops it. See [One address for every Ollama read](./advanced/llm-providers.md#one-address-for-every-ollama-read).
+- **`fluid forge --agent` reports a contract written to any `--target-dir`.** See [Headless agent mode](./cli/forge.md#headless-agent-mode).
+- **`LlmProvider.list_available_models` takes an `endpoint` keyword**, the address the call will go to. Forge passes it only when an endpoint is stated, so code that subclasses `LlmProvider` and overrides the method with two arguments keeps working until then. With an endpoint stated and the model check on (`--require-llm`, `--tiered` or `FLUID_LLM_MODEL_PREFLIGHT`), the check fails with `copilot_llm_model_preflight_failed`; add the keyword to avoid it.
+
 ## DuckDB 1.x to 2.x
 
 `0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so

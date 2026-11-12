@@ -378,6 +378,15 @@ The `fluid generate iac` and `fluid apply` runs print the refusal and exit befor
 - For Ollama, start the local server and pull the requested model
 - Pass --llm-model with a known-available model
 
+### copilot_no_llm_provider
+
+*On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* `ERR_COPILOT_NO_LLM_PROVIDER`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md), where [No LLM provider is selected](./production-troubleshooting.md#no-llm-provider-is-selected) explains each message.
+
+- Pass --llm-provider, for example anthropic, openai, gemini or ollama
+- Or set FLUID_LLM_PROVIDER, or the API key of exactly one provider
+- Or run 'fluid ai setup' to choose and save a provider
+- Run 'fluid doctor' to see what forge would select
+
 ### model_not_found
 
 `ERR_MODEL_NOT_FOUND`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md).

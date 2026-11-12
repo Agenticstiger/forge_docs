@@ -214,14 +214,14 @@ See [cost tracking](./cost-tracking.md).
 
 ## LLM provider and routing
 
-See [LLM providers](./llm-providers.md) and the [LiteLLM backend](./litellm-backend.md). With nothing here or in a provider key set, a non-interactive run picks a provider itself; see [When nothing is configured](./llm-providers.md#when-nothing-is-configured). *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).*
+See [LLM providers](./llm-providers.md) and the [LiteLLM backend](./litellm-backend.md). *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* With nothing here or in a provider key set, a non-interactive run picks a provider itself; see [When nothing is configured](./llm-providers.md#when-nothing-is-configured). *On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* When nothing names a provider and none is found, forge stops with `copilot_no_llm_provider`.
 
 | Variable | Effect |
 |---|---|
 | `FLUID_LLM_PROVIDER` | Default provider. |
 | `FLUID_LLM_MODEL` | Default model. |
-| `FLUID_LLM_API_KEY` | API key used when no provider-specific key is set. |
-| `FLUID_LLM_ENDPOINT` | Overrides the model endpoint. The routing model's calls use it too, unless `FLUID_LLM_ROUTING_ENDPOINT` names another. *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* |
+| `FLUID_LLM_API_KEY` | API key for the selected provider. It wins over the provider's own key variable, such as `OPENAI_API_KEY`. It does not choose the provider: name one with `--llm-provider`, `FLUID_LLM_PROVIDER` or the key of exactly one provider. *On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* With none named, forge stops with `copilot_no_llm_provider`; before #852 it sent the key to `gemini`. |
+| `FLUID_LLM_ENDPOINT` | Overrides the model endpoint. *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* The routing model's calls use it too, unless `FLUID_LLM_ROUTING_ENDPOINT` names another. *On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* For Ollama, forge's model pick and model check ask it too, and each `--tiered` stage calls it. |
 | `FLUID_LLM_TIMEOUT_SECONDS` | Per-call timeout. Default `120`. |
 | `FLUID_LLM_STREAMING` | Default on; `0`, `false`, `no` or `off` disables streaming. |
 | `FLUID_LLM_ROUTING_ENDPOINT`, `FLUID_LLM_ROUTING_MODEL` | Optional routing endpoint and model. |
@@ -297,7 +297,7 @@ Read by `fluid mcp output-port`; see [MCP](./mcp.md).
 | `FLUID_STORE_VECTOR_BACKING` | Backing store of the `vector` backend: `file` (default), `sqlite` or `postgres`. |
 | `FLUID_SECRETS_INMEMORY` | `1` keeps `fluid secrets` values in memory instead of the OS keychain. Tests only. |
 | `FLUID_ENCRYPTION_KEY`, `FLUID_ENCRYPTION_PASSPHRASE` | Fernet key, or a passphrase it is derived from, for the encrypted credential store. |
-| `FLUID_ALLOW_PLAINTEXT_AI_SECRETS` | Legacy plaintext fallback for AI provider secrets. |
+| `FLUID_ALLOW_PLAINTEXT_AI_SECRETS` | Legacy plaintext fallback for AI provider secrets. *On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* It also lets `fluid ai setup` save a `user:password@` in an address, such as an Ollama host, to `~/.fluid/ai_config.json`; without it the address is saved without them. |
 | `FLUID_ALLOW_PLAINTEXT_SOURCE_SECRETS` | Legacy plaintext secrets in `sources.yaml`; the file must also be mode 600. |
 
 ## Marketplace

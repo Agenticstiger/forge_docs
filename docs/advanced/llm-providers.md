@@ -61,7 +61,7 @@ When it picks an agent, forge logs a warning that names it:
 No LLM provider is configured; using claude-code, the first coding agent found on PATH. Override with --llm-provider.
 ```
 
-With neither, the run falls back to `gemini`, which needs a Gemini key and the `litellm` extra. Through 0.28.0 a run with no Ollama running always fell back to `gemini`, even with a signed-in Claude Code on `PATH`.
+With neither, the run stops with `copilot_no_llm_provider` and says why; see [No LLM provider is selected](./production-troubleshooting.md#no-llm-provider-is-selected). *On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* Before #852 it fell back to `gemini`, which needs a Gemini key and the `litellm` extra. Through 0.28.0 it did so whenever no Ollama was running, even with a signed-in Claude Code on `PATH`.
 
 Any of these configures an LLM, and then no agent is picked:
 
@@ -70,12 +70,14 @@ Any of these configures an LLM, and then no agent is picked:
 - `FLUID_LLM_API_KEY`, `FLUID_LLM_ENDPOINT`, `FLUID_LLM_MODEL`, `FLUID_LLM_ROUTING_ENDPOINT`, `FLUID_LLM_ROUTING_MODEL` or `OLLAMA_HOST`.
 - A provider key: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` or `GITHUB_API_KEY`.
 - An OpenAI, Anthropic or Gemini key in the OS keyring.
-- A provider saved with `fluid ai setup`. A non-interactive run does not use the saved provider itself, so name it with `--llm-provider` or `FLUID_LLM_PROVIDER`.
+- A provider saved with `fluid ai setup`. A run with `--non-interactive`, which `--agent` sets, does not use the saved provider itself, so name it with `--llm-provider` or `FLUID_LLM_PROVIDER`.
 - The agent loop: `--agent-loop`, or `FLUID_COPILOT_AGENT_LOOP` set to `1`, `true`, `yes` or `on`. The loop needs tool use, which these agents do not offer.
+
+*On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* Only some of these name a provider: `--llm-provider`, `FLUID_LLM_PROVIDER` and `FLUID_FORGE_AGENT`; the key of exactly one of OpenAI, Anthropic, Gemini (`GEMINI_API_KEY` or `GOOGLE_API_KEY`) and Ollama (`OLLAMA_HOST`); a keyring key for exactly one provider; and a provider saved with `fluid ai setup`, in a run without `--non-interactive`. The others, `GITHUB_API_KEY` among them, only stop forge from picking an agent: an Ollama that answers at `OLLAMA_HOST` or `localhost:11434` is still used. When nothing names a provider and no Ollama answers, forge stops with `copilot_no_llm_provider`. So pass `--llm-provider` together with `--llm-endpoint`, `--llm-model` or `FLUID_LLM_API_KEY`.
 
 The pick works on the base install, because the agent CLIs need no `litellm` extra. A running local Ollama still comes first there, so that run asks for the extra instead of sending the prompt to an agent.
 
-An interactive run does not pick an agent: `fluid forge` in a terminal offers Claude Code in its inline setup instead. With nothing configured, [`fluid doctor`](../cli/doctor.md) run without a terminal reports the provider this pick chooses. When the pick finds nothing, its Provider row says `Not selected`.
+An interactive run does not pick an agent: `fluid forge` in a terminal offers Claude Code in its inline setup instead. With nothing configured, [`fluid doctor`](../cli/doctor.md) run without a terminal reports the provider this pick chooses. When the pick finds nothing, its Provider row says `Not selected`. *On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* `fluid doctor --verbose` then shows, in its Message row, the reason forge would stop with.
 
 ## Claude Code
 
@@ -129,11 +131,26 @@ Forge reads `OLLAMA_HOST` the way Ollama's own Python client does ([`_parse_host
 | `https://gpu-box` | `https://gpu-box:443` |
 | `https://gpu-box/ollama` | `https://gpu-box:443/ollama` |
 
-The host can be another machine. Model discovery still looks only at a local Ollama: with no model named, forge takes the largest model pulled on `localhost`, else `gemma4:latest`. With a remote `OLLAMA_HOST`, name the model with `--llm-model` or `FLUID_LLM_MODEL`. Forge's local-only checks print `OLLAMA_HOST points to a non-localhost address (...), ignoring.` for such a host. The call still goes to `OLLAMA_HOST`.
-
-A stated endpoint is used for the routing model's calls too, unless `--llm-routing-endpoint` or `FLUID_LLM_ROUTING_ENDPOINT` names another. A project's `.env` cannot set `OLLAMA_HOST`; see [Project dotenv trust](./project-dotenv-trust.md).
+The host can be another machine. A stated endpoint is used for the routing model's calls too, unless `--llm-routing-endpoint` or `FLUID_LLM_ROUTING_ENDPOINT` names another. A project's `.env` cannot set `OLLAMA_HOST`; see [Project dotenv trust](./project-dotenv-trust.md).
 
 Through 0.28.0 these calls went to a `litellm://ollama/<model>` label unless an endpoint was stated, so they never reached the daemon.
+
+### One address for every Ollama read
+
+*On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.*
+
+Every Ollama read takes any host, as Ollama's own client does:
+
+- With no `--llm-model`, forge asks the daemon the call goes to, and uses its largest model, else `gemma4:latest`.
+- The model check that `--require-llm`, `--tiered` and `FLUID_LLM_MODEL_PREFLIGHT` turn on asks that daemon too. The model check of `fluid ai test` asks its `--endpoint`, else `OLLAMA_HOST`, else `localhost:11434`.
+- Each `--tiered` stage calls a stated endpoint, as the routing model does.
+- The probe that finds a running Ollama, and `fluid ai setup`, read `OLLAMA_HOST`, else `localhost:11434`. A stated endpoint does not reach them.
+
+Forge reads `--llm-endpoint` and `FLUID_LLM_ENDPOINT` the same way as `OLLAMA_HOST`: `--llm-endpoint gpu-box` means `http://gpu-box:11434`, and the scheme may be in upper or lower case. `fluid ai test --endpoint` takes only an absolute `http` or `https` URL. A stated endpoint does not choose Ollama, so pass `--llm-provider ollama` with it. `OLLAMA_HOST` on its own does choose it.
+
+An address may carry `user:password@`, for an Ollama behind a proxy that asks for basic auth, and forge sends it as basic auth, to the call and to the model lookups. `fluid ai test --endpoint` refuses one. `fluid doctor` and `fluid ai setup` show it as `***:***@`. `fluid ai setup` saves the address to `~/.fluid/ai_config.json` without it, as it does for API keys, unless `FLUID_ALLOW_PLAINTEXT_AI_SECRETS` is set, and logs a warning to keep the credentials in the environment. An `OLLAMA_HOST` in the environment wins over the saved address, so keep them there.
+
+Before #852, forge's default-model pick, the probe and `fluid ai setup` looked only at `localhost`. They ignored a non-local `OLLAMA_HOST` with the warning `OLLAMA_HOST points to a non-localhost address (...), ignoring.`, so the model could come from one daemon while the call went to another. The model checks read `OLLAMA_HOST`, never a stated endpoint, and a `--tiered` stage called the provider's default address. A stated endpoint was used exactly as given, so its `user:password@` reached the call but no lookup, and `OLLAMA_HOST` lost its `user:password@`.
 
 ## Tiered mode
 
