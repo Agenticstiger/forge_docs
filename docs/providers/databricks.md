@@ -14,7 +14,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 
 - ✅ **Plan & Apply**: a schema, a managed Delta table and one grant per principal, through OpenTofu
 - ✅ **Existing catalog**: `location.database` names a catalog that must already exist. forge-cli reads it and never creates, grants on or destroys it
-- ✅ **dbt builds as jobs**: a dbt build whose `execution.runtime.platform` is `databricks` becomes a serverless job that Databricks runs on its own trigger
+- ✅ **dbt builds as jobs**: a dbt build whose `execution.runtime.platform` is `databricks` becomes a serverless job that Databricks runs on its own trigger. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* `fluid apply --mode amend-and-build` also starts a run now and waits for it (see [Running the job from `fluid apply`](#running-the-job-from-fluid-apply))
 - ✅ **Residency**: `binding.location.region` is checked against the contract's `sovereignty` policy and against the workspace's metastore (see [Residency](#residency))
 - ✅ **Verify**: `fluid verify` checks the live table's columns, `USE CATALOG` for every reader, the residency, the governance tags, the bound masks and row filter, and that each dbt job exists exactly once
 - ✅ **One pinned credential**: the workspace comes from `DATABRICKS_HOST` only, and a run never falls back to a stray profile
@@ -34,7 +34,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 | A Unity Catalog workspace with an existing catalog | The catalog is read, never created. The identity that applies needs `USE CATALOG` and `CREATE SCHEMA` on it. |
 | A SQL warehouse, its id in `DATABRICKS_WAREHOUSE_ID` | Every table statement runs on it, and so do the dbt jobs. Find the id under SQL Warehouses, Connection details. The id is not a secret. |
 | A Unity Catalog volume of its own, `/Volumes/<catalog>/<schema>/<volume>` in `DATABRICKS_STAGING_VOLUME` | Only for a DuckDB acquisition that lands in Databricks (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)). |
-| `pip install 'data-product-forge[databricks]'` | The extra brings `databricks-sdk`. Only `fluid verify` needs it. |
+| `pip install 'data-product-forge[databricks]'` | The extra brings `databricks-sdk`. `fluid verify` needs it, and so does `fluid apply` to bind [column masks and row filters](#column-masks-and-row-filters) and to [land a DuckDB acquisition](#landing-a-duckdb-acquisition). *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* An apply that [runs a dbt job](#running-the-job-from-fluid-apply) needs it too. |
 
 ## Credentials
 
@@ -497,6 +497,8 @@ job 'fluid sales.orders_dbx transform' is created paused (pause_status PAUSED): 
 
 The next `fluid apply`, once the bindings match, unpauses it in place, with no drift from unpausing it by hand. A manual job has no trigger to pause. `fluid validate` and the pure compile never read the workspace.
 
+*On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Under `--mode amend-and-build`, the run the apply starts (see [Running the job from `fluid apply`](#running-the-job-from-fluid-apply)) comes after the bindings, so it fills a protected table. It leaves the job paused: the next `fluid apply` unpauses the schedule, as above.
+
 #### What masks and filters refuse
 
 Refused rather than dropped, since a table applied without them would be readable without what the contract promises:
@@ -596,7 +598,7 @@ Never uploaded: `profiles.yml`, `target/`, a hidden file or directory, a symboli
 | --- | --- |
 | `trigger.type: schedule` (or no type) with `cron` | A Quartz `schedule`, days of the week by name. `trigger.timezone` is an IANA name; the default is `UTC`. |
 | `trigger.type: continuous` | Databricks' `continuous` trigger. |
-| `trigger.type: manual`, or no trigger | No trigger. Start a run from the job's page or with `databricks jobs run-now`. |
+| `trigger.type: manual`, or no trigger | No trigger. Start a run from the job's page or with `databricks jobs run-now`. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Or apply with `--mode amend-and-build`, which starts one and waits for it (see [Running the job from `fluid apply`](#running-the-job-from-fluid-apply)). |
 | `retries.maxAttempts` | The first run counts, so `3` is two retries. |
 | `retries.initialDelay` | The fixed interval between attempts. |
 | `notifications` of `type: email` | The job's email notifications, `condition` of `success`, `failure` or `always` (default `failure`). |
@@ -620,9 +622,93 @@ A job runs as the identity that applies it. A contract can name a service princi
 
 ### Applying and removing
 
-`fluid apply --mode amend-and-build` leaves such a build to its job. It does not run dbt on the applying machine; it prints the job's name and how to start a run now. A dbt build without `runtime.platform: databricks` still runs locally with the dbt-databricks profile. forge-cli's own schedules (`fluid generate schedule`, the Airflow DAG `fluid apply` writes) give a Databricks job build no task: Databricks starts its runs.
+`fluid apply` never runs such a build's dbt on the applying machine: the build runs as its job. A dbt build without `runtime.platform: databricks` still runs locally with the dbt-databricks profile. forge-cli's own schedules (`fluid generate schedule`, the Airflow DAG `fluid apply` writes) give a Databricks job build no task: Databricks starts its runs. In 0.29.0, `--mode amend-and-build` provisions the job, then prints its name and how to start a run now.
+
+*On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* `--mode amend-and-build` and `--mode replace-and-build` start a run of the job and wait for it, as the next section says.
 
 Removing a job, an uploaded file or a folder from the contract needs no `--allow-data-loss`, since no table data is lost. The job's run history goes with the job, and the apply says so.
+
+### Running the job from `fluid apply`
+
+*On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.*
+
+Under `--mode amend-and-build` and `--mode replace-and-build`, `fluid apply` starts a run of each such build's job and waits for it to end. The run starts once `tofu apply` has succeeded and the [masks and row filters](#column-masks-and-row-filters) are bound, so it writes tables that are already protected. A run that fails fails the apply.
+
+| `--mode` | The job |
+| --- | --- |
+| `amend-and-build` | Provisioned, then one run starts now, and the apply waits for it. |
+| `replace-and-build` | The same, and that run adds `--full-refresh` to the job's `dbt build`. |
+| `amend`, `create-only`, `replace` | Provisioned only. It runs on its trigger. |
+
+`--build-id <id>` starts only that build's job. A continuous job (`trigger.type: continuous`) is never started: Databricks keeps it running, so a run of it never ends. The apply says so and goes on.
+
+- **The job is the one this apply provisioned.** The apply finds it in its own OpenTofu state by the job's `fluid_product` and `fluid_build` tags, never by its name: two environments of one contract in one workspace each own a job of that name. When the state holds no such job, or more than one, no run starts and the build fails.
+- **The run changes nothing on the job.** The apply starts the run and, at the time limit or on an interrupt (below), cancels it. It writes nothing else. The job's settings, schedule and pause state stay as they are, so a scheduled job keeps its schedule and a job [created paused](#a-job-that-writes-a-table-not-yet-protected) stays paused. The `--full-refresh` of `replace-and-build` goes with that run only, and the job's own commands keep none.
+- **A busy job queues the run.** The run waits in the job's queue, instead of being skipped, when the job is busy (it runs one run at a time, and a scheduled run may be going) or the workspace is at its limit. The start request carries an idempotency token and is retried with the same token, so a retry never starts a second run.
+
+What a run prints, captured live on Databricks Free Edition on 2026-11-12 for a one-model dbt product, with the workspace host and id replaced:
+
+```text
+🚀 Build 'summarize' - started run 864120962919474 of Databricks job 'fluid iactest.build.sites_summary summarize' (711974842827325)
+   run page: https://<workspace>/?o=<workspace-id>#job/711974842827325/run/864120962919474
+   0:00 RUNNING
+   0:57 TERMINATED SUCCESS
+   task 'dbt': Done. PASS=1 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=1
+✅ Build 'summarize' - Databricks run 864120962919474 succeeded in 57s
+```
+
+- The run's page comes first. Then each state the run enters gets a line, with the time since the run started, and a `still <state>` line follows each minute while nothing changes.
+- A queued run says why. Databricks' own reason is used when it gives one. It usually gives none (seen live), so the line names one of two causes, or none when the job's runs cannot be listed:
+
+  ```text
+     0:00 QUEUED - behind run <run id> of this job, which runs one at a time
+     0:00 QUEUED - waiting for the workspace's limit on runs or tasks at once (Databricks Free Edition runs at most 5 job tasks at a time)
+  ```
+
+- On success, dbt's own `Done. PASS=...` line is printed for each task that has one.
+- Every credential value in the environment is masked in what is printed, and terminal escape sequences are removed.
+
+**When the run fails.** A run that ends in anything but `SUCCESS` fails its build, and the apply exits `1`. The apply prints the run's end state and message. For each task that did not succeed, it prints the task's error and up to the last 30 lines of its output, then the run page again. A live run of a model that names a column its source does not have (abridged, with the wrapped error line joined):
+
+```text
+   0:00 RUNNING
+   1:08 still RUNNING
+   1:18 TERMINATED RUN_EXECUTION_ERROR
+❌ Build 'summarize' - Databricks run 973093456770242 ended RUN_EXECUTION_ERROR after 1m18s: Task dbt failed with message: Workload failed, see run output for details.
+   task 'dbt': Command 'dbt build --select +sites_summary+' … returned non-zero exit status 1.
+   dbt output:
+     + dbt deps
+     …
+     19:59:14    Database Error in model sites_summary (models/sites_summary.sql)
+       [UNRESOLVED_COLUMN.WITH_SUGGESTION] A column, variable, or function parameter with name `height_meters` cannot be resolved. Did you mean one of the following? [`height_m`, `site_id`, `kind`]. SQLSTATE: 42703; line 19 pos 47
+     …
+     19:59:14  Done. PASS=0 WARN=0 ERROR=1 SKIP=0 NO-OP=0 REUSED=0 TOTAL=1
+   run page: https://<workspace>/?o=<workspace-id>#job/711974842827325/run/973093456770242
+```
+
+**How long it waits.** `FLUID_DATABRICKS_RUN_TIMEOUT_SECONDS` caps the wait for each run, in whole seconds. Unset, the cap is an hour, or the job's own limit plus 15 minutes when that is longer, so a contract's `runtime.timeout` is never cut short. The job's own limit is its timeout when it has one (a job forge-cli emits has none), else each task's timeout times its attempts, plus the intervals between them. The build in the example under [dbt builds as jobs](#dbt-builds-as-jobs) (`timeout: 1h`, `maxAttempts: 3`, `initialDelay: 5m`) is waited for up to 3 h 25 min: three attempts of an hour, two 5-minute intervals and the 15 minutes. A task with no timeout leaves the cap at an hour. A value that is not a whole number of seconds above 0, in at most nine digits, is not used: the apply says so, and names the cap it waits for instead.
+
+**Stopping it.** At the cap, the run is cancelled and the build fails, and the message names the variable to raise. Ctrl-C while the run is waited on cancels it too, and so do SIGTERM and SIGHUP (a cancelled CI job, a closed terminal); the apply then stops as Ctrl-C stops it. A signal that is ignored stays ignored, so under `nohup` the apply and the run outlive the terminal. A cancel that fails is said: `could not cancel run <run id>: <why>`.
+
+**A run it cannot read.** A failed read of the run is tried again, and the first failure is said. After five failed reads in a row, the apply stops waiting and the build fails. The run is left as it is, since it may still be going, and its page is printed when an earlier read returned it. Failed reads alone never cancel a run.
+
+**It needs `databricks-sdk`.** The run is started through it. Without the `[databricks]` extra, an apply that would start a run is refused before anything is applied:
+
+```text
+❌ apply_databricks_sdk_missing  [ERR_APPLY_DATABRICKS_SDK_MISSING]
+  error: a dbt build runs on Databricks, and the build phase starts its job through databricks-sdk, which is not installed; nothing was applied
+  hint: pip install 'data-product-forge[databricks]', or apply with --mode amend to provision the job without starting it
+```
+
+`--dry-run` is not refused. It runs `tofu plan`, applies and starts nothing, and names the run it would start:
+
+```text
+🔍 [DRY RUN] Build 'summarize' - would start a run of Databricks job 'fluid iactest.build.sites_summary summarize' and wait for it.
+```
+
+Under `replace-and-build` the line ends `with dbt build --full-refresh and wait for it.`
+
+**Several products, in lineage order.** Each apply starts its own product's jobs only. To build an estate whose products read each other, provision every product first, in parallel, with `--mode amend`. Then run `--mode amend-and-build` one lineage level at a time, upstream first. For a product that has not changed since, the second apply plans no change (live: `tofu plan: +0 ~0 -0`, about 30 seconds for some 75 resources), except to unpause a job [created paused](#a-job-that-writes-a-table-not-yet-protected). Then it starts the runs and waits for them.
 
 ## Tables a dbt build writes
 
@@ -794,7 +880,7 @@ The full matrix is in `HONESTLY_TESTED.md` in forge-cli. In short:
 | Unit | 471 tests across the emitter, jobs, credentials, engine hooks, cron conversion, the dbt runner, verify, doctor and the welcome scan, against a stubbed SDK client. |
 | `tofu validate` | Both job modules (Git and workspace upload) and the dbt-written table's `ignore_changes` list validate against provider 1.140.0's schema. |
 | Stand-in workspace | The real `fluid` CLI, `tofu` and provider 1.140.0 against an in-process stand-in for the Unity Catalog, SQL statement, permissions and jobs APIs: plan, apply, an empty second plan, the data-loss gate, adoption, job and file removal. The stand-in does not check SQL dialect or privilege names. |
-| Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. |
+| Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. |
 | Emulator (nightly, not gating) | First run on 2026-10-30 passed 1 of 4: creates and the replace gate work, but a second plan is not empty against the emulator. |
 
-Not proven live: a Git source, profile or OAuth auth, a run-as service principal, table adoption, a larger project, and re-adopting a job after lost state.
+Not proven live: a Git source, profile or OAuth auth, a run-as service principal, table adoption, a larger project, and re-adopting a job after lost state. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Nor are the reason line of a queued run and a run queued for the workspace's limit.

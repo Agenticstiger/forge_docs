@@ -849,6 +849,12 @@ These changes to AI authoring can change what a script, a CI job or an IDE agent
 - *(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* **`fluid ai test` probes the real call.** A rejected key exits `3`, a model the provider does not have exits `4`, and other failed calls exit `5`. See [`ai test`](./cli/ai.md#ai-test).
 - *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* **`LlmProvider.list_available_models` takes an `endpoint` keyword**, the address the call will go to. Forge passes it only when an endpoint is stated, so code that subclasses `LlmProvider` and overrides the method with two arguments keeps working until then. With an endpoint stated and the model check on (`--require-llm`, `--tiered` or `FLUID_LLM_MODEL_PREFLIGHT`), the check fails with `copilot_llm_model_preflight_failed`; add the keyword to avoid it.
 
+## Not in a release yet
+
+*On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.*
+
+- **`fluid apply --mode amend-and-build` on Databricks runs each dbt job build now, and waits for it.** In 0.29.0 it only provisioned the job, so a manual job never ran. A pipeline that applies with `amend-and-build` or `replace-and-build` now waits for each run, up to `FLUID_DATABRICKS_RUN_TIMEOUT_SECONDS` (by default an hour, or the job's own limits plus 15 minutes), and fails when a run fails. It needs `databricks-sdk`: without `pip install 'data-product-forge[databricks]'`, the apply is refused before anything is applied. To provision a job without running it, apply with `--mode amend`. See [Running the job from `fluid apply`](./providers/databricks.md#running-the-job-from-fluid-apply).
+
 ## DuckDB 1.x to 2.x
 
 `0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so
