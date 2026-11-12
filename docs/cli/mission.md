@@ -51,7 +51,7 @@ deterministic checks pass or a ceiling fires. Needs a configured LLM provider.
 | `[contract]` | Contract to work on. Default `contract.fluid.yaml`. |
 | `--resume` | Re-enter the newest unfinished run for this mission. VERIFY is idempotent, so resuming just re-verifies what is on disk — there is no replay. |
 | `--run-id <id>` | Target a specific mission run id. |
-| `--llm-provider <name>` | LLM provider (default: your configured provider). |
+| `--llm-provider <name>` | LLM provider (default: your configured provider). *On forge-cli `main`, not yet in a release ([forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854)).* A mission always runs the agent loop, so it never picks a coding agent itself, saved with `fluid ai setup` or found on `PATH`. A coding agent named with `--llm-provider` still runs, but it has no tools for the loop, and the mission stalls. |
 | `--llm-model <id>` | LLM model id. |
 | `--workspace <dir>` | Workspace root for receipts and tool confinement (default: auto-detected). |
 | `--json` | Emit the outcome as JSON. |

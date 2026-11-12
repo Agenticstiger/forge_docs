@@ -836,11 +836,21 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 
 *On forge-cli `main`, not yet in a release ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)).* These follow-ups to the changes above can change what a script, a CI job or an IDE agent sees:
 
-- **No `gemini` fallback.** When nothing names a provider, forge stops with `copilot_no_llm_provider` and says why. It used to fall back to `gemini`, and sent `FLUID_LLM_API_KEY` there whatever key it was. Pass `--llm-provider`, or set `FLUID_LLM_PROVIDER` or the key of exactly one provider. See [No LLM provider is selected](./advanced/production-troubleshooting.md#no-llm-provider-is-selected).
+- **No `gemini` fallback.** When nothing selects a provider, forge stops with `copilot_no_llm_provider` and says why. It used to fall back to `gemini`, and sent `FLUID_LLM_API_KEY` there whatever key it was. Pass `--llm-provider`, or set `FLUID_LLM_PROVIDER` or the key of exactly one provider. See [No LLM provider is selected](./advanced/production-troubleshooting.md#no-llm-provider-is-selected). *On forge-cli `main`, not yet in a release ([forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854)).* A provider saved with `fluid ai setup` also counts.
 - **`OLLAMA_HOST` may name any machine everywhere.** The probe for a running Ollama, the default-model pick and `fluid ai setup` no longer swap a non-local host for `localhost`, and `fluid ai test --endpoint` takes an Ollama address on any host.
 - **Forge looks for Ollama models where it sends the call.** With `--llm-endpoint` or `FLUID_LLM_ENDPOINT`, the default-model pick and the model check ask that daemon, and each `--tiered` stage calls it. A `user:password@` in the address now goes as basic auth to the model lookups too, and `OLLAMA_HOST` no longer drops it. See [One address for every Ollama read](./advanced/llm-providers.md#one-address-for-every-ollama-read).
 - **`fluid forge --agent` reports a contract written to any `--target-dir`.** See [Headless agent mode](./cli/forge.md#headless-agent-mode).
 - **`LlmProvider.list_available_models` takes an `endpoint` keyword**, the address the call will go to. Forge passes it only when an endpoint is stated, so code that subclasses `LlmProvider` and overrides the method with two arguments keeps working until then. With an endpoint stated and the model check on (`--require-llm`, `--tiered` or `FLUID_LLM_MODEL_PREFLIGHT`), the check fails with `copilot_llm_model_preflight_failed`; add the keyword to avoid it.
+
+### Key scope and the saved choice
+
+These changes can change which provider a job uses and which key it sends:
+
+- *On forge-cli `main`, not yet in a release ([forge-cli #853](https://github.com/Agenticstiger/forge-cli/pull/853)).* **`FLUID_LLM_API_KEY` goes only to a provider you name.** A job that used it with a provider forge picked, such as a running Ollama or the provider of the one key variable set, now sends that provider's own key, or none, and forge warns. Name the provider: `--llm-provider <name>` or `FLUID_LLM_PROVIDER=<name>`. See [Which key a provider gets](./advanced/llm-providers.md#which-key-a-provider-gets).
+- *On forge-cli `main`, not yet in a release ([forge-cli #853](https://github.com/Agenticstiger/forge-cli/pull/853)).* **A project `.env` endpoint for OpenAI, Anthropic, Gemini or GitHub Models needs the provider's own key beside it.** `FLUID_LLM_API_KEY` no longer pairs it, and interactive setup no longer copies your saved key over the project's key. See [LLM endpoints in a project file](./advanced/project-dotenv-trust.md#llm-endpoints-in-a-project-file).
+- *On forge-cli `main`, not yet in a release ([forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854)).* **Runs without a terminal use the provider `fluid ai setup` saved**, with its model and Ollama host, and `fluid doctor` walks the same ladder. A saved coding agent is passed over when a run states an endpoint or a model, or runs the agent loop. See [Which provider a run uses](./advanced/llm-providers.md#which-provider-a-run-uses).
+- *On forge-cli `main`, not yet in a release ([forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854)).* **`fluid forge --agent` stdout is JSON Lines only.** Panels, other output and the missing-extra message go to stderr.
+- *On forge-cli `main`, not yet in a release ([forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854)).* **`fluid mission run` never picks a coding agent**, because it always runs the agent loop.
 
 ## DuckDB 1.x to 2.x
 
