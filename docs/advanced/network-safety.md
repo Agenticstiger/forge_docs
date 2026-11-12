@@ -13,7 +13,7 @@ This page describes the user-visible behaviour: which flags opt in, which enviro
 | `fluid odps import <url>` | Followed `http(s)` `contractId` references | Local only; remote references are rejected | `--allow-remote` |
 | `BitolOdpsProvider().import_contract(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (keyword) |
 | `ContractResolver(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (keyword) |
-| Ollama endpoint | Configurable | Localhost only | None, by design |
+| Ollama endpoint | Configurable | Localhost only | None, by design. *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* Calls now go to `OLLAMA_HOST` whatever the host; see [Ollama and `OLLAMA_HOST`](#ollama-and-ollama-host). |
 | HTTP redirects on a safe-HTTP client | Followed | Not followed | `follow_redirects=True` (per client) |
 
 The CLI flags `--no-remote` and `--seed-no-remote` remain as hidden aliases that do nothing, so older scripts keep working.
@@ -68,9 +68,11 @@ An IPv4-mapped address (`::ffff:...`) or a NAT64 address (`64:ff9b::/96`) that c
 
 As of 0.18.1, nothing in the CLI reads `FLUID_SAFE_MODE` or acts on the global `--safe-mode` flag to refuse network calls.
 
-## Ollama is localhost only
+## Ollama and `OLLAMA_HOST`
 
-The Ollama provider uses `http://localhost:11434` unless `OLLAMA_HOST` names another localhost URL. An `OLLAMA_HOST` that points elsewhere is ignored with a warning, and the default is used. You cannot point `fluid forge --llm-provider ollama` at a remote Ollama instance this way. For a remote model, use a hosted provider (OpenAI, Anthropic, Gemini, Bedrock or Vertex).
+*On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* Forge's Ollama calls go to `--llm-endpoint` or `FLUID_LLM_ENDPOINT`, else to `OLLAMA_HOST` whatever its host, else to `http://localhost:11434`; see [The Ollama endpoint](./llm-providers.md#the-ollama-endpoint). Three things still look only at `localhost`, and ignore a non-local `OLLAMA_HOST` with a warning: the probe that finds a running Ollama, model discovery, and the interactive Ollama setup. A project's `.env` cannot set `OLLAMA_HOST` ([Project dotenv trust](./project-dotenv-trust.md)).
+
+Through 0.28.0 the calls went to a `litellm://ollama/<model>` label unless an endpoint was stated, so no `OLLAMA_HOST`, local or remote, reached a daemon.
 
 ## Contract SQL and `$ref`
 

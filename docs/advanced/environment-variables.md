@@ -214,14 +214,14 @@ See [cost tracking](./cost-tracking.md).
 
 ## LLM provider and routing
 
-See [LLM providers](./llm-providers.md) and the [LiteLLM backend](./litellm-backend.md).
+See [LLM providers](./llm-providers.md) and the [LiteLLM backend](./litellm-backend.md). With nothing here or in a provider key set, a non-interactive run picks a provider itself; see [When nothing is configured](./llm-providers.md#when-nothing-is-configured). *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).*
 
 | Variable | Effect |
 |---|---|
 | `FLUID_LLM_PROVIDER` | Default provider. |
 | `FLUID_LLM_MODEL` | Default model. |
 | `FLUID_LLM_API_KEY` | API key used when no provider-specific key is set. |
-| `FLUID_LLM_ENDPOINT` | Overrides the model endpoint. |
+| `FLUID_LLM_ENDPOINT` | Overrides the model endpoint. The routing model's calls use it too, unless `FLUID_LLM_ROUTING_ENDPOINT` names another. *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* |
 | `FLUID_LLM_TIMEOUT_SECONDS` | Per-call timeout. Default `120`. |
 | `FLUID_LLM_STREAMING` | Default on; `0`, `false`, `no` or `off` disables streaming. |
 | `FLUID_LLM_ROUTING_ENDPOINT`, `FLUID_LLM_ROUTING_MODEL` | Optional routing endpoint and model. |
@@ -258,7 +258,7 @@ Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
 | `FLUID_FORGE_TOOL_SEARCH` | Enables lazy tool-search deferral in the agent loop. |
 | `FLUID_GITHUB_MCP`, `FLUID_SNOWFLAKE_MCP`, `FLUID_DBT_MCP` | Enable delegation to the hosted GitHub, Snowflake and dbt MCP servers. |
 | `FLUID_HOSTED_MCP_TIMEOUT_SECONDS` | Per-operation timeout for hosted MCP calls. |
-| `FLUID_COPILOT_AGENT_LOOP` | `1`, `true`, `yes` or `on` selects the multi-turn agent loop. Same as `--agent-loop`. |
+| `FLUID_COPILOT_AGENT_LOOP` | `1`, `true`, `yes` or `on` selects the multi-turn agent loop. Same as `--agent-loop`. The loop also keeps a non-interactive run from picking a coding agent; see [When nothing is configured](./llm-providers.md#when-nothing-is-configured). *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* |
 | `FLUID_COPILOT_JUDGE`, `FLUID_COPILOT_ENRICHMENT`, `FLUID_JUDGE_SELF_CRITIQUE`, `FLUID_COPILOT_SELF_EVAL`, `FLUID_COPILOT_CHECKPOINT`, `FLUID_COPILOT_PII_CLASSIFIER` | On by default; `0`, `false`, `no` or `off` skips that stage. |
 | `FLUID_COPILOT_POST_SYNTHESIS`, `FLUID_COPILOT_EPISODIC_MEMORY` | On by default; only the value `0` turns them off. |
 | `FLUID_COPILOT_SEMANTIC_MEMORY` | Opts in to semantic-memory writes and lookups. |

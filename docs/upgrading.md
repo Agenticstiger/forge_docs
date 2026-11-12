@@ -822,6 +822,16 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 - *(since 0.28.0, [forge-cli #832](https://github.com/Agenticstiger/forge-cli/pull/832))* Nine internal modules that nothing imported are removed: `fluid_build.logging_utils`, `fluid_build.cli.init_samples`, `fluid_build.copilot.schemas.table_metadata`, `fluid_build.providers.local.ducksql`, `.mocks` and `.samples`, and `fluid_build.runtimes.dataform_gcp`, `.dbt_bigquery` and `.dbt_duckdb`. No command or contract behaves differently. It matters only to code that imported one of them directly.
 
 
+## On forge-cli `main` since 0.28.0
+
+*On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* These changes to AI authoring can change what a script, a CI job or an IDE agent sees:
+
+- **`fluid forge --agent` honours the AI flags.** With `--llm-provider`, `--llm-model`, `--llm-endpoint` or `--context`, it authors with forge's AI instead of writing the blank TODO contract, and a failed generation exits non-zero. See [Headless agent mode](./cli/forge.md#headless-agent-mode).
+- **A run with nothing configured and no terminal picks an LLM.** It uses a running local Ollama, else the first coding-agent CLI on `PATH`, where it used to fall back to `gemini`. Name the provider to keep a job from picking one. See [When nothing is configured](./advanced/llm-providers.md#when-nothing-is-configured).
+- **`claude -p` no longer reads your Claude Code settings.** Authentication kept there (an `apiKeyHelper`, or Bedrock or Vertex variables in `settings.json`) must come from the shell environment. See [Claude Code](./advanced/llm-providers.md#claude-code).
+- **Ollama calls reach the daemon.** They go to `--llm-endpoint`, else `OLLAMA_HOST`, else `localhost:11434`, and a remote `OLLAMA_HOST` is honoured. See [The Ollama endpoint](./advanced/llm-providers.md#the-ollama-endpoint).
+- **`fluid ai test` probes the real call.** A rejected key exits `3`, a model the provider does not have exits `4`, and other failed calls exit `5`. See [`ai test`](./cli/ai.md#ai-test).
+
 ## DuckDB 1.x to 2.x
 
 `0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so
