@@ -855,6 +855,10 @@ These changes to AI authoring can change what a script, a CI job or an IDE agent
 
 - **`fluid apply --mode amend-and-build` on Databricks runs each dbt job build now, and waits for it.** In 0.29.0 it only provisioned the job, so a manual job never ran. A pipeline that applies with `amend-and-build` or `replace-and-build` now waits for each run, up to `FLUID_DATABRICKS_RUN_TIMEOUT_SECONDS` (by default an hour, or the job's own limits plus 15 minutes), and fails when a run fails. It needs `databricks-sdk`: without `pip install 'data-product-forge[databricks]'`, the apply is refused before anything is applied. To provision a job without running it, apply with `--mode amend`. See [Running the job from `fluid apply`](./providers/databricks.md#running-the-job-from-fluid-apply).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).*
+
+- **A Databricks expose with a freshness or completeness SLO turns on data quality monitoring at the next `fluid apply`.** A contract that already states `qos.freshnessSLO`, `qos.completenessTarget`, an `observability.defaultSLIs` freshness or completeness block, or a `contract.dq.rules` entry of type `freshness`, `completeness` or `anomaly_detection` gets a `databricks_data_quality_monitor` on the schema it owns. Its scans run on serverless compute, billed as `DATA_QUALITY_MONITORING`. On Databricks Free Edition, expect them to count toward the daily compute quota (not measured), and a workspace over it stops all compute for the rest of the day. If Databricks refuses the monitor (it documents that monitoring needs serverless compute and `MANAGE` on the schema or its catalog), the apply now fails after the tables are created. To keep an expose unwatched, set `contract.dq.monitoring.enabled: false` on it. See [Data quality monitoring](./providers/databricks.md#data-quality-monitoring).
+
 ## DuckDB 1.x to 2.x
 
 `0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so

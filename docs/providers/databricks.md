@@ -24,6 +24,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **Landing from a DuckDB acquisition**: the acquisition runner uploads Parquet to a Unity Catalog volume and loads the table with `INSERT OVERWRITE`, applying `policy.privacy.masking` before the data leaves the machine (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition))
 - ✅ **Described in Unity Catalog**: table and column comments from the contract, the product's identity as table tags, a column's `sensitivity` as a column tag, and Unity Catalog's certification (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification)) *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*
 - ✅ **Scoped grants**: an `accessPolicy` grant with `resources` is placed only on the tables it names (see [Scoping a grant to an expose](#scoping-a-grant-to-an-expose))
+- ✅ **Data quality monitoring**: *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* An expose that states a freshness or completeness SLO turns on Databricks data quality monitoring for its schema, and Catalog Explorer shows the table's Quality indicator (see [Data quality monitoring](#data-quality-monitoring))
 - ❌ **Iceberg, `packaging`, and the governance fields that are not mapped**: `fluid validate` refuses them rather than apply something that is not enforced (see [What validate refuses](#what-validate-refuses))
 
 ## Prerequisites
@@ -139,6 +140,7 @@ fluid verify contract.fluid.yaml
 | `location.table`, `contract.schema` | A managed Delta `databricks_sql_table`. `delta.columnMapping.mode=name` is set, since Delta drops and renames columns only under column mapping. |
 | `accessPolicy.grants`, `policy.authz.readers` and `writers` | One `databricks_grant` per principal on the table, plus `USE_SCHEMA` on the schema. |
 | A dbt build with `runtime.platform: databricks` | A serverless job and the workspace files it needs (see [dbt builds as jobs](#dbt-builds-as-jobs)). |
+| `qos.freshnessSLO`, `qos.completenessTarget` or another freshness or completeness SLO | *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* A `databricks_data_quality_monitor` on the schema (see [Data quality monitoring](#data-quality-monitoring)). |
 
 Permissions map to table privileges: `read`, `select` and `query` to `SELECT`; `write`, `insert`, `update` and `delete` to `MODIFY`; `admin` and `manage` to `ALL_PRIVILEGES`. `create` has no table privilege and is skipped.
 
@@ -189,6 +191,7 @@ data-analysts also need USE CATALOG on catalog main, which forge-cli never grant
 | A column type change | Fails at plan, naming the column. |
 | A revoked grant | Not refused. |
 | A removed label (its tag assignment) | Not refused: it holds no data. The apply prints it. |
+| A removed data quality monitor | *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* Not refused: it holds no table data. The apply prints it (see [Data quality monitoring](#data-quality-monitoring)). |
 | A missing catalog, missing credentials or an unreachable workspace | Fails at plan, naming the catalog, the variables to set or the host. |
 
 An apply that stops before it applies anything (`--mode dry-run`, a refusal, the data-loss gate, a failed plan) hands back any object it imported with `tofu state rm`. The objects stay as they are, and the next apply adopts them again.
@@ -542,6 +545,139 @@ forge-cli does not set those table properties, since dbt owns a dbt-written tabl
 
 `fluid verify` is the gate on the live table, in a `retention` dimension (see [`fluid verify`](#fluid-verify)).
 
+## Data quality monitoring
+
+*On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).*
+
+An expose that states a freshness or completeness SLO turns on Databricks data quality monitoring (formerly anomaly detection) for the schema the product owns. Databricks then scans the schema's tables on serverless compute, shows each table's result as its Quality indicator in Catalog Explorer, and writes every scan to `system.data_quality_monitoring.table_results` ([Databricks' docs](https://docs.databricks.com/aws/en/data-quality-monitoring/anomaly-detection/)). There is no new contract field: the SLO fields turn it on, and one field turns it off.
+
+### What turns it on
+
+Any one of these on a Databricks expose:
+
+| Field | Turns it on when |
+| --- | --- |
+| `qos.freshnessSLO` | It is set. |
+| `qos.completenessTarget` | It is set, `0` included. |
+| `observability.defaultSLIs.freshness` or `observability.defaultSLIs.completeness` | The block is there, and neither it nor `defaultSLIs` says `enabled: false`. A `latency` block does not count. |
+| `contract.dq.rules[]` | An entry's `type` is `freshness`, `completeness` or `anomaly_detection`. |
+
+`contract.dq.monitoring.enabled: false` turns it off for that expose, whatever SLOs it states. `enabled: true` on its own turns nothing on.
+
+```yaml
+exposes:
+  - exposeId: orders
+    # binding and contract.schema as in the minimal contract
+    qos:
+      freshnessSLO: PT6H
+      completenessTarget: 0.98
+  - exposeId: refunds
+    # bound to main.sales.refunds, in the same schema, and states no SLO
+```
+
+To keep an expose unwatched, whatever it states:
+
+```yaml
+    contract:
+      # schema as above
+      dq:
+        monitoring:
+          enabled: false
+```
+
+**The SLO values are not thresholds.** Databricks learns each table's bounds from the table's own history. Freshness flags a commit that comes unusually late for that table, and completeness flags fewer rows in the last 24 hours than its history predicts. The monitor takes no threshold: in the pinned provider (`databricks/databricks` 1.140.0), its anomaly detection settings hold only the list of tables it excludes. So `PT6H` and `0.98` choose which tables are watched, and are not the bounds Databricks checks. The apply says so (below). On a watched expose, a `contract.dq.monitoring.window` other than one day (`P1D`, or `PT24H`) is not applied either, and `fluid validate` warns about it. With `window: PT1H` on `orders`:
+
+```text
+✅ Valid FLUID contract (schema v0.7.5)
+⚠️  1 warning(s)
+Validation completed in 0.171s
+
+Validation Warnings:
+====================
+ 1. exposes[0] (orders): contract.dq.monitoring.window PT1H is not applied. Databricks data quality monitoring counts a table's rows over the last 24 hours and judges its freshness against the table's own commit history. Set it to P1D, or remove it.
+```
+
+### What `fluid apply` creates
+
+One `databricks_data_quality_monitor` on each schema the product owns, when at least one of the product's tables in it asks:
+
+- **It is on the schema** (`object_type = "schema"`), which it names by the schema's `schema_id`. The product's tables in the schema that do not ask (no SLO, or `enabled: false`) are excluded by name. A table in the schema that the contract does not declare is not excluded, so it is scanned too.
+- **It comes after the schema's tables.** Turning it on starts a scan, and Databricks documents that a table the first scan skips can wait up to two weeks for its indicator.
+- **No table that asks, no monitor.** A contract that states no such SLO gets the module it always did.
+
+For the two exposes above, the module `fluid generate iac` writes holds this resource:
+
+```json
+"databricks_data_quality_monitor": {
+  "sales_orders_dbx_main_sales": {
+    "anomaly_detection_config": {
+      "excluded_table_full_names": [
+        "main.sales.refunds"
+      ]
+    },
+    "depends_on": [
+      "databricks_sql_table.sales_orders_dbx_main_sales_orders",
+      "databricks_sql_table.sales_orders_dbx_main_sales_refunds"
+    ],
+    "object_id": "${databricks_schema.sales_orders_dbx_main_sales.schema_id}",
+    "object_type": "schema"
+  }
+}
+```
+
+The apply engine prints a note after the `tofu plan` summary, on a dry run too:
+
+```text
+  note: data quality monitoring is on for schema main.sales (watched: main.sales.orders; excluded: main.sales.refunds). Databricks learns each table's freshness and completeness bounds from its history, not from the contract's SLO values; it scans on serverless compute billed as DATA_QUALITY_MONITORING and shows the result as the table's Quality indicator in Catalog Explorer. system.data_quality_monitoring.table_results holds every scan (account admins only, unless they grant SELECT). contract.dq.monitoring.enabled: false turns it off for an expose.
+```
+
+The text is the plugin's `plan_notices` output for the example contract, captured offline; the engine adds the `note: ` prefix and the indent.
+
+### Where the results show
+
+- **Catalog Explorer.** The table's Overview shows its Quality indicator, which Databricks' docs call the health indicator. A newly watched table shows `Training` until Databricks has learned enough of its history, then `Healthy` or `Unhealthy`. An excluded table shows `Excluded`, with the reason `User Configured`. The docs also list `Error` and `Not enabled`. Seeing the indicator takes `SELECT` on the table or `BROWSE` on its catalog.
+- **`system.data_quality_monitoring.table_results`.** One row per table and scan. By default only account admins can read it, and they can grant others access.
+
+On a live Free Edition workspace on 2026-11-12, a monitor's first scan took about 8 minutes. After the apply, `table_results` held the watched table as `Training`, with freshness and completeness `Unknown` (`RECENTLY_CREATED`), and no row for the excluded one. A result past `Training` was not reached in that run.
+
+forge-cli turns on no alerts: the pinned provider's anomaly detection settings have none (the resource's `notification_settings` belong to data profiling, a separate feature forge-cli does not use). `fluid verify` does not check the monitor.
+
+### What it costs
+
+The scans run on serverless compute, billed as `DATA_QUALITY_MONITORING`, as often as each table is updated, starting with a first scan when monitoring is turned on. Databricks Free Edition runs it, and the scans use the workspace's serverless compute, so expect them to count toward its daily compute quota. A Free Edition workspace over the quota stops all compute for the rest of the day, so on Free Edition, opt out the products you do not need watched. What the scans cost was not measured: `system.billing.usage` showed no `DATA_QUALITY_MONITORING` row within the live session, and its rows can lag the scans by hours.
+
+### Adopting, removing and refusing
+
+- **An existing monitor is adopted, not created over.** A monitor already on the schema, turned on in Catalog Explorer or through the API, would make a second create fail (`RESOURCE_ALREADY_EXISTS`). So `fluid apply` imports it by `schema,<schema_id>`, once the schema itself is in state, and prints `brownfield:  adopted N pre-existing resource(s) into state`. From then on the contract decides what it excludes: the same apply updates the list in place when it differs. The module `fluid generate iac` writes holds no import for it, since that id is known only from the schema's state.
+- **Removing it is not gated.** When no table in the schema asks any more (an opt-out, dropped SLOs, a removed expose), the apply deletes the monitor. Its hidden scan job and what it has learned go with it, never table data, so it needs no `--allow-data-loss`. The apply prints it after the plan summary, with any job or file it removes. (When the plan's output does not name every removal, the gate fails closed: every removal counts, and the line is not printed.) Captured against the in-process stand-in, after `enabled: false` on the only watched expose:
+
+  ```text
+    tofu plan: +0 ~0 -1
+    1 job(s), workspace file(s), folder(s) or data quality monitor(s) removed (no table data lost; not gated; a job's run history and what a monitor has learned go with them): databricks_data_quality_monitor.dbx_fake_orders_main_sales
+  ```
+
+  When the schema goes as well, the monitor is deleted first.
+- **A refused monitor fails the apply, after the tables.** Databricks documents that monitoring needs serverless compute in the workspace and `MANAGE` on the schema or its catalog (the schema's owner has it). When Databricks refuses the create, the tables are already in place, since they come first: fix the cause or opt out, and run `fluid apply` again. The run fails with `opentofu_apply_failed`, and the suggestions say what monitoring needs and how to turn it off. Captured against the stand-in, which refused the create with `feature not enabled`:
+
+  ```text
+  ❌ opentofu_apply_failed  [ERR_OPENTOFU_APPLY_FAILED]
+    error: failed to create data_quality_monitor (databricks_data_quality_monitor.dbx_fake_orders_main_sales)
+    resource: databricks_data_quality_monitor.dbx_fake_orders_main_sales
+    detail: feature not enabled
+
+  💡 Suggestions:
+    • OpenTofu records state as it goes, so resources created before the failure are normally tracked
+    • Fix the cause named above, then re-run 'fluid apply' to continue
+    • Re-run with --debug to see the raw tofu output
+    • Databricks refused the data quality monitor on this schema; the schema's tables are in place (they come first). Monitoring needs a Unity Catalog workspace with serverless compute, and MANAGE on the schema for this identity (its owner has it).
+    • Or turn it off for the expose: set contract.dq.monitoring.enabled: false, then re-run fluid apply.
+    • To see what exists, run 'tofu state list' in .fluid/iac/databricks/dbx_fake_orders
+  ```
+
+::: warning Proven live on one run
+Proven against the in-process stand-in with a real `tofu` and provider 1.140.0, and on a live Free Edition workspace on 2026-11-12 (`HONESTLY_TESTED.md`, the 2026-11-12 data quality monitoring row), in a scratch catalog dropped afterwards. Live, a two-table product applied with its monitor and a second plan was empty, and Catalog Explorer showed `Training` on the watched table and `Excluded` on the other. A monitor made through the REST API was adopted. When the excluded table started to ask too, the monitor was updated in place and its exclusion list emptied. Opting out deleted the monitor without the gate. Not tried live: a result past `Training`, the cost, a workspace or identity Databricks refuses (proven against the stand-in only), and alerts.
+:::
+
 ## dbt builds as jobs
 
 A build with an `engine` of `dbt` or `dbt-databricks` and `execution.runtime.platform: databricks` runs in the workspace, not on the machine that applies. `fluid apply` provisions one serverless job per build with a dbt task. Databricks runs it on the SQL warehouse `DATABRICKS_WAREHOUSE_ID` names, in the catalog and schema of the first Databricks expose the build writes (`builds[].outputs`). The job is named `fluid <product> <build>`.
@@ -778,7 +914,7 @@ What is refused, before the table exists where `fluid validate` or `fluid apply`
 - duplicate partitions;
 - a column type Databricks has no mapping for (it would be created as `string`), or would reject.
 
-It warns when a `DECIMAL` has no scale, because it would keep no fractional digits.
+It warns when a `DECIMAL` has no scale, because it would keep no fractional digits. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* It also warns about a `contract.dq.monitoring.window` other than one day on an expose that turns on data quality monitoring, since the window is not applied (see [Data quality monitoring](#data-quality-monitoring)).
 
 ## CLI commands
 
@@ -870,6 +1006,7 @@ It keeps every other profile, writes the file back owner-only (`0600`) and never
 - **Landing-time masking needs a DuckDB acquisition.** `policy.privacy.masking` is applied by the acquisition runner before the data leaves the machine, so an expose written by anything else is refused (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)).
 - **Retention is a Delta history limit.** It holds only for a table rebuilt in full. forge-cli does not set the table's retention properties and does not check that the build runs within the retention (see [Retention](#retention)).
 - **Empty folders stay.** The `.fluid/<product>/<build>` folders above `files/` are not managed; only `files/` and below are.
+- *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* **Data quality monitoring takes no threshold and no alert from the contract.** Databricks learns each table's bounds itself, and the pinned provider's anomaly detection settings have no alert setting for forge-cli to fill (see [Data quality monitoring](#data-quality-monitoring)).
 
 ## How it is tested
 
@@ -880,7 +1017,7 @@ The full matrix is in `HONESTLY_TESTED.md` in forge-cli. In short:
 | Unit | 471 tests across the emitter, jobs, credentials, engine hooks, cron conversion, the dbt runner, verify, doctor and the welcome scan, against a stubbed SDK client. |
 | `tofu validate` | Both job modules (Git and workspace upload) and the dbt-written table's `ignore_changes` list validate against provider 1.140.0's schema. |
 | Stand-in workspace | The real `fluid` CLI, `tofu` and provider 1.140.0 against an in-process stand-in for the Unity Catalog, SQL statement, permissions and jobs APIs: plan, apply, an empty second plan, the data-loss gate, adoption, job and file removal. The stand-in does not check SQL dialect or privilege names. |
-| Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. |
+| Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* Another manual run on 2026-11-12, in a scratch catalog dropped afterwards, turned data quality monitoring on, adopted a monitor made through the API, changed what it excludes and turned it off (see [Data quality monitoring](#data-quality-monitoring)). |
 | Emulator (nightly, not gating) | First run on 2026-10-30 passed 1 of 4: creates and the replace gate work, but a second plan is not empty against the emulator. |
 
 Not proven live: a Git source, profile or OAuth auth, a run-as service principal, table adoption, a larger project, and re-adopting a job after lost state. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Nor are the reason line of a queued run and a run queued for the workspace's limit.
