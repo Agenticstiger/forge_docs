@@ -256,14 +256,14 @@ Update the key at the source `fluid ai status` reports, the provider environment
 
 ### No LLM provider is selected
 
-*On forge-cli `main`, not yet in a release ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)).* `copilot_no_llm_provider` means that nothing named an LLM provider and no Ollama answered at `OLLAMA_HOST` or `localhost:11434`, so forge stopped instead of guessing one. Its first line says why:
+*(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* `copilot_no_llm_provider` means that nothing selected an LLM provider and no Ollama answered at `OLLAMA_HOST` or `localhost:11434`, so forge stopped instead of guessing one. Its first line says why:
 
 | Message | Cause |
 | --- | --- |
-| `No LLM provider configured. Run 'fluid ai setup' or set an API key env var.` | Nothing names a provider. A run without a terminal, or with `--non-interactive`, also found no coding-agent CLI on `PATH`, or a setting that names none, such as `--llm-model` or `--llm-endpoint`, kept it from looking for one. Keys in the OS keyring for more than one provider give this message too. See [When nothing is configured](./llm-providers.md#when-nothing-is-configured). |
+| `No LLM provider configured. Run 'fluid ai setup' or set an API key env var.` | Nothing selects a provider ([Which provider a run uses](./llm-providers.md#which-provider-a-run-uses)). A run without a terminal, or with `--non-interactive`, also found no coding-agent CLI on `PATH`, or a setting such as `--llm-model` or `--llm-endpoint`, which selects no provider, kept it from looking for an agent. Keys in the OS keyring for more than one provider give this message too. See [When nothing is configured](./llm-providers.md#when-nothing-is-configured). |
 | `No LLM provider is selected: OPENAI_API_KEY, ANTHROPIC_API_KEY are all set, so none of them is chosen. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | More than one provider's key is set in the environment. `OLLAMA_HOST` counts as Ollama's. |
-| `No LLM provider is selected: FLUID_LLM_API_KEY does not say which provider the key is for. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | `FLUID_LLM_API_KEY` is set, but nothing names a provider. |
-| `No LLM provider is selected for this run: 'fluid ai setup' saved anthropic, but this command does not read the saved choice. Pass --llm-provider anthropic.` | The command does not read the provider `fluid ai setup` saved: `fluid forge data-model`, or `fluid forge` with `--non-interactive`, which `--agent` sets. |
+| `No LLM provider is selected: FLUID_LLM_API_KEY does not say which provider the key is for. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | `FLUID_LLM_API_KEY` is set, but nothing selects a provider. |
+| `No LLM provider is selected: 'fluid ai setup' saved claude-code, and an agent is not used when the run states an endpoint or a model, or runs the agent loop. Name a provider with --llm-provider.` | *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* `fluid ai setup` saved a coding agent or `mcp-sampling`, and the run states an endpoint or a model or runs the agent loop, so forge passes the agent over. |
 
 The suggestions under it are the same in each case:
 
@@ -274,11 +274,19 @@ The suggestions under it are the same in each case:
 • Run 'fluid doctor' to see what forge would select
 ```
 
-`fluid doctor --verbose` shows the same reason in its Message row, except for a saved provider, which `fluid doctor` reads. Before #852 forge used `gemini` in each case: it sent `FLUID_LLM_API_KEY` to Google whatever key it was, and with two provider keys set it asked for a Gemini key.
+`fluid doctor --verbose` shows the same reason in its Message row. *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* It walks the same ladder, but reads only the environment: a run's `--llm-endpoint`, `--llm-model` or `--agent-loop` flag does not reach it. Through 0.28.0 forge used `gemini` in each case: it sent `FLUID_LLM_API_KEY` to Google whatever key it was, and with two provider keys set it asked for a Gemini key.
+
+### A key forge did not use
+
+*(since 0.29.0, [forge-cli #853](https://github.com/Agenticstiger/forge-cli/pull/853))* These warnings say that forge kept a key from a provider:
+
+- `FLUID_LLM_API_KEY is set but not used: it goes only to a provider named with --llm-provider or FLUID_LLM_PROVIDER, and forge picked ollama itself.` The provider came from a key variable, the saved choice, the keyring or a running Ollama, so it gets its own key variable or keyring key instead. Pass `--llm-provider <name>` to send it the generic key. See [Which key a provider gets](./llm-providers.md#which-key-a-provider-gets).
+- `FLUID_LLM_API_KEY is set but not used: it is for anthropic, the provider you named, and this run uses openai.` You named a provider, and the interactive setup of `fluid forge` or `fluid init` chose another, so the key is not sent to the provider setup chose.
+- `Your key is not used: a project dotenv file points OpenAI at its own host (OPENAI_BASE_URL), so your key is not sent there; run 'fluid ai setup' outside this project.` Interactive `fluid forge` or `fluid init` found a project `.env` endpoint for the provider it set up, so it left that provider's key variable to the project's own key. See [LLM endpoints in a project file](./project-dotenv-trust.md#llm-endpoints-in-a-project-file).
 
 ### A coding agent that is not signed in
 
-*On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* With `--llm-provider claude-code`, a login problem reads `claude-code is installed but not authenticated.` Run `claude` once and sign in, or set `ANTHROPIC_API_KEY`. Authentication kept in a Claude Code setting (an `apiKeyHelper`, or Bedrock or Vertex variables in `settings.json`) does not reach forge's calls: export those variables in the shell. See [Claude Code](./llm-providers.md#claude-code).
+*(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* With `--llm-provider claude-code`, a login problem reads `claude-code is installed but not authenticated.` Run `claude` once and sign in, or set `ANTHROPIC_API_KEY`. Authentication kept in a Claude Code setting (an `apiKeyHelper`, or Bedrock or Vertex variables in `settings.json`) does not reach forge's calls: export those variables in the shell. See [Claude Code](./llm-providers.md#claude-code).
 
 ## An optional package is not installed
 
