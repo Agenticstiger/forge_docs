@@ -15,7 +15,7 @@ LiteLLM was a hard dependency of core `data-product-forge` (`litellm>=1.83.14,<2
 | `openai` | `openai` | `gpt-4.1-mini` |
 | `anthropic`, `claude` | `anthropic` | `claude-haiku-4-5` |
 | `gemini` | `gemini` | `gemini-2.5-flash` |
-| `ollama` | `ollama` (localhost only) | `gemma3:4b` |
+| `ollama` | `ollama` | `gemma3:4b` |
 
 A forge run normally gets its model from `fluid ai models`, which is `claude-sonnet-4-6` for Anthropic, `gemini-2.5-pro` for Gemini and `gemma4:latest` for Ollama; the fallback column applies only when nothing names a model.
 
@@ -43,7 +43,7 @@ LiteLLM reports the cost of each call, and Forge folds it into `.fluid/agents/<r
 | `FLUID_LLM_MODEL` | Model name. |
 | `FLUID_LITELLM_MODEL_PREFIX` | Replace the LiteLLM prefix Forge puts in front of the model name (`<prefix>/<model>`). |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` | Provider keys. LiteLLM reads the same names the underlying SDKs use. |
-| `OLLAMA_HOST` | Ollama endpoint. Local addresses only. |
+| `OLLAMA_HOST` | Ollama's address. See [The Ollama endpoint](./llm-providers.md#the-ollama-endpoint). |
 | `LITELLM_*` | Any LiteLLM-specific variable. LiteLLM reads these directly; Forge does not filter them. |
 
 See the [environment variables index](./environment-variables.md) for everything else.
@@ -63,7 +63,7 @@ If you point LiteLLM at a model the catalog doesn't know, the run-start banner s
 ## Caveats
 
 - Tool-use behaviour matches LiteLLM's wrapper. Provider failures surface as the typed errors described in [Typed Errors](./typed-errors.md) (`RateLimitError`, `ContextOverflowError` and the others).
-- Ollama is restricted to `localhost` (`127.0.0.1` / `::1`) by the SSRF guard. See [network safety](./network-safety.md).
+- Forge's Ollama calls go to `OLLAMA_HOST` whatever its host; only the probe for a running Ollama, model discovery and the interactive Ollama setup stay on `localhost`. See [The Ollama endpoint](./llm-providers.md#the-ollama-endpoint). *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).*
 
 ## See also
 

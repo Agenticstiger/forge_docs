@@ -254,6 +254,10 @@ Update the key at the source `fluid ai status` reports, the provider environment
 
 [`fluid ai test`](../cli/ai.md#ai-test) is the connectivity check. As of 0.18.1, `fluid ai test` with no provider configured and no `--provider` fails with `❌ Unexpected error: name 'detect_ollama_available' is not defined` and exit code 2. Name the provider, or run `fluid ai setup` first. `fluid ai test --provider <name> --json` prints a report with `ok`, `exit_code` and, on failure, an `error` object with `code`, `message` and `suggestions`.
 
+### A coding agent that is not signed in
+
+*On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* With `--llm-provider claude-code`, a login problem reads `claude-code is installed but not authenticated.` Run `claude` once and sign in, or set `ANTHROPIC_API_KEY`. Authentication kept in a Claude Code setting (an `apiKeyHelper`, or Bedrock or Vertex variables in `settings.json`) does not reach forge's calls: export those variables in the shell. See [Claude Code](./llm-providers.md#claude-code).
+
 ## An optional package is not installed
 
 **Symptom:** a command exits 1, with no traceback, and prints a message naming the feature, the package and the extra, followed by a short error code in brackets:

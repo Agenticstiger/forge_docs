@@ -81,7 +81,7 @@ Both apply on the default AI-copilot path only. See [Single file or fragments?](
 | --- | --- |
 | `--llm-provider NAME` | `openai`, `anthropic`, `claude`, `gemini` or `ollama`; or a keyless provider: `mcp-sampling` (the calling IDE's model) or `claude-code`, `codex`, `cursor`, `kiro` (a local agent CLI). Providers installed through the `fluid_build.llm_providers` entry point are also accepted. |
 | `--llm-model NAME` | Model identifier. |
-| `--llm-endpoint URL` | Exact HTTP endpoint for the selected provider. |
+| `--llm-endpoint URL` | Exact HTTP endpoint for the selected provider. The routing model's calls use it too, unless `--llm-routing-endpoint` names another. *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* |
 | `--forge-agent-mode MODE` | For the local agent CLIs: `envelope` (default; the agent returns the contract as JSON on stdout) or `agentic` (the agent writes `contract.fluid.yaml` into the workspace). |
 | `--llm-routing-model NAME` | A fast, cheap model for interview clarification and AI self-evaluation. |
 | `--llm-routing-endpoint URL` | Endpoint override for the routing model. |
@@ -92,6 +92,8 @@ Both apply on the default AI-copilot path only. See [Single file or fragments?](
 | `--browser` | Use the browser-based provider setup flow (preview). The key is still pasted into the terminal. |
 
 Show the model plan per provider with [`fluid ai models`](./ai.md), and check connectivity with [`fluid ai test`](./ai.md#ai-test).
+
+With no AI config, a run without a terminal picks a provider itself; see [When nothing is configured](../advanced/llm-providers.md#when-nothing-is-configured). *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).*
 
 ### Prompt profiles and overlays
 
@@ -408,8 +410,17 @@ fluid forge --agent --emit-plan
 ```
 
 - It bundles `--yes` and `FLUID_FORGE_NO_*=1`, and emits **JSON-Lines progress events** on stdout so the calling agent can stream status.
-- It defaults to `--blank`, so it can never drop into the interactive mode picker.
+- With no mode flag and no AI flag, it writes the blank contract (`--blank`), so it can never drop into the interactive mode picker.
+- Any of `--llm-provider`, `--llm-model`, `--llm-endpoint` or `--context` selects AI mode instead. Forge's AI authors the contract without asking anything. A contract written under the directory you run forge in is reported in a `forge.contract_written` event; with `--target-dir` outside it, AI mode emits only `forge.start` and `forge.done`. A failed generation ends with a non-zero `exit_code` in `forge.done` and a non-zero exit status. With nothing configured, the provider is picked as in [When nothing is configured](../advanced/llm-providers.md#when-nothing-is-configured). *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* Through 0.28.0 these flags were ignored: the run wrote the TODO placeholder contract and reported `exit_code` `0`.
 - `--emit-plan` makes the run emit a single deterministic `forge.plan` event — the per-product-type (SDP / ADP / CDP) field checklist for the agent to fill in — instead of authoring the contract itself.
+
+For example, to have a signed-in Claude Code author from an intent file:
+
+```bash
+fluid forge --agent --llm-provider claude-code --context intent.txt
+```
+
+`--context` takes JSON or a file path.
 
 This is the CLI half of the agentic-IDE flow. Set the editor side up with [`fluid scaffold-ide`](./scaffold-ide.md), and the in-editor tools come from the [MCP server](./mcp.md).
 

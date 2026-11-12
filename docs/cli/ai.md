@@ -67,6 +67,8 @@ i No metadata-source catalogs configured yet. Run: fluid ai setup --source
 
 Sends a small request to the configured provider and reports whether it answered. Use it before a long forge run, or in CI to check a key.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* For `openai`, `anthropic`, `gemini` and `ollama`, the request is the call `fluid forge` makes, through litellm. With no endpoint set, the report's `endpoint` is `null` and the table says `provider default`. Through 0.28.0 the probe went to a `litellm://<provider>/<model>` label, so without `--endpoint` it failed with `AI test network error ... (UnsupportedProtocol)`.
+
 | Option | Description |
 | --- | --- |
 | `--provider {gemini,openai,anthropic,claude,ollama}` | Test this provider instead of the configured one. |
@@ -106,6 +108,8 @@ fluid ai test --provider ollama --endpoint http://127.0.0.1:9 --timeout-seconds 
 }
 ```
 
+The model check before the call lists the models of `OLLAMA_HOST`, else of `localhost:11434`, not those at `--endpoint`. With a local Ollama running, the example above therefore exits `4` with `ai_test_model_unavailable` when that Ollama does not have the model.
+
 The process exit code equals `exit_code`:
 
 | Code | Meaning |
@@ -115,6 +119,8 @@ The process exit code equals `exit_code`:
 | `3` | The provider rejected the credentials. |
 | `4` | The request failed in another way, for example an unknown model. |
 | `5` | A network failure, a `429` or a `5xx`. |
+
+*On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* A `401` or `403` from the call exits `3`. A model the provider does not have exits `4`: it is missing from the provider's model list (`ai_test_model_unavailable`), or the call returns a `404`. A reply without `FLUID_OK` exits `4` too (`ai_test_unexpected_response`). Any other failure of the call, such as a refused connection, a timeout, a `429` or a `5xx`, exits `5` with `"code": "copilot_litellm_request_failed"` and a message that starts `litellm request failed:`. The failed run above reads that way on `main`, in place of `ai_test_network_error`.
 
 ::: warning `fluid ai test` crashes with no provider configured
 As of 0.18.1, on a machine with no provider configured and no key in the environment, `fluid ai test` and `fluid ai test --json` stop with `Unexpected error: name 'detect_ollama_available' is not defined` and exit `2`, instead of the JSON report with `ai_test_no_provider`. Run `fluid ai setup` first, or pass `--provider` with a configured provider.
@@ -143,8 +149,8 @@ fluid ai models --json | jq '.gemini.tier_models'
 - `setup` is interactive and requires a TTY with `rich` installed. It walks through provider choice (Google Gemini, OpenAI, Anthropic, Ollama, or skip), validates the API key with a lightweight call, and persists settings.
 - Provider config is written to `~/.fluid/ai_config.json` (chmod 600). API keys are stored in the OS keyring when available and are not written to the JSON file by default.
 - If no keyring backend is available, the API key is kept only for the current process. Set `FLUID_ALLOW_PLAINTEXT_AI_SECRETS=1` only when you deliberately want plaintext local persistence.
-- `OLLAMA_HOST` is restricted to localhost addresses for SSRF protection; non-local hosts are ignored and replaced with `http://localhost:11434`.
-- The same setup flow is invoked inline on first use of [`fluid forge`](./forge.md) when no provider is configured.
+- The interactive Ollama setup uses only a local Ollama: a non-local `OLLAMA_HOST` is ignored there, with a warning, and replaced with `http://localhost:11434`. *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* Forge's own Ollama calls, and `fluid ai test`, go to `OLLAMA_HOST` whatever the host; see [The Ollama endpoint](../advanced/llm-providers.md#the-ollama-endpoint).
+- The same setup flow is invoked inline on first use of [`fluid forge`](./forge.md) in a terminal when no provider is configured. *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* A run without a terminal picks a provider itself instead; see [When nothing is configured](../advanced/llm-providers.md#when-nothing-is-configured).
 - Provider environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, etc.) are respected as a fallback.
 - For strict provider validation, run `fluid forge data-model from-intent ... --require-llm` so provider failures do not silently fall back to heuristics.
 - For tiered per-stage model selection, pass `--tiered` on the forge command. Tiering stays within the active provider and collapses to single-model mode when the provider has no distinct tier catalog.
