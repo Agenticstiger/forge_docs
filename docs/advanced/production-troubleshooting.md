@@ -256,7 +256,7 @@ Update the key at the source `fluid ai status` reports, the provider environment
 
 ### No LLM provider is selected
 
-*On forge-cli's `fix/copilot-850-followups` branch ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)), not yet on `main` or in a release.* `copilot_no_llm_provider` means that nothing named an LLM provider and no Ollama answered at `OLLAMA_HOST` or `localhost:11434`, so forge stopped instead of guessing one. Its first line says why:
+*On forge-cli `main`, not yet in a release ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)).* `copilot_no_llm_provider` means that nothing named an LLM provider and no Ollama answered at `OLLAMA_HOST` or `localhost:11434`, so forge stopped instead of guessing one. Its first line says why:
 
 | Message | Cause |
 | --- | --- |
