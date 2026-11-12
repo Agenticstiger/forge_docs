@@ -228,6 +228,8 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 
 *(since 0.20.0, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714) and [forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715))* `apply_contract_invalid`, `apply_plan_missing_contract` and `unsupported_binding` (kind `mwaa-environment-not-emitted`) are not catalogued, so they print no curated suggestions. [Production troubleshooting](./production-troubleshooting.md#environment-mode-and-plan-file-errors) explains the first two, and [Scheduling on AWS](../providers/aws.md#scheduling-on-aws) the third. `contract_version_unsupported`, catalogued [above](#contract-version-unsupported), is now raised by `fluid apply` on both engines and in every mode.
 
+*On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* `apply_databricks_sdk_missing` is not catalogued either: its own `hint` line gives the fix. [Running the job from `fluid apply`](../providers/databricks.md#running-the-job-from-fluid-apply) explains it.
+
 ### planner_failed
 
 `ERR_PLANNER_FAILED`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md).
