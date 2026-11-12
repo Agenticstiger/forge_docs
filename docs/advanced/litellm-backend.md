@@ -63,7 +63,7 @@ If you point LiteLLM at a model the catalog doesn't know, the run-start banner s
 ## Caveats
 
 - Tool-use behaviour matches LiteLLM's wrapper. Provider failures surface as the typed errors described in [Typed Errors](./typed-errors.md) (`RateLimitError`, `ContextOverflowError` and the others).
-- *On forge-cli `main`, not yet in a release ([forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850)).* Forge's Ollama calls go to `OLLAMA_HOST` whatever its host. See [The Ollama endpoint](./llm-providers.md#the-ollama-endpoint). *On forge-cli `main`, not yet in a release ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)).* The probe for a running Ollama, model discovery and the interactive Ollama setup follow it too; before #852 they stayed on `localhost`.
+- *(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* Forge's Ollama calls go to `OLLAMA_HOST` whatever its host. See [The Ollama endpoint](./llm-providers.md#the-ollama-endpoint). *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* The probe for a running Ollama, model discovery and the interactive Ollama setup follow it too; through 0.28.0 they stayed on `localhost`.
 
 ## See also
 

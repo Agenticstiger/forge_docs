@@ -380,7 +380,7 @@ The `fluid generate iac` and `fluid apply` runs print the refusal and exit befor
 
 ### copilot_no_llm_provider
 
-*On forge-cli `main`, not yet in a release ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)).* `ERR_COPILOT_NO_LLM_PROVIDER`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md), where [No LLM provider is selected](./production-troubleshooting.md#no-llm-provider-is-selected) explains each message.
+*(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* `ERR_COPILOT_NO_LLM_PROVIDER`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md), where [No LLM provider is selected](./production-troubleshooting.md#no-llm-provider-is-selected) explains each message.
 
 - Pass --llm-provider, for example anthropic, openai, gemini or ollama
 - Or set FLUID_LLM_PROVIDER, or the API key of exactly one provider
