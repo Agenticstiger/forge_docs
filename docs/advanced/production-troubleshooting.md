@@ -252,7 +252,29 @@ fluid ai setup       # re-run setup to store the rotated key
 
 Update the key at the source `fluid ai status` reports, the provider environment variable (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`) or the stored configuration, then confirm with `fluid ai test`. See [LLM providers and backends](./llm-providers.md) for the resolution order.
 
-[`fluid ai test`](../cli/ai.md#ai-test) is the connectivity check. As of 0.18.1, `fluid ai test` with no provider configured and no `--provider` fails with `❌ Unexpected error: name 'detect_ollama_available' is not defined` and exit code 2. Name the provider, or run `fluid ai setup` first. `fluid ai test --provider <name> --json` prints a report with `ok`, `exit_code` and, on failure, an `error` object with `code`, `message` and `suggestions`.
+[`fluid ai test`](../cli/ai.md#ai-test) is the connectivity check. With no provider configured and no `--provider`, it exits 2 with `ai_test_no_provider`; name the provider, or run `fluid ai setup` first. *(since 0.28.0, [forge-cli #839](https://github.com/Agenticstiger/forge-cli/pull/839))* Through 0.27.0 it failed with `❌ Unexpected error: name 'detect_ollama_available' is not defined` instead. `fluid ai test --provider <name> --json` prints a report with `ok`, `exit_code` and, on failure, an `error` object with `code`, `message` and `suggestions`.
+
+### No LLM provider is selected
+
+*On forge-cli `main`, not yet in a release ([forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852)).* `copilot_no_llm_provider` means that nothing named an LLM provider and no Ollama answered at `OLLAMA_HOST` or `localhost:11434`, so forge stopped instead of guessing one. Its first line says why:
+
+| Message | Cause |
+| --- | --- |
+| `No LLM provider configured. Run 'fluid ai setup' or set an API key env var.` | Nothing names a provider. A run without a terminal, or with `--non-interactive`, also found no coding-agent CLI on `PATH`, or a setting that names none, such as `--llm-model` or `--llm-endpoint`, kept it from looking for one. Keys in the OS keyring for more than one provider give this message too. See [When nothing is configured](./llm-providers.md#when-nothing-is-configured). |
+| `No LLM provider is selected: OPENAI_API_KEY, ANTHROPIC_API_KEY are all set, so none of them is chosen. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | More than one provider's key is set in the environment. `OLLAMA_HOST` counts as Ollama's. |
+| `No LLM provider is selected: FLUID_LLM_API_KEY does not say which provider the key is for. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | `FLUID_LLM_API_KEY` is set, but nothing names a provider. |
+| `No LLM provider is selected for this run: 'fluid ai setup' saved anthropic, but this command does not read the saved choice. Pass --llm-provider anthropic.` | The command does not read the provider `fluid ai setup` saved: `fluid forge data-model`, or `fluid forge` with `--non-interactive`, which `--agent` sets. |
+
+The suggestions under it are the same in each case:
+
+```text
+• Pass --llm-provider, for example anthropic, openai, gemini or ollama
+• Or set FLUID_LLM_PROVIDER, or the API key of exactly one provider
+• Or run 'fluid ai setup' to choose and save a provider
+• Run 'fluid doctor' to see what forge would select
+```
+
+`fluid doctor --verbose` shows the same reason in its Message row, except for a saved provider, which `fluid doctor` reads. Before #852 forge used `gemini` in each case: it sent `FLUID_LLM_API_KEY` to Google whatever key it was, and with two provider keys set it asked for a Gemini key.
 
 ### A coding agent that is not signed in
 
