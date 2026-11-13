@@ -56,6 +56,7 @@ fluid apply contract.fluid.yaml --yes --mode amend-and-build
 
 Under `--mode amend-and-build`, each build goes to the runner that matches it:
 
+- *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* a build with `engine: lakeflow` (schema 0.7.7) runs in the Databricks workspace as the Lakeflow pipeline the apply provisions, although its `pattern` is `embedded-logic`: the apply starts an update and waits for it, except for a continuous pipeline, which Databricks keeps running (see [Lakeflow pipelines](../providers/databricks.md#lakeflow-pipelines));
 - *(since 0.21.0, [forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731))* a Flink build (`engine: flink`, or `properties.language: flink_sql`) is not run: it is reported as run outside forge-cli (see [Flink jobs](#flink-jobs-engine-flink)). *(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* The exception is a 0.7.7 build with `properties.parameters.flink.management: operator`, which forge-cli deploys itself; see [Managed Flink to Iceberg](../advanced/managed-flink-iceberg.md);
 - an `acquisition` build runs on its ingestion engine;
 - a build with `engine: sql`, or `pattern: embedded-logic` with `properties.sql`, runs as embedded SQL;
