@@ -21,6 +21,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **One pinned credential**: the workspace comes from `DATABRICKS_HOST` only, and a run never falls back to a stray profile
 - ⚠️ **Live drift**: `fluid diff` has no Databricks inspector yet (see [`fluid diff`](#fluid-diff))
 - ✅ **Column masks, row filters, denied columns**: Unity Catalog SQL functions that `fluid apply` binds on the table (see [Column masks and row filters](#column-masks-and-row-filters))
+- ✅ **Metric views**: an expose's `semantics` block becomes a Unity Catalog metric view beside its table, which Genie, AI/BI dashboards and SQL read with `MEASURE()` (see [Metric views](#metric-views)) *([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865), since 0.30.0)*
 - ✅ **Retention**: `lifecycle.expire` is accepted for a table rebuilt in full on every run, and `fluid verify` checks the table's Delta history against it (see [Retention](#retention))
 - ✅ **Landing from a DuckDB acquisition**: the acquisition runner uploads Parquet to a Unity Catalog volume and loads the table with `INSERT OVERWRITE`, applying `policy.privacy.masking` before the data leaves the machine (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition))
 - ✅ **Described in Unity Catalog**: table and column comments from the contract, the product's identity as table tags, a column's `sensitivity` as a column tag, and Unity Catalog's certification (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification)) *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*
@@ -196,6 +197,28 @@ data-analysts also need USE CATALOG on catalog main, which forge-cli never grant
 | A missing catalog, missing credentials or an unreachable workspace | Fails at plan, naming the catalog, the variables to set or the host. |
 
 An apply that stops before it applies anything (`--mode dry-run`, a refusal, the data-loss gate, a failed plan) hands back any object it imported with `tofu state rm`. The objects stay as they are, and the next apply adopts them again.
+
+### A schema the contract stops using
+
+*([forge-cli #873](https://github.com/Agenticstiger/forge-cli/pull/873), since 0.30.0)*
+
+When a table moves to another schema or catalog, or a schema's last expose is removed, the saved plan destroys the old schema. It destroys the table too, so the apply needs `--allow-data-loss`, and so does its dry-run. OpenTofu never force-destroys a schema, and Unity Catalog refuses to delete one that holds anything. Two things this product makes there are no OpenTofu resource, so nothing in the plan removes them: its [metric views](#metric-views) and the functions of its [column masks and row filters](#column-masks-and-row-filters). Before 0.30.0 the apply failed at that schema until they were dropped by hand.
+
+Now `fluid apply` clears them, in each schema the saved plan destroys and the contract no longer names:
+
+1. **Before `tofu apply`**, it drops this product's metric views over the tables the plan destroys or that no longer exist, and the mask and row filter functions that no table uses.
+2. **`tofu apply`** destroys the tables. When they had masks or a row filter, their functions are still in the schema, so its destroy fails.
+3. **Then** it drops those functions, plans again, and applies the destroys that waited (`tofu plan (the destroys that waited): +0 ~0 -<n>`). It does this only when every error was the failed destroy of such a schema, the drops cleared each of those schemas with nothing left in it, and the new plan holds only those destroys. Otherwise the apply's own error stands.
+
+What it drops, and what it leaves:
+
+- **Only the deploy identity's objects go.** A view or function another identity owns, or whose owner cannot be read, is left.
+- **A view goes only with this product's `fluid.product_id`**, and only when the table it reads is one the plan destroys or no longer exists.
+- **A function goes only under a name forge-cli gives one** (`fluid_rf_<table>_<hash8>`, `fluid_mask_<table>_<column>_<hash8>`), and never while a table or view of the schema still uses it. Unity Catalog binds a mask or a row filter by the function's name, so that table could read through whatever function someone made next under that name.
+- **Only schemas this environment's own OpenTofu state holds are looked in.** They come from the saved plan, never from a search of the catalog, so another environment of the product keeps its objects.
+- **Anything else the schema holds is named and left**: a table or view the plan keeps, another product's view, an object another identity owns, and a function a kept table uses or forge-cli did not name. The run prints `note: OpenTofu cannot destroy <schema> while it holds <what, and why>. Move or drop them, then re-run fluid apply.`, and the schema's destroy fails until they are moved or dropped. A volume or a model in the schema is neither dropped nor named.
+- **A schema that cannot be read has nothing in it dropped.** Without `databricks-sdk`, or when the Databricks client cannot be created, no schema is checked, and the run says so.
+- **`--mode dry-run` prints the drops and runs none.** Under `Schemas this apply destroys, and what is in them outside OpenTofu`, it lists what goes before the apply (`before apply: drop metric view <name>: <why>`) and what waits for the tables (`after tofu destroys <table>: drop function <name>`), each with its `DROP` statement, and ends with `dry-run: none of these statements ran.`
 
 ### Adopting an existing table
 
@@ -455,7 +478,7 @@ The module `fluid generate iac` writes holds no mask or filter, and a plain `tof
 
 #### What the functions are
 
-Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. A superseded function is dropped by `fluid apply` after the apply succeeds ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0), when no table in the schema uses it and the run's identity owns it, and the run prints `dropped superseded function <name>`. Only `fluid_rf_<table>_…`, `fluid_mask_<table>_<column>_…` and deny-all functions of the contract's tables are candidates. A function owned by another identity, or by an owner that cannot be read, is left and printed as `left function <name>: …`. A `DROP` that fails prints `note: superseded function <name> was not dropped: …` and the apply still succeeds. When a schema's tables or functions cannot all be read, nothing in it is dropped. *(since 0.28.0, [forge-cli #835](https://github.com/Agenticstiger/forge-cli/pull/835))* `fluid apply --mode dry-run` now lists those drops and runs nothing. For each `fluid_` mask or row-filter function the clean-up would drop, it prints `would drop superseded function <name> (after the apply, if it succeeds)`, and `would leave function <name>: <why>` where it would leave one. It works out the list against the bindings the apply leaves, so a function bound now to a table the contract manages is listed as droppable when the contract no longer expects it. When a schema cannot be read, the dry run prints `note: orphan functions in <catalog>.<schema> not listed: ...`. This is from the code at v0.28.0 and was not run against a live workspace.
+Each function is created once, as `CREATE FUNCTION IF NOT EXISTS`, under a name that carries a hash of its definition: `fluid_rf_<table>_<hash8>` for the row filter and `fluid_mask_<table>_<column>_<hash8>` for a mask, in the table's schema. Unity Catalog refuses to replace a function a filter or mask uses, so a changed predicate or rule is a new function, bound in place of the old one, and the same contract always names the same function. A superseded function is dropped by `fluid apply` after the apply succeeds ([forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), since 0.27.0), when no table in the schema uses it and the run's identity owns it, and the run prints `dropped superseded function <name>`. Only `fluid_rf_<table>_…`, `fluid_mask_<table>_<column>_…` and deny-all functions of the contract's tables are candidates. A function owned by another identity, or by an owner that cannot be read, is left and printed as `left function <name>: …`. A `DROP` that fails prints `note: superseded function <name> was not dropped: …` and the apply still succeeds. When a schema's tables or functions cannot all be read, nothing in it is dropped. *(since 0.28.0, [forge-cli #835](https://github.com/Agenticstiger/forge-cli/pull/835))* `fluid apply --mode dry-run` now lists those drops and runs nothing. For each `fluid_` mask or row-filter function the clean-up would drop, it prints `would drop superseded function <name> (after the apply, if it succeeds)`, and `would leave function <name>: <why>` where it would leave one. It works out the list against the bindings the apply leaves, so a function bound now to a table the contract manages is listed as droppable when the contract no longer expects it. When a schema cannot be read, the dry run prints `note: orphan functions in <catalog>.<schema> not listed: ...`. This is from the code at v0.28.0 and was not run against a live workspace. *([forge-cli #873](https://github.com/Agenticstiger/forge-cli/pull/873), since 0.30.0)* In a schema the contract stops using, the functions go too, once no table uses them (see [A schema the contract stops using](#a-schema-the-contract-stops-using)).
 
 The hashed name can be computed from the contract, so someone with `CREATE FUNCTION` on the schema could create it first with a body that returns the value unmasked. So after each create, and before any bind, forge-cli reads the function back. Its owner (the identity the run authenticates as), body, parameters and return type must be the expected ones, whitespace aside. A function that is not is never bound, and the run prints what differs.
 
@@ -678,6 +701,173 @@ The scans run on serverless compute, billed as `DATA_QUALITY_MONITORING`, as oft
 ::: warning Proven live on one run
 Proven against the in-process stand-in with a real `tofu` and provider 1.140.0, and on a live Free Edition workspace on 2026-11-12 (`HONESTLY_TESTED.md`, the 2026-11-12 data quality monitoring row), in a scratch catalog dropped afterwards. Live, a two-table product applied with its monitor and a second plan was empty, and Catalog Explorer showed `Training` on the watched table and `Excluded` on the other. A monitor made through the REST API was adopted. When the excluded table started to ask too, the monitor was updated in place and its exclusion list emptied. Opting out deleted the monitor without the gate. Not tried live: a result past `Training`, the cost, a workspace or identity Databricks refuses (proven against the stand-in only), and alerts.
 :::
+
+## Metric views
+
+*([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865), since 0.30.0)*
+
+An expose with a `semantics` block gets a Unity Catalog [metric view](https://docs.databricks.com/aws/en/metric-views/) beside its table, named `<catalog>.<schema>.<table>_semantic_model`. Genie, AI/BI dashboards and SQL then read the contract's measures and metrics as Databricks' own, defined once:
+
+```sql
+SELECT region, MEASURE(revenue), MEASURE(revenue_per_order)
+FROM main.sales.orders_semantic_model
+GROUP BY ALL
+```
+
+The view takes its table's name, not `semantics.name`, and stays in the table's schema, which the product owns.
+
+The [minimal contract](#a-minimal-contract), with a `region` column and a semantics block:
+
+```yaml
+exposes:
+  - exposeId: orders
+    # binding and policy as above
+    contract:
+      schema:
+        # order_id, amount and ordered_at as above, then:
+        - name: region
+          type: string
+          businessName: Sales region
+          labels:
+            synonyms: territory; market
+    semantics:
+      name: orders
+      description: Orders, as the shop counts them.
+      entities:
+        - name: order
+          type: primary
+          expr: order_id
+      dimensions:
+        - name: region
+          type: categorical
+        - name: order_day
+          type: time
+          expr: ordered_at
+          typeParams:
+            timeGranularity: day
+      measures:
+        - name: revenue
+          agg: sum
+          expr: amount
+        - name: order_count
+          agg: count_distinct
+          expr: order_id
+      metrics:
+        - name: emea_revenue
+          type: simple
+          measure: revenue
+          filter: "region = 'EMEA'"
+        - name: revenue_per_order
+          type: ratio
+          numerator: revenue
+          denominator: order_count
+      labels:
+        ai-synonyms: sales; bookings
+```
+
+`fluid apply` creates the view with this definition, which is what forge-cli writes for the block above:
+
+```yaml
+version: 1.1
+comment: |-
+  Orders, as the shop counts them.
+
+  Synonyms: sales; bookings.
+source: main.sales.orders
+dimensions:
+- name: order_id
+  expr: source.order_id
+- name: region
+  expr: source.region
+  display_name: Sales region
+  synonyms:
+  - territory
+  - market
+- name: order_day
+  expr: DATE_TRUNC('DAY', source.ordered_at)
+measures:
+- name: revenue
+  expr: SUM(source.amount)
+- name: order_count
+  expr: COUNT(DISTINCT source.order_id)
+- name: emea_revenue
+  expr: SUM(source.amount) FILTER (WHERE source.region = 'EMEA')
+- name: revenue_per_order
+  expr: MEASURE(revenue) / NULLIF(MEASURE(order_count), 0)
+```
+
+### What maps to what
+
+| In `semantics` | In the metric view |
+| --- | --- |
+| `entities[]` | A dimension. It takes its key column's name when the key is a column (`order_id` above), and the entity's own name when the key is an expression. An entity whose key is a single name that is no column of the table is left out, with a `fluid validate` warning: an entity is a join key, and a metric view holds no join. |
+| `dimensions[]`, categorical | A dimension. |
+| `dimensions[]`, time | A dimension at its `typeParams.timeGranularity`. A `DATE` at `day` stays as it is, a coarser grain on a `DATE` becomes `TRUNC(<column>, '<GRAIN>')`, and anything else becomes `DATE_TRUNC('<GRAIN>', <column>)`. |
+| `measures[]` | A measure: `SUM`, `AVG`, `COUNT`, `MIN`, `MAX` or `MEDIAN` by its `agg`, `count_distinct` as `COUNT(DISTINCT ...)`, and `percentile` as `PERCENTILE_CONT(<p>) WITHIN GROUP (ORDER BY ...)`, or `PERCENTILE_DISC` with `aggParams.useDiscretePercentile`. `<p>` is `aggParams.percentile`, 0.5 by default. |
+| `measures[].nonAdditiveDimension` | A window measure, ordered by that time dimension with `range: current`: `semiadditive: last` for `windowChoice: max`, and `first` for `min`, the default. |
+| `metrics[]`, simple | Its measure's aggregate, with the metric's `filter` as `FILTER (WHERE ...)`. Over a non-additive measure, it keeps the measure's window. One with its measure's name and no filter is that measure. |
+| `metrics[]`, ratio | `MEASURE(<numerator>) / NULLIF(MEASURE(<denominator>), 0)`, so a zero denominator reads `NULL`. Without `numerator` and `denominator`, the first two `inputMetrics` are used. |
+| `description` | The view's comment is `semantics.description`, else the expose's. A dimension's comment is its own description, else its column's. A measure's or a metric's comment is its own description. |
+| A column's `businessName` and `labels.synonyms` | The `display_name` and `synonyms` of the dimension over that column. Synonyms are `;`-separated, at most 10. |
+| `labels.ai-synonyms`, `labels.ai-instructions` | Added to the view's comment, as `Synonyms: ...` and `Instructions: ...`. |
+
+Every column an expression names, bare or as `<table>.<column>`, is written `source.<column>`. A metric view reads a bare name as one of its own fields or measures before a column (measured on Databricks SQL 2026.45), so a dimension named like a column would otherwise change the measures that read it. A name that is no column stays as written. An entity and a dimension with the same name and the same expression are one field.
+
+Not carried: `aggTimeDimension` and `defaultAggTimeDimension` (MetricFlow's `metric_time`, which a metric view has no counterpart for), `createMetric`, a metric's `owner`, the model's `tags`, and `labels.ai-example-questions`, which the product's Genie space reads as its sample questions.
+
+### Who can read it
+
+- **Exactly the table's readers.** `SELECT` on the view goes to each principal the contract lets read the table. `SELECT` and `ALL PRIVILEGES` are revoked from anyone else, except the view's owner and the deploying identity.
+- **Revokes come first.** They run before `tofu apply`, and first again after it, so no failure leaves a removed reader able to read.
+- **The table's row filter still applies.** A query through the view was filtered by it, measured on Free Edition with the deploying user's token, not as a reader. Masks through a view were not measured.
+- **A view reads its table with its owner's rights.** So when a restricted table's masks or row filter cannot be bound after `tofu apply`, `SELECT` and `ALL PRIVILEGES` on the views over it are revoked before the run fails, from everyone but the view's owner and the deploying identity, its readers included.
+
+### Why `fluid apply` creates it, outside OpenTofu
+
+The `databricks/databricks` provider has no metric view resource ([terraform-provider-databricks #4827](https://github.com/databricks/terraform-provider-databricks/issues/4827)). So the view's statements run on the SQL warehouse `DATABRICKS_WAREHOUSE_ID` names, in the same two hooks around `tofu apply` as the [masks and row filters](#column-masks-and-row-filters):
+
+| Hook | Does |
+| --- | --- |
+| Before `tofu apply` | Stops the run when an object this module did not create holds a view's name: a table, a view without this product's `fluid.product_id` property, or a view another identity owns. Revokes the readers the contract no longer names. Drops this product's views that the contract no longer declares, in the schemas its tables are in: a view named `*_semantic_model` that carries this product's `fluid.product_id` and that the deploying identity owns. Any other is left, with a `left metric view <name>: ...` line. In a schema the saved plan destroys, it drops this product's views over the tables the plan destroys or that no longer exist (see [A schema the contract stops using](#a-schema-the-contract-stops-using)). |
+| After `tofu apply` | `CREATE VIEW ... WITH METRICS LANGUAGE YAML` when the view is missing, or `ALTER VIEW ... AS` when its definition changed. Then the grants. |
+
+- **Only what differs runs.** The view carries `fluid.product_id`, `fluid.expose_id` and a digest of its definition as table properties. When the digest and the stored definition match, nothing runs, so a second apply executes no statement.
+- **Never `CREATE OR REPLACE`.** Measured live, a replace drops the view's grants and makes the replacer its owner. `ALTER VIEW ... AS` keeps both.
+- **Another environment keeps its own view.** A view is dropped only in the schemas this contract's tables are in, and in those the saved plan destroys, which this environment's own OpenTofu state holds. A staging copy of the product, with the same id in another schema of the catalog, keeps its view: its schema is in neither. The run prints `dropped metric view <name>` for a view dropped in a schema the contract still names, and `done: drop metric view <name>: <why>` in one the plan destroys.
+- **`--mode dry-run` prints what would run, and runs none of it.** The `CREATE VIEW`, or the `ALTER VIEW` and the digest it records, is printed under an `after apply:` line. Each revoke and each drop is a `before apply:` line, and each grant an `after apply:` line, naming the principal or the view without the SQL. It says `unchanged` for a definition that would not change and `REFUSED before the apply: <why>` for a name another object holds. Without `databricks-sdk`, or when the client cannot be created, it cannot read the live state: it marks each view `(live state not read)` and lists no drops.
+- **`fluid diff` reports it.** The report it writes (`--out`) lists the view as a `databricks_metric_view` action. Its terminal output and `fluid plan` do not show the view.
+- **`fluid generate iac` writes no view.** The module holds none, so a module applied by hand creates no metric view.
+- **The `[databricks]` extra is needed at apply**, as for masks: `pip install 'data-product-forge[databricks]'`. Without it, a contract that declares a view is refused before `tofu apply`.
+- **The product's Genie space lists it.** *([forge-cli #863](https://github.com/Agenticstiger/forge-cli/pull/863), since 0.30.0)* With `extensions.databricksGenie`, the space is converged after the metric views, so the first apply already shows the view beside its table.
+
+### If a statement fails
+
+A statement that fails after `tofu apply` fails the run with `databricks-metric-view-failed` (event `opentofu_access_enforcement_failed`), naming the view and what failed. The tables and grants the apply made stay, and the next apply converges the view. The deploying identity needs `CREATE TABLE` and `USE SCHEMA` on the schema, `SELECT` on the table and `CAN USE` on the warehouse.
+
+### What metric views refuse
+
+`fluid validate` refuses, for a Databricks binding, what metric view YAML cannot express, rather than approximate it. Among others:
+
+- a derived metric (its `expr` names other metrics, which a metric view reads only through `MEASURE()`), a ratio with a `filter`, and a metric type other than `simple` or `ratio`;
+- a `nonAdditiveDimension` that is not a time dimension of the model, and an `hour` or `minute` grain on a `DATE`;
+- two fields or measures with one name (they share one namespace, case aside), and a dimension, measure or metric named `source`;
+- a dimension or measure whose `expr` is a single name that is no column of the table, and a bare name that is no column but names one of the model's dimensions or measures;
+- a dimension, measure or metric name that is not a plain identifier, a simple metric over a measure the model does not declare, a ratio over an unknown or circular input, and an invalid `aggParams.percentile`;
+- an expression outside the SQL allowlist (a statement keyword, a comment, `;` or `$`), an unclosed quote, and unbalanced parentheses;
+- a call that would lend the view owner's rights to its readers: `secret()`, `http_request()`, `ai_*()`, `read_*()`, reflection, identity functions such as `current_user()` and `is_member()`, `IDENTIFIER()`, and a function named with quotes or a qualifier;
+- more than 10 distinct synonyms on a field (case aside), and a synonym or display name over 255 characters;
+- `$$` or `${` in a description, a synonym, a display name or an `ai-*` label, and `$$`, `${` or a control character in the contract id or an `exposeId`;
+- a table named like another table's view (`<table>_semantic_model`).
+
+A derived metric, for example:
+
+```text
+ 1. exposes[0] (orders) semantics.metrics[2] (revenue_growth) is a derived metric: its expr names other metrics, which a metric view reads only through MEASURE(), and forge-cli does not rewrite the expression, so it is refused rather than approximated. Express it as a ratio of two metrics, or remove it for Databricks.
+```
+
+A `semantics` block with nothing to compile, such as labels alone, makes no view, and `fluid validate` warns that it does not.
+
+A misspelt column inside a longer expression or a filter (`amountt * 2`, say) is not caught here. Databricks refuses it when it creates the view, after `tofu apply`, and the run fails (see [If a statement fails](#if-a-statement-fails)).
 
 ## dbt builds as jobs
 
@@ -1203,7 +1393,8 @@ What is refused, before the table exists where `fluid validate` or `fluid apply`
 - *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* a contract data-quality rule, on an expose a dbt job writes, that no dbt test can run as written (see [What the rules refuse](#what-the-rules-refuse));
 - a description with a backslash or `${`, a label set that becomes one of the product's own tag keys, a tag value over 256 characters, more than 1,000 column tags on a table, and a `certification` label other than `certified` *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification));
 - duplicate partitions;
-- a column type Databricks has no mapping for (it would be created as `string`), or would reject.
+- a column type Databricks has no mapping for (it would be created as `string`), or would reject;
+- a `semantics` block a metric view cannot hold *([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865), since 0.30.0)* (see [What metric views refuse](#what-metric-views-refuse)).
 
 It warns when a `DECIMAL` has no scale, because it would keep no fractional digits. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* It also warns about a `contract.dq.monitoring.window` other than one day on an expose that turns on data quality monitoring, since the window is not applied (see [Data quality monitoring](#data-quality-monitoring)).
 
@@ -1297,6 +1488,7 @@ It keeps every other profile, writes the file back owner-only (`0600`) and never
 - **Masks and row filters come from `fluid apply` alone.** `fluid generate iac` refuses a contract that has them, and a module applied by hand would have none.
 - **Landing-time masking needs a DuckDB acquisition.** `policy.privacy.masking` is applied by the acquisition runner before the data leaves the machine, so an expose written by anything else is refused (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)).
 - **Retention is a Delta history limit.** It holds only for a table rebuilt in full. forge-cli does not set the table's retention properties and does not check that the build runs within the retention (see [Retention](#retention)).
+- *([forge-cli #873](https://github.com/Agenticstiger/forge-cli/pull/873), since 0.30.0)* **A schema the contract stops using is cleared only of this product's own objects.** `fluid apply` drops the metric views and the mask and row filter functions this product made there, when the deploy identity owns them. Anything else keeps the schema, and its destroy fails until that is moved or dropped (see [A schema the contract stops using](#a-schema-the-contract-stops-using)).
 - **Empty folders stay.** The `.fluid/<product>/<build>` folders above `files/` are not managed; only `files/` and below are.
 - *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* **Data quality monitoring takes no threshold and no alert from the contract.** Databricks learns each table's bounds itself, and the pinned provider's anomaly detection settings have no alert setting for forge-cli to fill (see [Data quality monitoring](#data-quality-monitoring)).
 
@@ -1311,5 +1503,9 @@ The full matrix is in `HONESTLY_TESTED.md` in forge-cli. In short:
 | Stand-in workspace | The real `fluid` CLI, `tofu` and provider 1.140.0 against an in-process stand-in for the Unity Catalog, SQL statement, permissions and jobs APIs: plan, apply, an empty second plan, the data-loss gate, adoption, job and file removal. The stand-in does not check SQL dialect or privilege names. |
 | Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* Another manual run on 2026-11-12, in a scratch catalog dropped afterwards, turned data quality monitoring on, adopted a monitor made through the API, changed what it excludes and turned it off (see [Data quality monitoring](#data-quality-monitoring)). *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* One more manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran a dbt product's nine contract rules as eleven tests with `amend-and-build`: with a bad row seeded the run failed and `fluid apply` printed each rule's result, and on clean data the run succeeded (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests)). |
 | Emulator (nightly, not gating) | First run on 2026-10-30 passed 1 of 4: creates and the replace gate work, but a second plan is not empty against the emulator. |
+
+*([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865), since 0.30.0)* Metric views: 91 unit tests (the YAML, 39 refusals and 3 near misses that must still compile, and the hooks against the stand-in) and 5 stand-in tests through the real `fluid` CLI and `tofu`, one of them with the Genie space. One manual run on Free Edition on 2026-11-12, in a scratch catalog dropped afterwards, applied the semantics block of an industry-model gold product verbatim (13 dimensions, 3 non-additive measures, 4 filtered metrics) on a table shaped like it. The apply created the view and granted `SELECT` to its 3 readers, `MEASURE()` returned each market at its latest snapshot, and a second apply ran no statement. Not proven live for metric views: Genie and AI/BI dashboards reading the view, and a query sent as one of its readers.
+
+*([forge-cli #873](https://github.com/Agenticstiger/forge-cli/pull/873), since 0.30.0)* A schema the contract stops using: 14 tests of the rules against the stand-in, 24 of the engine with `tofu` stubbed, and 2 through the real `fluid` CLI and `tofu` against the stand-in, in which a table with a metric view, a mask and a row filter moves to another schema, and a schema's last expose is removed. Not proven live: that the provider destroys the table before its schema and Unity Catalog then deletes the schema once its functions are dropped. A live run on 2026-11-03 measured only that Unity Catalog does not delete a schema that holds a function.
 
 Not proven live: a Git source, profile or OAuth auth, a run-as service principal, table adoption, a larger project, and re-adopting a job after lost state. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Nor are the reason line of a queued run and a run queued for the workspace's limit.

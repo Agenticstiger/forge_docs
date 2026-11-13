@@ -849,6 +849,15 @@ These changes to AI authoring can change what a script, a CI job or an IDE agent
 - *(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* **`fluid ai test` probes the real call.** A rejected key exits `3`, a model the provider does not have exits `4`, and other failed calls exit `5`. See [`ai test`](./cli/ai.md#ai-test).
 - *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* **`LlmProvider.list_available_models` takes an `endpoint` keyword**, the address the call will go to. Forge passes it only when an endpoint is stated, so code that subclasses `LlmProvider` and overrides the method with two arguments keeps working until then. With an endpoint stated and the model check on (`--require-llm`, `--tiered` or `FLUID_LLM_MODEL_PREFLIGHT`), the check fails with `copilot_llm_model_preflight_failed`; add the keyword to avoid it.
 
+## Changes in 0.30.0
+
+These changes shipped in 0.30.0.
+
+### Databricks
+
+- *([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865), since 0.30.0)* **A Databricks expose with `semantics` now gets a metric view, and the apply needs `databricks-sdk`.** `fluid apply` creates `<table>_semantic_model` beside the table. Without `pip install 'data-product-forge[databricks]'`, the apply is refused before anything is applied. A `semantics` block the view cannot hold (a derived metric, say) now fails `fluid validate` for a Databricks binding: express it as a ratio, or remove it. See [Metric views](./providers/databricks.md#metric-views).
+- *([forge-cli #873](https://github.com/Agenticstiger/forge-cli/pull/873), since 0.30.0)* **A schema the contract stops using is now destroyed, not left failing the apply.** When a table moves to another schema or a schema's last expose is removed, `fluid apply` drops the metric views and the mask and row filter functions this product made there, when the deploy identity owns them, so OpenTofu can destroy the schema. Anything else the schema holds is named and left. `--mode dry-run` lists the drops and runs none. See [A schema the contract stops using](./providers/databricks.md#a-schema-the-contract-stops-using).
+
 ## Not in a release yet
 
 *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.*
