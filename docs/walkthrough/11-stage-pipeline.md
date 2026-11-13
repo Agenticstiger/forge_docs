@@ -321,20 +321,23 @@ sovereignty:
   enforcementMode: strict
 ```
 
-The plan stage prints:
+On 0.30.0 the plan stage prints:
 
 ```text
-Sovereignty check: 1 finding(s)  — source: built-in policy engine, enforcementMode=strict; the aws provider has no sovereignty hook
-  - ❌  Region 'us-east-1' (jurisdiction: US) does not match required jurisdiction: EU
+Sovereignty check: 1 finding(s)  — source: built-in policy engine, enforcementMode=strict
+  - ❌ [customer_events] Region 'us-east-1' (jurisdiction: US) does not match required jurisdiction: EU
    💡 Consider using regions in EU jurisdiction
 
 ❌ Sovereignty check FAILED — enforcementMode is 'strict'.
-CLI command error
 ❌ sovereignty_violation  [ERR_SOVEREIGNTY_VIOLATION]
+  command: plan
   contract: .../sov.fluid.yaml
+  errors: ["[customer_events] Region 'us-east-1' (jurisdiction: US) does not match required jurisdiction: EU"]
+  message: The contract's sovereignty policy (enforcementMode strict) blocks where it puts data, so fluid plan wrote no plan.
+...
 ```
 
-The plan file is still written; the exit code is what stops the pipeline. `enforcementMode: advisory` reports without blocking. See [Sovereignty](../concepts/sovereignty.md), and [Governance](../advanced/governance.md) for how the enforcement modes apply to the plan and to apply.
+*([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* The stage writes no `plan.json` and no `plan.html`; a plan file an earlier run left stays as it was. Up to 0.29.0 the plan file was still written, and only the exit code stopped the pipeline. The same contract is now refused without `--check-sovereignty` too. `enforcementMode: advisory` reports without blocking, except for a region listed in `deniedRegions`, which blocks in every mode. See [Sovereignty](../concepts/sovereignty.md), and [Governance](../advanced/governance.md) for how the enforcement modes apply to the plan and to apply.
 
 ### Stage 7: apply
 

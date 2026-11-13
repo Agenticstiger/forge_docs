@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.28.0, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.30.0, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -851,12 +851,29 @@ These changes to AI authoring can change what a script, a CI job or an IDE agent
 
 ## Changes in 0.30.0
 
-These changes shipped in 0.30.0.
+These changes shipped in 0.30.0. The first can stop a plan that used to pass: read it before you upgrade a pipeline.
+
+### `fluid plan` checks sovereignty by default
+
+*([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* `fluid plan` now refuses a contract that `fluid validate` refuses for its sovereignty policy. It exits 1 with `ERR_SOVEREIGNTY_VIOLATION` and writes no plan. Up to 0.29.0 plain `fluid plan` wrote a plan for such a contract and exited 0; only `--check-sovereignty` checked. Under `enforcementMode: strict`, the schema default, the refused contracts include one with a binding outside `allowedRegions`, in another jurisdiction, or on AWS, GCP, Azure or Databricks with no region declared. In every mode they include one with a binding in a region listed in `deniedRegions`.
+
+- **A plan step can now fail.** Before you upgrade, run `fluid validate` on each contract: the sovereignty errors it reports are the ones `plan` now refuses. To write the plan anyway, pass `--no-check-sovereignty`. It prints a warning and logs a WARNING (`sovereignty_check_skipped`), and `fluid apply` keeps its own checks.
+- **A failing plan stage writes no plan file.** The pipelines `fluid generate ci` writes already pass `--check-sovereignty`. On 0.29.0 a failing stage still wrote `plan.json`; now it writes none, and a file an earlier run left at `--out` stays as it was. A provider hook that reports nothing no longer passes a contract `fluid validate` refuses, because the same check runs first.
+
+See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 
 ### Databricks
 
 - *([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865), since 0.30.0)* **A Databricks expose with `semantics` now gets a metric view, and the apply needs `databricks-sdk`.** `fluid apply` creates `<table>_semantic_model` beside the table. Without `pip install 'data-product-forge[databricks]'`, the apply is refused before anything is applied. A `semantics` block the view cannot hold (a derived metric, say) now fails `fluid validate` for a Databricks binding: express it as a ratio, or remove it. See [Metric views](./providers/databricks.md#metric-views).
 - *([forge-cli #873](https://github.com/Agenticstiger/forge-cli/pull/873), since 0.30.0)* **A schema the contract stops using is now destroyed, not left failing the apply.** When a table moves to another schema or a schema's last expose is removed, `fluid apply` drops the metric views and the mask and row filter functions this product made there, when the deploy identity owns them, so OpenTofu can destroy the schema. Anything else the schema holds is named and left. `--mode dry-run` lists the drops and runs none. See [A schema the contract stops using](./providers/databricks.md#a-schema-the-contract-stops-using).
+- *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* **Unity Catalog tag values are written as the contract states them.** A tag value is now the contract's text less surrounding whitespace. Up to 0.29.0 it was the GCP label slug: lower-cased, with each character other than a letter, a digit, `_` or `-` turned into `-`, and cut at 63 characters. So `fluid_jurisdiction` is `US` where it was `us`, and `fluid_regulation` is `GDPR, CCPA` where it was `gdpr_ccpa`. Tag keys are unchanged, and so are GCP labels and AWS tags. See [Governance tags](./providers/databricks.md#governance-tags).
+  - **The next `fluid apply` updates the tags in place.** The plan shows each changed tag as `~`. Nothing is replaced or destroyed, and no `--allow-data-loss` is needed. Until that apply, `fluid verify` reports each old value as a changed tag (`CRITICAL`). On Databricks Free Edition, a product carrying the old values planned `+0 ~17 -0`.
+  - **A value over 256 characters is refused** as `databricks-tag-value-too-long` by `fluid validate`, `fluid generate iac` and `fluid apply`. Up to 0.29.0 it was cut to 63 characters. Shorten the value before you upgrade.
+  - **Anything that reads a tag value sees the new text**, for example a query on `information_schema.table_tags` that matches `'us'`.
+
+### Other changes
+
+- *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* Logs and printed errors no longer mask a fully qualified name such as `catalog.schema.table`: `fluid apply` printed `databricks.load table=***REDACTED***`, and now prints the table's name. A JWT or JWE is still masked, recognised by its JOSE header (a first part that decodes to a JSON object). `redact_secret_text()` no longer takes the `keep_dotted_names` keyword, so code that passes it gets a `TypeError`.
 
 ## Not in a release yet
 

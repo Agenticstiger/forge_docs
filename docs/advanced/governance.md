@@ -220,7 +220,7 @@ A contract's `sovereignty` block declares where its data may live. `enforcementM
 
 | `enforcementMode` | Severity | Effect |
 |---|---|---|
-| `strict` *(the schema default)* | ❌ error | [`fluid validate`](../cli/validate.md) exits 1; [`fluid plan --check-sovereignty`](../cli/plan.md#sovereignty-gate-since-0-15-0) blocks. |
+| `strict` *(the schema default)* | ❌ error | [`fluid validate`](../cli/validate.md) exits 1; [`fluid plan --check-sovereignty`](../cli/plan.md#sovereignty-gate-since-0-15-0) blocks, and *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* so does plain `fluid plan`. |
 | `advisory` | ⚠️ warning | Reported, does not block, though `fluid validate --strict` promotes warnings to errors. |
 | `audit` | ℹ️ info | Logged only. |
 
@@ -292,7 +292,7 @@ A Cloud KMS key ring and a Data Catalog taxonomy are placed at their dataset's m
 | Stage | What it does |
 |---|---|
 | [`fluid validate`](../cli/validate.md) | Runs the policy engine on every contract; severity follows `enforcementMode`. |
-| [`fluid plan --check-sovereignty`](../cli/plan.md#sovereignty-gate-since-0-15-0) | Opt-in when you run `plan` yourself. Since 0.17.0 every pipeline that `fluid generate ci` emits runs stage 6 as `fluid plan ... --out runtime/plan.json --check-sovereignty`, so a strict violation fails before any stage reaches a cloud. A contract with no `sovereignty` block prints `NOT CHECKED` and passes. |
+| [`fluid plan`](../cli/plan.md#sovereignty-gate-since-0-15-0) | *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* Runs the policy engine by default and refuses what `fluid validate` refuses, before it writes a plan; `--no-check-sovereignty` skips it with a warning. `--check-sovereignty` also asks the provider's hook and prints the verdict; up to 0.29.0 only that flag checked. Since 0.17.0 every pipeline that `fluid generate ci` emits runs stage 6 as `fluid plan ... --out runtime/plan.json --check-sovereignty`, so a strict violation fails before any stage reaches a cloud. With that flag, a contract with no `sovereignty` block prints `NOT CHECKED` and passes. |
 | [`fluid generate iac`](../cli/generate-iac.md) / [`fluid apply`](../cli/apply.md) | The AWS provider, and since 0.17.0 the GCP provider, refuse a placement outside the policy and exit 1, and **no module is written**. GCP checks every location the plan emits, including one a resource inherits by default. |
 | Embedded-SQL builds on BigQuery | The read and the landing are checked against the policy too (`EmbeddedSqlSovereigntyError`). |
 | [`fluid mcp output-port serve`](mcp.md#caller-jurisdiction-enforcement-since-0-15-0) | A pinned `jurisdiction` becomes a query-time gate on the **verified** caller jurisdiction, enforced by default, with the escape hatches in the contract and not in a flag. |

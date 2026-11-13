@@ -347,7 +347,7 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 | Kind | Triggered by | Fix |
 |---|---|---|
 | `databricks-tag-collision` | Two labels that become one tag key once `-` is read as `_` (`cost-center` and `cost_center`), or a label that becomes one of the product's own tag keys *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*. Only a key the contract states counts: with no `metadata.productType`, a label `fluid_product_type` is no collision | Rename the label so its key differs |
-| `databricks-tag-value-too-long` | A tag value over 256 characters: the contract's `id`, `name`, `domain`, `metadata.layer`, `metadata.productType`, `metadata.owner.team`, `fluidVersion` or the expose's `version`, or a column's `sensitivity` | Shorten it to 256 characters or fewer. forge-cli refuses rather than cuts, since a cut id names another product |
+| `databricks-tag-value-too-long` | A tag value over 256 characters: the contract's `id`, `name`, `domain`, `metadata.layer`, `metadata.productType`, `metadata.owner.team`, `fluidVersion` or the expose's `version`, or a column's `sensitivity`. *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* Also a governance label's value, which is no longer cut to 63 characters | Shorten it to 256 characters or fewer. forge-cli refuses rather than cuts, since a cut id names another product |
 | `databricks-tags-too-many` | More than 50 tags on a table or schema, counting the product's own tags with the governance labels, or more than 1,000 column tags on a table *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* | Remove labels until 50 or fewer remain, or classify 1,000 columns or fewer |
 | `databricks-comment-unsafe` | A table or column description that holds a backslash (the provider escapes only quotes in `COMMENT '...'`, and Databricks reads a backslash in a literal as an escape, so a trailing one, or one before a quote, would break the literal) or `${` (Spark may substitute a variable there) | Remove the backslash, or write `$ {` for `${` |
 | `databricks-certification-invalid` | The label `certification` has any value but `certified` (case ignored), on a product that is not `deprecated`. Unity Catalog's `system.certification_status` takes `certified` or `deprecated` | Set `labels.certification: certified` or remove it. Mark a deprecated product with `lifecycle.state: deprecated` |
@@ -423,7 +423,10 @@ The `fluid generate iac` and `fluid apply` runs print the refusal and exit befor
 
 - Move the offending binding into an allowed region, or widen 'sovereignty.allowedRegions' in the contract
 - Run 'fluid validate &lt;contract&gt;' to see the same findings with full detail
-- Set 'sovereignty.enforcementMode: advisory' to report without blocking
+- Set 'sovereignty.enforcementMode: advisory' to report a region outside 'allowedRegions' without blocking; a region in 'deniedRegions' blocks in every mode
+- Pass --no-check-sovereignty to write the plan anyway (logged at WARNING; fluid apply keeps its own checks)
+
+*([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* `fluid plan` raises it by default, before it writes a plan, when the contract's own sovereignty policy blocks; see [Sovereignty gate](../cli/plan.md#sovereignty-gate-since-0-15-0). The third suggestion is reworded and the fourth is new. Up to 0.29.0 the third read "Set 'sovereignty.enforcementMode: advisory' to report without blocking", although a region in `deniedRegions` blocks in every mode.
 
 ## Product authoring
 

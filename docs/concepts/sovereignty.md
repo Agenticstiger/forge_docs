@@ -138,7 +138,7 @@ This is the part most worth getting straight, because the two gates share a bloc
 |---|---|---|
 | **Question** | May the data *sit* here? | May this *caller* read it? |
 | **Compares** | each expose's `binding.location.region` → jurisdiction, against `sovereignty.jurisdiction` | the caller's **verified** jurisdiction claim, against `sovereignty.jurisdiction` |
-| **Runs on** | `fluid validate` (always); `fluid plan --check-sovereignty` (run by stage 6 of a generated pipeline); `fluid generate iac` and `fluid apply` on AWS and GCP | each `tools/call` that reaches the policy check at `fluid mcp output-port serve` |
+| **Runs on** | `fluid validate` (always); `fluid plan` (by default *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)*; up to 0.29.0 only with `--check-sovereignty`, which stage 6 of a generated pipeline passes); `fluid generate iac` and `fluid apply` on AWS and GCP | each `tools/call` that reaches the policy check at `fluid mcp output-port serve` |
 | **Since** | `0.7.1`, blocking by default since `0.15.0` | `0.15.0` |
 | **Relaxed by** | `enforcementMode: advisory` / `audit` | `crossBorderTransfer: true` |
 
@@ -237,7 +237,7 @@ fluid apply plan.json --yes        # after editing plan.json by hand
 
 The two digests it prints are yours, not ours. A `planDigest` is a function of your plan, so the property to rely on is *stable across re-runs, different after an edit*, never a particular hex string.
 
-So the division of labour is: `validate` (and `plan --check-sovereignty` in CI) decides whether the contract's residency claim is consistent; on AWS and GCP the provider refuses to create a resource outside the policy, including where it fills in a default; and the digest guarantees the artifact reaching your cloud is the one that decision was made about.
+So the division of labour is: `validate` (and `plan`, which checks by default since 0.30.0) decides whether the contract's residency claim is consistent; on AWS and GCP the provider refuses to create a resource outside the policy, including where it fills in a default; and the digest guarantees the artifact reaching your cloud is the one that decision was made about.
 
 ## When `policy-compile` or `policy-apply` fails
 
