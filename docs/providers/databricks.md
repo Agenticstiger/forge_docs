@@ -21,6 +21,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **One pinned credential**: the workspace comes from `DATABRICKS_HOST` only, and a run never falls back to a stray profile
 - ⚠️ **Live drift**: `fluid diff` has no Databricks inspector yet (see [`fluid diff`](#fluid-diff))
 - ✅ **Column masks, row filters, denied columns**: Unity Catalog SQL functions that `fluid apply` binds on the table (see [Column masks and row filters](#column-masks-and-row-filters))
+- ✅ **Metric views**: *On forge-cli's feat/databricks-metric-views branch ([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865)), not yet on `main` or in a release.* An expose's `semantics` block becomes a Unity Catalog metric view beside its table, which Genie, AI/BI dashboards and SQL read with `MEASURE()` (see [Metric views](#metric-views))
 - ✅ **Retention**: `lifecycle.expire` is accepted for a table rebuilt in full on every run, and `fluid verify` checks the table's Delta history against it (see [Retention](#retention))
 - ✅ **Landing from a DuckDB acquisition**: the acquisition runner uploads Parquet to a Unity Catalog volume and loads the table with `INSERT OVERWRITE`, applying `policy.privacy.masking` before the data leaves the machine (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition))
 - ✅ **Described in Unity Catalog**: table and column comments from the contract, the product's identity as table tags, a column's `sensitivity` as a column tag, and Unity Catalog's certification (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification)) *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))*
@@ -679,6 +680,173 @@ The scans run on serverless compute, billed as `DATA_QUALITY_MONITORING`, as oft
 Proven against the in-process stand-in with a real `tofu` and provider 1.140.0, and on a live Free Edition workspace on 2026-11-12 (`HONESTLY_TESTED.md`, the 2026-11-12 data quality monitoring row), in a scratch catalog dropped afterwards. Live, a two-table product applied with its monitor and a second plan was empty, and Catalog Explorer showed `Training` on the watched table and `Excluded` on the other. A monitor made through the REST API was adopted. When the excluded table started to ask too, the monitor was updated in place and its exclusion list emptied. Opting out deleted the monitor without the gate. Not tried live: a result past `Training`, the cost, a workspace or identity Databricks refuses (proven against the stand-in only), and alerts.
 :::
 
+## Metric views
+
+*On forge-cli's feat/databricks-metric-views branch ([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865)), not yet on `main` or in a release.*
+
+An expose with a `semantics` block gets a Unity Catalog [metric view](https://docs.databricks.com/aws/en/metric-views/) beside its table, named `<catalog>.<schema>.<table>_semantic_model`. Genie, AI/BI dashboards and SQL then read the contract's measures and metrics as Databricks' own, defined once:
+
+```sql
+SELECT region, MEASURE(revenue), MEASURE(revenue_per_order)
+FROM main.sales.orders_semantic_model
+GROUP BY ALL
+```
+
+The view takes its table's name, not `semantics.name`, and stays in the table's schema, which the product owns.
+
+The [minimal contract](#a-minimal-contract), with a `region` column and a semantics block:
+
+```yaml
+exposes:
+  - exposeId: orders
+    # binding and policy as above
+    contract:
+      schema:
+        # order_id, amount and ordered_at as above, then:
+        - name: region
+          type: string
+          businessName: Sales region
+          labels:
+            synonyms: territory; market
+    semantics:
+      name: orders
+      description: Orders, as the shop counts them.
+      entities:
+        - name: order
+          type: primary
+          expr: order_id
+      dimensions:
+        - name: region
+          type: categorical
+        - name: order_day
+          type: time
+          expr: ordered_at
+          typeParams:
+            timeGranularity: day
+      measures:
+        - name: revenue
+          agg: sum
+          expr: amount
+        - name: order_count
+          agg: count_distinct
+          expr: order_id
+      metrics:
+        - name: emea_revenue
+          type: simple
+          measure: revenue
+          filter: "region = 'EMEA'"
+        - name: revenue_per_order
+          type: ratio
+          numerator: revenue
+          denominator: order_count
+      labels:
+        ai-synonyms: sales; bookings
+```
+
+`fluid apply` creates the view with this definition, which is what forge-cli writes for the block above:
+
+```yaml
+version: 1.1
+comment: |-
+  Orders, as the shop counts them.
+
+  Synonyms: sales; bookings.
+source: main.sales.orders
+dimensions:
+- name: order_id
+  expr: source.order_id
+- name: region
+  expr: source.region
+  display_name: Sales region
+  synonyms:
+  - territory
+  - market
+- name: order_day
+  expr: DATE_TRUNC('DAY', source.ordered_at)
+measures:
+- name: revenue
+  expr: SUM(source.amount)
+- name: order_count
+  expr: COUNT(DISTINCT source.order_id)
+- name: emea_revenue
+  expr: SUM(source.amount) FILTER (WHERE source.region = 'EMEA')
+- name: revenue_per_order
+  expr: MEASURE(revenue) / NULLIF(MEASURE(order_count), 0)
+```
+
+### What maps to what
+
+| In `semantics` | In the metric view |
+| --- | --- |
+| `entities[]` | A dimension. It takes its key column's name when the key is a column (`order_id` above), and the entity's own name when the key is an expression. An entity whose key is a single name that is no column of the table is left out, with a `fluid validate` warning: an entity is a join key, and a metric view holds no join. |
+| `dimensions[]`, categorical | A dimension. |
+| `dimensions[]`, time | A dimension at its `typeParams.timeGranularity`. A `DATE` at `day` stays as it is, a coarser grain on a `DATE` becomes `TRUNC(<column>, '<GRAIN>')`, and anything else becomes `DATE_TRUNC('<GRAIN>', <column>)`. |
+| `measures[]` | A measure: `SUM`, `AVG`, `COUNT`, `MIN`, `MAX` or `MEDIAN` by its `agg`, `count_distinct` as `COUNT(DISTINCT ...)`, and `percentile` as `PERCENTILE_CONT(<p>) WITHIN GROUP (ORDER BY ...)`, or `PERCENTILE_DISC` with `aggParams.useDiscretePercentile`. `<p>` is `aggParams.percentile`, 0.5 by default. |
+| `measures[].nonAdditiveDimension` | A window measure, ordered by that time dimension with `range: current`: `semiadditive: last` for `windowChoice: max`, and `first` for `min`, the default. |
+| `metrics[]`, simple | Its measure's aggregate, with the metric's `filter` as `FILTER (WHERE ...)`. Over a non-additive measure, it keeps the measure's window. One with its measure's name and no filter is that measure. |
+| `metrics[]`, ratio | `MEASURE(<numerator>) / NULLIF(MEASURE(<denominator>), 0)`, so a zero denominator reads `NULL`. Without `numerator` and `denominator`, the first two `inputMetrics` are used. |
+| `description` | The view's comment is `semantics.description`, else the expose's. A dimension's comment is its own description, else its column's. A measure's or a metric's comment is its own description. |
+| A column's `businessName` and `labels.synonyms` | The `display_name` and `synonyms` of the dimension over that column. Synonyms are `;`-separated, at most 10. |
+| `labels.ai-synonyms`, `labels.ai-instructions` | Added to the view's comment, as `Synonyms: ...` and `Instructions: ...`. |
+
+Every column an expression names, bare or as `<table>.<column>`, is written `source.<column>`. A metric view reads a bare name as one of its own fields or measures before a column (measured on Databricks SQL 2026.45), so a dimension named like a column would otherwise change the measures that read it. A name that is no column stays as written, and two fields with the same expression are one.
+
+Not carried: `aggTimeDimension` and `defaultAggTimeDimension` (MetricFlow's `metric_time`, which a metric view has no counterpart for), `createMetric`, a metric's `owner`, the model's `tags`, and `labels.ai-example-questions`, which the product's Genie space reads as its sample questions.
+
+### Who can read it
+
+- **Exactly the table's readers.** `SELECT` on the view goes to each principal the contract lets read the table. `SELECT` and `ALL PRIVILEGES` are revoked from anyone else, except the view's owner and the deploying identity.
+- **Revokes come first.** They run before `tofu apply`, and first again after it, so no failure leaves a removed reader able to read.
+- **The table's row filter still applies.** A query through the view was filtered by it, measured on Free Edition with the deploying user's token, not as a reader. Masks through a view were not measured.
+- **A view reads its table with its owner's rights.** So when a restricted table's masks or row filter cannot be bound after `tofu apply`, `SELECT` and `ALL PRIVILEGES` on the views over it are revoked before the run fails, from everyone but the view's owner and the deploying identity, its readers included.
+
+### Why `fluid apply` creates it, outside OpenTofu
+
+The `databricks/databricks` provider has no metric view resource ([terraform-provider-databricks #4827](https://github.com/databricks/terraform-provider-databricks/issues/4827)). So the view's statements run on the SQL warehouse `DATABRICKS_WAREHOUSE_ID` names, in the same two hooks around `tofu apply` as the [masks and row filters](#column-masks-and-row-filters):
+
+| Hook | Does |
+| --- | --- |
+| Before `tofu apply` | Stops the run when an object this module did not create holds a view's name: a table, a view without this product's `fluid.product_id` property, or a view another identity owns. Revokes the readers the contract no longer names. Drops this product's views that the contract no longer declares, in the schemas its tables are in: a view named `*_semantic_model` that carries this product's `fluid.product_id` and that the deploying identity owns. Any other is left, with a `left metric view <name>: ...` line. |
+| After `tofu apply` | `CREATE VIEW ... WITH METRICS LANGUAGE YAML` when the view is missing, or `ALTER VIEW ... AS` when its definition changed. Then the grants. |
+
+- **Only what differs runs.** The view carries `fluid.product_id`, `fluid.expose_id` and a digest of its definition as table properties. When the digest and the stored definition match, nothing runs, so a second apply executes no statement.
+- **Never `CREATE OR REPLACE`.** Measured live, a replace drops the view's grants and makes the replacer its owner. `ALTER VIEW ... AS` keeps both.
+- **Another environment keeps its own view.** A view is dropped only in the schemas this contract's tables are in. A staging copy of the product, with the same id in another schema of the catalog, keeps its view. The run prints `dropped metric view <name>`.
+- **`--mode dry-run` prints every statement and runs none.** It marks each step `before apply:` or `after apply:`, with its statement under it, and says `unchanged` for a definition that would not change and `REFUSED before the apply: <why>` for a name another object holds. Without `databricks-sdk` or a warehouse, it cannot read the live state, says so in its header, and lists no drops.
+- **`fluid diff` reports it.** The report it writes (`--out`) lists the view as a `databricks_metric_view` action. Its terminal output and `fluid plan` do not show the view.
+- **`fluid generate iac` writes no view.** The module holds none, so a module applied by hand creates no metric view.
+- **The `[databricks]` extra is needed at apply**, as for masks: `pip install 'data-product-forge[databricks]'`. Without it, a contract that declares a view is refused before `tofu apply`.
+- **The product's Genie space lists it.** *On forge-cli `main`, not yet in a release ([forge-cli #863](https://github.com/Agenticstiger/forge-cli/pull/863)).* With `extensions.databricksGenie`, the space is converged after the metric views, so the first apply already shows the view beside its table.
+
+### If a statement fails
+
+A statement that fails after `tofu apply` fails the run with `databricks-metric-view-failed` (event `opentofu_access_enforcement_failed`), naming the view and what failed. The tables and grants the apply made stay, and the next apply converges the view. The deploying identity needs `CREATE TABLE` and `USE SCHEMA` on the schema, `SELECT` on the table and `CAN USE` on the warehouse.
+
+### What metric views refuse
+
+`fluid validate` refuses, for a Databricks binding, what metric view YAML cannot express, rather than approximate it. Among others:
+
+- a derived metric (its `expr` names other metrics, which a metric view reads only through `MEASURE()`), a ratio with a `filter`, and a metric type other than `simple` or `ratio`;
+- a `nonAdditiveDimension` that is not a time dimension of the model, and an `hour` or `minute` grain on a `DATE`;
+- two fields or measures with one name (they share one namespace, case aside), and a field named `source`;
+- a dimension or measure whose `expr` is a single name that is no column of the table, and a bare name that is also one of the model's dimensions or measures;
+- a dimension, measure or metric name that is not a plain identifier, a simple metric over a measure the model does not declare, a ratio over an unknown or circular input, and an invalid `aggParams.percentile`;
+- an expression outside the SQL allowlist (a statement keyword, a comment, `;` or `$`), an unclosed quote, and unbalanced parentheses;
+- a call that would lend the view owner's rights to its readers: `secret()`, `http_request()`, `ai_*()`, `read_*()`, reflection, identity functions such as `current_user()` and `is_member()`, `IDENTIFIER()`, and a function named with quotes or a qualifier;
+- more than 10 distinct synonyms on a field (case aside), and a synonym or display name over 255 characters;
+- `$$` or `${` in a description, a synonym, a display name or an `ai-*` label, and `$$`, `${` or a control character in the contract id or an `exposeId`;
+- a table named like another table's view (`<table>_semantic_model`).
+
+A derived metric, for example:
+
+```text
+ 1. exposes[0] (orders) semantics.metrics[2] (revenue_growth) is a derived metric: its expr names other metrics, which a metric view reads only through MEASURE(), and forge-cli does not rewrite the expression, so it is refused rather than approximated. Express it as a ratio of two metrics, or remove it for Databricks.
+```
+
+A `semantics` block with nothing to compile, such as labels alone, makes no view, and `fluid validate` warns that it does not.
+
+A misspelt column inside a longer expression or a filter (`amountt * 2`, say) is not caught here. Databricks refuses it when it creates the view, after `tofu apply`, and the run fails (see [If a statement fails](#if-a-statement-fails)).
+
 ## dbt builds as jobs
 
 A build with an `engine` of `dbt` or `dbt-databricks` and `execution.runtime.platform: databricks` runs in the workspace, not on the machine that applies. `fluid apply` provisions one serverless job per build with a dbt task. Databricks runs it on the SQL warehouse `DATABRICKS_WAREHOUSE_ID` names, in the catalog and schema of the first Databricks expose the build writes (`builds[].outputs`). The job is named `fluid <product> <build>`.
@@ -1203,7 +1371,8 @@ What is refused, before the table exists where `fluid validate` or `fluid apply`
 - *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* a contract data-quality rule, on an expose a dbt job writes, that no dbt test can run as written (see [What the rules refuse](#what-the-rules-refuse));
 - a description with a backslash or `${`, a label set that becomes one of the product's own tag keys, a tag value over 256 characters, more than 1,000 column tags on a table, and a `certification` label other than `certified` *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification));
 - duplicate partitions;
-- a column type Databricks has no mapping for (it would be created as `string`), or would reject.
+- a column type Databricks has no mapping for (it would be created as `string`), or would reject;
+- *On forge-cli's feat/databricks-metric-views branch ([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865)), not yet on `main` or in a release.* a `semantics` block a metric view cannot hold (see [What metric views refuse](#what-metric-views-refuse)).
 
 It warns when a `DECIMAL` has no scale, because it would keep no fractional digits. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* It also warns about a `contract.dq.monitoring.window` other than one day on an expose that turns on data quality monitoring, since the window is not applied (see [Data quality monitoring](#data-quality-monitoring)).
 
@@ -1297,6 +1466,7 @@ It keeps every other profile, writes the file back owner-only (`0600`) and never
 - **Masks and row filters come from `fluid apply` alone.** `fluid generate iac` refuses a contract that has them, and a module applied by hand would have none.
 - **Landing-time masking needs a DuckDB acquisition.** `policy.privacy.masking` is applied by the acquisition runner before the data leaves the machine, so an expose written by anything else is refused (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)).
 - **Retention is a Delta history limit.** It holds only for a table rebuilt in full. forge-cli does not set the table's retention properties and does not check that the build runs within the retention (see [Retention](#retention)).
+- **A metric view left in a schema the contract stops using is not found.** *On forge-cli's feat/databricks-metric-views branch ([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865)), not yet on `main` or in a release.* When its table moves to another schema, or the schema's last expose is removed, OpenTofu's destroy of that schema fails until the view is dropped by hand, as for the masks' functions.
 - **Empty folders stay.** The `.fluid/<product>/<build>` folders above `files/` are not managed; only `files/` and below are.
 - *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* **Data quality monitoring takes no threshold and no alert from the contract.** Databricks learns each table's bounds itself, and the pinned provider's anomaly detection settings have no alert setting for forge-cli to fill (see [Data quality monitoring](#data-quality-monitoring)).
 
@@ -1311,5 +1481,7 @@ The full matrix is in `HONESTLY_TESTED.md` in forge-cli. In short:
 | Stand-in workspace | The real `fluid` CLI, `tofu` and provider 1.140.0 against an in-process stand-in for the Unity Catalog, SQL statement, permissions and jobs APIs: plan, apply, an empty second plan, the data-loss gate, adoption, job and file removal. The stand-in does not check SQL dialect or privilege names. |
 | Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* Another manual run on 2026-11-12, in a scratch catalog dropped afterwards, turned data quality monitoring on, adopted a monitor made through the API, changed what it excludes and turned it off (see [Data quality monitoring](#data-quality-monitoring)). *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* One more manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran a dbt product's nine contract rules as eleven tests with `amend-and-build`: with a bad row seeded the run failed and `fluid apply` printed each rule's result, and on clean data the run succeeded (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests)). |
 | Emulator (nightly, not gating) | First run on 2026-10-30 passed 1 of 4: creates and the replace gate work, but a second plan is not empty against the emulator. |
+
+*On forge-cli's feat/databricks-metric-views branch ([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865)), not yet on `main` or in a release.* Metric views: 91 unit tests (the YAML, 42 refusal cases, and the hooks against the stand-in) and 5 stand-in tests through the real `fluid` CLI and `tofu`, one of them with the Genie space. One manual run on Free Edition on 2026-11-12, in a scratch catalog dropped afterwards, applied the semantics block of an industry-model gold product verbatim (13 dimensions, 3 non-additive measures, 4 filtered metrics) on a table shaped like it. The apply created the view and granted `SELECT` to its 3 readers, `MEASURE()` returned each market at its latest snapshot, and a second apply ran no statement. Not proven live for metric views: Genie and AI/BI dashboards reading the view, and a query sent as one of its readers.
 
 Not proven live: a Git source, profile or OAuth auth, a run-as service principal, table adoption, a larger project, and re-adopting a job after lost state. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Nor are the reason line of a queued run and a run queued for the workspace's limit.
