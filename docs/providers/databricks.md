@@ -15,6 +15,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **Plan & Apply**: a schema, a managed Delta table and one grant per principal, through OpenTofu
 - ✅ **Existing catalog**: `location.database` names a catalog that must already exist. forge-cli reads it and never creates, grants on or destroys it
 - ✅ **dbt builds as jobs**: a dbt build whose `execution.runtime.platform` is `databricks` becomes a serverless job that Databricks runs on its own trigger. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* `fluid apply --mode amend-and-build` also starts a run now and waits for it (see [Running the job from `fluid apply`](#running-the-job-from-fluid-apply))
+- ✅ **Contract rules as dbt tests**: *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* The `dq.rules` of the exposes a dbt job writes run as dbt tests in the job, and a failing rule of severity `critical` or `error` fails the run (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests))
 - ✅ **Residency**: `binding.location.region` is checked against the contract's `sovereignty` policy and against the workspace's metastore (see [Residency](#residency))
 - ✅ **Verify**: `fluid verify` checks the live table's columns, `USE CATALOG` for every reader, the residency, the governance tags, the bound masks and row filter, and that each dbt job exists exactly once
 - ✅ **One pinned credential**: the workspace comes from `DATABRICKS_HOST` only, and a run never falls back to a stray profile
@@ -720,9 +721,9 @@ builds:
 - `dbt_project.yml`, `packages.yml`, `dependencies.yml`, `package-lock.yml` and `selectors.yml`;
 - the directories the `*-paths` keys of `dbt_project.yml` name (by default `models`, `macros`, `seeds`, `snapshots`, `tests` and `analyses`).
 
-Never uploaded: `profiles.yml`, `target/`, a hidden file or directory, a symbolic link. A path key that names the project root, a hidden directory or a place outside the project is refused. The upload takes at most 1000 files and 20 MiB, and a file may be 2 MiB. The apply uploads the project as it is when the apply runs, as a local dbt run reads it when it runs. A plan's `planDigest` and `bundleDigest` bind the contract, not the project's files.
+Never uploaded: `profiles.yml`, `target/`, a hidden file or directory, a symbolic link. A path key that names the project root, a hidden directory or a place outside the project is refused. The upload takes at most 1000 files and 20 MiB, and a file may be 2 MiB. The apply uploads the project as it is when the apply runs, as a local dbt run reads it when it runs. A plan's `planDigest` and `bundleDigest` bind the contract, not the project's files. *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* When an expose the build writes states `dq.rules`, the upload also holds a generated test file for each test those rules make (one or several per rule), and they count toward the 1000 files above (the byte limits apply to your own files). Your own files go up unchanged (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests)).
 
-**A Git URL** is cloned by Databricks, and nothing is uploaded. It must be `https://` with no user or password in it, on `github.com`, `gitlab.com`, `bitbucket.org` or Azure DevOps (`dev.azure.com`, or a `*.visualstudio.com` organisation). Name exactly one ref, once: `?branch=`, `?tag=` or `?commit=`. Add `&path=` for a project below the repository root. A private repository needs a Git credential in Databricks.
+**A Git URL** is cloned by Databricks, and nothing is uploaded. It must be `https://` with no user or password in it, on `github.com`, `gitlab.com`, `bitbucket.org` or Azure DevOps (`dev.azure.com`, or a `*.visualstudio.com` organisation). Name exactly one ref, once: `?branch=`, `?tag=` or `?commit=`. Add `&path=` for a project below the repository root. A private repository needs a Git credential in Databricks. *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* A build that writes an expose with `dq.rules` cannot use a Git URL: forge-cli adds the rules' tests to the project it uploads, and no file can be added to a checkout (see [What the rules refuse](#what-the-rules-refuse)).
 
 ```yaml
     repository: https://github.com/acme/orders-dbt?tag=v1.2.0&path=dbt
@@ -754,6 +755,7 @@ A job runs as the identity that applies it. A contract can name a service princi
 - a `vars` value holding an `{{ env.* }}` template, which the job settings would store in clear;
 - a `serviceAccount` that is not an application id, or is not in the allowlist;
 - a Git URL that breaks the rules above, and a Git host outside those;
+- *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* a contract data-quality rule that no dbt test can run as written, and a Git URL on a build that writes an expose with rules (see [What the rules refuse](#what-the-rules-refuse));
 - a dbt build with another adapter (`engine: dbt-snowflake`, for example) and `runtime.platform: databricks`: a Databricks job runs dbt with the dbt-databricks adapter only.
 
 ### Applying and removing
@@ -846,6 +848,294 @@ Under `replace-and-build` the line ends `with dbt build --full-refresh and wait 
 
 **Several products, in lineage order.** Each apply starts its own product's jobs only. To build an estate whose products read each other, provision every product first, in parallel, with `--mode amend`. Then run `--mode amend-and-build` one lineage level at a time, upstream first. For a product that has not changed since, the second apply plans no change (live: `tofu plan: +0 ~0 -0`, about 30 seconds for some 75 resources), except to unpause a job [created paused](#a-job-that-writes-a-table-not-yet-protected). Then it starts the runs and waits for them.
 
+### Contract rules as dbt tests
+
+*On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).*
+
+The rules in `exposes[].contract.dq.rules` of an expose a Databricks dbt build writes run as dbt tests in that build's job. There is no new contract field and no flag: the rules turn it on. The tests are part of the job's `dbt build`, so they run on every run of the job, whether its trigger, a person or `fluid apply` started it. `dbt build` runs each test right after the model it tests. The dbt task's output, which the job's run page shows, lists every rule's test by name as passed, warned or failed, and `fluid apply --mode amend-and-build` prints that list when the run ends (see [What `fluid apply` prints for each rule](#what-fluid-apply-prints-for-each-rule)).
+
+A rule that no test can run as written is refused, not skipped (see [What the rules refuse](#what-the-rules-refuse)). [`fluid test`](../cli/test.md) checks the same rules on demand against the deployed table.
+
+```yaml
+exposes:
+  - exposeId: orders
+    # binding as in the minimal contract
+    contract:
+      schema:
+        - name: order_id
+          type: string
+          required: true
+        - name: status
+          type: string
+          validationRules:
+            - type: enum
+              constraint: "NEW | SHIPPED | CANCELLED"
+        - name: amount
+          type: decimal(18,2)
+          validationRules:
+            - type: range
+              constraint: ">= 0"
+        - name: ordered_at
+          type: timestamp
+      dq:
+        rules:
+          - id: order_id_unique
+            type: uniqueness
+            selector: order_id
+            severity: critical
+          - id: status_valid
+            type: valid_values
+            selector: status
+            severity: error
+          - id: amount_nonnegative
+            type: valid_values
+            selector: amount
+            severity: warn
+          - id: orders_fresh
+            type: freshness
+            selector: ordered_at
+            window: PT6H
+            severity: warn
+```
+
+With the build in [dbt builds as jobs](#dbt-builds-as-jobs), the job's upload gains four files:
+
+```text
+tests/fluid_dq/orders/order_id_unique.sql
+tests/fluid_dq/orders/status_valid.sql
+tests/fluid_dq/orders/amount_nonnegative.sql
+tests/fluid_dq/orders/orders_fresh.sql
+```
+
+#### Where the tests go
+
+A rule makes one singular dbt test, or several (see `<name>` below). Each test is a `.sql` file in the copy of the project that `fluid apply` uploads, at `<test path>/fluid_dq/<model>/<name>.sql`.
+
+- `<test path>` is the first entry of `test-paths` in `dbt_project.yml`, or `tests` when the key is absent.
+- `<model>` is the dbt model that writes the expose: the build's `properties.model` when the build writes one table, otherwise the model named after the expose's table (`binding.location.table`).
+- `<name>` is the rule's `id`, lower-cased, with each run of characters other than ASCII letters, digits and `_` turned into one `_`, and any leading or trailing `_` removed. It is the test's name in dbt and in the run's output. If two rules would get the same name, the later one gets `__<expose>` added. A `selector` that lists several columns makes one test per column, named `<name>__<column>` (the column lower-cased and cleaned the same way). A `valid_values` rule whose column makes several declarations (see [What a `valid_values` rule allows](#what-a-valid-values-rule-allows)) makes one test per declaration, named `<name>__<kind>`, where `<kind>` is `accepted_values`, `regex`, `bounds` or `reference`.
+
+A dbt test passes when its query returns no row. Two of the four files above:
+
+```sql
+-- Contract rule order_id_unique (uniqueness): written by fluid apply from the contract. Change the contract, not this file.
+{{ config(severity="error", enabled=true, tags=["fluid_dq"], meta={'fluid_rule_id': "order_id_unique", 'fluid_expose_id': "orders"}) }}
+{{ adapter.dispatch('test_unique', 'dbt')(ref("orders"), "`order_id`") }}
+```
+
+```sql
+-- Contract rule amount_nonnegative (valid_values): written by fluid apply from the contract. Change the contract, not this file.
+{{ config(severity="warn", enabled=true, tags=["fluid_dq"], meta={'fluid_rule_id': "amount_nonnegative", 'fluid_expose_id': "orders"}) }}
+select `amount` as failing_value
+from {{ ref("orders") }}
+where `amount` is not null and not (`amount` >= 0)
+```
+
+To read the tests before an apply, run `fluid generate iac`: each file is a `databricks_workspace_file` in `main.tf.json`, with its text in `content_base64`.
+
+- **Your files upload unchanged.** The project's own files go up byte for byte. dbt takes one properties entry per model (a second entry fails the parse), and that entry is yours, so the tests are files of their own and nothing is merged into your YAML. Nothing is written to the project on your machine either: only the uploaded copy holds the tests.
+- **Only the job runs them.** A dbt build that runs on your machine, without `runtime.platform: databricks`, runs the project as it is.
+- **Change the contract, not the files.** Each file starts with a comment that says so. The next apply uploads the set of tests the contract describes.
+- **They count toward the upload limit.** The generated files count toward the 1000 files in [Where the dbt project comes from](#where-the-dbt-project-comes-from).
+- **No dbt package is installed.** `dbt deps` installs what your `packages.yml` names and nothing more, and nothing is merged into that file. The tests for `unique`, `not_null`, `accepted_values` and `relationships` call dbt's own test SQL, as a YAML test of that name calls it. The regex, range, freshness, schema and share tests are SQL of forge-cli's own, because a serverless job's `dbt deps` may not reach hub.getdbt.com: Databricks Free Edition limits outbound traffic to trusted domains.
+- **Each file carries its severity and a tag.** `config()` sets `severity`, which wins over `dbt_project.yml`, and the tag `fluid_dq`, so `dbt build --select tag:fluid_dq` selects the rules' tests alone.
+
+#### What each rule runs
+
+| Rule `type` | The test |
+| --- | --- |
+| `uniqueness` | dbt's `unique` on the selected column. A `selector` that lists several columns is refused: it could mean each column or their combination, and `fluid test` reads one column too. |
+| `completeness` | dbt's `not_null` on each selected column. A `selector` of `a,b,c` makes three tests. |
+| `valid_values` | The values the rule allows, read as `fluid test` reads them (below). |
+| `accuracy` | Every non-null value of each selected column meets `<operator> <threshold>`, with `>=` when the rule has no `operator`. The `threshold` is the bound, not a share. |
+| `freshness` | The newest value of the one selected date or timestamp column is no older than `window`, an ISO 8601 duration with a fixed length (`PT15M`, `PT2H`, `P1D`; not months or years). `operator: "<"` asks for younger than the window, and the default `<=` allows exactly its age. A table with no row fails. |
+| `schema` | Every contract column, or each selected one, exists in the table dbt built, with its declared type as Databricks reports it (`bigint`, `string`, `decimal(18,2)`). Columns the contract does not declare are left alone. |
+| `anomaly_detection` | No test. Databricks data quality monitoring runs it (below). |
+| `drift_detection` | Refused: it is judged against the table's history. |
+
+A `threshold` other than `1.0` with `>=` or `==` turns `uniqueness`, `completeness` and `valid_values` into share tests (see [Severity and thresholds](#severity-and-thresholds)).
+
+#### Severity and thresholds
+
+`critical` and `error` become dbt severity `error`. `warn` and `info` become `warn`. A failing `error` test fails the dbt task, so the run and `fluid apply` fail, and dbt skips the models below it. A failing `warn` test is reported and the run goes on. The tests run after the model, which has already replaced its table, so a failing rule does not undo the write: the table keeps what the model wrote.
+
+A `threshold` of `1.0` with `>=` or `==`, or no `threshold`, means every row must pass. Any other `threshold` (below `1.0`, or `1.0` with another `operator`) is the share of rows that must pass, computed as `fluid test` computes it:
+
+- the non-null share of the rows for `completeness`;
+- the distinct share of the non-null values for `uniqueness`;
+- the share of the non-null values that are allowed for `valid_values`.
+
+The test fails when the measured share does not meet `<operator> <threshold>`, with `>=` when the rule has no `operator`. A table with no row to measure passes. A share is a fraction from 0 to 1: write `0.99`, not `99`. `accuracy` reads its `threshold` as a bound instead, and `freshness` and `schema` take none.
+
+#### What a `valid_values` rule allows
+
+A rule has no field for its allowed values, so a `valid_values` test reads them where `fluid test` does (`quality_engine.value_domain`). The values the rule lists come first: its `description` holds `status valid values: NEW, SHIPPED.`, with the values separated by commas and ending at the first full stop. Otherwise the selected column's own declarations decide. Every one of them must hold, and each is a test of its own:
+
+- the first `enum` validationRule, written `A | B` or `A,B`: dbt's `accepted_values`;
+- the first `regex` validationRule: forge-cli's regex test. The value, cast to a string, must match the pattern with Spark's `rlike`, which looks for the pattern anywhere in the value. Write `^` and `$` to require the whole value to match;
+- the first `range` validationRule, written `>= 0`, `>= 0 and <= 100` or `between 0 and 100`: a bounds test;
+- `labels.references: <product id>.<column>`: dbt's `relationships` against the dbt source table the project declares for that product.
+
+A `custom` validationRule declares no allowed values. A rule that lists none, on a column that declares none, is refused. A null never fails these tests: `completeness` is the rule for nulls.
+
+A reference is found through `consumes[]`. List the product there with the `exposeId` of its table, and declare exactly one dbt source table of that name in the project:
+
+```yaml
+consumes:
+  - productId: crm.customers_v1
+    exposeId: customers
+```
+
+```yaml
+sources:
+  - name: crm
+    tables:
+      - name: customers
+```
+
+With `labels.references: crm.customers_v1.id` on `customer_id`, the test checks that every non-null `customer_id` of the model exists in `id` of `source('crm', 'customers')`.
+
+#### `anomaly_detection` and data quality monitoring
+
+No test runs an `anomaly_detection` rule, because an anomaly is judged against the table's history. Databricks data quality monitoring learns those bounds itself (see [Data quality monitoring](#data-quality-monitoring)), and such a rule is one of the things that turn it on. So `fluid validate` accepts the rule and writes no test for it. Monitoring takes no threshold from the contract, so the rule's `threshold` is not applied.
+
+On an expose with `contract.dq.monitoring.enabled: false`, nothing would run the rule, so it is refused. Turn the monitoring back on, check the rule with `fluid test`, or remove it. A rule that monitoring could not read either, one with a bad `severity`, say, is refused like any other rule.
+
+A `freshness` or `completeness` rule also turns monitoring on. That is separate from its dbt test: monitoring learns its own bounds, and the test checks the limit the rule states.
+
+#### What the rules refuse
+
+`fluid validate`, `fluid generate iac` and `fluid apply` refuse a contract whose rules cannot all run, with the fix. `fluid plan` does not run this check: it writes a plan for such a contract, so run `fluid validate` first. `fluid apply` refuses the contract before anything is applied, with or without a saved plan. With a `drift_detection` rule added to the rules above, `fluid validate` says:
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+Validation completed in 0.013s
+
+Validation Errors:
+==================
+ 1. builds[0] (transform) expose 'orders': rule 'orders_drift' (drift_detection) has no check of the table as it stands here: an anomaly or a drift is judged against the table's history. Check it with fluid test against the deployed table (it reads an anomaly_detection threshold as a row count), or remove it from this expose.
+```
+
+`fluid generate iac` and `fluid apply` stop with `unsupported_binding`, and the code of the refusal is the `kind`:
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: databricks-job-dq-rule
+  error: builds[0] (transform) expose 'orders': rule 'orders_drift' (drift_detection) has no check of the table as it stands here: an anomaly or a drift is judged against the table's history.
+  remediation: ['Check it with fluid test against the deployed table (it reads an anomaly_detection threshold as a row count), or remove it from this expose.']
+```
+
+**A rule no test can run as written** is `databricks-job-dq-rule`. Each message names the build, the expose and the rule:
+
+| The rule | The fix |
+| --- | --- |
+| is `drift_detection`, or `anomaly_detection` on an expose that turns monitoring off | Check it with `fluid test` against the deployed table, or remove it. For an anomaly rule, turn the monitoring back on instead. |
+| is `valid_values`, lists no values, and its column declares no `enum`, `regex` or `range` validationRule and no `labels.references` | Declare the allowed values on the column. |
+| is `valid_values` on a column whose `range` is not one or more bounds (`>=`, `>`, `<=` or `<` and a number, joined by `and`) or `between A and B`, or is one no value meets (`between 100 and 0`) | Write the range in one of those forms, lower bound first. |
+| selects no column (only `schema` takes `*`), or a column that `contract.schema` does not declare | Name a column of the expose's schema, or several, comma-separated. |
+| is `uniqueness` and selects several columns | Write one uniqueness rule per column. |
+| is `freshness` and selects several columns, or one that is not a date or timestamp | Select the one `DATE` or `TIMESTAMP` column the age is measured on. |
+| is `freshness` with a `window` that is not a fixed ISO 8601 duration (`P1M`) | Set `window` to a duration such as `PT15M`, `PT2H` or `P1D`. |
+| is `freshness` or `schema` and has a `threshold` | Remove it. A freshness rule's limit is its `window`. |
+| has a `threshold` that is not a number, or, unless the rule is `accuracy`, is outside 0 to 1 (`99`) | Write the share as a fraction: `0.99`. |
+| is `accuracy` with no numeric `threshold` | Set `threshold` to the bound and `operator` to the comparison. |
+| has an `operator` outside `>=`, `>`, `<=`, `<`, `==` and `!=` (the schema refuses it first), or is a `freshness` rule with an `operator` other than `<=` or `<` | Use one of the six; a freshness rule takes `<=` or `<`. |
+| has a `severity` other than `critical`, `error`, `warn` or `info` | Set one of the four. |
+| has `labels.references` that is not `<product id>.<column>`, that names its own product, or that names a product `consumes[]` lists by several exposes | Write the `<product id>.<column>` of another product, and list that product in `consumes[]` once. |
+| has an `id`, or allowed values, holding a control character or an unpaired surrogate | Write it in plain text. |
+
+**The build or the project** is refused with these:
+
+| Refusal | Refused when | The fix |
+| --- | --- | --- |
+| `databricks-job-dq-git-source` | The build's `repository` is a Git URL, and an expose it writes has rules. | Point `repository` at the local dbt project. |
+| `databricks-job-dq-model` | The model that writes the expose is not in the project's `model-paths`. | Name the model in `properties.model` (one output per build), or name it after the expose's `binding.location.table`. |
+| `databricks-job-dq-not-selected` | The build's selection leaves the model out, so dbt would never run its tests. | Select the model: `properties.select: ['orders']`, or `properties.model`. |
+| `databricks-job-dq-reference` | A `labels.references` product is not in `consumes[]`, or the project does not declare exactly one dbt source table named like the consumed expose. | List the product in `consumes[]` with the `exposeId` of its table, and declare that one table as a dbt source. |
+| `databricks-job-dq-name` | The project has a singular test with the name of a rule's test. dbt names a test once per project, so the whole job would fail to parse. | Rename the rule's `id`, or the project's test. |
+| `databricks-job-dq-path` | The project already holds a file at the path of a generated test. | Move it out of `<test path>/fluid_dq/`, the generated tests' folder. |
+| `databricks-job-dq-test-path` | `test-paths` is an empty list, so dbt reads no test file, or its first entry holds an unpaired surrogate. | Leave `test-paths` out (dbt reads `tests/`), or name a directory in plain text. |
+| `databricks-job-project-size` | The project and its generated tests are more than 1000 files. | Take files out of the project, or drop rules. The message suggests a Git source, which a build with rules cannot use. |
+
+A selection that forge-cli cannot evaluate (by tag, config or state) is not refused. The run's report then says which tests dbt did not run.
+
+#### What `fluid apply` prints for each rule
+
+Under `--mode amend-and-build` and `--mode replace-and-build`, `fluid apply` waits for the run (see [Running the job from `fluid apply`](#running-the-job-from-fluid-apply)). When the run has ended, it reads the dbt task's output once and, when it can read it, prints one line for each rule's test, in the contract's order, whether the run succeeded or not. On a failed run the lines come after the task's error and before the tail of dbt's output. They come from the contract alone, so a test that dbt never ran is listed too.
+
+```text
+     ✗ orders_required_complete__status: FAIL 1 row - completeness status, severity error
+     ✓ orders_customer_id_mostly_set: PASS - completeness customer_id (share >= 0.75), severity error
+```
+
+A line is a mark, the test's name, what dbt printed for it, the rule's type and column, and the dbt level it maps to, `error` or `warn`. A share rule shows its limit.
+
+| Mark | dbt printed | Meaning |
+| --- | --- | --- |
+| `✓` | `PASS` | The test found no row. |
+| `!` | `WARN 1 row` | A `warn` test found rows. The count is dbt's. |
+| `✗` | `FAIL 3 rows`, or `ERROR` | An `error` test found rows, or a test failed to run (a SQL error, say). |
+| `-` | `SKIP` | dbt did not run the test (its model failed, say). |
+| `?` | `not in the task's output` | dbt printed no result line for the test. |
+
+A summary line above them counts the outcomes, such as `contract rules as dbt tests: 6 pass, 2 warn, 2 fail, 1 not reported`. When none of the tests appears in the output, one line says so instead: `contract rules as dbt tests: none of the 11 reported in the task's output; dbt stopped before running them, or the run page has the rest`. Databricks keeps only the end of a very long output, and the lines then add `(Databricks kept only its end)`. A build run with `--mode amend`, `create-only` or `replace` starts no run, so nothing is printed, and the tests run on the job's trigger.
+
+Captured live on Databricks Free Edition on 2026-11-12, with a bad row seeded into the table, with the workspace host and the ids replaced. Nine rules became eleven tests. The wrapped error line is joined, and dbt's output is abridged:
+
+```text
+🚀 Build 'transform' - started run <run-id> of Databricks job 'fluid fluid_iactest.dq_orders_v1 transform' (<job-id>)
+   run page: https://<workspace>/?o=<workspace-id>#job/<job-id>/run/<run-id>
+   0:00 RUNNING
+   1:08 still RUNNING
+   1:59 TERMINATED RUN_EXECUTION_ERROR
+❌ Build 'transform' - Databricks run <run-id> ended RUN_EXECUTION_ERROR after 1m59s: Task dbt failed with message: Workload failed, see run output for details.
+   task 'dbt': Command 'dbt build --select +orders+' else exit 1 fi returned non-zero exit status 1.
+   contract rules as dbt tests: 6 pass, 2 warn, 2 fail, 1 not reported
+     ✓ orders_order_id_unique: PASS - uniqueness order_id, severity error
+     ✓ orders_required_complete__order_id: PASS - completeness order_id, severity error
+     ✗ orders_required_complete__status: FAIL 1 row - completeness status, severity error
+     ✓ orders_required_complete__loaded_at: PASS - completeness loaded_at, severity error
+     ✓ orders_status_valid: PASS - valid_values status, severity error
+     ! orders_country_code_valid: WARN 1 row - valid_values country_code, severity warn
+     ✗ orders_amount_nonnegative: FAIL 1 row - valid_values amount, severity error
+     ! orders_customer_id_ref: WARN 1 row - valid_values customer_id, severity warn
+     ✓ orders_customer_id_mostly_set: PASS - completeness customer_id (share >= 0.75), severity error
+     ✓ orders_freshness: PASS - freshness loaded_at, severity warn
+     ? orders_schema_conformance: not in the task's output - schema, severity error
+   dbt last 30 of 60 lines:
+     …
+     21:35:32  [ERROR]: in test orders_amount_nonnegative (tests/fluid_dq/orders/orders_amount_nonnegative.sql)
+     21:35:32    Got 1 result, configured to fail if != 0
+     …
+     21:35:32  [WARNING]: in test orders_customer_id_ref (tests/fluid_dq/orders/orders_customer_id_ref.sql)
+     21:35:32  [WARNING]: Got 1 result, configured to warn if != 0
+     …
+     21:35:32  Done. PASS=7 WARN=2 ERROR=2 SKIP=0 NO-OP=0 REUSED=0 TOTAL=11
+   run page: https://<workspace>/?o=<workspace-id>#job/<job-id>/run/<run-id>
+```
+
+The last rule line, `?`, is the schema rule's test. This run came before a fix that made dbt select that test: dbt found eleven tests and ran ten, and `fluid apply` showed the one it never ran. The two `error` rules failed the run, so `fluid apply` exited `1`. The two `warn` rules did not fail it by themselves.
+
+A second run, on clean data, succeeded, and `fluid apply` exited `0`. The model and all eleven tests passed. Abridged:
+
+```text
+🚀 Build 'transform' - started run <run-id> of Databricks job 'fluid fluid_iactest.dq_orders_v1 transform' (<job-id>)
+   run page: https://<workspace>/?o=<workspace-id>#job/<job-id>/run/<run-id>
+   0:00 RUNNING
+   0:57 TERMINATED SUCCESS
+   task 'dbt': Done. PASS=12 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=12
+   contract rules as dbt tests: 11 pass
+     ✓ orders_order_id_unique: PASS - uniqueness order_id, severity error
+     ✓ orders_required_complete__order_id: PASS - completeness order_id, severity error
+     …
+     ✓ orders_schema_conformance: PASS - schema, severity error
+✅ Build 'transform' - Databricks run <run-id> succeeded in 57s
+```
+
+::: warning Proven live on one run
+Each test is rendered in a stand-in for dbt's Jinja context, and a real dbt-core with dbt-duckdb parses the upload and lists every rule's test. The tests also ran on a live Free Edition workspace on 2026-11-12 (`HONESTLY_TESTED.md`, the row for contract DQ rules as dbt tests), in a scratch catalog dropped afterwards. The two runs above are that run: nine rules as eleven tests, a bad row that failed the first, and clean data for the second. The plan after the second run was empty (`+0 ~0 -0`). Not run live: a share below `1.0` that fails, a reference share, and a regex or bounds share (only a passing completeness share was). A Git source with rules is refused by design. Not handled: a versioned dbt model, and a `dbt_project.yml` that sets `+where` or `+limit` on tests, which would change these tests too. dbt's result lines are read from the task's output, so lines that Databricks cut from a long output are reported as not in it. The run page was read through the Jobs API, not in a browser.
+:::
+
 ## Tables a dbt build writes
 
 dbt's `table` materialization rebuilds a table with `CREATE OR REPLACE`. So after the apply creates a table that a dbt build writes (locally or as a job), the module leaves its definition to dbt. It ignores the table's columns, partitions, clustering, properties and comment, and sets no column mapping. Each apply reports the column drift it no longer reconciles, and `fluid verify` is the gate. *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* The comment is left to dbt too, so the contract's descriptions are not written there; `fluid validate` warns and says so (see [Comments on a dbt-written table](#comments-on-a-dbt-written-table)). The tags are still set.
@@ -910,6 +1200,7 @@ What is refused, before the table exists where `fluid validate` or `fluid apply`
 - the governance fields that are not mapped (`policy.privacy.rowLevelPolicy`, `binding.governance`, and `policy.privacy.masking` on an expose a DuckDB acquisition does not alone write), a `lifecycle.expire` the table's shape cannot keep (see [Retention](#retention)), an acquisition the landing cannot run (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)), an `accessPolicy` grant whose `resources` forge-cli cannot evaluate (see [Scoping a grant to an expose](#scoping-a-grant-to-an-expose)), a column restriction or row filter Unity Catalog cannot express, and a label set that collides or exceeds 50 tags (see [Column masks and row filters](#what-masks-and-filters-refuse) and [Governance tags](#governance-tags));
 - a `binding.location.region` that is not a plain lower-case region name, two exposes that declare different regions, and, with a `sovereignty` block, a placement the policy refuses (see [Residency](#residency));
 - a `binding.location` key the module would drop (`path` and others). `region` is read: see [Residency](#residency);
+- *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* a contract data-quality rule, on an expose a dbt job writes, that no dbt test can run as written (see [What the rules refuse](#what-the-rules-refuse));
 - a description with a backslash or `${`, a label set that becomes one of the product's own tag keys, a tag value over 256 characters, more than 1,000 column tags on a table, and a `certification` label other than `certified` *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification));
 - duplicate partitions;
 - a column type Databricks has no mapping for (it would be created as `string`), or would reject.
@@ -1000,6 +1291,7 @@ It keeps every other profile, writes the file back owner-only (`0600`) and never
 - **Jobs are not adopted.** A job's import id is a job id, which neither the contract nor `tofu` can look up by name. An apply that lost its state creates a second job. `fluid verify` flags the duplicate; delete the extra one.
 - **Shared schemas.** A schema shared between products needs the packaging modes, which are refused for Databricks for now.
 - **dbt rebuild drops `NOT NULL`** unless the model declares it (above).
+- *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* **A failing rule does not stop the write.** The contract rules run as dbt tests after the model has replaced its table. A rule of severity `critical` or `error` fails the run and skips the models below it, and the table keeps what the model wrote. A build run from a Git URL cannot run the rules at all (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests)).
 - **The catalog is never created or granted.** Create it and grant `USE CATALOG` yourself.
 - **A denied column is still listed.** Unity Catalog has no column-level grant, so a denied column is a mask that reads `NULL` (see [Column masks and row filters](#column-masks-and-row-filters)).
 - **Masks and row filters come from `fluid apply` alone.** `fluid generate iac` refuses a contract that has them, and a module applied by hand would have none.
@@ -1017,7 +1309,7 @@ The full matrix is in `HONESTLY_TESTED.md` in forge-cli. In short:
 | Unit | 471 tests across the emitter, jobs, credentials, engine hooks, cron conversion, the dbt runner, verify, doctor and the welcome scan, against a stubbed SDK client. |
 | `tofu validate` | Both job modules (Git and workspace upload) and the dbt-written table's `ignore_changes` list validate against provider 1.140.0's schema. |
 | Stand-in workspace | The real `fluid` CLI, `tofu` and provider 1.140.0 against an in-process stand-in for the Unity Catalog, SQL statement, permissions and jobs APIs: plan, apply, an empty second plan, the data-loss gate, adoption, job and file removal. The stand-in does not check SQL dialect or privilege names. |
-| Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* Another manual run on 2026-11-12, in a scratch catalog dropped afterwards, turned data quality monitoring on, adopted a monitor made through the API, changed what it excludes and turned it off (see [Data quality monitoring](#data-quality-monitoring)). |
+| Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* Another manual run on 2026-11-12, in a scratch catalog dropped afterwards, turned data quality monitoring on, adopted a monitor made through the API, changed what it excludes and turned it off (see [Data quality monitoring](#data-quality-monitoring)). *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* One more manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran a dbt product's nine contract rules as eleven tests with `amend-and-build`: with a bad row seeded the run failed and `fluid apply` printed each rule's result, and on clean data the run succeeded (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests)). |
 | Emulator (nightly, not gating) | First run on 2026-10-30 passed 1 of 4: creates and the replace gate work, but a second plan is not empty against the emulator. |
 
 Not proven live: a Git source, profile or OAuth auth, a run-as service principal, table adoption, a larger project, and re-adopting a job after lost state. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Nor are the reason line of a queued run and a run queued for the workspace's limit.
