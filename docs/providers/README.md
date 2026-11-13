@@ -21,7 +21,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 | [GCP](./gcp.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
 | [AWS](./aws.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
 | [Snowflake](./snowflake.md) | Yes (OpenTofu) | Prefer `fluid generate schedule` | Production |
-| [Databricks](./databricks.md) | Yes (OpenTofu) | dbt builds run as Databricks jobs on their own trigger. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* `--mode amend-and-build` also starts a run and waits for it | Added in 0.26.0 |
+| [Databricks](./databricks.md) | Yes (OpenTofu) | dbt builds run as Databricks jobs on their own trigger. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* `--mode amend-and-build` also starts a run and waits for it. *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* A build with `engine: lakeflow` runs as a Lakeflow pipeline, and `--mode amend-and-build` starts an update of a triggered one and waits for it | Added in 0.26.0 |
 | [Local](./local.md) | Yes (native DuckDB) | Local-first onboarding | Production |
 
 "Production" covers provisioning and builds. Governance differs by cloud: on GCP, `fluid apply` emits dataset grants, column policy tags and, on `0.7.6`, retention and Cloud KMS keys; on Snowflake, as of 0.18.1, `accessPolicy` grants, column restrictions and masking are not applied. Each provider page lists what its module emits.

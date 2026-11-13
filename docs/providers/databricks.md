@@ -16,6 +16,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 - ✅ **Existing catalog**: `location.database` names a catalog that must already exist. forge-cli reads it and never creates, grants on or destroys it
 - ✅ **dbt builds as jobs**: a dbt build whose `execution.runtime.platform` is `databricks` becomes a serverless job that Databricks runs on its own trigger. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* `fluid apply --mode amend-and-build` also starts a run now and waits for it (see [Running the job from `fluid apply`](#running-the-job-from-fluid-apply))
 - ✅ **Contract rules as dbt tests**: *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* The `dq.rules` of the exposes a dbt job writes run as dbt tests in the job, and a failing rule of severity `critical` or `error` fails the run (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests))
+- ✅ **Lakeflow pipelines**: *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* A build with `engine: lakeflow` (schema 0.7.7 preview) becomes a Lakeflow Declarative Pipeline whose expectations are the contract's `dq.rules`, and `fluid apply --mode amend-and-build` runs it and prints each rule's counts (see [Lakeflow pipelines](#lakeflow-pipelines))
 - ✅ **Residency**: `binding.location.region` is checked against the contract's `sovereignty` policy and against the workspace's metastore (see [Residency](#residency))
 - ✅ **Verify**: `fluid verify` checks the live table's columns, `USE CATALOG` for every reader, the residency, the governance tags, the bound masks and row filter, and that each dbt job exists exactly once
 - ✅ **One pinned credential**: the workspace comes from `DATABRICKS_HOST` only, and a run never falls back to a stray profile
@@ -37,7 +38,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 | A Unity Catalog workspace with an existing catalog | The catalog is read, never created. The identity that applies needs `USE CATALOG` and `CREATE SCHEMA` on it. |
 | A SQL warehouse, its id in `DATABRICKS_WAREHOUSE_ID` | Every table statement runs on it, and so do the dbt jobs. Find the id under SQL Warehouses, Connection details. The id is not a secret. |
 | A Unity Catalog volume of its own, `/Volumes/<catalog>/<schema>/<volume>` in `DATABRICKS_STAGING_VOLUME` | Only for a DuckDB acquisition that lands in Databricks (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)). |
-| `pip install 'data-product-forge[databricks]'` | The extra brings `databricks-sdk`. `fluid verify` needs it, and so does `fluid apply` to bind [column masks and row filters](#column-masks-and-row-filters) and to [land a DuckDB acquisition](#landing-a-duckdb-acquisition). *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* An apply that [runs a dbt job](#running-the-job-from-fluid-apply) needs it too. |
+| `pip install 'data-product-forge[databricks]'` | The extra brings `databricks-sdk`. `fluid verify` needs it, and so does `fluid apply` to bind [column masks and row filters](#column-masks-and-row-filters) and to [land a DuckDB acquisition](#landing-a-duckdb-acquisition). *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* An apply that [runs a dbt job](#running-the-job-from-fluid-apply) needs it too. *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* So does one that [runs a Lakeflow pipeline](#running-it-from-fluid-apply). |
 
 ## Credentials
 
@@ -143,6 +144,7 @@ fluid verify contract.fluid.yaml
 | `accessPolicy.grants`, `policy.authz.readers` and `writers` | One `databricks_grant` per principal on the table, plus `USE_SCHEMA` on the schema. |
 | A dbt build with `runtime.platform: databricks` | A serverless job and the workspace files it needs (see [dbt builds as jobs](#dbt-builds-as-jobs)). |
 | `qos.freshnessSLO`, `qos.completenessTarget` or another freshness or completeness SLO | *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* A `databricks_data_quality_monitor` on the schema (see [Data quality monitoring](#data-quality-monitoring)). |
+| A build with `engine: lakeflow` | *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* A serverless Lakeflow pipeline and its source file, and no table resource: the pipeline creates its table (see [Lakeflow pipelines](#lakeflow-pipelines)). |
 
 Permissions map to table privileges: `read`, `select` and `query` to `SELECT`; `write`, `insert`, `update` and `delete` to `MODIFY`; `admin` and `manage` to `ALL_PRIVILEGES`. `create` has no table privilege and is skipped.
 
@@ -738,6 +740,8 @@ GROUP BY ALL
 
 The view takes its table's name, not `semantics.name`, and stays in the table's schema, which the product owns.
 
+*(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* A table a [Lakeflow pipeline](#lakeflow-pipelines) publishes gets no metric view yet, and `fluid validate` warns when its expose has `semantics` (see [Next to the pipeline's table](#next-to-the-pipeline-s-table)).
+
 The [minimal contract](#a-minimal-contract), with a `region` column and a semantics block:
 
 ```yaml
@@ -1046,8 +1050,8 @@ What a run prints, captured live on Databricks Free Edition on 2026-11-12 for a 
 
 ```text
 ❌ apply_databricks_sdk_missing  [ERR_APPLY_DATABRICKS_SDK_MISSING]
-  error: a dbt build runs on Databricks, and the build phase starts its job through databricks-sdk, which is not installed; nothing was applied
-  hint: pip install 'data-product-forge[databricks]', or apply with --mode amend to provision the job without starting it
+  error: a dbt or lakeflow build runs on Databricks, and the build phase starts it through databricks-sdk, which is not installed; nothing was applied
+  hint: pip install 'data-product-forge[databricks]', or apply with --mode amend to provision it without starting it
 ```
 
 `--dry-run` is not refused. It runs `tofu plan`, applies and starts nothing, and names the run it would start:
@@ -1369,6 +1373,508 @@ models:
 ```
 :::
 
+## Lakeflow pipelines
+
+*(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))*
+
+A build with `engine: lakeflow` is a [Lakeflow Declarative Pipeline](https://docs.databricks.com/aws/en/ldp/), and the expose's data-quality rules are its [expectations](https://docs.databricks.com/aws/en/ldp/expectations). You write the SELECT. forge-cli writes the pipeline's source around it: a materialized view with the expose's columns, types and comments, and one expectation per rule in `exposes[].contract.dq.rules`. `fluid apply` provisions one serverless pipeline per build, in the expose's own catalog and schema. Lakeflow records each rule's passed and failed records in the pipeline's event log, the source of the pipeline graph's Data quality tab, and `fluid apply --mode amend-and-build` prints them.
+
+### Opting in
+
+The engine is new in the 0.7.7 preview schema, so the contract declares `fluidVersion: "0.7.7"`. The build, from the [worked example](#worked-example-two-products):
+
+```yaml
+builds:
+  - id: build-capacity
+    pattern: embedded-logic
+    engine: lakeflow
+    outputs: [capacity]
+    execution:
+      trigger:
+        type: manual
+      runtime:
+        platform: databricks
+    properties:
+      sql: |
+        SELECT s.site_id, CAST(s.tower_height_m * 100 AS DECIMAL(10,2)) AS load_kg,
+               CASE WHEN s.tower_height_m > 30 THEN 'A' ELSE 'Z' END AS method,
+               current_timestamp() AS _ingested_at
+          FROM fluid_iactest_ldp.bronze_sites.sites s
+```
+
+- **`pattern: embedded-logic` and `properties.sql`.** The SQL is one query, such as a `SELECT` or a `WITH`, and its result is the table. Read an upstream by its Unity Catalog name, `catalog.schema.table`. A comment before the query and a trailing `;` are fine. A second statement is refused, and so is a string, a backtick name or a `/*` comment left open at the end.
+- **`outputs`.** Exactly one expose, bound to a Databricks table (`platform: databricks`, `format: delta_table`). It may be left out when the contract has only that expose.
+- **`execution.trigger.type`.** `manual`, or no trigger, makes a triggered pipeline: `fluid apply --mode amend-and-build` starts an update, and so does the pipeline's page. `continuous` keeps the pipeline running. A cron schedule is refused for now. To schedule a triggered pipeline, give a Databricks job a pipeline task.
+- **`execution.runtime.platform`.** `databricks`, or leave it out.
+
+A lakeflow build also takes its `id`, `description`, `tags` and `labels`, and in `properties` a `language` (`sql`, the default), `tags` and `labels`. Any other setting, such as retries, notifications, `runtime.timeout`, `runtime.serviceAccount` or a `repository`, is refused, since the pipeline would not honour it.
+
+With `fluidVersion: "0.7.6"`, `fluid validate` refuses the engine:
+
+```text
+ 1. builds[0].engine: 'lakeflow' (a Databricks Lakeflow Declarative Pipeline) is an engine of the 0.7.7 preview schema: set the contract's fluidVersion to 0.7.7 to use it
+```
+
+### What `fluid apply` provisions for it
+
+| Contract | Databricks object |
+| --- | --- |
+| The build | A serverless `databricks_pipeline` named `fluid <product> <build>`, tagged `fluid_product` and `fluid_build`, that publishes into the expose's catalog and schema. It runs on the `CURRENT` channel, not in development mode. A triggered one does not retry a failed update: `pipelines.numUpdateRetryAttempts` is `0`, where Lakeflow's default is five, since the same rows would fail the same rule. |
+| The pipeline's source | A `databricks_workspace_file`, `<table>.sql`, in a folder under the applying identity's home: `.fluid/<product>/<build>/pipeline/`, each id with a digest, so no two products share a folder. |
+| `location.schema` | The `databricks_schema`, as for any table, with the contract's tags. |
+| `location.table`, `contract.schema` | No table resource. The pipeline creates the table at its first update, as its source defines it. |
+| `accessPolicy.grants`, `policy.authz.readers` | `SELECT` and `USE_SCHEMA` on the schema for each reader. The table does not exist yet when they are granted. |
+
+The table's own tags wait for the table too: `fluid apply` sets them after each update it runs that completes (see [Tags on the pipeline's table](#tags-on-the-pipeline-s-table)).
+
+`fluid generate iac` shows the source before an apply. It is the `databricks_workspace_file` in `main.tf.json`, with its text in `content_base64`. For the worked example it reads:
+
+```sql
+-- Generated by forge-cli from silver.test.capacity_v1, build build-capacity. Do not edit: change the contract and run fluid apply.
+
+CREATE OR REFRESH PRIVATE MATERIALIZED VIEW `capacity__capacity_key_unique` (
+  CONSTRAINT `capacity_key_unique` EXPECT (_fluid_rows = 1) ON VIOLATION FAIL UPDATE
+)
+COMMENT 'Business key (site_id) must be unique per record.'
+AS SELECT `site_id`, count(*) AS _fluid_rows FROM `capacity`
+ WHERE `site_id` IS NOT NULL GROUP BY `site_id`;
+
+CREATE OR REFRESH PRIVATE MATERIALIZED VIEW `capacity__capacity_freshness` (
+  CONSTRAINT `capacity_freshness` EXPECT (_fluid_newest IS NOT NULL AND _fluid_newest >= current_timestamp() - INTERVAL 93600 SECONDS)
+)
+AS SELECT max(`_ingested_at`) AS _fluid_newest FROM `capacity`;
+
+CREATE OR REFRESH PRIVATE MATERIALIZED VIEW `capacity__capacity_site_ref` (
+  CONSTRAINT `capacity_site_ref` EXPECT (_fluid_found)
+)
+COMMENT 'Every non-null site_id must exist in Sites.'
+AS SELECT c.`site_id` AS _fluid_value, r._fluid_key IS NOT NULL AS _fluid_found
+  FROM `capacity` c
+  LEFT JOIN (SELECT DISTINCT `site_id` AS _fluid_key FROM `fluid_iactest_ldp`.`bronze_sites`.`sites`) r
+    ON c.`site_id` = r._fluid_key
+ WHERE c.`site_id` IS NOT NULL;
+
+CREATE OR REFRESH MATERIALIZED VIEW `capacity` (
+  `site_id` string NOT NULL COMMENT 'The site\'s id',
+  `load_kg` decimal(10,2) NOT NULL,
+  `method` string,
+  `_ingested_at` timestamp,
+  CONSTRAINT `capacity_required_complete` EXPECT (`load_kg` IS NOT NULL) ON VIOLATION DROP ROW,
+  CONSTRAINT `capacity_method_valid` EXPECT ((`method` IS NULL OR `method` IN ('A', 'B', 'C')))
+)
+COMMENT 'Each site\'s structural load; it\'s the engineer\'s view.'
+TBLPROPERTIES (
+  'fluid.product_id' = 'silver.test.capacity_v1',
+  'fluid.build_id' = 'build-capacity'
+)
+AS
+SELECT s.site_id, CAST(s.tower_height_m * 100 AS DECIMAL(10,2)) AS load_kg,
+       CASE WHEN s.tower_height_m > 30 THEN 'A' ELSE 'Z' END AS method,
+       current_timestamp() AS _ingested_at
+  FROM fluid_iactest_ldp.bronze_sites.sites s
+;
+```
+
+- **The check views come first, and the table last.** Your query is the last text in the file, so nothing forge-cli writes can follow it. The order in the file does not order the pipeline: each check view reads the table, so Lakeflow runs it after the table.
+- **The columns are the contract's.** Each column has its type, `NOT NULL` where it is `required`, and its `description` as its comment. The expose's `description` is the table's comment. These declared columns are the table's definition. A query whose columns or types do not match them was not tried live.
+- **Change the contract, not the file.** Its first line says so. The next apply uploads the source the contract describes.
+
+### Rules as expectations
+
+A rule that one row decides is an expectation on the table, `CONSTRAINT <rule id> EXPECT (...)`. A rule that needs the whole table is checked by a private materialized view in the same pipeline, which is never published to the catalog. The view is named `<table>__<rule id>`, with the id in lower case. Its one expectation carries the rule id as written, so the counts name the rule either way.
+
+| Rule `type` | Where it runs | It passes when |
+| --- | --- | --- |
+| `completeness` | The table | Each selected column is not null. |
+| `valid_values` | The table | Each non-null value meets every declaration the rule reads: it is in the `enum`, matches the `regex` (Spark's `RLIKE`) and is within the `range`. Values the rule lists itself replace the column's declarations, as for the dbt tests (see [What a `valid_values` rule allows](#what-a-valid-values-rule-allows)). |
+| `accuracy` | The table | Each non-null value meets `<operator> <threshold>`. |
+| `uniqueness` | A check view | Each non-null value of the column appears once. |
+| `freshness` | A check view | The newest value is no older than `window`, or younger than it with `operator: "<"`. A table with no row fails. |
+| `valid_values` on a column with `labels.references` | A check view | Each non-null value exists in the referenced product's column (see [References to another product](#references-to-another-product)). When the column also declares an `enum`, `regex` or `range`, those run on the table under the same rule id, and the view is `<table>__<rule id>__reference`. |
+| `schema` | The column list | The table has the contract's columns and types (above). It adds no expectation. |
+| `anomaly_detection`, `drift_detection` | Refused | They are judged against the table's history. |
+
+A null passes the value checks. `completeness` is the rule for nulls.
+
+**Severity** decides what a failing row does:
+
+| `severity` | On the table | On a check view |
+| --- | --- | --- |
+| `info`, `warn` | `EXPECT`: the row is kept and counted. | Counted. |
+| `error` | `ON VIOLATION DROP ROW`: the row is not written, and the drop is counted. | Counted only. A check view has no row of the product to drop. |
+| `critical` | `ON VIOLATION FAIL UPDATE`: the update fails, and Databricks rolls back its write to the table. | `ON VIOLATION FAIL UPDATE`, after the table is written: the update fails, and the table keeps what it wrote. |
+
+Only a failed update fails `fluid apply`, so only a `critical` rule can fail it. An `error` rule's dropped rows are counted, and the apply goes on. There is no quarantine table, since the dropped rows would sit in a table outside the contract's access policy.
+
+**Thresholds.** The `threshold` of a `completeness`, `uniqueness` or `valid_values` rule is a share. An `error` or `critical` rule of those types must hold for every row: no `threshold`, or `1.0` with `>=` or `==`. Any other share is refused there, because `DROP ROW` and `FAIL UPDATE` act on every failing row. An `info` or `warn` rule may keep its share: its expectation only counts the failing rows, and nothing compares them with the share. An `accuracy` rule's `threshold` is its bound, as for the dbt tests, so a rule of any severity takes it.
+
+**Rule ids** name the expectations and the check views. Each must be a plain identifier (letters, digits and `_`, not starting with a digit), and unique on its expose regardless of case. A check view's name holds at most 255 characters.
+
+#### References to another product
+
+A `valid_values` rule on a column with `labels.references: <product id>.<column>` checks that each non-null value exists in that product's column. forge-cli finds the product's table through the workspace, as an embedded-SQL build resolves `consumes[]`:
+
+- The product's contract is the one that declares its id, found from the nearest `fluid.workspace.yaml` above the contract and in the roots `FLUID_UPSTREAM_CONTRACTS` lists. Exactly one contract may declare it.
+- The table is the expose that `consumes[]` names for the product (`exposeId`). With no `consumes[]` entry, it is the product's one Databricks table that has the column.
+- The upstream contract is read without an `--env` overlay, so an overlay that moves its table is not followed.
+
+A reference that does not resolve this way is refused as `databricks-lakeflow-reference-unresolved`, with the reason. Unlike a dbt job, a pipeline needs no `consumes[]` entry and no dbt source to check one.
+
+### Running it from `fluid apply`
+
+| `--mode` | The pipeline |
+| --- | --- |
+| `amend-and-build` | Provisioned, then one update starts now, and the apply waits for it. |
+| `replace-and-build` | The same, and the update is a full refresh. |
+| `amend`, `create-only`, `replace` | Provisioned only. Start an update from the pipeline's page. Until the first update, the table does not exist. |
+
+The update starts once `tofu apply` has succeeded. `--build-id <id>` starts only that build's update. The pipeline is the one this apply provisioned: the apply finds it in its own OpenTofu state by its `fluid_product` and `fluid_build` tags, as it finds a dbt job. A continuous pipeline is not started, since Databricks keeps it running. Its table's tags are still set, once the table exists. Until then, the apply says the next apply sets them.
+
+What an update prints, captured live on Databricks Free Edition on 2026-11-13 for the [worked example](#worked-example-two-products), with the workspace host and the ids replaced:
+
+```text
+🚀 Build 'build-capacity' - started update <update-id> of Lakeflow pipeline 'fluid silver.test.capacity_v1 build-capacity' (<pipeline-id>)
+   pipeline page: https://<workspace>/#joblist/pipelines/<pipeline-id>
+   0:00 CREATED
+   0:01 WAITING_FOR_RESOURCES
+   0:17 INITIALIZING
+   0:24 SETTING_UP_TABLES
+   0:31 RUNNING
+   0:49 COMPLETED
+   data quality (the pipeline graph's Data quality tab):
+     ✗ capacity_required_complete  error    capacity: passed 3, failed 1 (dropped 1)
+     ⚠ capacity_method_valid       warn     capacity: passed 2, failed 2
+     ✓ capacity_key_unique         critical capacity__capacity_key_unique: passed 3, failed 0
+     ✓ capacity_freshness          warn     capacity__capacity_freshness: passed 1, failed 0
+     ✓ capacity_site_ref           warn     capacity__capacity_site_ref: passed 3, failed 0
+   tags: 8 on fluid_iactest_ldp.silver_capacity.capacity, 1 on its columns
+✅ Build 'build-capacity' - update <update-id> completed in 54s
+```
+
+- The pipeline's page comes first. Then each state the update enters gets a line, with the time since it started, and a `still <state>` line follows each minute while nothing changes.
+- When the update ends, one line per rule gives its counts from the update's event log. The table's expectations come first, then the check views'. A line is a mark, the rule id, its severity, the dataset (the table, or the rule's check view) and the counts. An `error` rule on the table adds the rows it dropped.
+- Then come the tags the apply set, and the time the build took.
+
+| Mark | Meaning |
+| --- | --- |
+| `✓` | No row failed. |
+| `⚠` | Rows failed an `info` or `warn` rule, which only counts them. |
+| `✗` | Rows failed an `error` or `critical` rule. |
+| `?` | No counts: a `critical` rule that failed (Lakeflow may record nothing for it), or a dataset the update did not refresh. |
+
+In this run, the `error` rule dropped the site that has no height, and the `warn` rule counted the two sites whose `method` is `Z`. The update completed, so the apply exited `0`.
+
+**When the update fails.** An update that ends `FAILED` or `CANCELED` fails its build, and the apply exits `1`. The apply prints the rule counts, then up to three of the update's errors. A failed expectation's error quotes the record that failed it (Databricks' `Input data:` and `Output record:`), a row of the table or of what its query read. That part is cut, because a terminal or a CI log has more readers than the table. The update's event log on the pipeline's page shows it.
+
+Live on 2026-11-12, a duplicate `site_id` seeded into the upstream failed the update. That run came before two changes to this output, so it is shown here as forge-cli 0.30.0 prints it: the record is cut, and the `warn` rule is marked `⚠`. Abridged, with the ids replaced and the wrapped line joined:
+
+```text
+   1:00 FAILED
+   data quality (the pipeline graph's Data quality tab):
+     ✗ capacity_required_complete  error    capacity: passed 4, failed 1 (dropped 1)
+     ⚠ capacity_method_valid       warn     capacity: passed 3, failed 2
+     ✗ capacity_key_unique         critical capacity__capacity_key_unique: passed 0, failed 1
+     ✓ capacity_freshness          warn     capacity__capacity_freshness: passed 1, failed 0
+     ✓ capacity_site_ref           warn     capacity__capacity_site_ref: passed 4, failed 0
+❌ Build 'build-capacity' - update <update-id> of Lakeflow pipeline 'fluid silver.test.capacity_v1 build-capacity' (<pipeline-id>) ended FAILED.
+   Update <update-id> is FAILED since flow fluid_iactest_ldp.silver_capacity.capacity__capacity_key_unique failed an expectation check. - [EXPECTATION_VIOLATION.VERBOSITY_ALL] Flow 'fluid_iactest_ldp.silver_capacity.capacity__capacity_key_unique' failed to meet the expectation. Violated expectations: 'capacity_key_unique'. (the record is not printed here: the update's event log on the pipeline's page shows it)
+```
+
+The `critical` uniqueness rule failed the update, and the table kept the duplicate: a check view runs after the table is written. Lakeflow recorded the check's failure but no passed count, so the line reads `passed 0`.
+
+**How long it waits.** `FLUID_DATABRICKS_RUN_TIMEOUT_SECONDS` caps the wait, in whole seconds, as for a dbt job. Unset, the cap is an hour. At the cap, the pipeline is stopped and the build fails. Ctrl-C, SIGTERM and SIGHUP stop it too, also while the start request is in flight. After five failed reads of the update in a row, the apply stops waiting and leaves the update as it is.
+
+**It needs `databricks-sdk`.** Without the `[databricks]` extra, an apply that would start an update, or set a continuous pipeline's tags, is refused before anything is applied, as for a dbt job (see [Running the job from `fluid apply`](#running-the-job-from-fluid-apply)). `--dry-run` is not refused. It names what it would do:
+
+```text
+🔍 [DRY RUN] Build 'build-capacity' - would start an update of Lakeflow pipeline 'fluid silver.test.capacity_v1 build-capacity' and wait for it.
+```
+
+Under `replace-and-build` it reads `would start an update (full refresh) of`, and for a continuous pipeline `would set the tags of continuous Lakeflow pipeline`.
+
+#### Tags on the pipeline's table
+
+A pipeline's table gets the same tags as a table forge-cli owns: the product's tags, and each column's `sensitivity` (see [Comments and product tags](#comments-and-product-tags)). OpenTofu cannot set them, because the table does not exist when it runs. So `fluid apply` sets them after each update it runs that completes, and on a continuous pipeline's table once it exists. A failed update sets none. Each time it sets them:
+
+- A declared tag is set, and a changed value is replaced.
+- A tag the contract no longer declares is removed when the deploying identity set it (the tag's `updated_by`). So a label the contract dropped goes, whatever ran the updates since. A tag a steward set stays, and so does a tag the table inherits.
+- When the deploying identity cannot be read, nothing is removed, and the apply says so.
+- A tag that cannot be set or removed fails the build. Re-run `fluid apply --mode amend-and-build`.
+
+Tags on a pipeline's table survive later updates and full refreshes (measured on Free Edition). An update started in Databricks, from the pipeline's page or a job, sets no tags. Live, after `site_id` lost its `sensitivity` in the contract, the second apply planned `+0 ~0 -0`, ran an update in 52 s and removed the column's tag. The 8 table tags stayed:
+
+```text
+   tags: 8 on fluid_iactest_ldp.silver_capacity.capacity, 0 on its columns
+```
+
+### Next to the pipeline's table
+
+The pipeline owns its table. Only the pipeline writes it, and the table's comments are the definition's: a `COMMENT ON` run from outside is reset by the next update. What would compete with the pipeline is refused:
+
+| Refusal | Refused when | The fix |
+| --- | --- | --- |
+| `databricks-lakeflow-enforcement` | The expose has `policy.authz.columnRestrictions` or `rowFilters`. Lakeflow binds masks and row filters only in the pipeline's definition, which forge-cli does not write yet. | Remove them, or write the expose with a dbt build. |
+| `databricks-lakeflow-write-grant` | A principal would get more than read access, `MODIFY` say. | Grant `read`, `select` or `query` only. |
+| `databricks-lakeflow-partitions` | The binding declares partitions. | Remove them. |
+| `databricks-retention-unmapped` | The expose sets `lifecycle.expire`. | Remove it. |
+| `databricks-lakeflow-writers` | Another build writes the expose. Two lakeflow builds that publish one table are `databricks-lakeflow-table-shared`. | Write the expose with one lakeflow build only. |
+| `databricks-lakeflow-schema-shared` | Another expose of the contract is in the same schema. Readers get `SELECT` on the schema, so they would read it too. | Give the lakeflow-built expose a schema of its own. |
+| `databricks-lakeflow-schema-not-owned` | A reader would get `SELECT` on the schema, and at plan the schema already holds a table or view the contract does not declare. Nothing is applied. | Bind the expose to a schema of its own, or move those tables out of it. |
+
+Some things are set up at or right after `tofu apply`, before the pipeline's first update creates the table. They leave a pipeline's table out for now, and `fluid validate` warns about each one the contract asks for:
+
+- **Unity Catalog primary and foreign keys** ([forge-cli #860](https://github.com/Agenticstiger/forge-cli/pull/860)). A pipeline's table takes them only in its definition, which forge-cli does not write yet.
+- **Data quality monitoring** (see [Data quality monitoring](#data-quality-monitoring)). A freshness or completeness SLO on the expose turns on no monitor. The `dq.rules` are the pipeline's expectations, counted on each update. To say so in the contract, set `contract.dq.monitoring.enabled: false`.
+- **A metric view** from `semantics` (see [Metric views](#metric-views)).
+- **The Genie space** of `extensions.databricksGenie` ([forge-cli #863](https://github.com/Agenticstiger/forge-cli/pull/863)). The space leaves the table out. A product whose tables are all a pipeline's gets no space, and a space an earlier apply made for it is left as it is.
+
+With a `qos.freshnessSLO` on the expose, for example:
+
+```text
+✅ Valid FLUID contract (schema v0.7.7)
+⚠️  1 warning(s)
+Validation Warnings:
+====================
+ 1. exposes[0] (capacity) is published by a Lakeflow pipeline: fluid apply turns on no data quality monitoring for its table, so qos.freshnessSLO is not monitored. Its contract.dq.rules are the pipeline's expectations, counted on each update. Set contract.dq.monitoring.enabled to false to say so in the contract.
+```
+
+### What a lakeflow build refuses
+
+`fluid validate`, `fluid generate iac` and `fluid apply` refuse what the pipeline would take and not honour, with the fix. `fluid plan` does not run these checks: it writes a plan for such a contract, so run `fluid validate` first. `fluid apply` refuses before anything is applied. With a cron trigger, `fluid validate` says:
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.7)
+
+Validation Errors:
+==================
+ 1. builds[0] (build-capacity) has execution.trigger.type 'schedule'; a lakeflow build is triggered (manual: fluid apply --mode amend-and-build starts an update, and so does the pipeline's page) or continuous. Use trigger type manual or continuous, and schedule a triggered pipeline in Databricks (a job with a pipeline task) until forge-cli does.
+```
+
+`fluid generate iac` and `fluid apply` stop with `unsupported_binding`, and the `kind` is the code of the refusal:
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: databricks-lakeflow-trigger-unsupported
+  error: builds[0] (build-capacity) has execution.trigger.type 'schedule'; a lakeflow build is triggered (manual: fluid apply --mode amend-and-build starts an update, and so does the pipeline's page) or continuous.
+  remediation: ['Use trigger type manual or continuous, and schedule a triggered pipeline in Databricks (a job with a pipeline task) until forge-cli does.']
+```
+
+The refusals of the build and its rules (those of the table are [above](#next-to-the-pipeline-s-table)):
+
+| Refusal | Refused when |
+| --- | --- |
+| `databricks-lakeflow-pattern` | The build is not `pattern: embedded-logic` with SQL in `properties.sql`. |
+| `databricks-lakeflow-query` | `properties.sql` is not one query: a second statement, a `;` inside it, or a string, backtick name or `/*` comment left open. |
+| `databricks-lakeflow-trigger-unsupported` | The trigger is not `manual` or `continuous`. |
+| `databricks-lakeflow-setting-unsupported` | The build sets anything else (see [Opting in](#opting-in)). |
+| `databricks-lakeflow-platform` | `execution.runtime.platform` is not `databricks`. |
+| `databricks-lakeflow-outputs` | The build does not write exactly one expose bound to a Databricks table. |
+| `databricks-lakeflow-rule-unexpressible` | A rule no expectation can express: `anomaly_detection` (whatever the monitoring says), `drift_detection`, or a rule the rule reader refuses, such as a `valid_values` rule with no allowed values. The dbt tests read rules with the same reader, so the rule checks in [What the rules refuse](#what-the-rules-refuse) apply here too, as this refusal. |
+| `databricks-lakeflow-rule-id` | A rule id that is not a plain identifier, two rules of one expose with the same id regardless of case, or a check view name over 255 characters. |
+| `databricks-lakeflow-rule-threshold` | An `error` or `critical` rule with a share. |
+| `databricks-lakeflow-reference-unresolved` | A `labels.references` product that the workspace does not resolve to one Databricks table with that column. |
+| `databricks-lakeflow-rule-column` | A rule checks a column the table does not have, because the column's name was refused. |
+| `databricks-lakeflow-range` | A `range` bound that is not a finite number. |
+| `databricks-lakeflow-literal-unsafe` | An allowed value or a regex that holds `${`, or a table or column comment that holds a control character or a line break. A Lakeflow source file substitutes `${name}` from the pipeline's settings, so `${` would not stay literal. A comment with `${` is refused for every Databricks table, as `databricks-comment-unsafe`. |
+
+Removing a pipeline from the contract needs `--allow-data-loss`, since deleting a pipeline can delete its table. Its source file and folder go without it.
+
+### `fluid verify` on a pipeline's table
+
+`fluid verify` checks a pipeline's table as it checks any Databricks table (see [`fluid verify`](#fluid-verify)), with these differences:
+
+- **Before the first update,** the table does not exist, which is `CRITICAL`. The fix is the pipeline's: `Its Lakeflow pipeline creates it on its first update: run fluid apply --mode amend-and-build, or start an update from the pipeline's page`.
+- **The columns** are checked against the definition, which keeps `required` as `NOT NULL`.
+- **The tags and comments** are checked as on a table forge-cli owns. A missing tag's fix is `fluid apply --mode amend-and-build`, since an update run from Databricks sets none.
+- **Masks, row filters and retention** are skipped. A pipeline's table cannot declare them.
+- **The pipeline itself** is not checked. The jobs check covers dbt builds only.
+
+Live, after the first update, `fluid verify` passed the columns, types, constraints and location, and all 10 tags and 2 comments: 8 table tags, the column's tag and the schema's `data_classification`. Its `USE CATALOG` check failed, as it should: the scratch catalog's owner had not granted it to `account users` (see [`USE CATALOG` is the owner's to grant](#use-catalog-is-the-owner-s-to-grant)).
+
+### Worked example: two products
+
+The live runs used two products in one workspace: a table of sites, and a lakeflow product that reads it and states six rules. The catalog was a scratch one, `fluid_iactest_ldp`, dropped afterwards. Use an existing catalog of yours, as in [A minimal contract](#a-minimal-contract).
+
+```text
+fluid.workspace.yaml            # version: 1
+sites/contract.fluid.yaml
+capacity/contract.fluid.yaml
+```
+
+`sites/contract.fluid.yaml` is a plain Databricks table:
+
+```yaml
+fluidVersion: "0.7.7"
+kind: DataProduct
+id: bronze.test.sites_v1
+name: Sites
+domain: test
+metadata:
+  layer: Bronze
+  owner:
+    team: test-team
+exposes:
+  - exposeId: sites
+    kind: table
+    binding:
+      platform: databricks
+      format: delta_table
+      location:
+        database: fluid_iactest_ldp
+        schema: bronze_sites
+        table: sites
+    contract:
+      schema:
+        - name: site_id
+          type: STRING
+          required: true
+        - name: tower_height_m
+          type: DOUBLE
+```
+
+`capacity/contract.fluid.yaml` builds its table with a pipeline:
+
+```yaml
+fluidVersion: "0.7.7"
+kind: DataProduct
+id: silver.test.capacity_v1
+name: Capacity
+description: The tower's capacity, one row per site.
+domain: test
+labels:
+  data-classification: internal
+metadata:
+  layer: Silver
+  owner:
+    team: test-team
+consumes:
+  - productId: bronze.test.sites_v1
+    exposeId: sites
+exposes:
+  - exposeId: capacity
+    kind: table
+    version: 1.0.0
+    description: Each site's structural load; it's the engineer's view.
+    binding:
+      platform: databricks
+      format: delta_table
+      location:
+        database: fluid_iactest_ldp
+        schema: silver_capacity
+        table: capacity
+      principals:
+        group:analysts: account users
+    contract:
+      schema:
+        - name: site_id
+          type: STRING
+          required: true
+          description: The site's id
+          sensitivity: internal
+          labels:
+            references: bronze.test.sites_v1.site_id
+        - name: load_kg
+          type: DECIMAL(10,2)
+          required: true
+        - name: method
+          type: STRING
+          validationRules:
+            - type: enum
+              constraint: A,B,C
+        - name: _ingested_at
+          type: TIMESTAMP
+      dq:
+        rules:
+          - id: capacity_key_unique
+            type: uniqueness
+            selector: site_id
+            threshold: 1.0
+            operator: ">="
+            severity: critical
+            description: Business key (site_id) must be unique per record.
+          - id: capacity_required_complete
+            type: completeness
+            selector: load_kg
+            threshold: 1.0
+            operator: ">="
+            severity: error
+          - id: capacity_method_valid
+            type: valid_values
+            selector: method
+            threshold: 1.0
+            operator: ">="
+            severity: warn
+          - id: capacity_freshness
+            type: freshness
+            selector: _ingested_at
+            window: PT26H
+            operator: "<="
+            severity: warn
+          - id: capacity_schema
+            type: schema
+            selector: "*"
+            severity: error
+          - id: capacity_site_ref
+            type: valid_values
+            selector: site_id
+            threshold: 1.0
+            operator: ">="
+            severity: warn
+            description: Every non-null site_id must exist in Sites.
+accessPolicy:
+  grants:
+    - principal: group:analysts
+      permissions: [read]
+      resources: ["$.exposes[?(@.exposeId=='capacity')]"]
+builds:
+  - id: build-capacity
+    pattern: embedded-logic
+    engine: lakeflow
+    outputs: [capacity]
+    execution:
+      trigger:
+        type: manual
+      runtime:
+        platform: databricks
+    properties:
+      sql: |
+        SELECT s.site_id, CAST(s.tower_height_m * 100 AS DECIMAL(10,2)) AS load_kg,
+               CASE WHEN s.tower_height_m > 30 THEN 'A' ELSE 'Z' END AS method,
+               current_timestamp() AS _ingested_at
+          FROM fluid_iactest_ldp.bronze_sites.sites s
+```
+
+- `binding.principals` maps `group:analysts` to `account users`, a group every workspace has, which stood in for a real one.
+- `capacity_site_ref` checks `site_id` against the upstream through `labels.references`, and `consumes[]` names the upstream's expose.
+- `capacity_schema` adds no expectation: the column list is the check.
+
+Apply the upstream, load it, then build the product:
+
+```bash
+export DATABRICKS_HOST=https://<workspace>.cloud.databricks.com
+export DATABRICKS_TOKEN=<token>
+export DATABRICKS_WAREHOUSE_ID=<your-warehouse-id>
+fluid validate capacity/contract.fluid.yaml
+fluid apply sites/contract.fluid.yaml --yes
+fluid apply capacity/contract.fluid.yaml --mode amend-and-build --yes
+fluid verify capacity/contract.fluid.yaml
+```
+
+`DATABRICKS_WAREHOUSE_ID` is needed for a product whose only table is a pipeline's too: `fluid validate` refuses any Databricks contract without it. Between the two applies, the live run loaded four sites into the upstream, two of them bad:
+
+```sql
+INSERT INTO fluid_iactest_ldp.bronze_sites.sites VALUES
+  ('S1', 40.0), ('S2', 25.0), ('S3', NULL), ('S4', 35.0);
+```
+
+`S3` has no height, so its `load_kg` is null and the `error` completeness rule drops it. `S2` is not over 30 m and `S3` has no height, so both get the `method` `Z`, which the `warn` rule counts. The table holds three sites.
+
+The product's apply planned and applied six resources: the schema, its `data_classification` tag, the readers' grant, the pipeline, its source file and its folder. Then it ran the update shown in [Running it from `fluid apply`](#running-it-from-fluid-apply). A second apply with nothing changed planned no change.
+
+::: warning Proven live on two runs
+The emitter and the build phase have unit tests against a stubbed Pipelines and tag API, and the module passes `tofu validate` against provider 1.140.0. There is no stand-in workspace tier for pipelines. The worked example ran on a live Free Edition workspace twice (`HONESTLY_TESTED.md`, the Lakeflow rows of 2026-11-12 and 2026-11-13), each time in a scratch catalog dropped afterwards. The update took 44 s on the first run and 54 s on the second, and the event log's counts were what the rules promise. A seeded duplicate failed the update with Lakeflow's `EXPECTATION_VIOLATION` error, and the apply exited `1`. That run also found that Lakeflow retried the failed update by itself, which is why a triggered pipeline now retries nothing. The second run removed a dropped label's tag. Measured too: an outside `COMMENT ON` is reset by the next update, tags survive a refresh and a full refresh, and two pipelines can update at once on Free Edition. Not run live: `replace-and-build`, a continuous pipeline, a table that exists outside its pipeline, a grant to a real group, a steward's tag, a tag list longer than one page, a failing `critical` rule with today's output (one ran live on 2026-11-12, before the record was cut), and a `critical` rule on the table itself. No live run looked at the Data quality tab: the counts above are the event log's.
+:::
+
 ## Landing a DuckDB acquisition
 
 *(since 0.27.0, [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801))*
@@ -1413,12 +1919,13 @@ What is refused, before the table exists where `fluid validate` or `fluid apply`
 - a `binding.location.region` that is not a plain lower-case region name, two exposes that declare different regions, and, with a `sovereignty` block, a placement the policy refuses (see [Residency](#residency));
 - a `binding.location` key the module would drop (`path` and others). `region` is read: see [Residency](#residency);
 - *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* a contract data-quality rule, on an expose a dbt job writes, that no dbt test can run as written (see [What the rules refuse](#what-the-rules-refuse));
+- *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* a lakeflow build setting the pipeline would not honour, a rule no expectation can express, and what would compete with the pipeline for its table (see [What a lakeflow build refuses](#what-a-lakeflow-build-refuses) and [Next to the pipeline's table](#next-to-the-pipeline-s-table));
 - a description with a backslash or `${`, a label set that becomes one of the product's own tag keys, a tag value over 256 characters, more than 1,000 column tags on a table, and a `certification` label other than `certified` *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* (see [Comments and product tags](#comments-and-product-tags) and [Certification](#certification));
 - duplicate partitions;
 - a column type Databricks has no mapping for (it would be created as `string`), or would reject;
 - a `semantics` block a metric view cannot hold *([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865), since 0.30.0)* (see [What metric views refuse](#what-metric-views-refuse)).
 
-It warns when a `DECIMAL` has no scale, because it would keep no fractional digits. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* It also warns about a `contract.dq.monitoring.window` other than one day on an expose that turns on data quality monitoring, since the window is not applied (see [Data quality monitoring](#data-quality-monitoring)).
+It warns when a `DECIMAL` has no scale, because it would keep no fractional digits. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* It also warns about a `contract.dq.monitoring.window` other than one day on an expose that turns on data quality monitoring, since the window is not applied (see [Data quality monitoring](#data-quality-monitoring)). *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* It warns when a Lakeflow pipeline's table asks for Unity Catalog keys, data quality monitoring, a metric view or a Genie space, which `fluid apply` does not set up on such a table yet (see [Next to the pipeline's table](#next-to-the-pipeline-s-table)).
 
 ## CLI commands
 
@@ -1451,6 +1958,8 @@ Install the extra first: `pip install 'data-product-forge[databricks]'`. Verify 
 `USE CATALOG` is checked per table, so a [scoped grant's](#scoping-a-grant-to-an-expose) principal is checked only where it was granted.
 
 A missing table is `CRITICAL` ("run `fluid apply`"). A failure to reach the workspace is reported as a result, not a traceback, and no message carries a token.
+
+*(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* A Lakeflow pipeline's table is checked the same way, with a few differences (see [`fluid verify` on a pipeline's table](#fluid-verify-on-a-pipeline-s-table)).
 
 ### `fluid diff`
 
@@ -1512,6 +2021,9 @@ It keeps every other profile, writes the file back owner-only (`0600`) and never
 - **Retention is a Delta history limit.** It holds only for a table rebuilt in full. forge-cli does not set the table's retention properties and does not check that the build runs within the retention (see [Retention](#retention)).
 - *([forge-cli #873](https://github.com/Agenticstiger/forge-cli/pull/873), since 0.30.0)* **A schema the contract stops using is cleared only of this product's own objects.** `fluid apply` drops the metric views and the mask and row filter functions this product made there, when the deploy identity owns them. Anything else keeps the schema, and its destroy fails until that is moved or dropped (see [A schema the contract stops using](#a-schema-the-contract-stops-using)).
 - **Empty folders stay.** The `.fluid/<product>/<build>` folders above `files/` are not managed; only `files/` and below are.
+- *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* **A Lakeflow pipeline's table takes no masks, row filters or partitions yet**, and gets no Unity Catalog keys, data quality monitor, metric view or Genie space. forge-cli does not write them into the pipeline's definition, and the rest is set up before the pipeline creates its table (see [Next to the pipeline's table](#next-to-the-pipeline-s-table)).
+- *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* **A Lakeflow pipeline gets no schedule from the contract.** A cron trigger is refused. Start updates with `fluid apply --mode amend-and-build`, from the pipeline's page, or with a Databricks job's pipeline task.
+- *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* **A failing whole-table check does not stop the write.** A `critical` uniqueness, freshness or reference rule runs in a check view after the table is written, so the failed update leaves the table with its rows (see [Rules as expectations](#rules-as-expectations)).
 - *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* **Data quality monitoring takes no threshold and no alert from the contract.** Databricks learns each table's bounds itself, and the pinned provider's anomaly detection settings have no alert setting for forge-cli to fill (see [Data quality monitoring](#data-quality-monitoring)).
 
 ## How it is tested
@@ -1520,14 +2032,14 @@ The full matrix is in `HONESTLY_TESTED.md` in forge-cli. In short:
 
 | Tier | What it covers |
 | --- | --- |
-| Unit | 471 tests across the emitter, jobs, credentials, engine hooks, cron conversion, the dbt runner, verify, doctor and the welcome scan, against a stubbed SDK client. |
-| `tofu validate` | Both job modules (Git and workspace upload) and the dbt-written table's `ignore_changes` list validate against provider 1.140.0's schema. |
-| Stand-in workspace | The real `fluid` CLI, `tofu` and provider 1.140.0 against an in-process stand-in for the Unity Catalog, SQL statement, permissions and jobs APIs: plan, apply, an empty second plan, the data-loss gate, adoption, job and file removal. The stand-in does not check SQL dialect or privilege names. |
-| Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* Another manual run on 2026-11-12, in a scratch catalog dropped afterwards, turned data quality monitoring on, adopted a monitor made through the API, changed what it excludes and turned it off (see [Data quality monitoring](#data-quality-monitoring)). *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* One more manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran a dbt product's nine contract rules as eleven tests with `amend-and-build`: with a bad row seeded the run failed and `fluid apply` printed each rule's result, and on clean data the run succeeded (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests)). |
+| Unit | 471 tests across the emitter, jobs, credentials, engine hooks, cron conversion, the dbt runner, verify, doctor and the welcome scan, against a stubbed SDK client. *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* 107 more for Lakeflow pipelines: the generated source and module, every refusal, and the build phase against a stubbed Pipelines and tag API. |
+| `tofu validate` | Both job modules (Git and workspace upload) and the dbt-written table's `ignore_changes` list validate against provider 1.140.0's schema. *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* So do a Lakeflow pipeline, its source file and folder, and the schema grant. |
+| Stand-in workspace | The real `fluid` CLI, `tofu` and provider 1.140.0 against an in-process stand-in for the Unity Catalog, SQL statement, permissions and jobs APIs: plan, apply, an empty second plan, the data-loss gate, adoption, job and file removal. The stand-in does not check SQL dialect or privilege names. *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* It has no pipelines API, so Lakeflow pipelines skip this tier. |
+| Live, Databricks Free Edition | One manual run on 2026-11-01 with the real `fluid` CLI: validate, plan, dry-run and apply, an empty second plan, one job run that succeeded and built the table, `fluid verify` with the real SDK, a model change, and removal of the job and its files. Everything the run created was swept afterwards. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* A second manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran the job from `fluid apply`: `amend-and-build` started a run, waited for it and exited 0; a broken model exited 1 with the task's error and dbt's output; `replace-and-build` on a scheduled job ran `--full-refresh`, and the job kept its schedule and its commands; a run queued behind another run of the job; a missing `databricks-sdk` was refused before `tofu`; `--dry-run` and `--mode amend` started no run. *On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).* Another manual run on 2026-11-12, in a scratch catalog dropped afterwards, turned data quality monitoring on, adopted a monitor made through the API, changed what it excludes and turned it off (see [Data quality monitoring](#data-quality-monitoring)). *On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).* One more manual run on 2026-11-12, in a scratch catalog dropped afterwards, ran a dbt product's nine contract rules as eleven tests with `amend-and-build`: with a bad row seeded the run failed and `fluid apply` printed each rule's result, and on clean data the run succeeded (see [Contract rules as dbt tests](#contract-rules-as-dbt-tests)). *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* Two more manual runs, on 2026-11-12 and 2026-11-13, each in a scratch catalog dropped afterwards, built a product as a Lakeflow pipeline with `amend-and-build`: each update printed the counts its rules promise, `fluid verify` passed the table's columns and tags, a seeded duplicate failed an update, and a dropped label's tag was removed (see [Lakeflow pipelines](#lakeflow-pipelines)). |
 | Emulator (nightly, not gating) | First run on 2026-10-30 passed 1 of 4: creates and the replace gate work, but a second plan is not empty against the emulator. |
 
 *([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865), since 0.30.0)* Metric views: 91 unit tests (the YAML, 39 refusals and 3 near misses that must still compile, and the hooks against the stand-in) and 5 stand-in tests through the real `fluid` CLI and `tofu`, one of them with the Genie space. One manual run on Free Edition on 2026-11-12, in a scratch catalog dropped afterwards, applied the semantics block of an industry-model gold product verbatim (13 dimensions, 3 non-additive measures, 4 filtered metrics) on a table shaped like it. The apply created the view and granted `SELECT` to its 3 readers, `MEASURE()` returned each market at its latest snapshot, and a second apply ran no statement. Not proven live for metric views: Genie and AI/BI dashboards reading the view, and a query sent as one of its readers.
 
 *([forge-cli #873](https://github.com/Agenticstiger/forge-cli/pull/873), since 0.30.0)* A schema the contract stops using: 14 tests of the rules against the stand-in, 24 of the engine with `tofu` stubbed, and 2 through the real `fluid` CLI and `tofu` against the stand-in, in which a table with a metric view, a mask and a row filter moves to another schema, and a schema's last expose is removed. Not proven live: that the provider destroys the table before its schema and Unity Catalog then deletes the schema once its functions are dropped. A live run on 2026-11-03 measured only that Unity Catalog does not delete a schema that holds a function.
 
-Not proven live: a Git source, profile or OAuth auth, a run-as service principal, table adoption, a larger project, and re-adopting a job after lost state. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Nor are the reason line of a queued run and a run queued for the workspace's limit.
+Not proven live: a Git source, profile or OAuth auth, a run-as service principal, table adoption, a larger project, and re-adopting a job after lost state. *On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.* Nor are the reason line of a queued run and a run queued for the workspace's limit. *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* Nor, for a Lakeflow pipeline, are `replace-and-build`, a continuous pipeline, a table that exists outside its pipeline, a grant to a real group, a steward's tag, a tag list longer than one page, and a failing `critical` rule with today's output (one ran live on 2026-11-12, before the record was cut).
