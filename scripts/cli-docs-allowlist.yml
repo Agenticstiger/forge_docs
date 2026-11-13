@@ -71,6 +71,11 @@ flag_oracle_ok:
                      # prints the command's options and
                      # `fluid generate-custom-scaffold --help` prints the
                      # top-level usage. The pages document the name that runs.
+  - docs/cli/plan.md::--no-check-sovereignty
+                     # Newer than the pin: forge-cli 0.30.0 (#868) made
+                     # --check-sovereignty a BooleanOptionalAction, and the
+                     # pinned 0.29.0 parser registers only --check-sovereignty.
+                     # Remove this entry when cli-version.json moves to 0.30.0.
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

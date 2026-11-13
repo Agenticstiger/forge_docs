@@ -25,7 +25,8 @@ fluid apply runtime/plan.json --mode amend-and-build --yes
 ```bash
 fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
                     [--provider NAME] [--project PROJECT] [--region REGION]
-                    [--validate-actions] [--estimate-cost] [--check-sovereignty]
+                    [--validate-actions] [--estimate-cost]
+                    [--check-sovereignty | --no-check-sovereignty]
                     [--html [PATH]] [--verbose]
 ```
 
@@ -41,7 +42,8 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 | `--verbose`, `-v` | Show detailed action information |
 | `--validate-actions` | Validate generated provider actions against the ProviderAction SDK schema |
 | `--estimate-cost` | Ask the provider to estimate cost |
-| `--check-sovereignty` | *(since 0.15.0)* Resolve a real sovereignty verdict and name which source produced it — the provider's `validate_sovereignty` hook when it has one (the `gcp` provider has one since 0.17.0), otherwise the built-in policy engine (the same checker [`fluid validate`](./validate.md) runs), otherwise `NOT CHECKED`. **Exits 1 when the check fails.** Opt-in, off by default. See [Sovereignty gate](#sovereignty-gate-since-0-15-0). |
+| `--check-sovereignty` | *(since 0.15.0)* Resolve a real sovereignty verdict and name which source produced it — the provider's `validate_sovereignty` hook when it has one (the `gcp` provider has one since 0.17.0), otherwise the built-in policy engine (the same checker [`fluid validate`](./validate.md) runs), otherwise `NOT CHECKED`. **Exits 1 when the check fails.** *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* `plan` checks the policy without this flag too, and refuses before it writes a plan; the flag adds the provider's hook and the printed verdict. See [Sovereignty gate](#sovereignty-gate-since-0-15-0). |
+| `--no-check-sovereignty` | *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* Skip the sovereignty check `plan` runs by default, and write the plan whatever the policy says. Prints a warning and logs a WARNING (`sovereignty_check_skipped`). `fluid apply` keeps its own checks. |
 | `--provider` | Override the provider from the contract |
 | `--project` | Override the project / account from the contract |
 | `--region` | Override the region / location from the contract |
@@ -95,7 +97,44 @@ A bundle is never re-overlaid: `fluid plan bundle.tgz --env prod` on a bundle bu
 
 ## Sovereignty gate (since 0.15.0)
 
-`--check-sovereignty` stays **opt-in and off by default**, but on `0.15.0` it is a gate rather than a label. The verdict resolves in a fixed order, and the output always names which source answered:
+*([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* `fluid plan` checks the contract's sovereignty policy by default, before it plans. It asks the built-in policy engine, the checker [`fluid validate`](./validate.md) runs, and refuses what `validate` refuses:
+
+- Under `enforcementMode: strict`, the schema default, the findings that block include a binding outside `allowedRegions`, one in a region of another jurisdiction, and one on AWS, GCP, Azure or Databricks that declares no region (the platform would pick it).
+- In every mode, a binding in a region listed in `deniedRegions` blocks.
+
+A refusal exits 1 with `ERR_SOVEREIGNTY_VIOLATION` and writes no plan. A plan file an earlier run left at `--out` stays as it was. The check builds no provider, so it needs no cloud SDK and no credentials. When nothing blocks it prints nothing, and the plan is written as before: for a contract with no `sovereignty` block, and for one whose findings are only warnings or info lines (under `advisory` or `audit`, every finding but a denied region).
+
+This is the refusal on 0.30.0 for a contract with `enforcementMode: strict`, `allowedRegions: [eu-central-1, eu-west-1]`, `deniedRegions: [us-west-2]` and one binding in `us-west-2`:
+
+```text
+Sovereignty check: 3 finding(s)  — source: built-in policy engine, enforcementMode=strict
+  - ❌ [customer_events] Region 'us-west-2' is explicitly denied by sovereignty policy
+   💡 Use one of the allowed regions: eu-central-1, eu-west-1
+  - ❌ [customer_events] Region 'us-west-2' not in allowed regions list
+   💡 Allowed regions: eu-central-1, eu-west-1
+  - ❌ [customer_events] Region 'us-west-2' (jurisdiction: US) does not match required jurisdiction: EU
+   💡 Consider using regions in EU jurisdiction
+
+❌ Sovereignty check FAILED — enforcementMode is 'strict'.
+❌ sovereignty_violation  [ERR_SOVEREIGNTY_VIOLATION]
+  command: plan
+  contract: .../contract.fluid.yaml
+  errors: ["[customer_events] Region 'us-west-2' is explicitly denied by sovereignty policy", "[customer_events] Region 'us-west-2' not in allowed regions list", "[customer_events] Region 'us-west-2' (jurisdiction: US) does not match required jurisdiction: EU"]
+  message: The contract's sovereignty policy (enforcementMode strict) blocks where it puts data, so fluid plan wrote no plan.
+...
+```
+
+Each finding names its expose in brackets, and the error carries the findings as `errors`. The suggestions printed after it are listed under [`sovereignty_violation`](../advanced/error-codes.md#sovereignty-violation).
+
+Up to 0.29.0 the check was opt-in: plain `fluid plan` wrote a plan for this contract and exited 0. To write the plan anyway now, pass [`--no-check-sovereignty`](#no-check-sovereignty).
+
+::: warning Behavior change in 0.30.0
+A script or pipeline that runs `fluid plan` on a contract `fluid validate` refuses for sovereignty now stops at plan, with exit 1 and no plan file. See [Changes in 0.30.0](../upgrading.md#changes-in-0-30-0).
+:::
+
+### `--check-sovereignty`
+
+`--check-sovereignty` runs the same check first. If nothing blocks, plan then resolves a verdict and prints it, naming which source answered, in a fixed order:
 
 1. The target provider's `validate_sovereignty` hook, when it returns a verdict.
 2. Otherwise the **built-in policy engine** — the same sovereignty checker `fluid validate` runs, so the two stages cannot reach opposite verdicts on the same contract.
@@ -124,15 +163,31 @@ Sovereignty check: 10 violation(s)  — source: gcp provider hook
 ❌ sovereignty_violation  [ERR_SOVEREIGNTY_VIOLATION]
 ```
 
+*([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* The second output predates 0.30.0. Now the default check runs first and refuses that contract under `strict` before the hook is asked: 0.30.0 prints the built-in engine's two findings for the `us-central1` binding (`not in allowed regions list` and the jurisdiction mismatch) and writes no plan. The hook's verdict is printed when the engine finds no error.
+
 The pipeline `fluid generate ci --system github` writes runs `fluid plan ... --check-sovereignty` in its plan job, and the Jenkins pipeline's stage 6 does the same.
 
-A failing check prints a `Sovereignty check: N finding(s)` header naming the source, then its findings as a bulleted list, then `❌ Sovereignty check FAILED`, and **exits 1**. The plan file is still written; the non-zero exit is what makes the flag usable as a CI gate.
+A failing check prints a `Sovereignty check: N finding(s)` header naming the source, then its findings as a bulleted list, then `❌ Sovereignty check FAILED`, and **exits 1**. *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* It writes no plan, as the default check does. Up to 0.29.0 the plan file was still written, and only the non-zero exit stopped a pipeline.
 
 On `0.14.1` and earlier none of that happened. No shipped provider implemented `validate_sovereignty`, the hook helper returned an empty violation list for a hook that was absent (and for one that raised, because the invoker swallows the exception and hands back its first argument), and an empty list rendered as `Sovereignty check: PASS` with exit 0 — printed on contracts `fluid validate` rejects with two residency errors. The flag was also skipped outright when the provider failed to build. `PASS` is now printed only when a check actually ran and found nothing.
 
 ::: warning Behavior change in 0.15.0
 A pipeline that already passes `--check-sovereignty` moves from a step that could only ever be green to one that can fail. Two rules decide whether it blocks: a region named in `deniedRegions` is an **error in every mode**, and everything else follows the contract's own `sovereignty.enforcementMode`, whose default is `strict`. Full table: [Governance → Sovereignty enforcement modes](../advanced/governance.md#sovereignty-enforcement-modes-since-0-15-0).
 :::
+
+### `--no-check-sovereignty`
+
+*([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* `--no-check-sovereignty` skips the check and writes the plan whatever the policy says:
+
+```bash
+fluid plan contract.fluid.yaml --no-check-sovereignty --out runtime/plan.json
+```
+
+```text
+⚠️  Sovereignty check skipped (--no-check-sovereignty): the plan is written whatever the contract's sovereignty policy says.
+```
+
+It also logs a WARNING with the event `sovereignty_check_skipped`, so the skip is on record. It changes nothing in `fluid apply`, which keeps its own checks; [Where sovereignty is enforced](../advanced/governance.md#where-sovereignty-is-enforced) lists them.
 
 ## Examples
 

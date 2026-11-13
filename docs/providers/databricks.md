@@ -313,7 +313,7 @@ Whether a real metastore reports its region in the spelling a contract declares 
 
 A contract's governance labels reach AWS as tags and Glue parameters and GCP as labels. On Databricks they are Unity Catalog tags, one `databricks_entity_tag_assignment` per tag, built from the same source as the other two clouds (`iac/governance_labels.py`). Before this change the Databricks module never read `labels`, and nothing said so.
 
-The tags a contract carries are its and the expose's `labels`, plus `fluid_classification`, `fluid_jurisdiction`, `fluid_regulation` and `fluid_residency`, from the classification (the expose's `policy.classification`, else `metadata.classification`) and the contract's `sovereignty` block. Keys and values first pass through the label alphabet the three clouds share (lower-case letters, digits, `_` and `-`, at most 63 characters), so a tag carries the same text on each.
+The tags a contract carries are its and the expose's `labels`, plus `fluid_classification`, `fluid_jurisdiction`, `fluid_regulation` and `fluid_residency`, from the classification (the expose's `policy.classification`, else `metadata.classification`) and the contract's `sovereignty` block. Keys first pass through the label alphabet the three clouds share (lower-case letters, digits, `_` and `-`, at most 63 characters), so a tag has the same key on each. Values are written as the contract states them; see **Values** below.
 
 | On | Carries |
 | --- | --- |
@@ -322,8 +322,30 @@ The tags a contract carries are its and the expose's `labels`, plus `fluid_class
 
 Two rules shape the keys:
 
-- **A `-` in a key becomes `_`.** A Unity Catalog tag key may not contain `. , - = / :`, and a governance label key is lower-case letters, digits, `_` and `-`. `data-classification` is the tag `data_classification`; `fluid_jurisdiction` stays as it is. The value is not changed further.
+- **A `-` in a key becomes `_`.** A Unity Catalog tag key may not contain `. , - = / :`, and a governance label key is lower-case letters, digits, `_` and `-`. `data-classification` is the tag `data_classification`; `fluid_jurisdiction` stays as it is.
 - **Nothing is dropped, nothing is overwritten.** Two labels that become one key (`cost-center` and `cost_center`) are refused as `databricks-tag-collision`. More than the 50 tags a Unity Catalog securable holds is refused as `databricks-tags-too-many`. `fluid validate` reports both. *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* On a table, the product's own tags (see [Comments and product tags](#comments-and-product-tags)) count toward the 50 with the governance labels, and a label that becomes one of their keys is also `databricks-tag-collision`.
+
+**Values.** *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* A tag value is the contract's text, less the surrounding whitespace Unity Catalog refuses. It keeps case, spaces and punctuation, and `fluid_regulation` joins the frameworks with `, `. A value over 256 characters is refused as `databricks-tag-value-too-long` rather than cut, and `fluid validate` reports it too. Up to 0.29.0 a value went through the label alphabet as well: lower-cased, with each character other than a letter, a digit, `_` or `-` turned into `-`, and cut at 63 characters. GCP labels and AWS tags still do.
+
+These labels and `sovereignty` fields, compiled offline with `fluid generate iac` on each release, give the same keys and these values:
+
+```yaml
+labels:
+  business-value: "A single unrenewed ground lease can strand a multi-tenant tower"
+  cost-center: CC-42
+sovereignty:
+  jurisdiction: US
+  regulatoryFramework: [GDPR, CCPA]
+```
+
+| Tag | 0.29.0 | 0.30.0 |
+| --- | --- | --- |
+| `business_value` | `a-single-unrenewed-ground-lease-can-strand-a-multi-tenant-tower` | `A single unrenewed ground lease can strand a multi-tenant tower` |
+| `cost_center` | `cc-42` | `CC-42` |
+| `fluid_jurisdiction` | `us` | `US` |
+| `fluid_regulation` | `gdpr_ccpa` | `GDPR, CCPA` |
+
+**A deployment made before 0.30.0** gets the new values at its next `fluid apply`, which updates each changed tag in place (`~` in the plan). A tag assignment's address and import id depend on its key alone, and the provider (1.140.0) updates `tag_value` without replacing the assignment. So no table, schema or data is replaced or destroyed, and no `--allow-data-loss` is needed. Until that apply, `fluid verify` reports each old value as a changed tag, `CRITICAL`.
 
 A contract with no labels gets the module it always did. *(since 0.28.0, [forge-cli #831](https://github.com/Agenticstiger/forge-cli/pull/831))* Since 0.28.0 that is no longer so for a table: a contract with no labels still gets the product's own tags on it.
 
@@ -335,7 +357,7 @@ An assignment that already exists is imported before the first apply, best-effor
 Databricks does not document whether a table keeps its tags across the `CREATE OR REPLACE` a dbt `table` materialization runs, and forge-cli has not proven it. If tags go missing after a build, `fluid apply` sets them again. `fluid verify` is the gate.
 :::
 
-Not run against a live workspace.
+*([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* forge-cli ran the change on Databricks Free Edition: a product carrying the 0.29.0 values planned `+0 ~17 -0` and applied, `information_schema.table_tags` then showed the values as the contract states them, and `fluid verify` passed on all 27 tags.
 
 ### Comments and product tags
 
