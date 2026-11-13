@@ -740,6 +740,8 @@ GROUP BY ALL
 
 The view takes its table's name, not `semantics.name`, and stays in the table's schema, which the product owns.
 
+*(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* A table a [Lakeflow pipeline](#lakeflow-pipelines) publishes gets no metric view yet, and `fluid validate` warns when its expose has `semantics` (see [Next to the pipeline's table](#next-to-the-pipeline-s-table)).
+
 The [minimal contract](#a-minimal-contract), with a `region` column and a semantics block:
 
 ```yaml
@@ -1623,7 +1625,7 @@ Some things are set up at or right after `tofu apply`, before the pipeline's fir
 
 - **Unity Catalog primary and foreign keys** ([forge-cli #860](https://github.com/Agenticstiger/forge-cli/pull/860)). A pipeline's table takes them only in its definition, which forge-cli does not write yet.
 - **Data quality monitoring** (see [Data quality monitoring](#data-quality-monitoring)). A freshness or completeness SLO on the expose turns on no monitor. The `dq.rules` are the pipeline's expectations, counted on each update. To say so in the contract, set `contract.dq.monitoring.enabled: false`.
-- **A metric view** from `semantics` ([forge-cli #865](https://github.com/Agenticstiger/forge-cli/pull/865)).
+- **A metric view** from `semantics` (see [Metric views](#metric-views)).
 - **The Genie space** of `extensions.databricksGenie` ([forge-cli #863](https://github.com/Agenticstiger/forge-cli/pull/863)). The space leaves the table out. A product whose tables are all a pipeline's gets no space, and a space an earlier apply made for it is left as it is.
 
 With a `qos.freshnessSLO` on the expose, for example:
