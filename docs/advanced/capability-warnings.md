@@ -25,6 +25,8 @@ if you need the multi-turn agent loop on Ollama.
 capability_warnings_count=2 provider=ollama model=gemma2:9b
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop these catalog notes mention is removed; the notes still read as shown.
+
 The first lines are user-facing warnings, printed through the standard CLI console, which also applies the secret-redaction filter, so they are safe to share in bug reports. The `capability_warnings_count=...` line is a structured log line.
 
 ## When the warning fires

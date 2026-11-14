@@ -2,7 +2,7 @@
 
 Fluid Forge's `fluid forge` flow is detect-first, mode-aware, slash-command-friendly, and never writes a file before showing you what it's about to write.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The mode picker, the welcome scan and the pre-write preview panel are kept. The guided interview, its mode-aware short-circuits, the slash commands, the streaming contract preview and the self-healing repair loop are removed with the embedded copilot. AI mode runs on the FLUID Agent Skills: see [AI mode on forge-cli main](../cli/forge.md#ai-mode-on-forge-cli-main).
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The mode picker and the welcome scan are kept. The pre-write preview panel, the guided interview, its mode-aware short-circuits, the slash commands, the streaming contract preview and the self-healing repair loop are removed with the embedded copilot; AI mode's one-call path asks `Keep this contract at <path>? [Y/n]` instead of showing the panel. AI mode runs on the FLUID Agent Skills: see [AI mode on forge-cli main](../cli/forge.md#ai-mode-on-forge-cli-main).
 
 <iframe
   src="/forge_docs/reels/guided-forge-ux.html"
@@ -154,6 +154,8 @@ After every interview answer, `cli/_streaming_contract_preview.py` re-shapes the
 The user sees the contract grow as they answer. Toggle off with `FLUID_FORGE_NO_STREAMING_PREVIEW=1`.
 
 ## Pre-write preview panel
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. AI mode's one-call path asks `Keep this contract at <path>? [Y/n]` instead; `--yes` or `FLUID_FORGE_NO_PREVIEW=1` skips it.
 
 Before any file is written, `cli/_preview_panel.py` renders a final panel showing:
 

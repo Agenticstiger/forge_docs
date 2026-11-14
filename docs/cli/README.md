@@ -34,7 +34,7 @@ See [Walkthrough → 11-stage pipeline](../walkthrough/11-stage-pipeline.md) for
 | [`fluid demo`](./demo.md) | Zero-setup ~30 second customer-360 example on local DuckDB |
 | [`fluid forge`](./forge.md) | AI-assisted scaffolding |
 | [`fluid forge data-model`](../forge-data-model.md) | Forge a reviewable data model from an intent file, DDL, or source catalog |
-| [`fluid skills`](./skills.md) | Industry knowledge packs that augment `fluid forge` |
+| [`fluid skills`](./skills.md) | Industry knowledge packs that augment `fluid forge`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Nothing reads the installed pack. |
 | [Source catalogs](./catalogs/README.md) | Forge directly from Snowflake / Unity / BigQuery / Dataplex / Glue / DataHub / DMM metadata |
 | [`fluid validate`](./validate.md) | Check contract syntax and provider rules |
 | [`fluid plan`](./plan.md) | Plan execution (`--html`, `--env`, `--out`) |

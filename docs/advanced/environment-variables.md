@@ -234,7 +234,7 @@ See [LLM providers](./llm-providers.md) and the [LiteLLM backend](./litellm-back
 | `FLUID_OPENAI_STRICT_SCHEMA` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. No longer read. `1`, `true`, `yes` or `on` hardens the response schema for OpenAI strict mode. |
 | `FLUID_GEMINI_RESPONSE_SCHEMA` | `1` sends the response schema to Gemini. Off by default. |
 | `FLUID_FORGE_AGENT` | Selects a keyless coding-agent provider (`claude-code`, `codex`, `cursor`, `kiro`). |
-| `FLUID_FORGE_AGENT_MODE`, `FLUID_FORGE_AGENT_TIMEOUT_SECONDS`, `FLUID_FORGE_AGENT_CWD` | Drive mode (`envelope` or `agentic`), per-invocation wall-clock cap, and working directory for the agent CLI. |
+| `FLUID_FORGE_AGENT_MODE`, `FLUID_FORGE_AGENT_TIMEOUT_SECONDS`, `FLUID_FORGE_AGENT_CWD` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `agentic` is the default drive mode, and `envelope` makes one call through the agent, with no tools. In 0.29.0: Drive mode (`envelope` or `agentic`), per-invocation wall-clock cap, and working directory for the agent CLI. |
 | `FLUID_AGENT_WEB_TOOLS` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The agent loop and its web tools are gone. `1` exposes the `web_search` and `web_fetch` agent tools. |
 | `FLUID_WEB_SEARCH_PROVIDER` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The web tools are gone. Forces the web-search backend. |
 
@@ -247,7 +247,7 @@ Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
 | Variable | Effect |
 |---|---|
 | `FLUID_FORGE_NO_PICKER` | Skips the mode menu on bare `fluid forge`. Any non-empty value counts. |
-| `FLUID_FORGE_NO_PREVIEW` | Skips the pre-write preview panel. Any non-empty value counts. |
+| `FLUID_FORGE_NO_PREVIEW` | Skips the pre-write preview panel. Any non-empty value counts. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The panel is removed; the variable skips AI mode's `Keep this contract` question. |
 | `FLUID_FORGE_NO_STREAMING_PREVIEW` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The streaming contract preview is gone. Disables the live contract-growth panel. Any non-empty value counts. |
 | `FLUID_FORGE_NO_WELCOME` | Suppresses the welcome scan. Any non-empty value counts. |
 | `FLUID_FORGE_PICKER_ALWAYS` | Shows the picker even for return users. |
@@ -267,11 +267,11 @@ Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
 | `FLUID_COPILOT_SEMANTIC_MEMORY` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Semantic memory is gone. Opts in to semantic-memory writes and lookups. |
 | `FLUID_COPILOT_FORCE_INTERVIEW` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The interview is gone. Forces the interview even when it would otherwise be skipped. Any non-empty value counts. |
 | `FLUID_COPILOT_PARALLEL_PHYSICAL` | On by default; `0`, `false`, `no` or `off` runs the physical-modeling stages one at a time. |
-| `FLUID_INTERVIEW_LEGACY` | `1` reverts to the legacy bootstrap interview. |
-| `FLUID_AGENT_COMPACT_AFTER` | Compact the agent context after this many turns. Default `6`. |
-| `FLUID_COMPACTION_STRATEGY` | `truncate`, `summarize` or `hybrid`. |
-| `FLUID_PROMPT_OVERLAYS`, `FLUID_PROMPT_PROFILE`, `FLUID_OVERLAY_STRICT`, `FLUID_OVERLAY_PUBLIC_KEYS` | Prompt overlays and profile for `fluid forge`; strict mode and the keys that verify signed overlays. |
-| `FLUID_FORGE_WATCH_INTERVAL`, `FLUID_FORGE_WATCH_DEBOUNCE` | Poll interval and debounce, in seconds, for `fluid forge` watch mode. |
+| `FLUID_INTERVIEW_LEGACY` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. `1` reverts to the legacy bootstrap interview. |
+| `FLUID_AGENT_COMPACT_AFTER` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Compact the agent context after this many turns. Default `6`. |
+| `FLUID_COMPACTION_STRATEGY` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. `truncate`, `summarize` or `hybrid`. |
+| `FLUID_PROMPT_OVERLAYS`, `FLUID_PROMPT_PROFILE`, `FLUID_OVERLAY_STRICT`, `FLUID_OVERLAY_PUBLIC_KEYS` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Prompt overlays and profile for `fluid forge`; strict mode and the keys that verify signed overlays. |
+| `FLUID_FORGE_WATCH_INTERVAL`, `FLUID_FORGE_WATCH_DEBOUNCE` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Poll interval and debounce, in seconds, for `fluid forge` watch mode. |
 
 ## MCP output port
 

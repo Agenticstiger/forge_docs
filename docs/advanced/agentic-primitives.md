@@ -404,6 +404,8 @@ work unchanged.
    write_semantic_record ──→ memory/semantic
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `write_semantic_record` is removed with semantic memory.
+
 ## See also
 
 - [Catalog integration architecture](v1.5-architecture.md)

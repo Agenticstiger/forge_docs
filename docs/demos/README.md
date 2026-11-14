@@ -167,7 +167,7 @@ The casts below pair with the [See it run](/forge_docs/see-it-run.html) page. Ea
 
 ### 23 questions, skipped — guided UX
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The AI mode interview and its slash commands are removed; the welcome scan, picker and pre-write panel stay.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The AI mode interview and its slash commands are removed; the welcome scan and the picker stay, and the pre-write panel is removed too.
 
 <CliCast
   src="/forge_docs/demos/guided-forge-ux.svg"

@@ -57,7 +57,7 @@ Pairs with [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acqu
 
 ## 23 questions, skipped
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The AI mode interview, its slash commands and the streaming contract preview are removed. The welcome scan, the 5-mode picker and the pre-write panel stay. A coding agent now runs AI mode with the FLUID skills and asks its own follow-up questions.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The AI mode interview, its slash commands and the streaming contract preview are removed. The welcome scan and the 5-mode picker stay; the pre-write panel is removed too. A coding agent now runs AI mode with the FLUID skills and asks its own follow-up questions.
 
 `fluid forge` scans the working directory before it asks anything. In the recording the scan takes 47 ms, offers a 5-mode picker, asks four questions (most accept an inferred default), shows cost-cap progress as it runs, and shows a pre-write panel listing what will and will not change.
 

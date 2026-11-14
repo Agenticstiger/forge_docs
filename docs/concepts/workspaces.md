@@ -20,6 +20,8 @@ acme-sales/
     └── contract.fluid.yaml    # consumes sales.raw_orders_v1 / orders
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Nothing reads `.fluid/team-memory.yaml` any more, and `fluid init` no longer writes it.
+
 ::: tip Not the `fluid workspace` command
 [`fluid workspace`](../cli/workspace.md) is a separate team-collaboration tool
 that keeps members, contract versions and change requests in a SQLite database

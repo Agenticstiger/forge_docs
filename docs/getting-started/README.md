@@ -84,6 +84,8 @@ Created fluid.workspace.yaml — workspace my-first-product
 ...
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init` no longer scaffolds team memory, so this line and `.fluid/team-memory.yaml` in the tree below are 0.29.0 output.
+
 `fluid init` writes into two directories. The one you ran it in becomes the [workspace](../concepts/workspaces.md) root; `my-first-product/` is the product:
 
 ```text
