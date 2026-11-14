@@ -49,7 +49,7 @@ fluid ai models --json
 | `--name NAME` | Saved name. For a source it defaults to `<source>-prod`; the saved name is the `--credential-id` for `fluid forge data-model from-source`. |
 | `--quiet`, `-q` | Suppress the v2-preview banner. Also honours `FLUID_QUIET` and `FLUID_NONINTERACTIVE`. |
 
-`fluid ai setup --source CATALOG --name NAME` configures source-catalog credentials for `fluid forge data-model from-source` and MCP `forge_from_source` calls. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed; the credentials still serve `fluid forge data-model from-source` and the MCP catalog read tools. `--source` is the catalog type (`snowflake`, `unity`, `bigquery`, `dataplex`, `glue`, `datahub`, or `datamesh_manager`). It walks you through the auth method, saves the credential to the OS keyring and `~/.fluid/sources.yaml`, and tests the connection.
+`fluid ai setup --source CATALOG --name NAME` configures source-catalog credentials for `fluid forge data-model from-source` and MCP `forge_from_source` calls. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed; the credentials still serve `fluid forge data-model from-source` and MCP catalog reads. `--source` is the catalog type (`snowflake`, `unity`, `bigquery`, `dataplex`, `glue`, `datahub`, or `datamesh_manager`). It walks you through the auth method, saves the credential to the OS keyring and `~/.fluid/sources.yaml`, and tests the connection.
 
 ### `ai status`
 

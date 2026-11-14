@@ -6,7 +6,7 @@ There are **two distinct servers** under this command, with two different threat
 
 | Server | Audience | What it serves |
 | --- | --- | --- |
-| `fluid mcp serve` | **Producer** — a data engineer authoring contracts | Forge *authoring* tools: inspect, validate, and carefully edit forge artifacts, including `forge_run`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_run` is removed; the server serves 11 tools. |
+| `fluid mcp serve` | **Producer** — a data engineer authoring contracts | Forge *authoring* tools: inspect, validate, and carefully edit forge artifacts, including `forge_run`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_run` is removed. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The server serves 7 tools, with one, `source_catalog`, for every catalog read. |
 | `fluid mcp output-port serve` | **Consumer** — an AI agent reading a published data product | Read-only *data-access* tools (`describe` / `sample` / `query` / gated `query_sql`) bound to **one expose** of a contract, with contract-driven governance applied. |
 
 ::: tip Which one do I want?
@@ -71,6 +71,18 @@ FLUID_QUIET=1 fluid mcp serve \
 
 Inline catalog credentials are blocked by default. Configure source credentials outside MCP and pass credential ids from the client.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* A name in `--allow-tools` or `--deny-tools` that is not one of the server's tools stops it at startup, with exit 2. A list written for one of the five tools that `source_catalog` replaced would otherwise deny nothing and leave `source_catalog` callable. The message, on stderr, says what replaced a renamed tool:
+
+```text
+fluid mcp serve: --deny-tools names no such tool: list_source_tables, forge_run.
+  list_source_tables is now source_catalog with kind=tables.
+  forge_run was removed; no tool replaces it.
+  --deny-tools takes source_catalog whole, with every kind it reads.
+  Tools: add_relationship, diff_models, read_logical_model, regenerate_physical, source_catalog, update_entity, validate_contract.
+```
+
+The flags take `source_catalog` whole: they cannot allow one `kind` and deny another.
+
 Each tool carries an MCP `inputSchema`, so clients can offer typed autocomplete and validate arguments before dispatch. The tool catalog and the LLM sampling backchannel are in the [Advanced MCP server guide](../advanced/mcp.md#authoring-tools).
 
 ### Serve over HTTP
@@ -111,9 +123,15 @@ A hosted agent harness needs the same two things, the `/mcp` URL and the `Author
 
 Over HTTP the tool calls still run one at a time, in the order they arrive, whichever client sends them, as they do over stdio. They run on a worker thread, so the server keeps answering other requests while a call runs.
 
+### Large results
+
+*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* A result estimated at more than `FLUID_MCP_INLINE_TOKEN_LIMIT` tokens (default 6,000; `0` sends everything inline) comes back as a short envelope and an MCP `resource_link` to `fluid://artifacts/<id>`, which `resources/read` serves. Over stdio the envelope also names a file holding the same JSON. See [Large results](../advanced/mcp.md#large-results).
+
 ### Tool errors
 
 `forge_run` reports an anticipated failure — an IDE that does not advertise the `sampling` capability, say — as the SDK's own `ToolError`. Its message names the capability and its two ways out: `mode='blank'`, or shelling out to `fluid forge --agent --blank`. *(since 0.15.0)* On MCP SDK 2.x an exception that is not a `ToolError` reaches the client as the generic text `Error executing tool forge_run`, so the tool raises `ToolError` to keep its message. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_run` is removed, so this applies to 0.29.0 only.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* `source_catalog` now also raises `ToolError` for a call that lacks what its `kind` needs, for a credential it cannot find or may not take inline, and for the catalog adapter's own refusal, such as a scope field the catalog needs. A client on SDK 2.x reads that message and its next step, where it used to get `Error executing tool`. A connection failure, a permission denial and a credential that fails validation are not raised as `ToolError`, because their text can quote the catalog's own message, principals or account ids among them: on SDK 2.x the client gets `Error executing tool source_catalog`. On SDK 1.x the client gets every exception's text, these included.
 
 ---
 

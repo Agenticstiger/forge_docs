@@ -412,7 +412,7 @@ The same flow is exposed via the MCP `forge_from_source` tool, so
 Claude Code / Cursor agents can drive a catalog forge from inside
 the editor.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed. An agent reads a catalog with the MCP catalog tools (`list_source_tables`, `inspect_source_table` and the others in [`fluid mcp`](./mcp.md)), and `fluid forge data-model from-source` is unchanged.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed, and `fluid forge data-model from-source` is unchanged. An agent reads a catalog with the MCP catalog tools in [`fluid mcp`](./mcp.md). *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* They are one tool, [`source_catalog`](../advanced/mcp.md#source-catalog).
 
 ## Mode picker, refine, compose
 

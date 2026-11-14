@@ -273,6 +273,14 @@ Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
 | `FLUID_PROMPT_OVERLAYS`, `FLUID_PROMPT_PROFILE`, `FLUID_OVERLAY_STRICT`, `FLUID_OVERLAY_PUBLIC_KEYS` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Prompt overlays and profile for `fluid forge`; strict mode and the keys that verify signed overlays. |
 | `FLUID_FORGE_WATCH_INTERVAL`, `FLUID_FORGE_WATCH_DEBOUNCE` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Poll interval and debounce, in seconds, for `fluid forge` watch mode. |
 
+## MCP authoring server
+
+*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Read by `fluid mcp serve`; see [Large results](./mcp.md#large-results).
+
+| Variable | Effect |
+|---|---|
+| `FLUID_MCP_INLINE_TOKEN_LIMIT` | The largest tool result, in estimated tokens, that the server sends inline. Default `6000`; `0` sends every result inline. A larger result comes back as a `fluid://artifacts/` resource. A value that is not a whole number, or is below 0, logs a warning and the default applies. Set it in the environment the server starts with, such as the `env` block of the client's MCP config: `fluid mcp serve` does not read a project `.env`. |
+
 ## MCP output port
 
 Read by `fluid mcp output-port`; see [MCP](./mcp.md). *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `fluid mcp serve --transport http` reads `FLUID_MCP_AUTH_MODE`, `FLUID_MCP_AUTH_TOKEN` and the `FLUID_MCP_JWT_*` variables too.

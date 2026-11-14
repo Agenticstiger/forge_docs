@@ -56,7 +56,7 @@ selects the catalog adapter; `--credential-id` points at a row in
 
 ### 2. MCP: `forge_from_source`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed. `fluid mcp serve` still has the catalog read tools (`list_source_adapters`, `list_source_tables`, `inspect_source_table`, `list_source_glossary`, `list_source_lineage`); to build a contract from a catalog, use `fluid forge data-model from-source`.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed; to build a contract from a catalog, use `fluid forge data-model from-source`. `fluid mcp serve` still reads catalogs. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* It does so with one tool, `source_catalog`, in place of `list_source_adapters`, `list_source_tables`, `inspect_source_table`, `list_source_glossary` and `list_source_lineage`; see [`source_catalog`](../../advanced/mcp.md#source-catalog).
 
 ```jsonc
 // .mcp.json (Claude Code, Cursor, any MCP client)
@@ -76,7 +76,7 @@ Then tell the agent:
 > `snowflake-prod`. Save the contract to `biz_lab.fluid.yaml`.
 
 The agent calls the MCP `forge_from_source` tool; same pipeline,
-same output. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed: the agent reads the catalog with the MCP catalog tools, or runs `fluid forge data-model from-source`.
+same output. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed: the agent reads the catalog over MCP, or runs `fluid forge data-model from-source`.
 
 ## Setup wizard: `fluid ai setup --source CATALOG --name NAME`
 
