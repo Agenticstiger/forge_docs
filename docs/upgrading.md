@@ -897,6 +897,11 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **A browser request from a page not served from this machine gets 403**, with or without auth: an `Origin` that is not `http` or `https` on a loopback host, `Origin: null` included. With auth off, the `Origin` must also be `127.0.0.1`, `localhost` or `[::1]` (or the bound address) with a port. Clients that are not browsers send no `Origin` header and are not affected.
 - **`fluid mcp serve` gains `--transport http`**, which serves the authoring tools the same way, by default at `http://127.0.0.1:8766/mcp`. stdio stays the default. See [Serve over HTTP](./cli/mcp.md#serve-over-http).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).*
+
+- **`fluid validate --strict` fails on placeholder emails, starter-template values and TODO markers, on an SDP build that joins, and on an SDP that consumes a product whose type the workspace cannot read.** Each is a new warning, so `fluid validate` without `--strict` still passes. A CI job that runs `--strict`, stage 2 of a generated pipeline among them, now fails on a contract that still has an owner email at `example.com` or `company.com`, a `TODO`, or the values of an unedited template: a contract scaffolded from a template (`fluid init --quickstart`, `fluid init --template`, `fluid forge --template`) has a placeholder owner email until you edit it. Replace each value with the real one, or delete an optional key such as `metadata.owner.email`. See [Placeholders and starter values](./cli/validate.md#placeholders-and-starter-values) and [What an SDP does not do](./cli/validate.md#what-an-sdp-does-not-do).
+- **`fluid validate --format json` adds `issues`, with a code, a JSON pointer, a fix and an example for each finding.** It is there only when there is a finding, and `errors`, `warnings` and `notes` are unchanged. A bundle's `CONTRACT-RULE` findings gain `rule`, `pointer`, `fix`, `example` and `docs_url`. See [Finding codes and `issues`](./cli/validate.md#finding-codes-and-issues).
+
 ## DuckDB 1.x to 2.x
 
 `0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so

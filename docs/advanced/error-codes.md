@@ -44,6 +44,7 @@ The route table sends an event to one of these pages, and the entries below name
 | [`fluid verify-signature`](../cli/verify-signature.md) | The signing events |
 | [Getting started](../getting-started/README.md) | `opentofu_engine_install_failed` |
 | [Typed CLI errors](./typed-cli-errors.md) | The schema-version events and the connectivity events |
+| [`fluid validate`](../cli/validate.md) | *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* The [contract findings](#contract-findings), except `ERR_CONTRACT_SOVEREIGNTY` |
 | [Production troubleshooting](./production-troubleshooting.md) | Events not listed above |
 
 ## The catalogued events
@@ -188,6 +189,10 @@ As of 0.18.1 the second suggestion named `azure`, which no provider serves, and 
 `ERR_VALIDATION_ERROR`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md).
 
 - Run 'fluid validate &lt;contract&gt; --verbose' for details
+
+## Contract findings
+
+*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* The catalog also has a code for each check `fluid validate` runs on a contract, 38 in all, such as `ERR_CONTRACT_SCHEMA_REQUIRED`, `ERR_CONTRACT_GOVERNANCE` and `ERR_CONTRACT_PLACEHOLDER_EMAIL`. They never print as a failure heading: `fluid validate --format json` gives each finding one in `issues`, with a JSON pointer, a fix and an example. [Finding codes and `issues`](../cli/validate.md#finding-codes-and-issues) lists them.
 
 ## Bundles
 

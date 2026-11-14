@@ -43,7 +43,7 @@ print(e.as_json())
 | `where` | A string such as `contract.fluid.yaml:12:3`, or `null` |
 | `extras` | An object. The `for_*` factories leave it empty; a raise site may fill it |
 
-When the running command has a `--json` flag and the error reaches the top-level handler, the CLI prints this string to stdout instead of the panel. Not every command has `--json`; `fluid validate`, for example, uses `--format json` and prints its own report.
+When the running command has a `--json` flag and the error reaches the top-level handler, the CLI prints this string to stdout instead of the panel. Not every command has `--json`; `fluid validate`, for example, uses `--format json` and prints its own report. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* Each finding in that report carries an `ERR_*` code from the error catalog, with a JSON pointer, a fix and an example: see [Finding codes and `issues`](../cli/validate.md#finding-codes-and-issues).
 
 ## Two kinds of error
 
@@ -186,6 +186,7 @@ The CLI builds each `doc` link from a fixed route table. A topic that is not in 
 | `installation` | [Getting started](../getting-started/README.md) |
 | `iceberg-catalog-move` | [Iceberg catalog-move guard](../cli/apply.md#iceberg-catalog-move-guard) *(since 0.20.0, [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709))* |
 | `policy-compile#errors` | [`fluid policy compile`, Errors](../cli/policy-compile.md#errors) *(since 0.20.0, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* |
+| `validate` | *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* [`fluid validate`](../cli/validate.md), the page of the [finding codes](../cli/validate.md#finding-codes-and-issues) |
 | anything else | [Production troubleshooting](./production-troubleshooting.md) |
 
 A few catalogued events land on a page that does not explain them. The CLI chooses these routes, so the explanations are here:
