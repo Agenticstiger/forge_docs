@@ -410,15 +410,14 @@ Read back on a live workspace on 2026-11-04 (comments, product tags, column tags
 
 #### Comments on a dbt-written table
 
-On a table a dbt build writes, the comments stay dbt's. Its `CREATE OR REPLACE` sets the table and column comments from the model (with `persist_docs`), so forge-cli sets none there. The product tags, the column tags and the certification are still set. `fluid validate` passes and, when the contract describes the table or a column, warns. Captured:
+On a table a dbt build writes, the comments stay dbt's. Its `CREATE OR REPLACE` sets the table and column comments from the model (with `persist_docs`), so forge-cli sets none there. The product tags, the column tags and the certification are still set. `fluid validate` passes and, when the contract describes the table or a column, says so in a note. *(since 0.30.1, [forge-cli #876](https://github.com/Agenticstiger/forge-cli/pull/876))* A note asks nothing of you, so `--strict` passes. It is shown under "Validation Notes:" in the text output and under a `notes` key in the JSON output. Up to 0.30.0 it was a warning, and `--strict` failed on it. Captured:
 
 ```text
-✅ Valid FLUID contract (schema v0.7.5)
-⚠️  1 warning(s)
-Validation completed in 0.021s
+✅ Valid FLUID contract (schema v0.7.6)
+Validation completed in 0.016s
 
-Validation Warnings:
-====================
+Validation Notes:
+=================
  1. exposes[0] (orders) is written by dbt, whose CREATE OR REPLACE sets the table and column comments: Unity Catalog shows the dbt model's descriptions (with persist_docs), not the contract's, so fluid apply sets none.
 ```
 

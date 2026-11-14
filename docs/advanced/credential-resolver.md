@@ -122,14 +122,16 @@ fluid forge data-model from-source \
   --database my_db -o my_db.fluid.yaml
 ```
 
-Or for the whole process, with `FLUID_ALLOW_METADATA_SERVICE=1`. Via MCP, pass `"allow_metadata_service": true` in the tool arguments. Without the opt-in, when the metadata service is the only source available, the resolver raises `CredentialNotFoundError` rather than silently using broad IAM.
+Or for the whole process, with `FLUID_ALLOW_METADATA_SERVICE=1`. Via MCP, the client passes `"allow_metadata_service": true` in the tool arguments, and the operator must have started the server with `fluid mcp serve --allow-metadata-service` (or `FLUID_ALLOW_METADATA_SERVICE=1` in the server's environment). Without the opt-in, when the metadata service is the only source available, the resolver raises `CredentialNotFoundError` rather than silently using broad IAM.
 
-::: danger Over MCP the opt-in belongs to the client, not the operator
-`fluid mcp serve` has no flag that switches the metadata-service fallback off. `list_source_tables`, `inspect_source_table`, `list_source_lineage`, `list_source_glossary` and `forge_from_source` each take an `allow_metadata_service` argument, and the server builds its resolver from the value the client sends, with no server-side check. Any client that can call those tools can set it to `true`, and an LLM-driven client can do so on its own. With the opt-in on, the resolver can use whatever cloud identity the server's host carries (an instance profile, a workload identity, Application Default Credentials on a laptop) when no earlier step of the [resolution chain](#resolution-chain) supplies a credential.
+::: warning Over MCP the opt-in belongs to the operator
+`fluid mcp serve --allow-metadata-service` (since 0.20.0) is the switch, and it is off by default. `list_source_tables`, `inspect_source_table`, `list_source_lineage`, `list_source_glossary` and `forge_from_source` each take an `allow_metadata_service` argument, but the argument can only request the fallback. A call that sends `true` to a server started without the flag or the environment variable is refused with an error that names the flag. It is never ignored. A client cannot turn the fallback on for itself, and an LLM-driven client cannot either.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed from the tool list on main. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The four catalog tools above are now one tool, `source_catalog`, and it takes the same argument.
+With the flag on, every client that can call those tools can use the fallback, and the resolver can use whatever cloud identity the server's host carries (an instance profile, a workload identity, Application Default Credentials on a laptop) when no earlier step of the [resolution chain](#resolution-chain) supplies a credential. Start the server with the flag only where that identity is meant to be shared with its clients.
 
-If `fluid mcp serve` is reachable by a client you do not fully trust, either run it where no ambient cloud identity exists, or remove the tools with `--deny-tools`:
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed from the tool list on main. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The four catalog tools above are now one tool, `source_catalog`, and it takes the same argument under the same rule.
+
+To keep a client you do not fully trust away from the catalog tools altogether, remove them with `--deny-tools`:
 
 ```bash
 fluid mcp serve --deny-tools list_source_tables,inspect_source_table,list_source_lineage,list_source_glossary,forge_from_source

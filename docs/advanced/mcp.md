@@ -348,7 +348,7 @@ Before `0.15.0`, `sovereignty` bound provisioning and nothing else: a contract d
 A jurisdiction-pinned contract **refuses to serve and exits 2** on the two deployments that could never satisfy the rule, rather than denying every call one at a time:
 
 - `--transport stdio` — the **default**, and a pipe carries no headers, so the middleware never runs.
-- `--transport http` with `FLUID_MCP_AUTH_MODE` unset, `none`, `off` or `disabled` — the middleware short-circuits before stamping anything.
+- `--transport http` with `FLUID_MCP_AUTH_MODE` unset or `none` — the middleware short-circuits before stamping anything.
 
 Both messages name the contract's jurisdiction and give the command that fixes it: serve over HTTP with `FLUID_MCP_AUTH_MODE=jwt` (plus `FLUID_MCP_JWT_ISSUER` / `_AUDIENCE` / `_JWKS_URL`), or set `sovereignty.crossBorderTransfer: true` if the data may leave. The most common desktop-client setup — stdio — is therefore the one configuration such a contract cannot serve.
 
@@ -371,13 +371,13 @@ Identity is resolved once at gateway start from `FLUID_MCP_AUTH_MODE`. There are
 *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `fluid mcp serve --transport http` reads the same variables. Over HTTP, `none` and an unconfigured mode serve only on a loopback `--host`: anywhere else the server refuses to start and exits 2, and off loopback a shared token must be at least 32 characters. "Every request is allowed" then means that no credential is checked. A cross-origin browser request still gets 403, and a request whose `Host` is not loopback gets 421, so behind a proxy that forwards its public name every request gets 421. See [The HTTP transport](../cli/mcp.md#the-http-transport).
 
 ::: warning Startup refusal for a jurisdiction-pinned contract, new in `0.15.0`
-The two rows above no longer hold for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`. Because the caller-jurisdiction gate admits only claims the auth middleware verified, an unauthenticated gateway would deny **every** call — so `fluid mcp output-port serve` writes a refusal to stderr and **returns exit code 2** before binding, for `--transport stdio` (any auth mode: a pipe carries no headers) and for `--transport http` with `FLUID_MCP_AUTH_MODE` unset, `none`, `off` or `disabled`. See [Caller-jurisdiction enforcement](#caller-jurisdiction-enforcement-since-0-15-0).
+The two rows above no longer hold for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`. Because the caller-jurisdiction gate admits only claims the auth middleware verified, an unauthenticated gateway would deny **every** call — so `fluid mcp output-port serve` writes a refusal to stderr and **returns exit code 2** before binding, for `--transport stdio` (any auth mode: a pipe carries no headers) and for `--transport http` with `FLUID_MCP_AUTH_MODE` unset or `none`. See [Caller-jurisdiction enforcement](#caller-jurisdiction-enforcement-since-0-15-0).
 :::
 
 Only a verified JWT binds identity. With `shared-token`, the gateway knows that the caller held the shared secret and nothing else: once the token is enforced, any `model`, `useCase` or tenant attribute the client declares for itself is dropped. A contract with an `allowedModels` or `deniedModels` gate then denies every call as `missing-model-identity`, and one with `allowedUseCases` as `missing-use-case-with-allowlist`. Use `jwt` when the gates must see who is calling.
 
 ::: warning mTLS authenticates the connection; it does not bind identity
-`FLUID_MCP_AUTH_MODE` accepts only `shared-token`, `jwt` and `none`. With `FLUID_MCP_AUTH_MODE=mtls`, `fluid mcp output-port serve --transport http` exits 1 with a traceback that ends `ValueError: unknown FLUID_MCP_AUTH_MODE='mtls'; expected one of shared-token / jwt / none`.
+`FLUID_MCP_AUTH_MODE` accepts only `shared-token`, `jwt` and `none`. With `FLUID_MCP_AUTH_MODE=mtls`, `fluid mcp output-port serve --transport http` exits 2 with `ERR_INVALID_AUTH_MODE`, naming the bad value, the accepted ones (`shared-token, jwt, none`) and a hint to terminate mTLS at a reverse proxy. `off` and `disabled` are refused the same way.
 
 A proxy in front of the gateway can require client certificates, which keeps hosts without one off the network path. The gateway never sees the certificate. It sees two request headers the proxy sets, `X-Client-CN` and `X-Client-Fingerprint`, and what it does with them is narrow:
 
