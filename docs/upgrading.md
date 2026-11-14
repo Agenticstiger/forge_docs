@@ -1155,6 +1155,15 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **A result estimated at more than 6,000 tokens comes back as a resource.** The call returns a short envelope and a `resource_link` to `fluid://artifacts/<id>`, which the client reads with `resources/read`. Over stdio the envelope also names a file holding the same JSON. A client that reads only a result's text sees the envelope where it used to see the result. `FLUID_MCP_INLINE_TOKEN_LIMIT=0` keeps every result inline. See [Large results](./advanced/mcp.md#large-results).
 - **A catalog listing with a scope now works through an MCP client.** On MCP SDK 2.x, `list_source_tables` (now `source_catalog` with `kind` set to `tables`) and a scoped `list_source_glossary` failed with `Error executing tool` for an ordinary scope such as `{"database": "DB", "schema": "SALES"}`: the server sent the scope's unset `tables` back as `null`. Unset fields are now left out.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887)).*
+
+- **An unknown tool name in `--allow-tools` or `--deny-tools` stops `fluid mcp output-port serve` with exit 2.** The check runs before either transport binds, as it does for `fluid mcp serve`. In 0.30.1 a mistyped name was accepted: a deny list denied nothing and the tool stayed callable, and a mistyped allow list served fewer tools without a word. The tools are `describe`, `query`, `query_sql` and `sample`, and matching is exact and case-sensitive. Fix the name in the launcher script or IDE config that starts the gateway. See [`serve` flags](./cli/mcp.md#serve-flags).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #888](https://github.com/Agenticstiger/forge-cli/pull/888)).*
+
+- **`FLUID_TELEMETRY`, `DO_NOT_TRACK` and `telemetry.enabled` in `~/.fluid/config.yaml` do nothing.** The UX telemetry and its consent are removed, and nothing emits the `forge.invocation` span fields. `fluid doctor --env` no longer lists the two variables or prints the telemetry line, and `fluid doctor --env --json` is `{"env": [...]}` without the `telemetry` key. A script that reads that key gets nothing: stop reading it.
+- **`FLUID_COPILOT_AGENT_LOOP` no longer stops forge from picking a saved or detected coding agent.** The variable does nothing, like `FLUID_COPILOT_FORCE_INTERVIEW`, `FLUID_COPILOT_JUDGE`, `FLUID_COPILOT_SELF_EVAL` and `FLUID_COPILOT_SEMANTIC_MEMORY`, which nothing reads either. Drop all of them from env files and CI settings.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

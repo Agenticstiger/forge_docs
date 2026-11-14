@@ -132,7 +132,7 @@ The shape depends on which surface you asked for:
 | Invocation | JSON |
 | --- | --- |
 | `fluid doctor --scope <s> --json` | `{"scope", "ok", "results": [...]}`, one result per check. |
-| `fluid doctor --env --json` | `{"env": [...], "telemetry": {...}}`. |
+| `fluid doctor --env --json` | `{"env": [...], "telemetry": {...}}`. *On forge-cli `main`, not yet in a release ([forge-cli #888](https://github.com/Agenticstiger/forge-cli/pull/888)).* `{"env": [...]}`, with no `telemetry` key. |
 | `fluid doctor --json` (no `--scope`, no `--env`) | The memory-store section, `{"store_backend": {...}}`. *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* It also carries `copilot_ready` and `action_needed`; see [`--strict`](#strict). Per-check results need `--scope`. |
 
 A scoped result looks like this:
@@ -161,7 +161,7 @@ fluid doctor --scope authoring --json
 
 ## `--env`: the runtime switches
 
-`fluid doctor --env` prints a table of the `FLUID_*` variables (and a few others, such as `DBT_EXECUTABLE` and `DO_NOT_TRACK`) that change how the CLI behaves. Each row shows the variable, its current value, a `Source` (`env` when you set it, `default` when you did not), the default behaviour and a one-line description. The last line of the output states whether anonymous telemetry is on; it is off unless you opt in.
+`fluid doctor --env` prints a table of the `FLUID_*` variables (and a few others, such as `DBT_EXECUTABLE` and `DO_NOT_TRACK`) that change how the CLI behaves. Each row shows the variable, its current value, a `Source` (`env` when you set it, `default` when you did not), the default behaviour and a one-line description. The last line of the output states whether anonymous telemetry is on; it is off unless you opt in. *On forge-cli `main`, not yet in a release ([forge-cli #888](https://github.com/Agenticstiger/forge-cli/pull/888)).* `DO_NOT_TRACK` and `FLUID_TELEMETRY` are no longer listed, and the telemetry line is gone.
 
 With `--json`, each row is an object:
 

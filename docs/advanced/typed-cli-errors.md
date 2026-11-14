@@ -142,7 +142,7 @@ These classes arrived after the original catalog. Inside a build they print as t
 | `2` | An uncaught Python exception (`❌ Unexpected error`; re-run with `--debug` for the traceback), or a catalogued error whose raise site chose 2 |
 | `130` | `fluid apply` interrupted |
 
-No class of this page carries its own exit code. A command that uses other codes says so on its own page: `fluid verify-signature` uses 2 for a configuration error, and `fluid mcp output-port serve` exits 2 on a jurisdiction refusal.
+No class of this page carries its own exit code. A command that uses other codes says so on its own page: `fluid verify-signature` uses 2 for a configuration error, and `fluid mcp output-port serve` exits 2 on a jurisdiction refusal. *On forge-cli `main`, not yet in a release ([forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887)).* It also exits 2 on an `--allow-tools` or `--deny-tools` name that is not an output-port tool.
 
 ## Catching them in Python
 
