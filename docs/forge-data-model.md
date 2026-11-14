@@ -22,7 +22,7 @@ recommends `from-intent`, if it sees `*.sql` files it recommends
 `from-ddl`, and if you have a metadata source configured in
 `~/.fluid/sources.yaml` it recommends `from-source`. The same pattern is
 also wired into `fluid memory`, `fluid auth`, `fluid mcp`, `fluid policy`,
-and `fluid config`.
+and `fluid config`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid memory` is removed.
 :::
 
 ## From an intent file

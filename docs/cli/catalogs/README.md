@@ -56,6 +56,8 @@ selects the catalog adapter; `--credential-id` points at a row in
 
 ### 2. MCP: `forge_from_source`
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed. `fluid mcp serve` still has the catalog read tools (`list_source_adapters`, `list_source_tables`, `inspect_source_table`, `list_source_glossary`, `list_source_lineage`); to build a contract from a catalog, use `fluid forge data-model from-source`.
+
 ```jsonc
 // .mcp.json (Claude Code, Cursor, any MCP client)
 {
@@ -107,7 +109,7 @@ secret-service); only non-sensitive fields land on disk.
    escalating "list tables" into "dump customer PII."
 3. **Audited.** Every catalog tool call writes an audit event via
    `~/.fluid/store/audit/`. Credentials are scrubbed before write.
-   Use `fluid memory show audit` to query.
+   Use `fluid memory show audit` to query. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid memory` is removed; read the audit files in that directory instead.
 
 ## Auto-detection: `fluid ai status` lists what you have
 
@@ -122,6 +124,8 @@ fluid ai status
 When you run `fluid forge` without `--source`, AI mode's interview
 auto-suggests the configured source — same UX as `fluid ai setup`
 auto-discovering provider env vars.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The AI mode interview is removed. A coding agent now runs forge's AI mode with the FLUID skills, and asks its own follow-up questions.
 
 ## Error model
 

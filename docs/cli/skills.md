@@ -2,6 +2,8 @@
 
 Manage the workspace's industry skills file (`.fluid/skills.yaml`) — the project-knowledge bundle that Forge Copilot reads to tailor its suggestions.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* On `main` nothing reads `.fluid/skills.yaml`, because the copilot that read it is gone; the command still writes the file.
+
 ## Syntax
 
 ```bash

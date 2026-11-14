@@ -1,5 +1,9 @@
 # Authoring Forge Tools
 
+::: warning Removed on forge-cli main
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: the multi-turn agent loop (`--agent-loop`) and its tool registry, including `@forge_tool` tools. Use a coding agent (`--llm-provider claude-code`, `codex`, `cursor` or `kiro`) instead. The text below describes forge-cli 0.29.0.
+:::
+
 Tools are what the multi-turn copilot agent calls during a `fluid forge --agent-loop` run — `discover_workspace`, `read_sample_schema`, `propose_contract`, `validate_contract`, `list_templates`, `list_schedulers`. They're how the LLM reaches out of its context to inspect the user's workspace, sample data, and generate scaffolding.
 
 The `@forge_tool` decorator collapses tool registration to a single declaration where the Pydantic args-model is the source of truth. This page is the contributor guide for adding a new tool.

@@ -1,5 +1,9 @@
 # Forge Memory Guide
 
+::: warning Removed on forge-cli main
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Copilot memory is removed: the team, project and personal scopes, `fluid memory`, the `--memory`, `--save-memory`, `--show-memory`, `--reset-memory` and `--memory-json` flags of `fluid forge`, and the store's `postgres` and `vector` backends with the `[vector]` extra. `FLUID_STORE_BACKEND=postgres` or `vector` logs a warning and uses the file store, and `fluid doctor` asks you to unset it. `--no-memory` is still accepted and ignored. This page describes 0.29.0.
+:::
+
 `fluid forge` remembers conventions at three scopes: your team, the project, and you. The team's file is committed to git and shared; the other two stay on one machine. A staged store under `~/.fluid/store/` mirrors them for other tools such as the MCP server, and holds forge history, audit records and semantic memory.
 
 ## The three scopes

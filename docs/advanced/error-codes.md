@@ -370,6 +370,9 @@ The `fluid generate iac` and `fluid apply` runs print the refusal and exit befor
 - For local models: --llm-provider ollama (no key required)
 - For keyless authoring: run forge from your IDE (mcp-sampling) or --llm-provider claude-code
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `mcp-sampling` is removed; use `--llm-provider claude-code` (or `codex`, `cursor`, `kiro`) for keyless authoring.
+
+
 ### copilot_missing_llm_model
 
 `ERR_COPILOT_MISSING_LLM_MODEL`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md).

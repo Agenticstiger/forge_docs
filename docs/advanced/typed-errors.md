@@ -54,6 +54,7 @@ When a call goes through the [LiteLLM backend](./litellm-backend.md), a provider
 
 - Switch to a model with a larger window. Cloud models' windows come from LiteLLM's model catalog.
 - Override the assumed window per-session via `capability_matrix["context_window"]` (useful for custom-deployed Azure/Ollama models with extended context).
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: the agent loop, `FLUID_AGENT_COMPACT_AFTER` and `FLUID_COMPACTION_STRATEGY` are gone, so the next two items no longer apply on main.
 - Trigger the multi-turn agent loop's compaction earlier with `FLUID_AGENT_COMPACT_AFTER=4` (default 6).
 - For the multi-turn loop specifically, set `FLUID_COMPACTION_STRATEGY=summarize` or `hybrid` — see [Agentic primitives → Token-budget pre-flight & compaction](agentic-primitives.md#token-budget-pre-flight-compaction).
 
@@ -88,10 +89,12 @@ When a call goes through the [LiteLLM backend](./litellm-backend.md), a provider
 
 **What the retry envelope does:** **non-retryable** in the envelope itself — re-prompting with the same input gives the same broken output. **But the agent loop layer** intercepts these and routes a corrective message back to the LLM ("your previous output failed validation with these specific errors: …, please correct your approach"), which usually fixes it on the next iteration. So in practice you rarely see this surface to the CLI.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop layer described above is removed.
+
 **What you should do (when it does surface):**
 
 - Read the printed `validation_errors`. If the LLM is consistently emitting a wrong shape for one stage, the model is likely below the structured-output bar — switch to a stronger model.
-- For OpenAI specifically: enable `FLUID_OPENAI_STRICT_SCHEMA=1` (see [OpenAI strict schema](#openai-strict-schema-mode) below).
+- For OpenAI specifically: enable `FLUID_OPENAI_STRICT_SCHEMA=1` (*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* No longer read.) (see [OpenAI strict schema](#openai-strict-schema-mode) below).
 
 ### `ToolValidationError`
 
@@ -104,6 +107,8 @@ When a call goes through the [LiteLLM backend](./litellm-backend.md), a provider
 ## How errors flow through a run
 
 ### Corrective-feedback layer
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop and its corrective-feedback layer are removed.
 
 The multi-turn agent loop appends a deterministic guidance message to the conversation right after a failed tool call:
 
@@ -139,6 +144,8 @@ The internal helper `classify_provider_error()` (in `fluid_build.copilot.agents.
 
 ## OpenAI strict-schema mode
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `FLUID_OPENAI_STRICT_SCHEMA` is no longer read.
+
 OpenAI's strict `response_format = json_schema` mode requires every object node in the schema to declare `additionalProperties: false` AND list every property under `required`. The legacy `FORGE_RESPONSE_SCHEMA` has nested objects (`contract`, `additional_files`) that intentionally use `additionalProperties: true` because the contract is free-form — sending that schema to strict mode used to return a 400 `Invalid schema for response_format`.
 
 `FLUID_OPENAI_STRICT_SCHEMA=1` enables a recursive walker that hardens the schema (deep-copy + strict-mode rewrite) before submission. Free-form nested objects are rewritten as JSON-encoded strings so the LLM can still return arbitrary nested data; the caller `json.loads`-es those fields. The default is off.
@@ -147,5 +154,5 @@ OpenAI's strict `response_format = json_schema` mode requires every object node 
 
 - [Agentic Primitives → Token-budget pre-flight & compaction](agentic-primitives.md#token-budget-pre-flight-compaction) — what `ContextOverflowError` is preventing
 - [Capability Warnings](capability-warnings.md) — the run-start banner that catches degraded combos before they fail
-- [LLM Providers → Environment variables](llm-providers.md#environment-variables) — `FLUID_OPENAI_STRICT_SCHEMA`, `FLUID_AGENT_COMPACT_AFTER`, etc.
+- [LLM Providers → Environment variables](llm-providers.md#environment-variables) — `FLUID_OPENAI_STRICT_SCHEMA`, `FLUID_AGENT_COMPACT_AFTER`, etc. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Both variables are removed.
 - [Custom Providers → Error Handling](/forge_docs/providers/custom-providers#error-handling) — how infrastructure-provider errors (`ProviderError`, `ProviderInternalError`) relate to (and are distinct from) these copilot-layer errors

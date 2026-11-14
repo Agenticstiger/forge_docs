@@ -47,7 +47,7 @@ The `local` extra installs DuckDB (`duckdb>=1.5.0`), pandas and numpy, which the
 | `aws` | S3, Glue, Athena | `boto3` |
 | `snowflake` | Snowflake | `snowflake-connector-python`, `dbt-snowflake` |
 | `litellm` (alias `ai`) | *(from 0.27.0)* The AI backend for `fluid forge` with an API-key provider, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup` and the copilot | `litellm` |
-| `mcp` | *(from 0.27.0)* The MCP server SDK for `fluid mcp serve`, MCP output ports, `fluid scaffold-ide` and `mcp-sampling` (which runs inside `fluid mcp serve`) | `mcp` |
+| `mcp` | *(from 0.27.0)* The MCP server SDK for `fluid mcp serve`, MCP output ports, `fluid scaffold-ide` and `mcp-sampling` (which runs inside `fluid mcp serve`). *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--llm-provider mcp-sampling` is removed. | `mcp` |
 | `lineage` | *(from 0.27.0)* Emitting OpenLineage events when `OPENLINEAGE_URL` is set | `openlineage-python` |
 | `standard` | *(from 0.27.0)* `litellm` and `mcp` together: the AI and MCP packages a 0.27.0 base install has | `litellm`, `mcp` |
 
@@ -388,6 +388,8 @@ fluid forge
 fluid forge --domain finance
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: `fluid forge --domain`. Use `fluid forge --context "<what the product is for>"`, or name the domain in the prompt.
+
 A contract it drafts with two or more builds or exposes, or with a `sovereignty` or `accessPolicy` block, can come out as a root file plus a `fragments/` directory; `validate`, `plan` and `apply` resolve the fragments for you ([Contract fragments](../concepts/fragments.md)). See [AI forge and data-model journeys](../walkthrough/ai-forge-data-model.md).
 
 ## Where next
@@ -427,7 +429,7 @@ Install the `local` extra: `pip install "data-product-forge[local]"`.
 fluid doctor
 ```
 
-`fluid doctor` prints a summary of its checks, the readiness of the configured LLM provider for `fluid forge`, and where Forge keeps its memory store.
+`fluid doctor` prints a summary of its checks, the readiness of the configured LLM provider for `fluid forge`, and where Forge keeps its memory store. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Forge copilot memory is removed.
 
 ---
 

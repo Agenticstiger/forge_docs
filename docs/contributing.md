@@ -206,7 +206,7 @@ The path covers:
 2. Honour the patterns in `_patterns.py`: soft-fail on optional reads, lazy SDK import, per-call client lifecycle, error translation with next-action suggestions, and the rest.
 3. Add a typed `*Credentials` Pydantic class with `SecretStr` fields.
 4. Register the optional install extra in `pyproject.toml`.
-5. Wire the dispatch: `cli/forge_data_model.py` for `--source-type`, and the `_SOURCE_ADAPTERS` map in `cli/mcp/dispatch.py` for the MCP `forge_from_source` tool.
+5. Wire the dispatch: `cli/forge_data_model.py` for `--source-type`, and the `_SOURCE_ADAPTERS` map in `cli/mcp/dispatch.py` for the MCP `forge_from_source` tool. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* That MCP tool is removed; the catalog read tools (`list_source_tables` and the others) use the same map.
 6. Write the test file; copy the closest existing adapter's test and edit it.
 7. Pin the public API in `tests/test_public_api_stability.py`.
 8. Document the new catalog at `docs/cli/catalogs/<name>.md` in this repo.

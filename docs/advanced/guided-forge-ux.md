@@ -2,6 +2,8 @@
 
 Fluid Forge's `fluid forge` flow is detect-first, mode-aware, slash-command-friendly, and never writes a file before showing you what it's about to write.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The mode picker, the welcome scan and the pre-write preview panel are kept. The guided interview, its mode-aware short-circuits, the slash commands, the streaming contract preview and the self-healing repair loop are removed with the embedded copilot. AI mode runs on the FLUID Agent Skills: see [AI mode on forge-cli main](../cli/forge.md#ai-mode-on-forge-cli-main).
+
 <iframe
   src="/forge_docs/reels/guided-forge-ux.html"
   width="100%"
@@ -77,6 +79,8 @@ Suppress with `FLUID_FORGE_NO_WELCOME=1`.
 
 ## Guided interview
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. With a coding agent, the agent asks its own questions; `fluid forge --offline` keeps a local guided interview with no model.
+
 The new default fresh-product interview is **inferences-first**. Before asking a question, the runtime computes `InterviewSignals` from:
 
 - The welcome scan output
@@ -99,6 +103,8 @@ To revert to the legacy bootstrap (1.x interview shape), set `FLUID_INTERVIEW_LE
 
 ## Mode-aware short-circuits
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed with the interview.
+
 | Mode | Questions |
 |---|---|
 | AI Copilot (fresh) | Guided bootstrap (above) |
@@ -110,6 +116,8 @@ To revert to the legacy bootstrap (1.x interview shape), set `FLUID_INTERVIEW_LE
 The short-circuits live in `cli/forge_copilot_interview.py::run_adaptive_copilot_interview`.
 
 ## Slash commands inside the interview
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed with the interview.
 
 Any `:command` typed at any prompt is intercepted by `cli/_interview_slash_commands.py`:
 
@@ -125,6 +133,8 @@ Any `:command` typed at any prompt is intercepted by `cli/_interview_slash_comma
 The slash commands are wrapped into `forge_dialogs.ask_friendly_text` so every prompt accepts them — no special "are slash commands available here?" reasoning required.
 
 ## Streaming contract preview
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed, with `FLUID_FORGE_NO_STREAMING_PREVIEW`.
 
 After every interview answer, `cli/_streaming_contract_preview.py` re-shapes the seed contract and renders a side panel showing what's growing:
 
@@ -171,6 +181,8 @@ Before any file is written, `cli/_preview_panel.py` renders a final panel showin
 
 ## Self-healing repair loop
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. AI mode's one-call path runs `fluid validate --offline` on each answer and sends the errors back, for at most 3 attempts.
+
 After each emitted contract, `forge_copilot_runtime.py` runs the JSON-schema validator. If validation fails, the path-specific errors are prepended to the next attempt's repair feedback (via `forge_copilot_corrective_feedback.build_schema_validation_message`), and the agent retries. Most contracts converge within 1–2 repair cycles.
 
 ## Composition pipeline
@@ -199,6 +211,8 @@ Where `upstreams.json` looks like:
 
 ## Refine mode
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--refine` hands the contract and your change to the coding agent or the model. The contract changes only when the result validates.
+
 `fluid forge --refine` loads an existing contract, asks "what to change?", and feeds the existing contract verbatim to the LLM as the seed (via `_seed_contract_override`). One question, no full interview.
 
 ```bash
@@ -207,6 +221,8 @@ fluid forge --refine ./products/orders.fluid.yaml
 ```
 
 ## Cost-cap progress prefix
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The interview that showed this prefix is removed.
 
 Set a per-run USD budget to see a live progress prefix:
 
@@ -221,6 +237,8 @@ FLUID_COST_LIMIT_USD_PER_RUN=0.50 fluid forge
 Useful for keeping demo runs predictable and for CI runs where you want hard cost discipline.
 
 ## UX telemetry
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid forge` no longer emits this span: the copilot paths that emitted it are removed.
 
 When an OTel exporter is configured, the run emits these per-invocation fields onto the `forge.invocation` span:
 
@@ -241,10 +259,10 @@ No telemetry is sent when no exporter is configured.
 | `FLUID_FORGE_NO_PICKER` | Suppress the mode picker (CI / scripts) |
 | `FLUID_FORGE_PICKER_ALWAYS` | Force the picker even for return users |
 | `FLUID_FORGE_NO_WELCOME` | Suppress the welcome scan render |
-| `FLUID_FORGE_NO_STREAMING_PREVIEW` | Suppress the live contract growth panel |
+| `FLUID_FORGE_NO_STREAMING_PREVIEW` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Suppress the live contract growth panel |
 | `FLUID_FORGE_NO_PREVIEW` | Suppress the pre-write preview panel + prompt |
 | `FLUID_FORGE_AUTO_CI` | Auto-enable CI mode (no TTY prompts) |
-| `FLUID_INTERVIEW_LEGACY` | Revert to the legacy 1.x interview bootstrap |
+| `FLUID_INTERVIEW_LEGACY` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Revert to the legacy 1.x interview bootstrap |
 | `FLUID_COST_LIMIT_USD_PER_RUN` | Per-run cost cap shown in the progress prefix |
 
 ## See also

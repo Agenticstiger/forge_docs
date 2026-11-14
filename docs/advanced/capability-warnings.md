@@ -34,7 +34,7 @@ The first lines are user-facing warnings, printed through the standard CLI conso
 The "what is required" set depends on the usage profile of the run. The catalog defines two:
 
 - **`staged_pipeline`**: each stage is one LLM call, so it requires `structured_output` only. This is the profile `fluid forge data-model` passes.
-- **`agent_loop`**: the multi-turn tool-driven loop requires `tool_use` and `structured_output`. As of 0.18.1, no CLI command passes this profile, so the catalog's `tool_use` column matters only through the catalog's notes and through the Python API.
+- **`agent_loop`**: *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop is removed, so this profile has no caller on main. The multi-turn tool-driven loop requires `tool_use` and `structured_output`. As of 0.18.1, no CLI command passes this profile, so the catalog's `tool_use` column matters only through the catalog's notes and through the Python API.
 
 Concretely, on `fluid forge data-model`:
 

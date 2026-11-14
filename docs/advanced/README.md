@@ -37,10 +37,10 @@ The sidebar puts one more page in this group, [Governance, compliance and the bu
 | Page | The question it answers |
 |---|---|
 | [MCP server](./mcp.md) | How do I let an editor's AI author contracts, and how do I serve one expose of a published contract to an agent read-only? |
-| [Built-in and custom Forge guidance](./custom-llm-agents.md) | What does `fluid forge --domain` already know, and where does deeper agent customisation fit? |
-| [Forge discovery](./forge-copilot-discovery.md) | What does `fluid forge` look at in my workspace before it scaffolds, and how do I point it somewhere else or switch it off? |
-| [Forge memory](./forge-copilot-memory.md) | Where does Forge keep what it remembers between runs, and how do I inspect, search or clear it? |
-| [Authoring Forge tools](./forge-tools.md) | How do I add a new tool the agent loop can call? |
+| [Built-in and custom Forge guidance](./custom-llm-agents.md) | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. What does `fluid forge --domain` already know, and where does deeper agent customisation fit? |
+| [Forge discovery](./forge-copilot-discovery.md) | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. What does `fluid forge` look at in my workspace before it scaffolds, and how do I point it somewhere else or switch it off? |
+| [Forge memory](./forge-copilot-memory.md) | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Where does Forge keep what it remembers between runs, and how do I inspect, search or clear it? |
+| [Authoring Forge tools](./forge-tools.md) | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. How do I add a new tool the agent loop can call? |
 | [Guided `fluid forge` UX](./guided-forge-ux.md) | What happens between typing `fluid forge` and a file being written? |
 | [LLM providers](./llm-providers.md) | Which providers can a forge data-model run use, and how do I select one? |
 | [LiteLLM backend](./litellm-backend.md) | What does `--llm-provider <name>` resolve to, and what is the routing layer doing underneath? |

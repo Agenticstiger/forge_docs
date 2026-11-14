@@ -6,7 +6,7 @@ There are **two distinct servers** under this command, with two different threat
 
 | Server | Audience | What it serves |
 | --- | --- | --- |
-| `fluid mcp serve` | **Producer** — a data engineer authoring contracts | Forge *authoring* tools: inspect, validate, and carefully edit forge artifacts, including `forge_run`. |
+| `fluid mcp serve` | **Producer** — a data engineer authoring contracts | Forge *authoring* tools: inspect, validate, and carefully edit forge artifacts, including `forge_run`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_run` is removed; the server serves 11 tools. |
 | `fluid mcp output-port serve` | **Consumer** — an AI agent reading a published data product | Read-only *data-access* tools (`describe` / `sample` / `query` / gated `query_sql`) bound to **one expose** of a contract, with contract-driven governance applied. |
 
 ::: tip Which one do I want?
@@ -61,7 +61,7 @@ FLUID_QUIET=1 fluid mcp serve \
 
 | Flag | Purpose |
 | --- | --- |
-| `--read-only` | Reject any tool that mutates files or store namespaces, and hide those tools from `tools/list`. In 0.18.1 the tools that disappear are `add_relationship`, `forge_from_source`, `forge_run`, `regenerate_physical` and `update_entity`. |
+| `--read-only` | Reject any tool that mutates files or store namespaces, and hide those tools from `tools/list`. In 0.18.1 the tools that disappear are `add_relationship`, `forge_from_source`, `forge_run`, `regenerate_physical` and `update_entity`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* They are `add_relationship`, `regenerate_physical` and `update_entity`. |
 | `--allow-tools` | Advertise and allow only the named tools. |
 | `--deny-tools` | Block the named tools; denial wins over allow. |
 | `--readable-paths` | Limit path-based read tools to these roots. Default: current working directory. |
@@ -113,7 +113,7 @@ Over HTTP the tool calls still run one at a time, in the order they arrive, whic
 
 ### Tool errors
 
-`forge_run` reports an anticipated failure — an IDE that does not advertise the `sampling` capability, say — as the SDK's own `ToolError`. Its message names the capability and its two ways out: `mode='blank'`, or shelling out to `fluid forge --agent --blank`. *(since 0.15.0)* On MCP SDK 2.x an exception that is not a `ToolError` reaches the client as the generic text `Error executing tool forge_run`, so the tool raises `ToolError` to keep its message.
+`forge_run` reports an anticipated failure — an IDE that does not advertise the `sampling` capability, say — as the SDK's own `ToolError`. Its message names the capability and its two ways out: `mode='blank'`, or shelling out to `fluid forge --agent --blank`. *(since 0.15.0)* On MCP SDK 2.x an exception that is not a `ToolError` reaches the client as the generic text `Error executing tool forge_run`, so the tool raises `ToolError` to keep its message. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_run` is removed, so this applies to 0.29.0 only.
 
 ---
 

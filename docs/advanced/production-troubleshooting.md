@@ -263,7 +263,7 @@ Update the key at the source `fluid ai status` reports, the provider environment
 | `No LLM provider configured. Run 'fluid ai setup' or set an API key env var.` | Nothing selects a provider ([Which provider a run uses](./llm-providers.md#which-provider-a-run-uses)). A run without a terminal, or with `--non-interactive`, also found no coding-agent CLI on `PATH`, or a setting such as `--llm-model` or `--llm-endpoint`, which selects no provider, kept it from looking for an agent. Keys in the OS keyring for more than one provider give this message too. See [When nothing is configured](./llm-providers.md#when-nothing-is-configured). |
 | `No LLM provider is selected: OPENAI_API_KEY, ANTHROPIC_API_KEY are all set, so none of them is chosen. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | More than one provider's key is set in the environment. `OLLAMA_HOST` counts as Ollama's. |
 | `No LLM provider is selected: FLUID_LLM_API_KEY does not say which provider the key is for. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | `FLUID_LLM_API_KEY` is set, but nothing selects a provider. |
-| `No LLM provider is selected: 'fluid ai setup' saved claude-code, and an agent is not used when the run states an endpoint or a model, or runs the agent loop. Name a provider with --llm-provider.` | *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* `fluid ai setup` saved a coding agent or `mcp-sampling`, and the run states an endpoint or a model or runs the agent loop, so forge passes the agent over. |
+| `No LLM provider is selected: 'fluid ai setup' saved claude-code, and an agent is not used when the run states an endpoint or a model, or runs the agent loop. Name a provider with --llm-provider.` | *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* `fluid ai setup` saved a coding agent or `mcp-sampling`, and the run states an endpoint or a model or runs the agent loop, so forge passes the agent over. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--agent-loop` and `mcp-sampling` are removed from `fluid forge`. |
 
 The suggestions under it are the same in each case:
 
@@ -302,8 +302,8 @@ The suggestions under it are the same in each case:
 
 | Feature | Package | Extra |
 |---|---|---|
-| `fluid forge` with an API-key provider, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup`, the `fluid init` hand-off to AI, `--agent-loop` | `litellm` | `litellm`, its alias `ai`, or `standard` |
-| `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide`, `mcp-sampling` (it runs inside `fluid mcp serve`) | `mcp` | `mcp`, or `standard` |
+| `fluid forge` with an API-key provider, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup`, the `fluid init` hand-off to AI, `--agent-loop` (*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--agent-loop` is removed) | `litellm` | `litellm`, its alias `ai`, or `standard` |
+| `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide`, `mcp-sampling` (*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `mcp-sampling` is removed) (it runs inside `fluid mcp serve`) | `mcp` | `mcp`, or `standard` |
 | Lineage events when `OPENLINEAGE_URL` is set | `openlineage-python` | `lineage` |
 
 The `litellm`, `mcp` and `lineage` rows above describe a base install. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))*

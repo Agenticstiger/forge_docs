@@ -131,7 +131,7 @@ ODPS and ODCS are **spec exporters**, not cloud providers — they serialize a c
 | [`fluid diff`](./diff.md) | Detect drift from deployed state |
 | [`fluid test`](./test.md) | Check the contract against live resources and run its `dq.rules` |
 | [`fluid verify`](./verify.md) | Verify deployed resources still match the contract |
-| [`fluid mission`](./mission.md) | Declarative goals with deterministic success criteria; `mission check` is a zero-LLM CI gate |
+| [`fluid mission`](./mission.md) | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Declarative goals with deterministic success criteria; `mission check` is a zero-LLM CI gate |
 | [`fluid contract`](./contract.md) | Inspect and mutate contracts: `apply-suggestion`, `digest`, `migrate-product-type` |
 
 ## Project & Workspace
@@ -143,7 +143,7 @@ ODPS and ODCS are **spec exporters**, not cloud providers — they serialize a c
 | [`fluid workspace`](./workspace.md) | Team collaboration store in `./.fluid-workspace/` (members, versions, change requests); also documents `fluid.workspace.yaml` |
 | [`fluid ide`](./ide.md) | IDE integration helpers |
 | [`fluid ai`](./ai.md) | AI provider configuration |
-| [`fluid memory`](./memory.md) | Inspect and manage forge memory namespaces |
+| [`fluid memory`](./memory.md) | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Inspect and manage forge memory namespaces |
 | [`fluid mcp`](./mcp.md) | `serve` offers forge authoring tools to MCP clients; `output-port serve` gives agents governed read access to one expose |
 | [`fluid agents`](./agents.md) | List, show and prune the `.fluid/agents/` records that `fluid forge` runs write |
 | [`fluid runs`](./runs.md) | Inspect run history: `status`, `logs`, `diff` |

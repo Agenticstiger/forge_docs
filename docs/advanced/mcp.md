@@ -28,14 +28,16 @@ Every `tools/call` is checked by policy before it runs. The flags that scope it 
 
 The authoring server advertises these tools. With `--read-only`, the tools marked *write* are not advertised:
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The server advertises 11 tools: the five rows marked removed below are gone. JDBC databases remain available through `fluid forge data-model from-source --uri`.
+
 | Tool | Mode | What it does |
 | --- | --- | --- |
 | `read_logical_model` | read | Load a `.model.json` sidecar and return the typed logical model |
 | `validate_contract` | read | Validate a Fluid contract or forged model sidecar |
 | `diff_models` | read | Compare two logical model sidecars |
-| `search_semantic_memory` | read | Search the semantic memory namespace for similar prior models |
-| `score_contract_quality` | read | Score a contract against the forge quality rubric |
-| `enrich_contract_suggestions` | read | Suggest contract enrichments (descriptions, semantics, policy) |
+| `search_semantic_memory` | read | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Search the semantic memory namespace for similar prior models |
+| `score_contract_quality` | read | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Score a contract against the forge quality rubric |
+| `enrich_contract_suggestions` | read | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Suggest contract enrichments (descriptions, semantics, policy) |
 | `update_entity` | write | Rename or update one logical model entity |
 | `add_relationship` | write | Add a relationship to a logical sidecar |
 | `regenerate_physical` | write | Regenerate the contract and physical fanout from a logical sidecar |
@@ -44,8 +46,8 @@ The authoring server advertises these tools. With `--read-only`, the tools marke
 | `inspect_source_table` | read | Inspect a source table profile and metadata |
 | `list_source_lineage` | read | Read lineage from a configured source catalog |
 | `list_source_glossary` | read | Read glossary terms from a configured source catalog |
-| `forge_from_source` | write | Forge a contract and `.model.json` sidecar from a configured source catalog |
-| `forge_run` | write | Run a full `fluid forge` in-process — `mode` is `blank`, `diag`, or `ai` |
+| `forge_from_source` | write | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; run `fluid forge data-model from-source`. Forge a contract and `.model.json` sidecar from a configured source catalog |
+| `forge_run` | write | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; the calling agent authors the contract itself, with the FLUID skills. Run a full `fluid forge` in-process — `mode` is `blank`, `diag`, or `ai` |
 
 Every advertised tool includes an MCP `inputSchema`, so clients can provide typed autocomplete and validate arguments before dispatch.
 
@@ -56,6 +58,8 @@ A contract split into fragments keeps `$ref` stubs in its root file (see [Contra
 In 0.24.0 and earlier these tools read the file as written, so `validate_contract` reported errors on `$ref` stubs that `fluid validate` did not, and an empty file validated nothing. On those versions, run `fluid bundle contract.fluid.yaml --out runtime/contract.bundled.yaml` and point the tool at the result.
 
 ### LLM sampling
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed with `forge_run`, and so is `--llm-provider mcp-sampling`. An agentic IDE authors with its own model: [`fluid scaffold-ide`](../cli/scaffold-ide.md) installs the FLUID skills, and the tools above stay available to it.
 
 The `forge_run` tool's `diag` and `ai` modes need a language model. Rather than configuring a second API key for the server, Forge uses **MCP sampling**: the server sends the model request back through the MCP connection to the client (Claude Code, Cursor, …), and the client fulfils it with the LLM the user already pays for.
 
@@ -102,6 +106,8 @@ fluid ai setup --source snowflake --name snowflake-prod
 ```
 
 Then an MCP client can call `forge_from_source` with `source: "snowflake"` and `credentials.credential_id: "snowflake-prod"` without receiving raw secrets.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed. The catalog tools (`list_source_tables`, `inspect_source_table`, `list_source_lineage`, `list_source_glossary`) take the same `source` and `credentials.credential_id`.
 
 ### Certification
 
@@ -451,7 +457,7 @@ A denial by the policy gate has the same keys, with `decision: "deny"` and a `re
 | `FLUID_MCP_AUDIT_WEBHOOK_HEADER_AUTH` | Optional `Authorization` header value (shared bearer). |
 | `FLUID_MCP_AUDIT_WEBHOOK_TIMEOUT_SECONDS` | Per-POST timeout (default 5.0). |
 
-When `FLUID_STORE_BACKEND` points at a non-file backend (Postgres / Sqlite / Vector), each event is also written through the Store under the `audit` namespace — again without losing the on-disk fallback.
+When `FLUID_STORE_BACKEND` points at a non-file backend (Postgres / Sqlite / Vector), each event is also written through the Store under the `audit` namespace — again without losing the on-disk fallback. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The Postgres and Vector backends are removed: `FLUID_STORE_BACKEND=postgres` or `vector` logs a warning and uses the file store. Sqlite stays.
 
 Audit events are auto-correlated with the rest of the forge-cli pipeline: the gateway resolves the same cross-stage `run_id` (`FLUID_RUN_ID`) other CLI stages honour and stamps it onto both the audit payload and an OpenTelemetry span (`fluid.mcp.call_tool`) when an exporter is configured.
 
@@ -498,7 +504,7 @@ The model, use-case and tenant rows tell a legitimate client from another one on
 | `FLUID_AUDIT_ROOT` | Redirect the audit directory (e.g. a SIEM-forwarded path). |
 | `FLUID_AUDIT_MAX_AGE_DAYS` / `FLUID_AUDIT_MAX_TOTAL_MB` | Audit rotation bounds (defaults 30 / 256). |
 | `FLUID_MCP_AUDIT_WEBHOOK_URL` / `_HEADER_AUTH` / `_TIMEOUT_SECONDS` | Audit webhook forwarder. |
-| `FLUID_STORE_BACKEND` | When non-file, mirror audit events through the Store `audit` namespace. |
+| `FLUID_STORE_BACKEND` | When non-file, mirror audit events through the Store `audit` namespace. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `postgres` and `vector` are removed and fall back to the file store. |
 | `FLUID_RUN_ID` | Cross-stage correlation id stamped onto audit events + OTel spans. |
 | `ATHENA_WORKGROUP` | Default Athena workgroup when the binding doesn't set one. |
 

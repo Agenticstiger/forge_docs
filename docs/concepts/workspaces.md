@@ -185,6 +185,8 @@ readable by the SQL of every contract under it.
 
 ## Team memory
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init` no longer scaffolds `.fluid/team-memory.yaml`, and forge copilot memory is removed.
+
 `fluid init` also scaffolds `.fluid/team-memory.yaml` at the workspace root:
 naming conventions, defaults and recorded decisions that `fluid forge` treats as
 team guidance. It is meant to be committed. For the separate per-user memory

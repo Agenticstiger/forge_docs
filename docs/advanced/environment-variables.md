@@ -209,7 +209,7 @@ See [cost tracking](./cost-tracking.md).
 | `FLUID_COST_LIMIT_USD_PER_RUN` | Per-run ceiling shown in the progress prefix. |
 | `FLUID_COST_LIMIT_USD_PER_PRODUCT` | Per-product LLM cost ceiling, enforced in the agent coordinator. |
 | `FLUID_STAGE_BUDGET_<STAGE>_S` | Wall-clock budget in seconds for one forge pipeline stage, for example `FLUID_STAGE_BUDGET_LOGICAL_S`. Stage names are lowercase in the code (`logical`, `builder`, `readme`, `transformation`, `validator`). |
-| `FLUID_MISSION_TIMEOUT_SECONDS` | Overrides a mission's wall-clock budget. |
+| `FLUID_MISSION_TIMEOUT_SECONDS` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. `fluid mission` is gone. Overrides a mission's wall-clock budget. |
 | `FLUID_PRICES_JSON` | Path of a price override file. Without it: `$FLUID_HOME/prices.json`, then `~/.fluid/prices.json`. |
 | `FLUID_TOKEN_COUNTER` | `chars` switches token counting to a character estimate. Any other value keeps the default counter. |
 
@@ -228,42 +228,44 @@ See [LLM providers](./llm-providers.md) and the [LiteLLM backend](./litellm-back
 | `FLUID_LLM_ROUTING_ENDPOINT`, `FLUID_LLM_ROUTING_MODEL` | Optional routing endpoint and model. |
 | `FLUID_LLM_MODEL_PREFLIGHT` | Runs a model-availability check before the first call. |
 | `FLUID_LLM_BACKEND` | `litellm` routes every LLM call through the unified backend. |
-| `FLUID_LLM_FALLBACK_CHAIN` | Fallback model chain for the router. |
+| `FLUID_LLM_FALLBACK_CHAIN` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The fallback chain is gone. Fallback model chain for the router. |
 | `FLUID_LITELLM_MODEL_PREFIX` | Prefix prepended to the model name for providers LiteLLM names differently. |
 | `FLUID_TIERED` | Uses per-stage model tiers when an LLM is configured. |
-| `FLUID_OPENAI_STRICT_SCHEMA` | `1`, `true`, `yes` or `on` hardens the response schema for OpenAI strict mode. |
+| `FLUID_OPENAI_STRICT_SCHEMA` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. No longer read. `1`, `true`, `yes` or `on` hardens the response schema for OpenAI strict mode. |
 | `FLUID_GEMINI_RESPONSE_SCHEMA` | `1` sends the response schema to Gemini. Off by default. |
 | `FLUID_FORGE_AGENT` | Selects a keyless coding-agent provider (`claude-code`, `codex`, `cursor`, `kiro`). |
 | `FLUID_FORGE_AGENT_MODE`, `FLUID_FORGE_AGENT_TIMEOUT_SECONDS`, `FLUID_FORGE_AGENT_CWD` | Drive mode (`envelope` or `agentic`), per-invocation wall-clock cap, and working directory for the agent CLI. |
-| `FLUID_AGENT_WEB_TOOLS` | `1` exposes the `web_search` and `web_fetch` agent tools. |
-| `FLUID_WEB_SEARCH_PROVIDER` | Forces the web-search backend. |
+| `FLUID_AGENT_WEB_TOOLS` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The agent loop and its web tools are gone. `1` exposes the `web_search` and `web_fetch` agent tools. |
+| `FLUID_WEB_SEARCH_PROVIDER` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The web tools are gone. Forces the web-search backend. |
 
 Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `AWS_*` for Bedrock, the Vertex settings) follow the underlying SDKs and are read by LiteLLM.
 
 ## Forge copilot
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed, and no longer read by main: `FLUID_INTERVIEW_LEGACY`, `FLUID_AGENT_COMPACT_AFTER`, `FLUID_COMPACTION_STRATEGY`, `FLUID_PROMPT_OVERLAYS`, `FLUID_PROMPT_PROFILE`, `FLUID_OVERLAY_STRICT`, `FLUID_OVERLAY_PUBLIC_KEYS`, `FLUID_FORGE_WATCH_INTERVAL` and `FLUID_FORGE_WATCH_DEBOUNCE`, in the last rows of the table below.
+
 | Variable | Effect |
 |---|---|
 | `FLUID_FORGE_NO_PICKER` | Skips the mode menu on bare `fluid forge`. Any non-empty value counts. |
 | `FLUID_FORGE_NO_PREVIEW` | Skips the pre-write preview panel. Any non-empty value counts. |
-| `FLUID_FORGE_NO_STREAMING_PREVIEW` | Disables the live contract-growth panel. Any non-empty value counts. |
+| `FLUID_FORGE_NO_STREAMING_PREVIEW` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The streaming contract preview is gone. Disables the live contract-growth panel. Any non-empty value counts. |
 | `FLUID_FORGE_NO_WELCOME` | Suppresses the welcome scan. Any non-empty value counts. |
 | `FLUID_FORGE_PICKER_ALWAYS` | Shows the picker even for return users. |
 | `FLUID_FORGE_AUTO_CI` | `0`, `false`, `no` or `off` disables the CI scaffold that a forge run otherwise emits. |
 | `FLUID_FORGE_OFFLINE` | `1` forces the local, no-network guided interview. Same as `--offline`. |
-| `FLUID_FORGE_AUTO_RESUME`, `FLUID_FORGE_NO_PRUNE_HINT` | `1` resumes an interrupted run without asking, and hides the prune hint. |
-| `FLUID_FORGE_LEGACY_COPILOT` | Uses the linear runtime instead of the staged copilot. Any non-empty value counts. |
-| `FLUID_FORGE_STAGED_COPILOT`, `FLUID_FORGE_STAGED_TOOL_LOOP` | `1` selects the experimental staged copilot and tool loop. |
-| `FLUID_FORGE_DRIFT_GUARD` | Enables the semantic-drift guard. Opt-in. |
-| `FLUID_FORGE_DB_TOOLS`, `FLUID_FORGE_DB_URI` | Enable the row-capped `fetch_sample_rows` agent tool, and the connection URI it uses. |
-| `FLUID_FORGE_TOOL_SEARCH` | Enables lazy tool-search deferral in the agent loop. |
-| `FLUID_GITHUB_MCP`, `FLUID_SNOWFLAKE_MCP`, `FLUID_DBT_MCP` | Enable delegation to the hosted GitHub, Snowflake and dbt MCP servers. |
-| `FLUID_HOSTED_MCP_TIMEOUT_SECONDS` | Per-operation timeout for hosted MCP calls. |
-| `FLUID_COPILOT_AGENT_LOOP` | `1`, `true`, `yes` or `on` selects the multi-turn agent loop. Same as `--agent-loop`. *(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* The loop also keeps a non-interactive run from picking a coding agent; see [When nothing is configured](./llm-providers.md#when-nothing-is-configured). *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* It passes over a coding agent that `fluid ai setup` saved, too. |
-| `FLUID_COPILOT_JUDGE`, `FLUID_COPILOT_ENRICHMENT`, `FLUID_JUDGE_SELF_CRITIQUE`, `FLUID_COPILOT_SELF_EVAL`, `FLUID_COPILOT_CHECKPOINT`, `FLUID_COPILOT_PII_CLASSIFIER` | On by default; `0`, `false`, `no` or `off` skips that stage. |
+| `FLUID_FORGE_AUTO_RESUME`, `FLUID_FORGE_NO_PRUNE_HINT` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Resume is gone. `1` resumes an interrupted run without asking, and hides the prune hint. |
+| `FLUID_FORGE_LEGACY_COPILOT` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The copilot runtimes are gone. Uses the linear runtime instead of the staged copilot. Any non-empty value counts. |
+| `FLUID_FORGE_STAGED_COPILOT`, `FLUID_FORGE_STAGED_TOOL_LOOP` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The copilot runtimes are gone. `1` selects the experimental staged copilot and tool loop. |
+| `FLUID_FORGE_DRIFT_GUARD` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Enables the semantic-drift guard. Opt-in. |
+| `FLUID_FORGE_DB_TOOLS`, `FLUID_FORGE_DB_URI` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The agent tools are gone. Enable the row-capped `fetch_sample_rows` agent tool, and the connection URI it uses. |
+| `FLUID_FORGE_TOOL_SEARCH` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The agent loop is gone. Enables lazy tool-search deferral in the agent loop. |
+| `FLUID_GITHUB_MCP`, `FLUID_SNOWFLAKE_MCP`, `FLUID_DBT_MCP` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Hosted MCP delegation is gone. Enable delegation to the hosted GitHub, Snowflake and dbt MCP servers. |
+| `FLUID_HOSTED_MCP_TIMEOUT_SECONDS` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Hosted MCP delegation is gone. Per-operation timeout for hosted MCP calls. |
+| `FLUID_COPILOT_AGENT_LOOP` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop is removed, but the variable is still read: set to a true value, it stops forge from picking a saved or detected coding agent. Unset it. In 0.29.0: `1`, `true`, `yes` or `on` selects the multi-turn agent loop. Same as `--agent-loop`. *(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* The loop also keeps a non-interactive run from picking a coding agent; see [When nothing is configured](./llm-providers.md#when-nothing-is-configured). *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* It passes over a coding agent that `fluid ai setup` saved, too. |
+| `FLUID_COPILOT_JUDGE`, `FLUID_COPILOT_ENRICHMENT`, `FLUID_JUDGE_SELF_CRITIQUE`, `FLUID_COPILOT_SELF_EVAL`, `FLUID_COPILOT_CHECKPOINT`, `FLUID_COPILOT_PII_CLASSIFIER` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `FLUID_COPILOT_JUDGE`, `FLUID_JUDGE_SELF_CRITIQUE` and `FLUID_COPILOT_SELF_EVAL` are removed (the judge and self-evaluation are gone). The others in this row are still read. On by default; `0`, `false`, `no` or `off` skips that stage. |
 | `FLUID_COPILOT_POST_SYNTHESIS`, `FLUID_COPILOT_EPISODIC_MEMORY` | On by default; only the value `0` turns them off. |
-| `FLUID_COPILOT_SEMANTIC_MEMORY` | Opts in to semantic-memory writes and lookups. |
-| `FLUID_COPILOT_FORCE_INTERVIEW` | Forces the interview even when it would otherwise be skipped. Any non-empty value counts. |
+| `FLUID_COPILOT_SEMANTIC_MEMORY` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Semantic memory is gone. Opts in to semantic-memory writes and lookups. |
+| `FLUID_COPILOT_FORCE_INTERVIEW` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. The interview is gone. Forces the interview even when it would otherwise be skipped. Any non-empty value counts. |
 | `FLUID_COPILOT_PARALLEL_PHYSICAL` | On by default; `0`, `false`, `no` or `off` runs the physical-modeling stages one at a time. |
 | `FLUID_INTERVIEW_LEGACY` | `1` reverts to the legacy bootstrap interview. |
 | `FLUID_AGENT_COMPACT_AFTER` | Compact the agent context after this many turns. Default `6`. |
@@ -291,11 +293,11 @@ Read by `fluid mcp output-port`; see [MCP](./mcp.md). *On forge-cli `main`, not 
 
 | Variable | Effect |
 |---|---|
-| `FLUID_STORE_BACKEND` | Memory store for the forge copilot: `file` (default), `sqlite`, `postgres` or `vector`; `0`, `none`, `null` or `disabled` turns persistence off. |
+| `FLUID_STORE_BACKEND` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `postgres` and `vector` backends are removed: on main those values log a warning and use the file store. Memory store for the forge copilot: `file` (default), `sqlite`, `postgres` or `vector`; `0`, `none`, `null` or `disabled` turns persistence off. |
 | `FLUID_STORE_ROOT` | Root of the `file` backend. Default `~/.fluid/store`. |
 | `FLUID_STORE_PATH` | Database file of the `sqlite` backend. |
-| `FLUID_STORE_DSN` | Connection string of the `postgres` backend. Required for it. |
-| `FLUID_STORE_VECTOR_BACKING` | Backing store of the `vector` backend: `file` (default), `sqlite` or `postgres`. |
+| `FLUID_STORE_DSN` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Main no longer reads it. Connection string of the `postgres` backend. Required for it. |
+| `FLUID_STORE_VECTOR_BACKING` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Main no longer reads it. Backing store of the `vector` backend: `file` (default), `sqlite` or `postgres`. |
 | `FLUID_SECRETS_INMEMORY` | `1` keeps `fluid secrets` values in memory instead of the OS keychain. Tests only. |
 | `FLUID_ENCRYPTION_KEY`, `FLUID_ENCRYPTION_PASSPHRASE` | Fernet key, or a passphrase it is derived from, for the encrypted credential store. |
 | `FLUID_ALLOW_PLAINTEXT_AI_SECRETS` | Legacy plaintext fallback for AI provider secrets. *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* It also lets `fluid ai setup` save a `user:password@` in an address, such as an Ollama host, to `~/.fluid/ai_config.json`; without it the address is saved without them. |

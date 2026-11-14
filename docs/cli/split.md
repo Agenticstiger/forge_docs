@@ -317,10 +317,10 @@ block, and where each file lives:
 | `fragments/`, `overlays/`, `contract.fluid.yaml` | you, `fluid split`, `fluid forge` | Yes. This is the product. |
 | `<workspace>/.fluid/init-receipt.json` | `fluid init` | No (in the block). |
 | `<workspace>/.fluid/logs/` | the CLI | No (in the block). |
-| `<workspace>/.fluid/team-memory.yaml` | `fluid init`, and `fluid forge` when it is missing | Yes. Team conventions shared with the AI copilot. |
+| `<workspace>/.fluid/team-memory.yaml` | `fluid init`, and `fluid forge` when it is missing | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Not written on `main`. Yes. Team conventions shared with the AI copilot. |
 | `<workspace>/.fluid/skills.yaml` | the industry picker in interactive `fluid init` | Yes. The industry reference pack, shared by the team. |
 | `<product>/.fluid/forge-receipt.json` | `fluid forge`, `fluid init` | No. |
-| `<product>/.fluid/copilot-memory.json` | the AI copilot | No. |
+| `<product>/.fluid/copilot-memory.json` | the AI copilot | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Not written on `main`. No. |
 | `<product>/.fluid/debezium/`, `<product>/.fluid/meltano/` | the embedded Debezium Server and Meltano runners, on each run | No (in the block since [forge-cli #722](https://github.com/Agenticstiger/forge-cli/pull/722)). Regenerated each run. Neither holds a credential the run resolved: Debezium Server gets those through its environment, and a Singer tap or target reads its config from a private temporary directory. |
 | `<product>/.fluid/ci-state.json` | `fluid forge` when it scaffolds CI, for example `fluid forge --ci <provider>` | Yes. Records the inputs that produced the committed CI files. Files from `fluid generate ci` have no `ci-state.json` record. |
 | `runtime/` | build outputs such as bundles, plans and apply reports | No (in the block). |

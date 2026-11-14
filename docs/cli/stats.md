@@ -83,7 +83,7 @@ The examples read three `cost.json` receipts under `.fluid/agents/`. Without `--
 | `--since SPEC` | Only runs that started on or after this point. Accepts `30d`, `24h` (days and hours back from now) or an ISO date such as `2026-04-01`. Default `30d`. Anything else exits `2` with `error: --since must look like '30d', '24h', or an ISO date`. |
 | `--root PATH` | The directory to scan. Default: the current directory. A path with no receipts gives an empty total, not an error. |
 | `--json` | Emit JSON instead of the table. |
-| `--judge` | Aggregate `judge.json` receipts (scores from an out-of-loop LLM judge) instead of `cost.json`. Not combinable with `--by`: that exits `2`, and the message says to group from the `--json` output. |
+| `--judge` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Aggregate `judge.json` receipts (scores from an out-of-loop LLM judge) instead of `cost.json`. Not combinable with `--by`: that exits `2`, and the message says to group from the `--json` output. |
 
 ## What gets aggregated
 

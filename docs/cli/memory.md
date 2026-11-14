@@ -1,5 +1,9 @@
 # `fluid memory`
 
+::: warning Removed on forge-cli main
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid memory` is removed with copilot memory: on `main` it fails with `invalid choice` (exit 2). The store's session and audit records stay, for `fluid forge data-model` and the MCP output port's audit trail, and `fluid forge data-model learn` still records modeling memory from a sidecar. `fluid forge --no-memory` is still accepted and ignored. This page describes 0.29.0.
+:::
+
 Inspect and manage the staged memory store used by AI-assisted forge runs, MCP tools, audit capture, and model reuse.
 
 ## Syntax

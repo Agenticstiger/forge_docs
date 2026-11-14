@@ -89,8 +89,8 @@ Commit `fluid.workspace.yaml`, `.gitignore`, `.fluid/team-memory.yaml` and every
 | `--domain`, `--owner-team`, `--owner-email` | Values written into the contract by `--blueprint` and `--discover`. |
 | `--data-product-type` | `SDP`, `ADP` or `CDP` (or `Bronze`, `Silver`, `Gold`) for the first product. Carried into the init-to-forge handoff of the AI-assisted path. `--blank` writes Bronze/SDP regardless. |
 | `--workspace-lock SDP\|ADP\|CDP` | Lock the workspace to one product type. Recorded as `workspace.data_product_type_lock` in `fluid.workspace.yaml`; later `fluid forge` runs default to it and reject a conflicting `--data-product-type`. |
-| `--show-work` | Stream the agent's reasoning and tool calls during the init-to-forge handoff. Also saved under `.fluid/agents/<run-id>/`. |
-| `--agent NAME` | Scaffold a custom domain agent spec in `.fluid/agents/`. See [Custom domain agents](./agents.md#custom-domain-agents). |
+| `--show-work` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Stream the agent's reasoning and tool calls during the init-to-forge handoff. Also saved under `.fluid/agents/<run-id>/`. |
+| `--agent NAME` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Scaffold a custom domain agent spec in `.fluid/agents/`. See [Custom domain agents](./agents.md#custom-domain-agents). |
 | `--yes`, `-y` | Skip confirmation prompts. |
 | `--dry-run` | Preview what would be created. See the [known issues](#known-issues-as-of-0-18-1). |
 | `--dir`, `-C` | Directory to initialize, or, with `--discover`, where the contracts are written. |
@@ -219,7 +219,7 @@ See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition
 - `fluid init --discover postgres://...` against an unreachable host (`127.0.0.1:1`) failed with `Unknown secret storage found: 'local_file'` instead of a connection error. No live Postgres or MySQL server was available for this page, so those two schemes are untested end to end on 0.18.1; the `file://` example above is the measured one.
 - `--provider azure` is rejected with `Unknown provider 'azure'`. The providers registered in the test install were `aws`, `datamesh_manager`, `gcp`, `local`, `redshift` and `snowflake`.
 - Any `--provider gcp` run logs `Provider 'gcp' requires --project to be specified` unless the global `--project` is set. The scaffold is still written.
-- `fluid init --agent NAME` fails with a missing `custom.yaml.template` in the 0.18.1 wheel. The workaround is in [Custom domain agents](./agents.md#custom-domain-agents).
+- *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init --agent` is removed. In 0.29.0, `fluid init --agent NAME` fails with a missing `custom.yaml.template` in the 0.18.1 wheel. The workaround is in [Custom domain agents](./agents.md#custom-domain-agents).
 
 ## Notes
 

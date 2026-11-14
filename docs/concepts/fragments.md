@@ -308,6 +308,8 @@ not that the target exists or fits where it lands: for that, run
 
 ## Projects `fluid forge` writes
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: forge's `--fragments` and `--no-fragments` flags and its automatic split on the AI path. On `main`, run `fluid split` after forge.
+
 The AI copilot's default path (`fluid forge` without `--agent-loop`,
 `--blank` or `--template`) picks a layout for the contract it generates:
 
@@ -339,9 +341,9 @@ overlay file, then same-document pointers.
 | `fluid odcs export`, `odps-bitol export` | Compose the contract. Byte-identical output to the flat file. |
 | `fluid publish` | Composes the contract (measured with `--dry-run`). The payload is the resolved document. |
 | `fluid diff` | Compares composed documents, so moving content between the root and its fragments is no change. |
-| MCP `validate_contract`, `score_contract_quality`, `enrich_contract_suggestions` (the `contract_path` form) | Compose the contract, with fragments confined to the contract's directory unless widened. |
+| MCP `validate_contract`, `score_contract_quality`, `enrich_contract_suggestions` (the `contract_path` form) | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `score_contract_quality` and `enrich_contract_suggestions` are removed; `validate_contract` stays. Compose the contract, with fragments confined to the contract's directory unless widened. |
 | `fluid contract digest` | **Hashes the root as written**, without composing (see [Digests](#digests)). |
-| `fluid status`, `stats`, `viz-graph`'s workspace view, the workspace product listing, the forge welcome scan, the copilot's contract tools and `forge --refine` | **Read the root as written**, so they do not see what fragments hold. |
+| `fluid status`, `stats`, `viz-graph`'s workspace view, the workspace product listing, the forge welcome scan, the copilot's contract tools and `forge --refine` | **Read the root as written**, so they do not see what fragments hold. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The copilot's contract tools are removed. |
 
 A library caller gets the same document from `fluid_build.loader.load_contract`
 (see the [Contract loading API](../advanced/contract-loading-api.md)). Tools
@@ -534,6 +536,7 @@ resolves the refs the way the CLI does.
 - `fluid contract digest` and federation pins do not see fragment edits.
 - `fluid status`, `stats`, the workspace views, the forge welcome scan, the
   copilot's contract tools and `forge --refine` read the root as written.
+  *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The copilot's contract tools are removed.
 - A contract that embeds a document carrying its own `$ref` keys (a JSON
   Schema or OpenAPI fragment in `parameters` or an extension) fails to
   compose; keep such a payload as a string.

@@ -18,15 +18,15 @@ A run that names no provider and cannot ask a question picks one itself; see [Wh
 
 ## Supported providers
 
-The `openai`, `anthropic`, `gemini` and `ollama` providers run through LiteLLM and need `pip install 'data-product-forge[litellm]'` (alias `[ai]`). *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* `mcp-sampling` works only inside `fluid mcp serve`, which needs `[mcp]`. The four local agent CLIs need neither extra; only Claude Code needs no setup of its own, since the others reuse their own CLI login or key.
+The `openai`, `anthropic`, `gemini` and `ollama` providers run through LiteLLM and need `pip install 'data-product-forge[litellm]'` (alias `[ai]`). *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* `mcp-sampling` works only inside `fluid mcp serve`, which needs `[mcp]`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `mcp-sampling` is removed. The four local agent CLIs need neither extra; only Claude Code needs no setup of its own, since the others reuse their own CLI login or key.
 
 | Provider | `--llm-provider` | Default model | Notes |
 | --- | --- | --- | --- |
 | Anthropic | `anthropic` (alias `claude`) | `claude-sonnet-4-6` | Tool-forced structured output and provider-native prompt caching. Streamed runs report token usage in cost summaries. |
-| OpenAI | `openai` | `gpt-4.1-mini` | Strict JSON Schema output where available. Tiered runs use `gpt-4.1` for deep logical modeling. Set `FLUID_OPENAI_STRICT_SCHEMA=1` to harden the response-format schema for `gpt-4o`, `gpt-4.1` and o-series models that reject permissive nested objects. |
+| OpenAI | `openai` | `gpt-4.1-mini` | Strict JSON Schema output where available. Tiered runs use `gpt-4.1` for deep logical modeling. Set `FLUID_OPENAI_STRICT_SCHEMA=1` (*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* No longer read.) to harden the response-format schema for `gpt-4o`, `gpt-4.1` and o-series models that reject permissive nested objects. |
 | Gemini | `gemini` | `gemini-2.5-pro` | Uses Gemini response schema where suitable and validator repair when needed. |
 | Ollama | `ollama` | `gemma4:latest` | Calls go to the [Ollama endpoint](#the-ollama-endpoint). JSON mode is model-gated. The capability and token-budget catalogs cover `gemma` 1 to 4, `qwen3-coder`, `qwen3`, `qwen2.5`, `llama3.1`, `llama3.2`, `llama3.3`, `mistral`, `mixtral`, `deepseek` and `phi`. See [Capability Warnings](capability-warnings.md) for tool-use accuracy notes per family. |
-| MCP sampling | `mcp-sampling` | none | No key of its own. When forge runs inside an MCP client, the model request goes back through the connection and the client's own LLM answers it. |
+| MCP sampling | `mcp-sampling` | none | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Only the removed `forge_run` MCP tool used it. No key of its own. When forge runs inside an MCP client, the model request goes back through the connection and the client's own LLM answers it. |
 | Local agent CLIs | `claude-code`, `codex`, `cursor`, `kiro` | the agent's own | Forge shells out to a coding-agent CLI you already have installed. Claude Code uses your subscription login; the others reuse `CODEX_API_KEY`, `CURSOR_API_KEY` and `KIRO_API_KEY`. Forge runs `claude -p` apart from your own Claude Code setup; see [Claude Code](#claude-code). |
 
 Those are the values `fluid forge --llm-provider` and `fluid forge data-model ... --llm-provider` accept. Other names LiteLLM understands, such as `bedrock`, `vertex` and `azure`, are rejected by the argument parser as of 0.18.1:
@@ -35,7 +35,7 @@ Those are the values `fluid forge --llm-provider` and `fluid forge data-model ..
 fluid forge: error: argument --llm-provider: invalid choice: 'bedrock' (choose from 'openai', 'anthropic', 'claude', 'gemini', 'ollama', 'mcp-sampling', 'claude-code', 'codex', 'cursor', 'kiro')
 ```
 
-Two flags apply only to some providers. `--forge-agent-mode envelope|agentic` chooses how a local agent CLI (`claude-code`, `codex`, `cursor`, `kiro`) hands the contract back: as JSON on stdout, or by writing `contract.fluid.yaml` into the workspace. `--llm-routing-model` and `--llm-routing-endpoint` name a cheaper model for interview clarification and self-evaluation. Their reference is [AI config](../cli/forge.md#ai-config) on the `fluid forge` page; setup, status and tests are under [`fluid ai`](../cli/ai.md).
+Two flags apply only to some providers. `--forge-agent-mode envelope|agentic` chooses how a local agent CLI (`claude-code`, `codex`, `cursor`, `kiro`) hands the contract back: as JSON on stdout, or by writing `contract.fluid.yaml` into the workspace. `--llm-routing-model` and `--llm-routing-endpoint` name a cheaper model for interview clarification and self-evaluation. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* On `fluid forge` they are removed; `fluid forge data-model` keeps them. Their reference is [AI config](../cli/forge.md#ai-config) on the `fluid forge` page; setup, status and tests are under [`fluid ai`](../cli/ai.md).
 
 Inspect the active catalog with:
 
@@ -66,6 +66,8 @@ The saved choice fills in only what the run leaves out, and only for the saved p
 - A saved coding agent, or `mcp-sampling`, is passed over when the run states an endpoint or a model (`--llm-endpoint`, `--llm-model` and their routing twins, or `FLUID_LLM_ENDPOINT`, `FLUID_LLM_MODEL` and theirs) or runs the agent loop. The ladder then goes on to rung 4.
 - `claude` in the saved file means `anthropic`, and `claude_code` means `claude-code`.
 - The saved Ollama host applies when `OLLAMA_HOST` is not set. A saved `endpoint` field is not applied.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid mission` is removed.
 
 `fluid mission run` always runs the agent loop, so it never picks a coding agent; see [`fluid mission`](../cli/mission.md).
 
@@ -108,7 +110,7 @@ Any of these configures an LLM, and then no agent is picked:
 - A provider key: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` or `GITHUB_API_KEY`.
 - An OpenAI, Anthropic or Gemini key in the OS keyring.
 - A provider saved with `fluid ai setup`. *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* Runs use it as rung 3 of [Which provider a run uses](#which-provider-a-run-uses), except a saved coding agent that the run passes over there. Through 0.28.0 a run with `--non-interactive` did not use it.
-- The agent loop: `--agent-loop`, or `FLUID_COPILOT_AGENT_LOOP` set to `1`, `true`, `yes` or `on`. The loop needs tool use, which these agents do not offer.
+- The agent loop: `--agent-loop`, or `FLUID_COPILOT_AGENT_LOOP` set to `1`, `true`, `yes` or `on`. The loop needs tool use, which these agents do not offer. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--agent-loop` is removed from `fluid forge`; use a coding agent instead.
 
 *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* Only some of these select a provider: the rungs of [Which provider a run uses](#which-provider-a-run-uses). The others, `GITHUB_API_KEY` among them, only stop forge from picking an agent: an Ollama that answers at `OLLAMA_HOST` or `localhost:11434` is still used. When nothing selects a provider and no Ollama answers, forge stops with `copilot_no_llm_provider`. So pass `--llm-provider` together with `--llm-endpoint`, `--llm-model` or `FLUID_LLM_API_KEY`.
 
@@ -191,6 +193,8 @@ Through 0.28.0, forge's default-model pick, the probe and `fluid ai setup` looke
 
 ## Tiered mode
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--tiered` is removed from `fluid forge`; it stays on `fluid forge data-model`.
+
 `--tiered` chooses different models within the same provider, never across providers. A typical layout is:
 
 | Tier | Role |
@@ -250,6 +254,8 @@ fluid forge data-model from-intent intent.yaml \
 | `OLLAMA_HOST` | Ollama's address; see [The Ollama endpoint](#the-ollama-endpoint) |
 
 ### Agent-loop tuning
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop is removed, and with it `FLUID_AGENT_COMPACT_AFTER`, `FLUID_COMPACTION_STRATEGY` and `FLUID_OPENAI_STRICT_SCHEMA`: main no longer reads them.
 
 | Env var | Purpose |
 | --- | --- |
