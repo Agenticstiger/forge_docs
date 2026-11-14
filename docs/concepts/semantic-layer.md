@@ -383,7 +383,7 @@ semantic_model:
 
 - [MCP output port walkthrough](../walkthrough/mcp-output-port.md): serve an
   expose to an agent and call `query` end to end.
-- [`fluid mcp`](../cli/mcp.md#the-four-agent-tools): the four agent tools and
+- [`fluid mcp`](../cli/mcp.md#the-agent-tools): the four agent tools and
   their arguments.
 - [Forge Data Model](../forge-data-model.md): forge a contract, its logical
   model and the OSI sidecar.

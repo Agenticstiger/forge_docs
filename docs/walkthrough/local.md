@@ -6,7 +6,7 @@
 > Build, check and chain data products on your laptop with no cloud account and no credentials.
 > The contract you write here runs on DuckDB; the same kind of file is what a cloud run reads, with the binding swapped in an overlay (see [Next steps](#next-steps)).
 
-This walkthrough was run end to end on CLI `0.18.1`. Every command below is followed by the output it printed, with absolute paths shortened to `...`.
+This walkthrough was run end to end on CLI `0.18.1`. Every command below is followed by the output it printed, with absolute paths shortened to `...`, except the `fluid version` box, which shows what 0.29.0 prints (read from the source, not re-run).
 
 ## What you build
 
@@ -44,13 +44,13 @@ The `local` extra installs DuckDB (`duckdb>=1.5.0`) and pandas. The bare package
 ```text
 ╭───────────────────────────────────── 📦 Version Information ─────────────────────────────────────╮
 │ FLUID CLI                                                                                        │
-│ Version: 0.18.1                                                                                  │
+│ Version: 0.29.0                                                                                  │
 │ API: v1                                                                                          │
 │                                                                                                  │
 │ Supported Specifications:                                                                        │
-│ • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5, 0.7.6 (preview)                                       │
-│ • Default: 0.7.5                                                                                 │
-│ • Latest (stable): 0.7.5                                                                         │
+│ • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5, 0.7.6, 0.7.7 (preview)                                │
+│ • Default: 0.7.6                                                                                 │
+│ • Latest (stable): 0.7.6                                                                         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

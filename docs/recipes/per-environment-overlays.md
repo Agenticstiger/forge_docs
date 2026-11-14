@@ -257,7 +257,7 @@ jobs:
 
 Pin the version: an unpinned `pip install` in a pipeline takes whatever is
 newest on the day. Add the extras your clouds need, for example
-`"data-product-forge[gcp]==0.18.1"`.
+`"data-product-forge[gcp]==0.29.0"`.
 
 ## See also
 

@@ -7,7 +7,7 @@ description: Install the CLI, scaffold a data product, and validate, plan, apply
 
 Build a data product on your laptop: install the CLI, scaffold a contract, then validate, plan, apply, verify and test it on DuckDB. No cloud account and no credentials.
 
-This page was run end to end on CLI `0.18.1`, in an empty directory, with a fresh virtual environment. Every command is followed by the output it printed, trimmed with `...` and with absolute paths shortened.
+This page was run end to end on CLI `0.18.1`, in an empty directory, with a fresh virtual environment. The `fluid version` box and the pinned install below show what 0.29.0 prints, read from the source rather than re-run. Every command is followed by the output it printed, trimmed with `...` and with absolute paths shortened.
 
 **Time:** about 10 minutes · **Needs:** Python 3.10 or newer, `pip`
 
@@ -25,13 +25,13 @@ fluid version
 ```text
 ╭───────────────────────────────────── 📦 Version Information ─────────────────────────────────────╮
 │ FLUID CLI                                                                                        │
-│ Version: 0.18.1                                                                                  │
+│ Version: 0.29.0                                                                                  │
 │ API: v1                                                                                          │
 │                                                                                                  │
 │ Supported Specifications:                                                                        │
-│ • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5, 0.7.6 (preview)                                       │
-│ • Default: 0.7.5                                                                                 │
-│ • Latest (stable): 0.7.5                                                                         │
+│ • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5, 0.7.6, 0.7.7 (preview)                                │
+│ • Default: 0.7.6                                                                                 │
+│ • Latest (stable): 0.7.6                                                                         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ...
 ```
@@ -55,7 +55,7 @@ The table lists the extras a first project needs. A base install has none of `li
 
 ```bash
 pip install "data-product-forge[local,gcp]"           # several extras at once
-pip install "data-product-forge[local]==0.18.1"       # an exact version, for CI
+pip install "data-product-forge[local]==0.29.0"       # an exact version, for CI
 ```
 
 A cloud `fluid apply` runs OpenTofu, so it also needs `tofu` 1.6.0 or newer on your `PATH`, or `fluid apply --ensure-opentofu`, which downloads a pinned build from the OpenTofu release and checks it against that release's `SHA256SUMS` (integrity, not a signature). For production CI, install OpenTofu with a cosign- or gpg-verified install instead, and keep `tofu` on the runner image. The local path in this tutorial does not use OpenTofu.
@@ -104,7 +104,7 @@ fluid-quickstart/
 Commit these files except the two receipts. The generated `.gitignore` already leaves out the receipts, `runtime/` (where local builds write) and per-engineer files under `.fluid/`. [`fluid init`](../cli/init.md#what-fluid-init-writes) describes each file.
 
 ::: warning Why this page does not start from `fluid init --quickstart`
-`fluid init my-project --quickstart` scaffolds the `customer-360` example, which validates and plans. As of 0.18.1 the local engine does not run its five-stage SQL build: `fluid apply` prints "Data product deployed successfully" and writes a 24-byte placeholder (`id,value` / `1,materialized`) to each output, and `fluid verify` then exits 1. The `fluid.starter` blueprint used here lands real rows. [Local walkthrough](../walkthrough/local.md#what-the-local-engine-does-on-0-18-1) lists the local engine's other limits.
+`fluid init my-project --quickstart` scaffolds the `customer-360` example, which validates and plans. On 0.18.1 the local engine did not run its five-stage SQL build (not re-checked on 0.29.0, which still carries the placeholder writer in `fluid_build/providers/local/local.py`): `fluid apply` prints "Data product deployed successfully" and writes a 24-byte placeholder (`id,value` / `1,materialized`) to each output, and `fluid verify` then exits 1. The `fluid.starter` blueprint used here lands real rows. [Local walkthrough](../walkthrough/local.md#what-the-local-engine-does-on-0-18-1) lists the local engine's other limits.
 :::
 
 ## Step 2: Read the contract

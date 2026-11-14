@@ -169,7 +169,7 @@ Measured on 0.18.1: with only the two `warn` rules failing, `fluid test` exits 0
 - **`fluid test` evaluates them.** On a local contract it reads the landed file through DuckDB. The BigQuery and Snowflake validation providers call the same rule engine; the example here ran on local only.
 - **`fluid apply` does not.** Applying the data above, with its null, its duplicate and its negative `total`, completes with exit 0. To block a promotion, put `fluid test` in CI after the step that lands the data and before the step that publishes or promotes it, and stop on its exit code.
 - **`fluid test --engine soda`** renders the same rules as SodaCL and runs a locally installed `soda scan`. It exits non-zero if a declared rule has no SodaCL equivalent.
-- An acquisition build also has its own pre-land `quality.gates`. Those run while the data is landing, before it is written; see [Quality gates](../advanced/source-aligned-acquisition.md#quality-gates).
+- An acquisition build also has its own pre-land `quality.gates`. Those run while the data is landing, before it is written; see [Quality gates](../advanced/source-aligned-acquisition.md#quality-gates-and-the-dead-letter-queue).
 
 ## Rule types
 

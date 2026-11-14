@@ -51,7 +51,7 @@ Pairs with [Forge Data Model](/forge_docs/forge-data-model.html) and [LLM Provid
   insight="6.2 seconds from Postgres URL to a Bronze contract in this recording, on embedded DuckDB. | The engine is the contract's engine: field. | The source spec, PII flags and Bronze table layout live in the contract, separate from the runner."
 />
 
-Pairs with [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html), and [`fluid init --discover`](/forge_docs/cli/init.html#discover). Long-form animated reel preserved at [`/forge_docs/reels/source-aligned-bronze.html`](/forge_docs/reels/source-aligned-bronze.html).
+Pairs with [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html), [Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html), and [`fluid init --discover`](/forge_docs/cli/init.html#discover-—-introspect-a-source-into-a-bronze-contract). Long-form animated reel preserved at [`/forge_docs/reels/source-aligned-bronze.html`](/forge_docs/reels/source-aligned-bronze.html).
 
 ---
 
