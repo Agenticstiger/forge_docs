@@ -829,7 +829,31 @@ _V = r"[`'\"]?v?(\d+\.\d+\.\d+)"
 _VERSION_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     (
         "install spec",
-        re.compile(r"data-product-forge==(\d+\.\d+\.\d+)"),
+        # `[extras]` allowed: `data-product-forge[local]==0.18.1` is the common form.
+        re.compile(r"data-product-forge(?:\[[^\]]*\])?==(\d+\.\d+\.\d+)"),
+        "cli",
+    ),
+    (
+        "current-release claim",
+        re.compile(r"(?i)\bcurrent\s+(?:CLI\s+)?release\b\W{0,8}" + _V),
+        "cli",
+    ),
+    (
+        "documents-CLI claim",
+        re.compile(r"(?i)\bdocuments\s+CLI\s+" + _V),
+        "cli",
+    ),
+    (
+        "pip install result",
+        # Only on a line that also tells the reader to `pip install`.
+        re.compile(r"(?i)(?=.*\bpip\s+install\b).*?\bgives\s+you\s+" + _V),
+        "cli",
+    ),
+    (
+        "fluid version box",
+        # The rich box `fluid version` prints. A bare "Version: 0.7.5" (contract
+        # schema output, no box character) must not match.
+        re.compile(r"│\s*Version:\s*" + _V),
         "cli",
     ),
     (
@@ -1003,7 +1027,11 @@ def check_doc_versions(allowlist: set[str]) -> int:
 
 RELEASES_FILE = REPO_ROOT / "scripts" / "forge-cli-releases.json"
 
-_MARKER_WORD_RE = re.compile(r"(?i)\bunreleased\b")
+# "unreleased", "not yet in a release", "not yet on `main` or in a release".
+# A heading "Not in a release yet" names no PR and is deliberately not matched.
+_MARKER_WORD_RE = re.compile(
+    r"(?i)\bunreleased\b|\bnot\s+yet\s+(?:in\s+a\s+release\b|on\s+[^.\n]{1,40}?\s+or\s+in\s+a\s+release\b)"
+)
 _MARKER_PR_RE = re.compile(r"forge-cli/pull/(\d+)")
 _LINK_TARGET_RE = re.compile(r"\]\([^)\s]+\)")
 _BARE_URL_RE = re.compile(r"https?://\S+")
@@ -1051,6 +1079,25 @@ def _enclosing_group(line: str, pos: int) -> tuple[int, int] | None:
                 return start, j
             depth -= 1
     return None
+
+
+def _adjacent_prs(line: str, hit: re.Match[str]) -> tuple[str, ...]:
+    """PRs next to a marker phrase that sits outside any parenthesis.
+
+    "not yet in a release ([forge-cli #1](...))" names its PR after the phrase;
+    "([forge-cli #1](...)), not yet on `main` or in a release" names it before.
+    """
+    after = re.match(r"[\s,;:\u2014-]*\(", line[hit.end() :])
+    if after:
+        grp = _enclosing_group(line, hit.end() + after.end() - 1)
+        if grp:
+            found = _MARKER_PR_RE.findall(line[grp[0] : grp[1] + 1])
+            if found:
+                return tuple(sorted(set(found), key=int))
+    before = [m for m in _MARKER_PR_RE.finditer(line[: hit.start()])]
+    if before and hit.start() - before[-1].end() <= 60:
+        return (before[-1].group(1),)
+    return ()
 
 
 @dataclass(frozen=True)
@@ -1113,8 +1160,14 @@ def find_markers(path: Path, rel: str) -> tuple[list[Marker], dict[str, int]]:
                 skip("inside a URL")
                 continue
             group = _enclosing_group(line, hit.start())
-            scope = line[group[0] : group[1] + 1] if group else line
-            prs = tuple(sorted(set(_MARKER_PR_RE.findall(scope)), key=int))
+            if group:
+                scope = line[group[0] : group[1] + 1]
+                prs = tuple(sorted(set(_MARKER_PR_RE.findall(scope)), key=int))
+            else:
+                # Outside any parenthesis, the marker names the PR beside it,
+                # not every PR on the line: one line can carry a released
+                # "(since 0.28.0, #837)" next to "not yet in a release (#881)".
+                prs = _adjacent_prs(line, hit)
             if not prs:
                 prs = tuple(sorted(set(_MARKER_PR_RE.findall(line)), key=int))
             markers.append(Marker(rel, idx + 1, prs, line.strip()))
@@ -1230,7 +1283,7 @@ def check_release_markers(forge_changelog: str | None = None) -> int:
             "unreleased that a release already contains:\n"
             + "\n".join(stale)
             + "\n  Replace the marker with the release, in this repo's own form: "
-            "`*([forge-cli #714](<url>), since 0.20.0)*`.",
+            "`*(since 0.20.0, [forge-cli #714](<url>))*`.",
             file=sys.stderr,
         )
         rc = 1
@@ -1302,6 +1355,38 @@ def check_release_markers(forge_changelog: str | None = None) -> int:
     return rc
 
 
+def _version_canaries() -> list[str]:
+    """Self-checks for the version sweep: each pattern must still match its sample.
+
+    Negatives are the historical phrasings and contract-schema output the sweep
+    must leave alone.
+    """
+    positives = {
+        "install spec": 'pip install "data-product-forge[local]==0.18.1"',
+        "current-release claim": "::: tip Current release \u2014 `0.18.1`, schema **0.7.5**",
+        "documents-CLI claim": "This site documents CLI `0.26.0`",
+        "pip install result": "`pip install data-product-forge` gives you `0.18.1`",
+        "fluid version box": "\u2502 Version: 0.18.1",
+    }
+    patterns = {label: pat for label, pat, _ in _VERSION_PATTERNS}
+    problems: list[str] = []
+    for label, sample in positives.items():
+        m = patterns[label].search(sample)
+        if not m or not m.group(1):
+            problems.append(f"version pattern '{label}' no longer matches {sample!r}")
+    for sample in (
+        "Version: 0.7.5",
+        "since 0.18.1",
+        "fixed in 0.18.2",
+        "new in CLI 0.8.9",
+        "gives you 0.18.1",  # no `pip install` on the line
+    ):
+        for label, pat, _ in _VERSION_PATTERNS:
+            if pat.search(sample):
+                problems.append(f"version pattern '{label}' wrongly matches {sample!r}")
+    return problems
+
+
 def _marker_canaries() -> tuple[list[str], str]:
     """Run the matcher over a synthetic tree whose verdicts are known.
 
@@ -1324,6 +1409,11 @@ def _marker_canaries() -> tuple[list[str], str]:
             f"*([forge-cli #714]({pull}/714), unreleased)* "
             f"{HISTORICAL_MARKER}",
             "This behaviour is unreleased.",
+            f"*On forge-cli `main`, not yet in a release ([forge-cli #861]({pull}/861)).*",
+            f"*([forge-cli #864]({pull}/864)), not yet on `main` or in a release.*",
+            f"*(since 0.28.0, [forge-cli #837]({pull}/837))* x. "
+            f"*On forge-cli `main`, not yet in a release ([forge-cli #881]({pull}/881)).*",
+            "## Not in a release yet",
             "",
             "```markdown",
             "## [Unreleased]",
@@ -1344,7 +1434,10 @@ def _marker_canaries() -> tuple[list[str], str]:
         )
 
     got = sorted((m.line_no, m.prs) for m in markers)
-    want = [(3, ("714",)), (4, ("714",)), (5, ("707",)), (5, ("715",)), (8, ())]
+    want = [
+        (3, ("714",)), (4, ("714",)), (5, ("707",)), (5, ("715",)), (8, ()),
+        (9, ("861",)), (10, ("864",)), (11, ("881",)),
+    ]
     if got != want:
         problems.append(f"matcher found {got}, expected {want}")
     if skipped.get("fenced code") != 1:
@@ -1357,6 +1450,8 @@ def _marker_canaries() -> tuple[list[str], str]:
         )
     if notes or notes_skipped.get("release notes") != 1:
         problems.append(f"RELEASE_NOTES_ page gave {notes} / {notes_skipped}, expected 0 / 1")
+
+    problems.extend(_version_canaries())
 
     releases = changelog_releases(
         "## [Unreleased]\n\n## [0.22.0] — 2026-10-22\n\n## [0.9.0] - 2026-06-25\n"
