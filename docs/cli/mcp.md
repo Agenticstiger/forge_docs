@@ -23,7 +23,7 @@ fluid mcp output-port serve ... # consumer-side data-access server
 
 ## Producer: `fluid mcp serve`
 
-Runs the authoring MCP stdio server so an MCP client can inspect, validate, and edit forge artifacts. It is a foreground process — no daemon, no HTTP port, no background service.
+Runs the authoring MCP server so an MCP client can inspect, validate, and edit forge artifacts. It is a foreground process, with no daemon and no background service. By default it speaks stdio to the client that starts it. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport http` serves clients that connect by URL instead; see [Serve over HTTP](#serve-over-http).
 
 Needs the `mcp` extra: `pip install 'data-product-forge[mcp]'`. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* Without it the command prints that line and exits 1, with `[ERR_MCP_SDK_UNAVAILABLE]` and no traceback.
 
@@ -35,6 +35,8 @@ fluid mcp serve [--allow-tools TOOL[,TOOL...]] [--deny-tools TOOL[,TOOL...]]
 fluid mcp serve [--readable-paths PATH[,PATH...]] [--writable-paths PATH[,PATH...]]
 fluid mcp serve [--writable-namespaces NS[,NS...]] [--allow-inline-credentials]
 ```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport`, `--host` and `--port` are in [Serve over HTTP](#serve-over-http).
 
 ### Recommended start
 
@@ -70,6 +72,44 @@ FLUID_QUIET=1 fluid mcp serve \
 Inline catalog credentials are blocked by default. Configure source credentials outside MCP and pass credential ids from the client.
 
 Each tool carries an MCP `inputSchema`, so clients can offer typed autocomplete and validate arguments before dispatch. The tool catalog and the LLM sampling backchannel are in the [Advanced MCP server guide](../advanced/mcp.md#authoring-tools).
+
+### Serve over HTTP
+
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).*
+
+```bash
+fluid mcp serve --transport http [--host HOST] [--port PORT] [OPTIONS...]
+```
+
+`--transport http` serves the same tools over MCP Streamable HTTP, at `http://127.0.0.1:8766/mcp` by default, for a client that connects by URL: Claude Code's `claude mcp add --transport http`, or an agent harness that attaches MCP servers by URL. The access controls above apply unchanged. The default port is 8766, so the server can run beside an output port, which defaults to 8765.
+
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `--transport {stdio,http}` | `stdio` | `stdio` for a client that starts this process; `http` for MCP Streamable HTTP at `http://<host>:<port>/mcp`. |
+| `--host HOST` | `127.0.0.1` | Bind address for `--transport http`. Any address other than loopback needs auth; see [Who can reach an HTTP server](#who-can-reach-an-http-server). |
+| `--port PORT` | `8766` | Bind port for `--transport http`, from `1` to `65535`. |
+
+Require a token, start the server, then add it to Claude Code from a shell where the token is set:
+
+```bash
+export FLUID_MCP_AUTH_TOKEN="$(openssl rand -hex 32)"
+fluid mcp serve --transport http --read-only
+```
+
+```bash
+claude mcp add --transport http fluid http://127.0.0.1:8766/mcp \
+  --header "Authorization: Bearer $FLUID_MCP_AUTH_TOKEN"
+```
+
+The shell expands the variable, so Claude Code's MCP configuration then holds the token itself. The server prints where it listens, on stderr:
+
+```text
+fluid mcp serve: MCP Streamable HTTP at http://127.0.0.1:8766/mcp (auth: shared-token; clients send 'Authorization: Bearer <token>').
+```
+
+A hosted agent harness needs the same two things, the `/mcp` URL and the `Authorization` header. It reaches the server over the network, so serve it off loopback with a token and TLS in front, as [The HTTP transport](#the-http-transport) describes. Auth works as on the output port: a shared token or a JWT, set by the same `FLUID_MCP_AUTH_MODE`, `FLUID_MCP_AUTH_TOKEN` and `FLUID_MCP_JWT_*` variables.
+
+Over HTTP the tool calls still run one at a time, in the order they arrive, whichever client sends them, as they do over stdio. They run on a worker thread, so the server keeps answering other requests while a call runs. `forge_run` is the exception: it does not wait for that worker, so it can run beside another call.
 
 ### Tool errors
 
@@ -168,7 +208,7 @@ fluid mcp output-port serve ./contract.fluid.yaml --expose-id customer_segments
 # Enable free-form SQL for a trusted internal copilot.
 fluid mcp output-port serve ./contract.fluid.yaml --allow-sql
 
-# Serve over HTTP/SSE for a network deployment (front with a proxy — see below).
+# Serve over HTTP for a network deployment (front it with a proxy; see below).
 fluid mcp output-port serve ./contract.fluid.yaml \
   --transport http --host 127.0.0.1 --port 8765
 ```
@@ -189,13 +229,15 @@ fluid mcp output-port serve ./contract.fluid.yaml \
 | `--allow-sql` | OFF | Enable the free-form `query_sql` tool. Even when on, every statement passes through the SQL-safety allowlist. Use only with trusted internal copilots. |
 | `--max-sample-rows N` | `100` | Hard cap on rows returned by `sample`. Asking for more silently returns the cap. |
 | `--query-timeout-seconds SEC` | `60` | Statement timeout passed to the engine driver where supported (Snowflake, BigQuery). |
-| `--transport {stdio,http}` | `stdio` | MCP transport. `stdio` for desktop tool integrations; `http` for MCP-SSE on `--host:--port`. *(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true` **refuses to serve over `stdio`** and exits 2 — a pipe carries no headers, so no credential can supply the verified caller jurisdiction the gate needs. Serve it over HTTP with auth: [caller-jurisdiction enforcement](../advanced/mcp.md#caller-jurisdiction-enforcement-since-0-15-0). |
+| `--transport {stdio,http}` | `stdio` | MCP transport. `stdio` for desktop tool integrations; `http` for MCP over HTTP on `--host:--port` (see the note below this table). *(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true` **refuses to serve over `stdio`** and exits 2: a pipe carries no headers, so no credential can supply the verified caller jurisdiction the gate needs. Serve it over HTTP with auth: [caller-jurisdiction enforcement](../advanced/mcp.md#caller-jurisdiction-enforcement-since-0-15-0). |
 | `--host HOST` | `127.0.0.1` | Bind host for `--transport http`. |
 | `--port PORT` | `8765` | Bind port for `--transport http`. |
 | `--allow-models MODEL[,MODEL...]` | contract | Override `agentPolicy.allowedModels`. The caller's `model_id` (declared at MCP `initialize`) must be in this list. When unset, the contract value is used. |
 | `--deny-models MODEL[,MODEL...]` | contract | Override `agentPolicy.deniedModels`. Evaluated before the allowlist so denial wins. |
 | `--allow-use-cases USE_CASE[,...]` | contract | Override `agentPolicy.allowedUseCases`. The caller's `useCase` (declared at `initialize`) must be in this list. |
 | `--deny-use-cases USE_CASE[,...]` | contract | Override `agentPolicy.deniedUseCases`. Evaluated before the allowlist so denial wins. |
+
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport http` serves MCP Streamable HTTP at `http://<host>:<port>/mcp`. Up to 0.30.1 it served HTTP+SSE, and clients connected at `/sse`. A `--host` other than loopback now needs auth, and `--port` takes `1` to `65535`. See [The HTTP transport](#the-http-transport).
 
 ### Data outside the contract directory
 
@@ -231,7 +273,9 @@ Pass several roots with commas (`--readable-paths ./data,./warehouse`). The flag
 :::
 
 ::: warning HTTP transport has no built-in auth flag
-There is **no `--auth-token` flag.** When `--transport http` is used, authentication is configured through environment variables (`FLUID_MCP_AUTH_TOKEN` for a shared bearer token, or `FLUID_MCP_AUTH_MODE=jwt` for JWT). With no auth configured the gateway binds `--host:--port` **unauthenticated** and warns loudly at startup — except *(since 0.15.0)* for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`, where it instead writes a refusal to stderr and exits 2, because the auth middleware never runs and so every call would be denied. Always front the HTTP transport with an mTLS / OAuth reverse proxy for production. The proxy authenticates the connection; only `FLUID_MCP_AUTH_MODE=jwt` binds the caller's model, use case and tenant. See the [Caddy / nginx templates](../advanced/mcp.md#http-and-sse-transport-and-the-reverse-proxy-templates) and the full auth-mode reference in the deep dive.
+There is **no `--auth-token` flag.** When `--transport http` is used, authentication is configured through environment variables (`FLUID_MCP_AUTH_TOKEN` for a shared bearer token, or `FLUID_MCP_AUTH_MODE=jwt` for JWT). With no auth configured the gateway binds `--host:--port` **unauthenticated** and warns loudly at startup. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* That holds only on a loopback `--host`: anywhere else the gateway refuses to start and exits 2, as [Who can reach an HTTP server](#who-can-reach-an-http-server) shows.
+
+*(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true` is stricter: with `FLUID_MCP_AUTH_MODE` unset or `none` the gateway writes a refusal to stderr and exits 2 on any host, because the auth middleware never runs and so every call would be denied. Always front the HTTP transport with an mTLS / OAuth reverse proxy for production. The proxy authenticates the connection; only `FLUID_MCP_AUTH_MODE=jwt` binds the caller's model, use case and tenant. See the [Caddy / nginx templates](../advanced/mcp.md#http-transport-and-the-reverse-proxy-templates) and the full auth-mode reference in the deep dive.
 :::
 
 ### The agent tools
@@ -288,6 +332,63 @@ This was measured against schema 0.7.5 and the 0.7.6 preview. The MCP server loa
 ```
 
 `FLUID_QUIET=1` is important because stdout is reserved for MCP JSON-RPC frames; all human-facing notices go to stderr.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* To use `--transport http` instead, give the client the URL `http://<host>:<port>/mcp` and the `Authorization` header, as in [Serve over HTTP](#serve-over-http).
+
+---
+
+## The HTTP transport
+
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).*
+
+`fluid mcp serve` and `fluid mcp output-port serve` serve `--transport http` the same way: MCP Streamable HTTP on one endpoint, `/mcp`. Up to 0.30.1 only the output port had an HTTP transport, and it was HTTP+SSE at `/sse` and `/messages/`, which the MCP specification deprecated in its 2025-03-26 revision. Those two paths are gone: a request that passes auth gets 404 there.
+
+### Authentication
+
+Auth comes from environment variables, never from a flag:
+
+- `FLUID_MCP_AUTH_TOKEN`, in the default `shared-token` mode: every client sends the same token.
+- `FLUID_MCP_AUTH_MODE=jwt`, with `FLUID_MCP_JWT_ISSUER`, `FLUID_MCP_JWT_AUDIENCE` and `FLUID_MCP_JWT_JWKS_URL`: each client sends its own JWT, checked against the issuer's keys.
+
+The [auth-mode reference](../advanced/mcp.md#authentication-modes) covers both. A client sends `Authorization: Bearer <token>` on every request. The auth, `Origin` and `Host` checks run before a request reaches MCP, so a refused caller never gets a session:
+
+| Request | Answer |
+| --- | --- |
+| No `Authorization` header, auth on | `401`, with `WWW-Authenticate: Bearer realm="fluid-mcp"` |
+| A wrong token, auth on | `401`, with `WWW-Authenticate: Bearer realm="fluid-mcp", error="invalid_token"` |
+| An `Origin` whose scheme is not `http` or `https`, or whose host is not loopback (`Origin: null` included), auth on or off | `403`, error `forbidden_origin` |
+| Auth off: any other `Origin` than `http` or `https` on `127.0.0.1`, `localhost` or `[::1]` (or the bound address), with a port | `403 Invalid Origin header` |
+| Auth off: any other `Host` than `127.0.0.1:<port>`, `localhost:<port>` or `[::1]:<port>` (or the bound address with its port) | `421 Invalid Host header` |
+| An `Mcp-Session-Id` the server does not know, or one that another identity opened | `404`, and the client starts a new session |
+
+A client that is not a browser sends no `Origin`, so the `Origin` rows do not apply to it. A page served from this machine, such as `http://localhost:3000`, passes them.
+
+A session belongs to the identity that opened it, which is the caller attributes the server verified. Under `jwt` those are the token's mapped claims: `sub`, `model`, `use_case`, `tenant_id` and `jurisdiction`, plus any that `FLUID_MCP_JWT_CLAIM_MAPPING` adds. On the output port they also include the client certificate that a proxy listed in `FLUID_MCP_TRUSTED_PROXIES` forwards. A request from another identity that presents the session's `Mcp-Session-Id` gets 404, as if the session did not exist. A shared token by itself carries no attributes, so every client that holds it is the same caller.
+
+### Who can reach an HTTP server
+
+Without auth, a server listens on loopback only (`127.0.0.0/8`, `::1` or `localhost`), and any process on this machine can call it. The startup line says so:
+
+```text
+fluid mcp serve: MCP Streamable HTTP at http://127.0.0.1:8766/mcp
+  Auth is off (FLUID_MCP_AUTH_MODE=shared-token but FLUID_MCP_AUTH_TOKEN is unset): any process on this machine can call these tools. Set FLUID_MCP_AUTH_TOKEN to require 'Authorization: Bearer <token>'.
+```
+
+Any other `--host` needs auth, and there a shared token must be at least 32 characters long. Otherwise the server does not start, and exits 2 with the fix:
+
+```text
+fluid mcp serve: refusing to listen on 0.0.0.0:8766 without authentication.
+  Auth is off (FLUID_MCP_AUTH_MODE=shared-token but FLUID_MCP_AUTH_TOKEN is unset), so anyone who can reach 0.0.0.0:8766 could call every tool.
+  Keep it on this machine:  --host 127.0.0.1
+  Or require a token:       export FLUID_MCP_AUTH_TOKEN="$(openssl rand -hex 32)"
+    (clients then send 'Authorization: Bearer <token>'), or set FLUID_MCP_AUTH_MODE=jwt with FLUID_MCP_JWT_ISSUER, FLUID_MCP_JWT_AUDIENCE and FLUID_MCP_JWT_JWKS_URL.
+```
+
+`FLUID_MCP_AUTH_MODE=none`, and `jwt` without its three settings, are refused the same way. Off loopback, a shared token under 32 characters gets `refusing to listen on 0.0.0.0:8766 with a short token.` The output port refuses the same binds: up to 0.30.1 it warned and served.
+
+Without auth, a request must also carry a `Host` of `127.0.0.1:<port>`, `localhost:<port>` or `[::1]:<port>` (or the bound address with its port), or it gets 421. That is the MCP SDK's DNS-rebinding protection: a web page that points its own name at 127.0.0.1 cannot drive the server. A `Host` without a port gets 421 too, and clients leave the port out for port 80, so a server without auth needs another port. With auth on, any `Host` is accepted, so the server can sit behind a reverse proxy that forwards its public name; a rebinding page cannot send the token anyway. So a server behind a proxy needs its own token: without one, every request the proxy forwards gets 421.
+
+The server speaks plain HTTP. Off loopback, terminate TLS in front of it (a reverse proxy or your platform's ingress), or the token crosses the network readable; the startup line says this too. The [Caddy and nginx templates](../advanced/mcp.md#http-transport-and-the-reverse-proxy-templates) are a starting point.
 
 ---
 

@@ -76,6 +76,14 @@ flag_oracle_ok:
                      # --check-sovereignty a BooleanOptionalAction, and the
                      # pinned 0.29.0 parser registers only --check-sovereignty.
                      # Remove this entry when cli-version.json moves to 0.30.0.
+  - docs/cli/mcp.md::fluid mcp serve --transport
+                     # Newer than the pin: forge-cli #879 (on main, in no
+                     # release yet) added --transport, --host and --port to
+                     # `fluid mcp serve`; 0.29.0 and 0.30.1 register none of
+                     # them. Scoped to the `fluid mcp serve --transport ...`
+                     # invocations in the "Serve over HTTP" section. Remove this
+                     # entry when cli-version.json moves to the release that
+                     # carries #879.
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

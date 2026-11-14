@@ -2,8 +2,8 @@
 
 Fluid Forge ships **two** Model Context Protocol servers under `fluid mcp`:
 
-- **`fluid mcp serve`** — the **producer / authoring** server. Exposes the staged forge pipeline as stdio MCP tools so an editor's AI can inspect, validate, and edit contracts.
-- **`fluid mcp output-port serve`** — the **consumer / data-access** server (the flagship output-port capability). Binds one expose of a published contract and serves a small, governed, read-only surface to AI agents.
+- **`fluid mcp serve`**: the **producer / authoring** server. Exposes the staged forge pipeline as stdio MCP tools so an editor's AI can inspect, validate, and edit contracts. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* It can serve them over MCP Streamable HTTP too.
+- **`fluid mcp output-port serve`**: the **consumer / data-access** server (the flagship output-port capability). Binds one expose of a published contract and serves a small, governed, read-only surface to AI agents.
 
 The first half of this page covers the authoring server. The second half is a deep dive on the output port's runtime governance — the part that takes reading several files to learn.
 
@@ -11,7 +11,7 @@ The first half of this page covers the authoring server. The second half is a de
 
 ## Authoring server — `fluid mcp serve`
 
-`fluid mcp serve` exposes the staged forge pipeline as a stdio MCP server for clients such as Claude Code, Cursor, Continue, and VS Code MCP integrations. It is a foreground process: no daemon, no HTTP port, and no background service. The server is built on the official MCP Python SDK (`FastMCP`) and speaks MCP protocol version `2025-06-18`.
+`fluid mcp serve` exposes the staged forge pipeline as an MCP server for clients such as Claude Code, Cursor, Continue, and VS Code MCP integrations. It is a foreground process, with no daemon and no background service, and by default it speaks stdio to the client that starts it. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* With `--transport http` it serves the same tools over MCP Streamable HTTP instead, for a client or agent harness that connects by URL; see [Serve over HTTP](../cli/mcp.md#serve-over-http). The server is built on the official MCP Python SDK (`FastMCP`), which negotiates the MCP protocol version with the client at `initialize`; see [Supported MCP SDK versions](../cli/mcp.md#supported-mcp-sdk-versions).
 
 ### Start the server
 
@@ -158,7 +158,7 @@ Per-tenant row filters are also read from `policy.rowFilters`, with a caveat abo
 
 Every `tools/call` runs through a fixed gauntlet. The order is deliberate: cheap, abuse-resistant gates fire first so a runaway agent can't burn audit storage hammering denied tools.
 
-1. **Identity binding.** The caller's `model`, `useCase` and any extra attributes are read from the MCP `initialize` handshake, from the `fluid` block of the client's `capabilities.experimental` (and, on MCP SDK 1.x, from extra `clientInfo` fields), and resolved again on every tool call from that request's own context, never cached on the shared session (on HTTP/SSE one process serves many clients, so a cached identity would carry one client's `agentPolicy` principal and tenant row filter onto the next). Missing identity is treated as `missing-model-identity` (fail-closed at the model gate).
+1. **Identity binding.** The caller's `model`, `useCase` and any extra attributes are read from the MCP `initialize` handshake, from the `fluid` block of the client's `capabilities.experimental` (and, on MCP SDK 1.x, from extra `clientInfo` fields), and resolved again on every tool call from that request's own context, never cached on the shared session (over HTTP one process serves many clients, so a cached identity would carry one client's `agentPolicy` principal and tenant row filter onto the next). Missing identity is treated as `missing-model-identity` (fail-closed at the model gate).
 2. **Rate limit.** A sliding-window deque caps calls per window (default 60 calls / 60s). Over the cap returns a `RateLimitExceeded` envelope.
 3. **agentPolicy gate.** `OutputPortPolicy.check_tool_call` evaluates first-deny-wins, in the precedence listed under [Decision precedence and reason codes](#decision-precedence-and-reason-codes-since-0-15-0). A deny returns an `AgentPolicyDenied` envelope.
 4. **Circuit breaker.** If recent driver failures tripped the breaker, the call fast-fails with a `CircuitOpen` envelope instead of queueing behind another doomed connection.
@@ -254,7 +254,7 @@ Before `0.15.0`, `sovereignty` bound provisioning and nothing else: a contract d
 | `jurisdiction: Global` or `Multi-Region` | Not enforced — the contract is explicitly not pinned to one jurisdiction. |
 | No `jurisdiction` at all | Not enforced. Every contract that has never pinned one is entirely unaffected, policy digest included. |
 
-**Verified claims only, and fail-closed.** The claim is admissible only from `request.scope["fluid_auth_attrs"]`, which the HTTP `_AuthMiddleware` writes *after* a credential validates — never from the caller's self-attested `clientInfo`. In practice that means the `jurisdiction` claim of a verified JWT: a shared token and a proxy-forwarded client certificate carry no jurisdiction. A client typing `jurisdiction: "EU"` into its own handshake satisfies nothing and collapses to the same `missing-caller-jurisdiction` denial as no claim at all. There is no no-auth fallback, on purpose. Matching is **exact and case-sensitive**: a verified `"eu"` against a contract pinning `"EU"` is refused.
+**Verified claims only, and fail-closed.** The claim is admissible only from `request.scope["fluid_auth_attrs"]`, which the HTTP transport writes only *after* a credential validates, and never from the caller's self-attested `clientInfo`. In practice that means the `jurisdiction` claim of a verified JWT: a shared token and a proxy-forwarded client certificate carry no jurisdiction. A client typing `jurisdiction: "EU"` into its own handshake satisfies nothing and collapses to the same `missing-caller-jurisdiction` denial as no claim at all. There is no no-auth fallback, on purpose. Matching is **exact and case-sensitive**: a verified `"eu"` against a contract pinning `"EU"` is refused.
 
 ::: warning Startup refusal, new in `0.15.0`
 A jurisdiction-pinned contract **refuses to serve and exits 2** on the two deployments that could never satisfy the rule, rather than denying every call one at a time:
@@ -280,6 +280,8 @@ Identity is resolved once at gateway start from `FLUID_MCP_AUTH_MODE`. There are
 | `none` | Operator explicitly opts out. Every request is allowed and the gateway logs a startup warning that it is unauthenticated. The `data_access` audit record has no field that says how the caller authenticated, so unauthenticated traffic cannot be told apart in it. *(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` refuses to start in this mode — see below. | — |
 | *(unconfigured)* | If `shared-token` has no token, or JWT is missing issuer/audience/JWKS, the gateway runs **unauthenticated** and emits a loud startup warning. *(since 0.15.0)* Same exception: a jurisdiction-pinned contract refuses to start instead. | — |
 
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `fluid mcp serve --transport http` reads the same variables. Over HTTP, `none` and an unconfigured mode serve only on a loopback `--host`: anywhere else the server refuses to start and exits 2, and off loopback a shared token must be at least 32 characters. "Every request is allowed" then means that no credential is checked. A cross-origin browser request still gets 403, and a request whose `Host` is not loopback gets 421, so behind a proxy that forwards its public name every request gets 421. See [The HTTP transport](../cli/mcp.md#the-http-transport).
+
 ::: warning Startup refusal for a jurisdiction-pinned contract, new in `0.15.0`
 The two rows above no longer hold for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`. Because the caller-jurisdiction gate admits only claims the auth middleware verified, an unauthenticated gateway would deny **every** call — so `fluid mcp output-port serve` writes a refusal to stderr and **returns exit code 2** before binding, for `--transport stdio` (any auth mode: a pipe carries no headers) and for `--transport http` with `FLUID_MCP_AUTH_MODE` unset, `none`, `off` or `disabled`. See [Caller-jurisdiction enforcement](#caller-jurisdiction-enforcement-since-0-15-0).
 :::
@@ -296,7 +298,7 @@ A proxy in front of the gateway can require client certificates, which keeps hos
 - They never supply `model`, `use_case`, `tenant_id` or `jurisdiction`. Those come from the mapped claims of a verified JWT, or from the client's own declaration when no auth mode is enforced.
 - In 0.18.1 neither header is written to a `data_access` audit record.
 
-Without an auth mode, the gateway is unauthenticated whatever the proxy does: a caller picks its own model, use case and `tenant_id`, so a `${caller.tenant_id}` row filter filters on a value the caller chose.
+Without an auth mode, the gateway is unauthenticated whatever the proxy does: a caller picks its own model, use case and `tenant_id`, so a `${caller.tenant_id}` row filter filters on a value the caller chose. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* Such a gateway also answers 421 to every request a proxy forwards under its public name, so it serves only callers on its own machine.
 :::
 
 `FLUID_MCP_JWT_CLAIM_MAPPING` is a comma-separated `claim=attr` list, e.g. `sub=principal,https://fluid/model=model,https://fluid/tenant=tenant_id`. Mapped claims land in `caller_attributes`, which is exactly what `rowFilters` `${caller.<attr>}` placeholders resolve against — so on the JWT path, per-tenant filters resolve **cryptographically** rather than from self-attested `clientInfo`.
@@ -453,14 +455,18 @@ When `FLUID_STORE_BACKEND` points at a non-file backend (Postgres / Sqlite / Vec
 
 Audit events are auto-correlated with the rest of the forge-cli pipeline: the gateway resolves the same cross-stage `run_id` (`FLUID_RUN_ID`) other CLI stages honour and stamps it onto both the audit payload and an OpenTelemetry span (`fluid.mcp.call_tool`) when an exporter is configured.
 
-### HTTP and SSE transport, and the reverse-proxy templates
+### HTTP transport and the reverse-proxy templates
 
-`--transport http` serves the gateway over MCP-SSE (`mcp.server.sse.SseServerTransport` + Starlette + uvicorn, transitive deps of the `mcp` extra). Clients connect at `http://host:port/sse`. With no auth mode enforced, identity binding is the same as over stdio: the client declares it. With one enforced, only verified attributes bind, as described under [Authentication modes](#authentication-modes).
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport http` serves the gateway over MCP Streamable HTTP, and clients connect at `http://host:port/mcp`. It runs on the MCP SDK's `StreamableHTTPSessionManager`, with Starlette and uvicorn from the `mcp` extra, and `fluid mcp serve --transport http` uses the same transport. Up to 0.30.1 the gateway served MCP-SSE (`mcp.server.sse.SseServerTransport`), and clients connected at `http://host:port/sse`. The status codes a refused request gets, and the binds the server refuses, are in [The HTTP transport](../cli/mcp.md#the-http-transport).
+
+With no auth mode enforced, identity binding is the same as over stdio: the client declares it. With one enforced, only verified attributes bind, as described under [Authentication modes](#authentication-modes).
 
 The HTTP transport has **no built-in TLS or strong identity on its own.** Front it with a reverse proxy. The repo ships ready-to-edit templates at `examples/mcp-output-port-docker/proxy/`:
 
-- **`Caddyfile`** — Caddy 2.x: automatic TLS, `client_auth { mode require_and_verify }` mTLS, a proxy-layer bearer-token check, `flush_interval -1` for SSE, and `header_up X-Client-CN {tls_client_subject}` / `X-Client-Fingerprint {tls_client_fingerprint}`, which forward the certificate's subject and fingerprint as the headers described under [Authentication modes](#authentication-modes).
-- **`nginx.conf`** — equivalent for nginx shops: `ssl_verify_client on`, `proxy_buffering off` + long read/send timeouts for SSE, and the same `X-Client-CN` / `X-Client-Fingerprint` forwarding.
+- **`Caddyfile`**: Caddy 2.x, with automatic TLS, `client_auth { mode require_and_verify }` mTLS, a proxy-layer bearer-token check, `flush_interval -1` so streamed MCP responses (SSE) are not buffered, and `header_up X-Client-CN {tls_client_subject}` / `X-Client-Fingerprint {tls_client_fingerprint}`, which forward the certificate's subject and fingerprint as the headers described under [Authentication modes](#authentication-modes).
+- **`nginx.conf`**: the equivalent for nginx shops, with `ssl_verify_client on`, `proxy_buffering off` and long read/send timeouts for streamed responses, and the same `X-Client-CN` / `X-Client-Fingerprint` forwarding.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* Behind either template, keep `FLUID_MCP_AUTH_TOKEN` (or `jwt`) set on the gateway too. Without auth the gateway accepts only a loopback `Host` header, and both templates forward the public name, so every request would get `421 Invalid Host header`.
 
 This is **defence-in-depth** — every layer stops a different failure:
 
@@ -475,6 +481,8 @@ This is **defence-in-depth** — every layer stops a different failure:
 The model, use-case and tenant rows tell a legitimate client from another one only when the caller's identity is verified, which is `FLUID_MCP_AUTH_MODE=jwt`. Behind the shared token the gateway drops what the client declares about itself, and a client certificate supplies none of those attributes; see [Authentication modes](#authentication-modes).
 
 ### Environment variables (output port)
+
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `fluid mcp serve --transport http` reads the `FLUID_MCP_AUTH_*` and `FLUID_MCP_JWT_*` rows too.
 
 | Env var | Purpose |
 | --- | --- |

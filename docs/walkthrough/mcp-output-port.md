@@ -387,7 +387,7 @@ Then ask Claude: *"Sample the customer_segments table and show ltv_total grouped
 
 ### Production HTTP + mTLS
 
-For a network deployment, switch to the HTTP/SSE transport and front it with a reverse proxy that enforces mTLS + a bearer token. The repo ships a complete Docker end-to-end example (Postgres engine, real LLM driver) plus ready-to-edit **Caddy** and **nginx** templates:
+For a network deployment, switch to the HTTP transport and front it with a reverse proxy that enforces mTLS + a bearer token. The repo ships a complete Docker end-to-end example (Postgres engine, real LLM driver) plus ready-to-edit **Caddy** and **nginx** templates:
 
 ```bash
 cd examples/mcp-output-port-docker
@@ -400,6 +400,8 @@ export FLUID_MCP_AUTH_TOKEN="$(openssl rand -hex 32)"
 fluid mcp output-port serve ./contract.fluid.yaml \
   --transport http --host 127.0.0.1 --port 8765
 ```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* The HTTP transport is MCP Streamable HTTP at `/mcp`; up to 0.30.1 it was HTTP+SSE at `/sse`. A client on this machine connects to `http://127.0.0.1:8765/mcp` with `Authorization: Bearer <token>`; through the proxy the URL is `https://<your domain>/mcp`. Keep the token set on the gateway even behind the proxy: without auth it accepts only a loopback `Host` header, and the name the proxy forwards gets 421. The [HTTP transport](../cli/mcp.md#the-http-transport) section of the CLI reference lists every refusal.
 
 ::: warning mTLS and a bearer token authenticate the connection, not the model
 `FLUID_MCP_AUTH_MODE` accepts `shared-token`, `jwt` and `none`, so a client certificate checked by the proxy is not an identity the gateway can use. With `FLUID_MCP_AUTH_TOKEN` set, the gateway drops the model and use case a client declares, so a contract with an `allowedModels` gate, like this walkthrough's, denies every call as `missing-model-identity`. To gate by model or tenant over HTTP, use `FLUID_MCP_AUTH_MODE=jwt` and have the token carry the `model`, `use_case` and `tenant_id` claims. With no auth mode set, the gateway is unauthenticated and the caller chooses its own. See [Authentication modes](../advanced/mcp.md#authentication-modes).
