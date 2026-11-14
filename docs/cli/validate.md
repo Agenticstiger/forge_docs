@@ -51,6 +51,8 @@ fluid validate --fragment expose fragments/exposes/orders.yaml  # one fragment o
 
 For a single contract, `--format json` prints `valid`, `schema_version`, `errors`, `warnings` and `validation_time`. A [fragment run](#validating-one-fragment) adds a `fragment` field after `valid`, naming the kind (`"fragment": "expose"`); the JSON of a whole-contract run has no such field. For a `.tgz` bundle it prints the same report `--report` writes (`bundleDigest`, `input`, `strict`, `status`, `summary`, `issues`).
 
+*(since 0.30.1, [forge-cli #876](https://github.com/Agenticstiger/forge-cli/pull/876))* A run with a note, a finding that does not fail the run even under `--strict`, also prints `notes`, after `warnings`. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* A contract run with any finding also prints `issues`, before `validation_time`: each finding again, with a stable `ERR_*` code, a JSON pointer, a fix and an example. [Finding codes and `issues`](#finding-codes-and-issues) explains each code, and is where the `docs_url` of most of them leads.
+
 ## Exit codes
 
 | Code | Meaning |
@@ -435,6 +437,182 @@ Write the value with `|-` or `>-`, which drops the final line break, or as a pla
 
 *([forge-cli #797](https://github.com/Agenticstiger/forge-cli/pull/797), since 0.27.0)* The validators that are not JSON Schema (quality-check selectors, catalog and JDBC identifiers, project ids, row-filter names, Singer tap names and the like) refuse a trailing line break too, with their usual message; see [Upgrading](../upgrading.md#changes-in-0-27-0).
 
+## Placeholders and starter values
+
+*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).*
+
+After its other contract rules, `fluid validate` looks for values the schema accepts but a finished contract does not ship: an address nobody reads, a value an unedited template leaves, and a marker for work not done yet. Each one is a warning, so `fluid validate` passes and `--strict` fails, as on any warning. Here, on a contract `fluid forge --template starter` wrote and nobody has edited yet:
+
+```bash
+fluid validate contract.fluid.yaml --strict
+```
+
+```text
+✅ Valid FLUID contract (schema v0.7.6)
+⚠️  9 warning(s)
+Validation completed in 0.036s
+
+Validation Warnings:
+====================
+ 1. metadata.owner.email: 'data-team@company.com' is a placeholder address: company.com is a stand-in domain, not the product team's. Use the owning team's real address, never a guess; if there is none, delete the key (it is optional).
+ 2. id still holds the starter template's 'starter-product'. Write the product's own id, <domain>.<name>, for example sales.orders_raw.
+ ...
+ 6. builds[0].properties.sql still holds the starter template's 'select 1 as id'. Write the product's real build, or delete builds if it has none.
+ ...
+
+❌ Validation failed: warnings treated as errors (--strict)
+```
+
+Each warning names its place and ends with what to write instead, so it reads the same to a person and to an agent. The three checks:
+
+| Code | What it flags |
+| --- | --- |
+| `ERR_CONTRACT_PLACEHOLDER_EMAIL` | An address that reaches nobody, in a contact field: a key whose name says email, contact, owner, steward, oncall, maintainer, author, support, alert, notification or the like. The address is at a domain reserved for documentation (`example.com`, `example.org`, `example.net`, or a name under `.example`, `.test`, `.invalid` or `.localhost`, from RFC 2606 and RFC 6761), at a stand-in domain such as `company.com`, `yourcompany.com` or `mydomain.com`, or its mailbox is a no-reply one or a stand-in such as `test@`, `owner@`, `user@` or `john.doe@`. |
+| `ERR_CONTRACT_TEMPLATE_RESIDUE` | Text an unedited template leaves, in any string value: the starter template's `starter-product`, `starter_table` and `SELECT 1 AS id`, the phrases of its description (`starter data product`, `minimal starter contract`) and of its semantic model (`starter template`), and a value that is exactly `data-team`, the owner team every `fluid forge --template` writes, and so does `fluid init --template csv-basics`. Case and runs of white space do not matter. A semantic model is reported once per expose, as a block. The warning quotes the starter's text, never the whole value. |
+| `ERR_CONTRACT_PLACEHOLDER_VALUE` | `TODO`, `FIXME` or `TBD` written in capitals; `CHANGEME`, `REPLACEME` or `FILLMEIN` in any case, with or without `-` or `_` between the words; `lorem ipsum` in any case; or a `<...>` stand-in such as `<your-team>`. Each marker must be a word of its own: `TODO:` counts, `TODO_x` does not. |
+
+What the checks leave alone:
+
+- An access grant's principal, such as `group:analysts@northwind.example` in an `accessPolicy`, is not a contact field. The [governance binding checks](#governance-binding-checks-since-0-17-0) judge principals.
+- The email check reads only an address that stands on its own, and skips a value with `://` in it, so a URI's `user:password@host` is never read as an address. No check reads a `catalogAuth` block.
+- `array<string>` (a type), `<=` (an operator), an HTML tag such as `<b>`, and a `<verb>` inside a markdown code span are not stand-ins. A lower-case `todo` is a word, not a marker.
+- In code, that is under a key such as `sql`, `query`, `expr`, `filter` or `pattern`, a string literal is data: `WHERE status = 'TODO'` is not flagged, while a `-- TODO` comment is. A `<` there is an operator, so code is not checked for `<...>`.
+
+The fix for a placeholder email is the owning team's real address, or no address: `metadata.owner.email` is optional. The CLI cannot tell a made-up address from a real one, so it flags only the shapes that reach nobody, and an invented address that looks real still passes. An agent should take the address from the request, and leave the key out when the request gives none.
+
+A contract scaffolded from a template (`fluid init --quickstart`, `fluid init --template`, `fluid forge --template`) keeps the template's placeholder owner email until you replace it: every template bundled for `fluid init` has such an email. A `data-team` owner team, which every forge template and `fluid init --template csv-basics` write, and the starter template's other values warn the same way. Until then the contract fails `--strict`, and so does stage 2 of a [generated CI pipeline](../advanced/operating-in-ci.md#the-jenkins-pipeline-stages-1-11), which runs `fluid validate` on the bundle with `--strict` (on Jenkins while the `VALIDATE_STRICT` parameter is on, its default). Set the owner, or delete `metadata.owner.email`, before the first pipeline run. Many examples in the forge-cli repository carry a placeholder owner email on purpose, as the value to replace, so they validate with that warning.
+
+## What an SDP does not do
+
+*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).*
+
+An SDP (source-aligned, Bronze) reads one source as it is: it combines nothing and consumes no other data product. Two warnings follow from that classification alone, whichever field declares it, `metadata.productType: SDP` or `metadata.layer: Bronze`:
+
+| Code | When | Fix |
+| --- | --- | --- |
+| `ERR_CONTRACT_SDP_JOINS` | An inline SQL build (`builds[].properties.sql`) joins. A `JOIN` in a comment or a string literal does not count, and neither does a join that only unpacks one row's nested values (`JOIN LATERAL`, `JOIN UNNEST`, `JOIN FLATTEN`, ...). | If the product combines sources, it is an ADP: set `metadata.productType: ADP` and `metadata.layer: Silver`. Otherwise read the one source without the join. |
+| `ERR_CONTRACT_SDP_CONSUMES_PRODUCTS` | A `consumes[]` entry names a product the workspace cannot resolve, or one whose contract declares no product type. In 0.30.1 and earlier this was not a warning, and the contract validated clean. | If the product builds on that product, classify it ADP (Silver). Otherwise delete the entry. |
+
+```text
+Validation Warnings:
+====================
+ 1. consumes[0]: an SDP (Bronze) reads source systems, never other data products, so it cannot consume 'crm.customers'. If this product builds on 'crm.customers', set metadata.productType to ADP and metadata.layer to Silver; otherwise delete the entry.
+ ...
+ 4. builds[0].properties.sql: an SDP (Bronze) reads one source as it is, with no joins or business logic, but this build joins. If the product combines sources, set metadata.productType to ADP and metadata.layer to Silver; otherwise read the one source without the join.
+```
+
+An upstream whose product type the workspace can read is judged by the composition rule, as before: an SDP that consumes it fails validation with `ERR_CONTRACT_COMPOSITION_VIOLATION`. For an ADP or a CDP, an upstream the workspace cannot resolve is still not a warning, because such a product may consume a product of another workspace or catalog.
+
+## Finding codes and `issues`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).*
+
+`errors`, `warnings` and `notes` give each finding as a sentence. With `--format json`, a run with at least one finding also prints `issues`: every error, then every warning, then every note, each with a code, a place and a fix, so a script or an agent can act on a finding without parsing its sentence. The three lists keep the same strings, and a contract with no finding prints the document it always printed, with no `issues` key. The text output does not show the codes.
+
+```bash
+fluid validate contract.fluid.yaml --format json
+```
+
+```json
+{
+  "valid": false,
+  "schema_version": "0.7.6",
+  "errors": [
+    "exposes[0].binding: Additional properties are not allowed ('formatt' was unexpected)",
+    "exposes[0].binding: 'format' is a required property"
+  ],
+  "warnings": [],
+  "issues": [
+    {
+      "severity": "error",
+      "code": "ERR_CONTRACT_SCHEMA_UNKNOWN_FIELD",
+      "pointer": "/exposes/0/binding/formatt",
+      "message": "exposes[0].binding: Additional properties are not allowed ('formatt' was unexpected)",
+      "fix": "Delete or rename the property the message names: the object at the pointer does not take it. Check its spelling and nesting against the schema: fluid validate <contract> --show-schema.",
+      "example": "# exposes[].binding\nplatform: local\nformat: parquet\nlocation:\n  path: runtime/out/orders_raw.parquet\n",
+      "docs_url": "https://agenticstiger.github.io/forge_docs/cli/validate.html"
+    },
+    {
+      "severity": "error",
+      "code": "ERR_CONTRACT_SCHEMA_REQUIRED",
+      "pointer": "/exposes/0/binding",
+      "message": "exposes[0].binding: 'format' is a required property",
+      "fix": "Add the property the message names to the object at the pointer: the schema requires it there. fluid validate <contract> --show-schema prints the schema, with the required properties of each object.",
+      "example": "# exposes[].binding\nplatform: local\nformat: parquet\nlocation:\n  path: runtime/out/orders_raw.parquet\n",
+      "docs_url": "https://agenticstiger.github.io/forge_docs/cli/validate.html"
+    }
+  ],
+  "validation_time": 0.0023949146270751953
+}
+```
+
+| Key | Value |
+| --- | --- |
+| `severity` | `error`, `warning` or `note`: the list the finding is in. |
+| `code` | A stable `ERR_*` code from the CLI's error catalog: `ERR_` and the check's event name in capitals, as on [Error codes](../advanced/error-codes.md). Match on it rather than on `message`, whose wording can change. |
+| `pointer` | An RFC 6901 JSON pointer into the contract: the place the message names, or else the block the check reads. `""` is the whole contract. For a property the object does not take (`additionalProperties`, or a `not` that rules out a key), it points at that property (`/exposes/0/binding/formatt` above). In a contract split into fragments, it is the place in the composed contract, and the message starts with the fragment's file and line. |
+| `message` | The same text as in `errors`, `warnings` or `notes`. |
+| `fix` | What to change: the fix the check gives for this place, or else the catalog's advice for the code. |
+| `example` | A minimal example of the fix: YAML to write, or a command to run. A schema error gets the example of the block its pointer is in (a binding, a column, a build, ...); when that block is not the whole contract, the example's first line names it (`# exposes[].binding` above). |
+| `docs_url` | The page that explains the code: this page, except for the codes noted under [Other codes](#other-codes). |
+
+The [Claude Code validate hook](./scaffold-ide.md#the-claude-code-validate-hook) reads `issues`, and shows the agent each finding with its code, pointer and fix. A [bundle](#validating-a-bundle-tgz) report's `issues` is a list of its own, with other keys; its `CONTRACT-RULE` findings carry the code as `rule`, with the same `pointer`, `fix`, `example` and `docs_url`.
+
+### Schema errors
+
+A JSON Schema error's code names the keyword that failed:
+
+| Code | What failed (keyword) |
+| --- | --- |
+| `ERR_CONTRACT_SCHEMA_REQUIRED` | A required property is missing (`required`, `dependentRequired`, `dependencies`). The pointer is the object that needs it. |
+| `ERR_CONTRACT_SCHEMA_UNKNOWN_FIELD` | A property the object does not take (`additionalProperties`, `unevaluatedProperties`, `propertyNames`). For `additionalProperties` the pointer is that property; otherwise it is the object. |
+| `ERR_CONTRACT_SCHEMA_TYPE` | A value of the wrong type (`type`). |
+| `ERR_CONTRACT_SCHEMA_ENUM` | A value that is not one of the allowed ones (`enum`, `const`). Case matters. |
+| `ERR_CONTRACT_SCHEMA_PATTERN` | A value that does not match its pattern (`pattern`), such as [one that ends in a line break](#a-value-that-ends-in-a-line-break). |
+| `ERR_CONTRACT_SCHEMA_FORMAT` | A value that is not in its format (`format`), such as an email address, a date-time or a URI. |
+| `ERR_CONTRACT_SCHEMA_NO_VARIANT` | A value that matches none of the shapes allowed there (`oneOf`, `anyOf`). |
+| `ERR_CONTRACT_SCHEMA_NOT_ALLOWED` | A property the object does not take, often because another property chose a variant without it (`not`). When the `not` rules out a key, the pointer is that key. |
+| `ERR_CONTRACT_SCHEMA_BOUNDS` | A limit: a minimum or maximum, a multiple, a length, a number of items or of properties, items that must be unique, or how many items must match `contains`. |
+| `ERR_CONTRACT_SCHEMA_INVALID` | Any other schema rule. |
+
+### Contract rules
+
+Each of the other checks has one code, whatever its message says:
+
+| Code | The check |
+| --- | --- |
+| `ERR_CONTRACT_PLACEHOLDER_EMAIL`, `ERR_CONTRACT_TEMPLATE_RESIDUE`, `ERR_CONTRACT_PLACEHOLDER_VALUE` | [Placeholders and starter values](#placeholders-and-starter-values) |
+| `ERR_CONTRACT_SDP_JOINS`, `ERR_CONTRACT_SDP_CONSUMES_PRODUCTS` | [What an SDP does not do](#what-an-sdp-does-not-do) |
+| `ERR_CONTRACT_COMPOSITION_VIOLATION` | A `consumes[]` upstream of a product type this product does not accept |
+| `ERR_CONTRACT_PRODUCT_TYPE_INCONSISTENT` | `metadata.productType` and `metadata.layer`: values that disagree, or a value that is neither |
+| `ERR_CONTRACT_DUPLICATE_ID` | Two exposes with one `contract.id` |
+| `ERR_CONTRACT_SOVEREIGNTY` | `sovereignty` against the regions the bindings resolve to |
+| `ERR_CONTRACT_AGENT_POLICY` | `exposes[].policy.agentPolicy` |
+| `ERR_CONTRACT_GOVERNANCE` | [Governance binding checks](#governance-binding-checks-since-0-17-0) |
+| `ERR_CONTRACT_ICEBERG_SINK` | A streaming Iceberg sink ([Iceberg catalog checks](#iceberg-catalog-checks)) |
+| `ERR_CONTRACT_ICEBERG_BINDING` | [Iceberg prerequisite checks](#iceberg-prerequisite-checks-since-0-14-0) |
+| `ERR_CONTRACT_GCP_BINDING` | [GCP binding checks](#gcp-binding-checks-since-0-15-0) |
+| `ERR_CONTRACT_CONFLUENT_BINDING` | A Confluent Tableflow binding |
+| `ERR_CONTRACT_DATABRICKS_BINDING` | A Databricks binding |
+| `ERR_CONTRACT_VECTOR_BINDING` | A pgvector binding |
+| `ERR_CONTRACT_STREAMING_TYPES` | A nested column type (`fields`, `element`, `key`, `value`) |
+| `ERR_CONTRACT_MANAGED_FLINK` | A managed Flink build ([Managed Flink to Iceberg](../advanced/managed-flink-iceberg.md)) |
+| `ERR_CONTRACT_CONTINUOUS_TRIGGER` | [A continuous trigger on a batch build](#a-continuous-trigger-on-a-batch-build) |
+| `ERR_CONTRACT_BUILD_ID` | [An id the build phase refuses](#an-id-the-build-phase-refuses) |
+| `ERR_CONTRACT_PACKAGING` | The `packaging` block |
+| `ERR_CONTRACT_SEMANTICS` | A semantic model's measure written as an aggregate (`SUM(amount)` where `agg: sum` already sums) |
+| `ERR_CONTRACT_OVERLAY` | An overlay patch that lands on another entry ([`--env` and environment overlays](#env-and-environment-overlays)) |
+| `ERR_CONTRACT_EXTENSION` | A validator a plugin registered for a `contract.extensions` key |
+| `ERR_CONTRACT_VALIDATOR_FINDING` | A `Validator` plugin ([custom validators](#extension-point-custom-validators)) |
+
+### Other codes
+
+- `ERR_CONTRACT_CHECK_FAILED`: a check crashed, so the contract was not checked for what that check covers. It is an error when the check that crashed reports errors (the Iceberg sink, Confluent, Iceberg binding and Databricks checks), and a warning when the check only warns (the continuous-trigger, build-id and authoring checks). Run `fluid validate <contract> --verbose`, and report the error with the contract.
+- `ERR_CONTRACT_FINDING`: a finding that no check gave a code of its own.
+- Seven findings keep the code the catalog already had for the same failure: `ERR_CONTRACT_FILE_NOT_FOUND`, `ERR_CONTRACT_LOAD_FAILED`, `ERR_CONTRACT_VERSION_UNSUPPORTED`, `ERR_INVALID_SCHEMA_VERSION`, `ERR_SCHEMA_NOT_AVAILABLE`, `ERR_VALIDATION_ERROR` and `ERR_OPTIONAL_DEPENDENCY_MISSING`. Their `docs_url` is the page the [route table](../advanced/error-codes.md#where-the-links-land) gives them, and the `docs_url` of `ERR_CONTRACT_SOVEREIGNTY` is [Sovereignty](../concepts/sovereignty.md).
+
+That makes 45 codes a finding can carry, each with a fix and an example.
+
 ## Validating a bundle (`.tgz`)
 
 Pass a bundle built with `fluid bundle --format tgz` and `fluid validate` checks the bundle itself and the contract inside it:
@@ -453,7 +631,7 @@ What it checks:
 
 - **The manifest.** The recorded hash of each file must match the bundle. A mismatch is a single `MANIFEST-TAMPER` error, and nothing else is checked.
 - **The files in the bundle.** The resolved contract against the JSON Schema, SQL fragments with a SQL parser, and OpenAPI fragments with an OpenAPI validator. When the SQL parser or the OpenAPI validator is not installed, those fragments are reported as an info (an error under `--strict`) instead of being checked.
-- **The contract rules.** The resolved contract goes through the same rules a contract file does: sovereignty, agent policy, binding prerequisites, packaging, semantics, composition and plugin validators. Each finding is reported with code `CONTRACT-RULE`.
+- **The contract rules.** The resolved contract goes through the same rules a contract file does: sovereignty, agent policy, binding prerequisites, packaging, semantics, composition and plugin validators. Each finding is reported with code `CONTRACT-RULE`. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* So are the [placeholder and starter-value checks](#placeholders-and-starter-values) and the [SDP checks](#what-an-sdp-does-not-do), and each `CONTRACT-RULE` finding also carries its `ERR_*` code as `rule`, with `pointer`, `fix`, `example` and `docs_url`, as in [`issues`](#finding-codes-and-issues).
 - **The environment.** `--env` must match the environment the bundle was built for.
 - **The overlay warnings.** *(since 0.22.0, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* An overlay patch that `fluid bundle --env` merged onto another entry is recorded in the manifest and reported as a warning, `OVERLAY-WARNING`, so `--strict` fails on it. A bundle is never re-overlaid, so the record is how validate sees it.
 
@@ -496,7 +674,24 @@ fluid validate runtime/bundle.tgz --env prod --strict
 
 *(since 0.22.0, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* Without `--strict` the same bundle passes and still lists the warning: a bundle that passes lists its warnings, not only their count. `--quiet`, which printed nothing for a bundle, prints each error as `ERROR: <finding>`, a recorded overlay warning as `WARNING: <finding>`, and under `--strict` each warning as `ERROR (--strict): <finding>`.
 
-`--report PATH` writes the full structured report as JSON, on pass and on fail, so a CI job can upload it as an artifact. The report has `bundleDigest`, `input`, `strict`, `status`, `summary` and `issues[]`; each issue carries `file`, `validator`, `severity`, `message` and a `code`. The `BUNDLE-ENV-MISMATCH` finding is written to the report like any other. `--report` has an effect only for a `.tgz` bundle: `fluid validate contract.fluid.yaml --report out.json` writes no file as of 0.18.1.
+`--report PATH` writes the full structured report as JSON, on pass and on fail, so a CI job can upload it as an artifact. The report has `bundleDigest`, `input`, `strict`, `status`, `summary` and `issues[]`; each issue carries `file`, `validator`, `severity`, `message` and a `code`. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* A `CONTRACT-RULE` issue also carries `rule`, `pointer`, `fix`, `example` and `docs_url`:
+
+```json
+{
+  "file": "contract.resolved.yaml",
+  "validator": "contract",
+  "severity": "warning",
+  "message": "metadata.owner.email: 'owner@example.com' is a placeholder address: example.com is reserved for documentation (RFC 2606), so no mailbox is at it. Use the owning team's real address, never a guess; if there is none, delete the key (it is optional).",
+  "code": "CONTRACT-RULE",
+  "rule": "ERR_CONTRACT_PLACEHOLDER_EMAIL",
+  "pointer": "/metadata/owner/email",
+  "fix": "Use the owning team's real address, never a guess; if there is none, delete the key (it is optional).",
+  "example": "metadata:\n  owner:\n    team: sales-data\n",
+  "docs_url": "https://agenticstiger.github.io/forge_docs/cli/validate.html"
+}
+```
+
+The `BUNDLE-ENV-MISMATCH` finding is written to the report like any other. `--report` has an effect only for a `.tgz` bundle: `fluid validate contract.fluid.yaml --report out.json` writes no file as of 0.18.1.
 
 Codes you will meet in a report:
 
