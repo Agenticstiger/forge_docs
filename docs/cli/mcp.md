@@ -255,6 +255,15 @@ fluid mcp output-port serve ./contract.fluid.yaml \
 | `--allow-use-cases USE_CASE[,...]` | contract | Override `agentPolicy.allowedUseCases`. The caller's `useCase` (declared at `initialize`) must be in this list. |
 | `--deny-use-cases USE_CASE[,...]` | contract | Override `agentPolicy.deniedUseCases`. Evaluated before the allowlist so denial wins. |
 
+*On forge-cli `main`, not yet in a release ([forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887)).* A name in `--allow-tools` or `--deny-tools` that is not an output-port tool stops the server at startup, with exit 2, before either transport binds. In 0.30.1 the name was accepted: a mistyped deny list denied nothing and left the tool callable. Matching is exact and case-sensitive, and an empty value still means all tools. The message, on stderr, names the unknown names and lists the tools:
+
+```text
+fluid mcp output-port serve: --deny-tools names no such tool: sampel.
+  Tools: describe, query, query_sql, sample.
+```
+
+Correct the spelling, or drop the name.
+
 *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport http` serves MCP Streamable HTTP at `http://<host>:<port>/mcp`. Up to 0.30.1 it served HTTP+SSE, and clients connected at `/sse`. A `--host` other than loopback now needs auth, and `--port` takes `1` to `65535`. See [The HTTP transport](#the-http-transport).
 
 ### Data outside the contract directory

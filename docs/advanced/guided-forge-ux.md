@@ -240,7 +240,7 @@ Useful for keeping demo runs predictable and for CI runs where you want hard cos
 
 ## UX telemetry
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid forge` no longer emits this span: the copilot paths that emitted it are removed.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid forge` no longer emits this span: the copilot paths that emitted it are removed. *On forge-cli `main`, not yet in a release ([forge-cli #888](https://github.com/Agenticstiger/forge-cli/pull/888)).* The telemetry module is deleted too, so nothing emits these fields, and `FLUID_TELEMETRY` and `DO_NOT_TRACK` do nothing.
 
 When an OTel exporter is configured, the run emits these per-invocation fields onto the `forge.invocation` span:
 
