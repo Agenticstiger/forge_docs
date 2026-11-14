@@ -273,7 +273,7 @@ Provider-specific keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
 
 ## MCP output port
 
-Read by `fluid mcp output-port`; see [MCP](./mcp.md).
+Read by `fluid mcp output-port`; see [MCP](./mcp.md). *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `fluid mcp serve --transport http` reads `FLUID_MCP_AUTH_MODE`, `FLUID_MCP_AUTH_TOKEN` and the `FLUID_MCP_JWT_*` variables too.
 
 | Variable | Effect |
 |---|---|
