@@ -12,6 +12,8 @@ Add up the cost of `fluid forge` runs: tokens, dollars and wall-clock time, opti
 fluid stats [--by {provider|type|engine|run|mode}] [--since SPEC] [--root PATH] [--json] [--judge]
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--judge` is removed.
+
 ## Examples
 
 Total for the last 30 days:

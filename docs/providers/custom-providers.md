@@ -336,11 +336,11 @@ Operators may see them in CLI output when something goes wrong:
 | Class | When it fires |
 |---|---|
 | `RateLimitError` | Provider returned 429 (or 5xx with `Retry-After`). The retry envelope honors the server-supplied `retry_after` instead of fixed exponential backoff. |
-| `ContextOverflowError` | Pre-flight token check refused the prompt, or provider returned a context-length error. **Non-retryable** — the agent loop must compact before retrying. |
+| `ContextOverflowError` | Pre-flight token check refused the prompt, or provider returned a context-length error. **Non-retryable** — the agent loop must compact before retrying. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop is removed. |
 | `ProviderTimeoutError` | HTTP read/connect timeout. Retryable with backoff. |
 | `ProviderAuthError` | 401/403 response. Non-retryable — surfaces immediately so users fix their key. |
 | `ProviderServerError` | Transient 5xx without a `Retry-After`. Retryable with exponential backoff. |
-| `SchemaValidationError` | LLM returned output that failed Pydantic / JSON-schema validation. The agent loop routes corrective feedback to the LLM instead of retrying the same prompt. |
+| `SchemaValidationError` | LLM returned output that failed Pydantic / JSON-schema validation. The agent loop routes corrective feedback to the LLM instead of retrying the same prompt. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop is removed. |
 | `ToolValidationError` | A tool call's args didn't match the tool's input schema. |
 
 See the [Typed Errors reference](/forge_docs/advanced/typed-errors.html) for what each class carries, the corrective-feedback flow, and the SECURITY_REVIEW S-013 invariant that scrubs raw exception text before it round-trips into the LLM context.

@@ -72,6 +72,8 @@ fluid validate contract.fluid.yaml
 fluid plan contract.fluid.yaml --out runtime/plan.json
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--discovery-path` is removed; drop it. A coding agent reads the workspace itself.
+
 ### What Copilot Contributes
 
 - reads metadata from `raw_orders.parquet`, `customers.csv`, `weekly_revenue.sql`, and `README.md`

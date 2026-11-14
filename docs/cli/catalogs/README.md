@@ -76,7 +76,7 @@ Then tell the agent:
 > `snowflake-prod`. Save the contract to `biz_lab.fluid.yaml`.
 
 The agent calls the MCP `forge_from_source` tool; same pipeline,
-same output.
+same output. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed: the agent reads the catalog with the MCP catalog tools, or runs `fluid forge data-model from-source`.
 
 ## Setup wizard: `fluid ai setup --source CATALOG --name NAME`
 

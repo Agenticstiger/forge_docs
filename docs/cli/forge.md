@@ -41,7 +41,7 @@ fluid forge --resume
 *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--domain`, `--tiered`, `--fragments` and `--resume` are removed; see [Removed flags](#removed-flags). A non-interactive AI run takes the product to build in `--context`:
 
 ```bash
-fluid forge --llm-provider claude-code --context "orders from the shop API, refreshed daily"
+fluid forge --llm-provider claude-code --non-interactive --context "orders from the shop API, refreshed daily"
 fluid forge --llm-provider ollama --llm-model gemma4 --non-interactive --context intent.txt
 ```
 
@@ -57,9 +57,9 @@ AI mode runs on the four FLUID Agent Skills that ship with forge-cli, the same s
 | --- | --- |
 | A coding agent (`--llm-provider claude-code`, `codex`, `cursor` or `kiro`, or the one `fluid ai setup` saved) and a terminal | Opens the agent in the workspace with the skills loaded and your request as its first prompt. The agent asks its own follow-up questions. |
 | Claude Code, and no terminal | Drives Claude Code headless. It may read the workspace, edit the one contract file and run `fluid validate` on that file, nothing wider. Codex, Cursor and Kiro take the next row's path when nobody is at the keyboard. |
-| No coding agent | Makes one LLM call (the `litellm` extra) whose system prompt is the skills' text, runs `fluid validate --offline`, and sends the errors back, for at most 3 attempts. |
+| No coding agent | Makes one LLM call (the `litellm` extra; Codex, Cursor and Kiro make it through their own CLI) whose system prompt is the skills' text, runs `fluid validate --offline`, and sends the errors back, for at most 3 attempts. |
 
-Every path ends with forge's own `fluid validate --offline` and a `.fluid/agents/<run-id>/cost.json` receipt that [`fluid stats`](./stats.md) reads. On the one-call path, an interactive run asks `Keep this contract at <path>? [Y/n]` before it keeps the result, and with `--refine` it first lists the changes against the contract it loaded; `--yes` or `FLUID_FORGE_NO_PREVIEW=1` keeps the result without asking. A failed, declined or interrupted run leaves the workspace as it was and keeps the agent's or the model's version as a draft, `.fluid/agents/<run-id>/contract.draft.yaml`.
+Every run that finishes ends with forge's own `fluid validate --offline` and a `.fluid/agents/<run-id>/cost.json` receipt that [`fluid stats`](./stats.md) reads. On the one-call path, an interactive run asks `Keep this contract at <path>? [Y/n]` before it keeps the result, and with `--refine` it first lists the changes against the contract it loaded; `--yes` or `FLUID_FORGE_NO_PREVIEW=1` keeps the result without asking. A one-call run still invalid after 3 attempts, and an agent run whose contract fails `fluid validate`, put the workspace back and keep that version as a draft, `.fluid/agents/<run-id>/contract.draft.yaml`; so does a headless Claude Code run that fails, times out or is interrupted. Declining the result, or a provider error, puts the workspace back with no draft. Ctrl-C inside an interactive agent session is not undone.
 
 AI mode does not overwrite a contract. Without `--refine`, a target directory that already holds `contract.fluid.yaml` stops the run (exit 1):
 
@@ -87,7 +87,7 @@ Each of these fails with `unrecognized arguments` (exit 2) on `main`:
 | `--memory`, `--save-memory`, `--show-memory`, `--reset-memory`, `--memory-json` | Nothing. `--no-memory` is still accepted and ignored. |
 | `--resume`, `--no-resume`, `--from-stage`, `--fork`, `--or-fail`, `--watch` | Nothing. |
 | `--tiered`, `--llm-routing-model`, `--llm-routing-endpoint` | Nothing on `fluid forge`. [`fluid forge data-model`](#data-model-flags) keeps them. |
-| `--seed-from`, `--seed-allow-remote` | [`fluid odps import`](./odps.md) reads the same inputs (an `.odps.yaml` file, a directory bundle or one `.odcs.yaml` file) and writes a FLUID contract; `--allow-remote` opts in to http(s) references. Then run `fluid forge --refine` on it. |
+| `--seed-from`, `--seed-allow-remote`, `--seed-no-remote` | [`fluid odps import`](./odps.md) reads the same inputs (an `.odps.yaml` file, a directory bundle or one `.odcs.yaml` file) and writes a FLUID contract: `fluid odps import <path> -o contract.fluid.yaml`, with `--allow-remote` for http(s) references. Then run `fluid forge --refine` on it. |
 | `--discover`, `--no-discover`, `--discovery-path`, `--show-work` | Nothing. A coding agent reads the workspace itself. |
 | `--no-generate`, `--also-emit`, `--fragments`, `--no-fragments`, `--apply-enrichment` | Run [`fluid generate transformation`](./generate.md), [`fluid export`](./export.md) or [`fluid split`](./split.md) after forge. |
 
@@ -114,7 +114,7 @@ Each of these fails with `unrecognized arguments` (exit 2) on `main`:
 | `--also-emit LIST` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; run `fluid export` after forge. Also write other standards after the contract: any of `odcs`, `odps`, `opds`, comma-separated. Defaults to `odcs` for CDP products and nothing otherwise. |
 | `--dry-run` | Preview without creating files. |
 | `--non-interactive` | Use defaults without prompting. |
-| `--yes`, `-y` | Skip the pre-write confirmation. The preview panel still renders. |
+| `--yes`, `-y` | Skip the pre-write confirmation. The preview panel still renders. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* There is no preview panel; `--yes` skips AI mode's `Keep this contract at <path>? [Y/n]` question. |
 | `--context VALUE` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The product to build, as text or a file path. A run with no terminal needs it. In 0.29.0: Extra JSON context, or a path to a context file. |
 | `--show-work` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Stream the agent's reasoning and tool calls. They are also saved under `.fluid/agents/<run-id>/`. |
 | `--watch` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Regenerate the contract when a source file in the discovery path changes. Regeneration is non-interactive and offline. Tune with `FLUID_FORGE_WATCH_INTERVAL` and `FLUID_FORGE_WATCH_DEBOUNCE` (seconds). |
@@ -352,7 +352,7 @@ For hosted provider smoke tests, export a provider key in your shell and use `--
 
 ## Seeding from an existing ODCS or Bitol ODPS contract
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--seed-from` and `--seed-allow-remote` are removed. [`fluid odps import`](./odps.md) reads the same inputs and writes a FLUID contract; then run `fluid forge --refine` on it.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--seed-from` and `--seed-allow-remote` are removed. [`fluid odps import`](./odps.md) reads the same inputs and writes a FLUID contract (`fluid odps import <path> -o contract.fluid.yaml`); then run `fluid forge --refine` on it.
 
 ::: tip Available in 0.8.3 (experimental — pre-processor)
 `--seed-from` accepts an ODCS contract, a Bitol ODPS product, or a directory bundle as a **structural seed** for the copilot. The schema / quality / qos from the seed are treated as ground truth; the LLM fills in builds, execution, and governance.
@@ -472,6 +472,8 @@ Before it asks to write the result, the preview compares the regenerated contrac
 | `:quit` | Abort gracefully (saves partial state) |
 
 ### Pre-write preview panel
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The panel is removed with the copilot paths that rendered it. AI mode's one-call path asks `Keep this contract at <path>? [Y/n]` instead, and `--yes` or `FLUID_FORGE_NO_PREVIEW=1` skips that question.
 
 Before any file is written, Forge renders a panel showing files, cost, and run-id so users see exactly what they're about to commit to. `--yes` skips the confirmation prompt but the panel still renders. Suppress with `FLUID_FORGE_NO_PREVIEW=1`.
 

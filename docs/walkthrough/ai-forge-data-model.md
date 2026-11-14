@@ -509,7 +509,7 @@ fluid forge data-model learn \
   --edited customer_orders.reviewed.fluid.yaml
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Copilot memory is removed on `fluid forge` (`--save-memory`, `--no-memory` and `FLUID_COPILOT_SEMANTIC_MEMORY` do nothing useful). `fluid forge data-model learn` stays.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Copilot memory is removed on `fluid forge`: `--save-memory` fails with `unrecognized arguments`, `--no-memory` is accepted and ignored, and `FLUID_COPILOT_SEMANTIC_MEMORY` is no longer read. `fluid forge data-model learn` stays.
 
 Use memory intentionally:
 
