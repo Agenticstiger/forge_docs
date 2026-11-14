@@ -109,7 +109,7 @@ fluid mcp serve: MCP Streamable HTTP at http://127.0.0.1:8766/mcp (auth: shared-
 
 A hosted agent harness needs the same two things, the `/mcp` URL and the `Authorization` header. It reaches the server over the network, so serve it off loopback with a token and TLS in front, as [The HTTP transport](#the-http-transport) describes. Auth works as on the output port: a shared token or a JWT, set by the same `FLUID_MCP_AUTH_MODE`, `FLUID_MCP_AUTH_TOKEN` and `FLUID_MCP_JWT_*` variables.
 
-Over HTTP the tool calls still run one at a time, in the order they arrive, whichever client sends them, as they do over stdio. They run on a worker thread, so the server keeps answering other requests while a call runs. `forge_run` is the exception: it does not wait for that worker, so it can run beside another call.
+Over HTTP the tool calls still run one at a time, in the order they arrive, whichever client sends them, as they do over stdio. They run on a worker thread, so the server keeps answering other requests while a call runs.
 
 ### Tool errors
 
