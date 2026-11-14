@@ -6,7 +6,7 @@ The `CredentialResolver` is the security boundary that keeps metadata-source cre
 
 > **The MCP server never receives catalog credentials from the client by default. Each tool call carries a `credential_id` string. The resolver maps the string to a concrete credential at call time.**
 
-The CLI uses the same resolver, so `fluid forge data-model from-source --source snowflake --credential-id snowflake-prod` and a Claude Code `forge_from_source` call go through the same path. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed; the other catalog tools use the same resolver.
+The CLI uses the same resolver, so `fluid forge data-model from-source --source snowflake --credential-id snowflake-prod` and a Claude Code `forge_from_source` call go through the same path. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed; MCP catalog reads use the same resolver.
 
 ## Resolution chain
 
@@ -127,12 +127,18 @@ Or for the whole process, with `FLUID_ALLOW_METADATA_SERVICE=1`. Via MCP, pass `
 ::: danger Over MCP the opt-in belongs to the client, not the operator
 `fluid mcp serve` has no flag that switches the metadata-service fallback off. `list_source_tables`, `inspect_source_table`, `list_source_lineage`, `list_source_glossary` and `forge_from_source` each take an `allow_metadata_service` argument, and the server builds its resolver from the value the client sends, with no server-side check. Any client that can call those tools can set it to `true`, and an LLM-driven client can do so on its own. With the opt-in on, the resolver can use whatever cloud identity the server's host carries (an instance profile, a workload identity, Application Default Credentials on a laptop) when no earlier step of the [resolution chain](#resolution-chain) supplies a credential.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed from the tool list on main.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed from the tool list on main. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The four catalog tools above are now one tool, `source_catalog`, and it takes the same argument.
 
 If `fluid mcp serve` is reachable by a client you do not fully trust, either run it where no ambient cloud identity exists, or remove the tools with `--deny-tools`:
 
 ```bash
 fluid mcp serve --deny-tools list_source_tables,inspect_source_table,list_source_lineage,list_source_glossary,forge_from_source
+```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* On main that command stops with exit 2, because none of those names is a tool any more. Deny the one tool that reads catalogs instead:
+
+```bash
+fluid mcp serve --deny-tools source_catalog
 ```
 
 `--deny-tools` is evaluated before `--allow-tools`, so a denied tool is blocked even when it is also allowed.

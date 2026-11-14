@@ -28,7 +28,7 @@ Every `tools/call` is checked by policy before it runs. The flags that scope it 
 
 The authoring server advertises these tools. With `--read-only`, the tools marked *write* are not advertised:
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The server advertises 11 tools: the five rows marked removed below are gone. JDBC databases remain available through `fluid forge data-model from-source --uri`.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The five rows marked removed below are gone. JDBC databases remain available through `fluid forge data-model from-source --uri`. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The five rows that read a source catalog are one tool, [`source_catalog`](#source-catalog), so the server advertises 7 tools, and 4 with `--read-only`.
 
 | Tool | Mode | What it does |
 | --- | --- | --- |
@@ -41,21 +41,103 @@ The authoring server advertises these tools. With `--read-only`, the tools marke
 | `update_entity` | write | Rename or update one logical model entity |
 | `add_relationship` | write | Add a relationship to a logical sidecar |
 | `regenerate_physical` | write | Regenerate the contract and physical fanout from a logical sidecar |
-| `list_source_adapters` | read | List available source-catalog adapters |
-| `list_source_tables` | read | Enumerate tables from a configured source catalog |
-| `inspect_source_table` | read | Inspect a source table profile and metadata |
-| `list_source_lineage` | read | Read lineage from a configured source catalog |
-| `list_source_glossary` | read | Read glossary terms from a configured source catalog |
+| `list_source_adapters` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=adapters`. List available source-catalog adapters |
+| `list_source_tables` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=tables`. Enumerate tables from a configured source catalog |
+| `inspect_source_table` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=table`. Inspect a source table profile and metadata |
+| `list_source_lineage` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=lineage`. Read lineage from a configured source catalog |
+| `list_source_glossary` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=glossary`. Read glossary terms from a configured source catalog |
+| `source_catalog` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Read a source catalog's metadata: its adapters, a scope's tables, one table, a table's lineage, or glossary terms. Metadata only, never table data. See [`source_catalog`](#source-catalog) |
 | `forge_from_source` | write | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; run `fluid forge data-model from-source`. Forge a contract and `.model.json` sidecar from a configured source catalog |
 | `forge_run` | write | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; the calling agent authors the contract itself, with the FLUID skills. Run a full `fluid forge` in-process — `mode` is `blank`, `diag`, or `ai` |
 
 Every advertised tool includes an MCP `inputSchema`, so clients can provide typed autocomplete and validate arguments before dispatch.
+
+#### `source_catalog`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).*
+
+`source_catalog` reads a source catalog's metadata, never its data. It replaces the five tools above that read a catalog, and its `kind` argument picks what it reads. The other arguments keep the names they had on those tools.
+
+| `kind` | Replaces | Also needs | Result |
+| --- | --- | --- | --- |
+| `adapters` | `list_source_adapters` | nothing | `{"kind": "adapters", "adapters": [...]}`, one entry per catalog the server can read |
+| `tables` | `list_source_tables` | `source`, `credentials`, `scope` | `{"kind": "tables", "tables": [...]}` |
+| `table` | `inspect_source_table` | `source`, `credentials`, `fqn` | `{"kind": "table", "table": {...}}`: the table's metadata, such as its columns, keys, owner and tags |
+| `lineage` | `list_source_lineage` | `source`, `credentials`, `fqn` | `{"kind": "lineage", "lineage": {...}}`: its upstream and downstream tables |
+| `glossary` | `list_source_glossary` | `source`, `credentials`; `scope` is optional | `{"kind": "glossary", "terms": [...]}` |
+
+`source` names the catalog: `snowflake`, `unity`, `bigquery`, `dataplex`, `glue`, `datahub` or `datamesh_manager`. `credentials` is `{"credential_id": "<name>"}`, a name saved with `fluid ai setup --source <catalog> --name <name>` (see [Credential handling](#credential-handling)). `fqn` is a table's fully qualified name in the catalog's own form: `DB.SCHEMA.TABLE` on Snowflake, `project.dataset.table` on BigQuery. The arguments of a call for one table:
+
+```json
+{
+  "kind": "table",
+  "source": "snowflake",
+  "credentials": { "credential_id": "snowflake-prod" },
+  "fqn": "DEMO_DB.SEEDED.ORDERS"
+}
+```
+
+A call that lacks what its `kind` needs is refused before any credential is resolved. The message names each missing argument and gives an example:
+
+```text
+source_catalog kind=tables needs scope, what to list (for example {"database": "DB", "schema": "SALES"}; Unity takes catalog and schema).
+```
+
+`response_format` is `concise` (the default) or `detailed`:
+
+- `concise` leaves out vendor-specific payloads (`catalog_specific`), empty fields and key flags that are false, and keeps a table's `tags` whole. A `tables` result lists each table's `fqn`, `name` and `description` only, and a `lineage` result is the upstream and downstream FQNs.
+- `detailed` returns every field the catalog gave, as the five tools did.
+
+Each call writes the audit event its former tool wrote, such as `mcp_list_source_tables` for `kind=tables`; `kind=adapters` writes none. See [Audit trail](./v1.5-architecture.md#audit-trail).
 
 #### Fragment-first contracts
 
 A contract split into fragments keeps `$ref` stubs in its root file (see [Contract fragments](../concepts/fragments.md#which-commands-read-a-fragment-root) and [Composing a contract with `$ref`](../concepts/contract-refs.md)). `fluid validate`, `fluid plan` and `fluid mcp output-port serve` resolve those references. Since 0.25.0 ([forge-cli #760](https://github.com/Agenticstiger/forge-cli/pull/760)), so do the authoring tools when they take a `contract_path`: `validate_contract`, `score_contract_quality` and `enrich_contract_suggestions` compose the contract like every command, with fragments confined to the contract's directory unless a [workspace `ref_root` or `FLUID_REF_ROOT`](../concepts/contract-refs.md#widening-the-root-for-a-monorepo) widens it. `validate_contract` takes `contract_path` (or `logical_path`) and no inline contract; `score_contract_quality` and `enrich_contract_suggestions` accept either `contract_path` or an inline `contract` object.
 
 In 0.24.0 and earlier these tools read the file as written, so `validate_contract` reported errors on `$ref` stubs that `fluid validate` did not, and an empty file validated nothing. On those versions, run `fluid bundle contract.fluid.yaml --out runtime/contract.bundled.yaml` and point the tool at the result.
+
+### Large results
+
+*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).*
+
+A tool result estimated at more than `FLUID_MCP_INLINE_TOKEN_LIMIT` tokens (default 6,000) is not sent inline. The call returns a short envelope instead, with an MCP `resource_link` to `fluid://artifacts/<id>`, and the client reads the full result with `resources/read`. This holds for every tool. Claude Code, for comparison, warns above 10,000 tokens of MCP tool output, and by default saves a successful result to a file once it passes 25,000 tokens or 50,000 characters. The estimate is the indented JSON text the call would send, at 4 bytes a token, so 6,000 tokens is about 24 KB. `FLUID_MCP_INLINE_TOKEN_LIMIT=0` sends every result inline.
+
+The envelope of a `kind=adapters` call over stdio, with the limit set to 20:
+
+```json
+{
+  "offloaded": true,
+  "tool": "source_catalog",
+  "estimated_tokens": 173,
+  "bytes": 439,
+  "inline_token_limit": 20,
+  "resource": "fluid://artifacts/3f035f5c0c6f46cb81e5a05d0950178e",
+  "path": "/tmp/fluid-mcp-artifacts-a2i9448f/3f035f5c0c6f46cb81e5a05d0950178e.json",
+  "summary": {
+    "kind": "adapters",
+    "counts": {
+      "adapters": 7
+    }
+  },
+  "next": "The full result is too large to send inline. Read it with resources/read, or open the file at path."
+}
+```
+
+`summary` keeps the result's short top-level values and counts each list. For a `source_catalog` call, `next` can also say what would make the result smaller: on a `kind=tables` call without `scope.tables`, naming the tables it needs there, and on a `detailed` call, asking for `concise`.
+
+Over stdio the client runs on the same machine, so `path` names a file holding the same JSON, for a client that does not read resources. The file is mode 0600, in a private directory (mode 0700) in the system temporary directory. The directory is removed when the server exits normally, which includes a client closing its stdin; a server killed with SIGTERM or SIGKILL leaves it behind. Over HTTP the envelope has no `path`.
+
+The server keeps its last 32 offloaded results, up to 64 MB, until it stops. Reading an older link fails with `No tool result fluid://artifacts/<id>: the server keeps only its last 32 large results, and only until it stops. Call the tool again.` On SDK 1.x the message is prefixed with `Error creating resource from template:`. An id is a random UUID, and any client the server admits can read any link it is given.
+
+### Server instructions
+
+*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).*
+
+At `initialize` the server sends this `instructions` text, key words first. A client that defers loading tools, such as Claude Code with tool search, starts a session with only the tool names and this text:
+
+```text
+FLUID data products: validate a contract (contract.fluid.yaml); read, diff and edit its .model.json logical model; regenerate the contract and physical files from it; read source-catalog metadata (tables, columns, keys, lineage, glossary) from Snowflake, Unity Catalog, BigQuery, Dataplex, Glue, DataHub or Data Mesh Manager. Reads catalog metadata, never table data. A result too large to send inline comes back as a fluid://artifacts/ resource.
+```
 
 ### LLM sampling
 
@@ -107,7 +189,7 @@ fluid ai setup --source snowflake --name snowflake-prod
 
 Then an MCP client can call `forge_from_source` with `source: "snowflake"` and `credentials.credential_id: "snowflake-prod"` without receiving raw secrets.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed. The catalog tools (`list_source_tables`, `inspect_source_table`, `list_source_lineage`, `list_source_glossary`) take the same `source` and `credentials.credential_id`.
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed, and the catalog read tools take the same `source` and `credentials.credential_id`. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The catalog read tools are now one tool, `source_catalog`, which needs both for every `kind` but `adapters`.
 
 ### Certification
 
