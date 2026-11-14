@@ -30,7 +30,7 @@ Every AI row below that uses an API-key provider needs `pip install 'data-produc
 | Goal | Command | AI needed |
 | --- | --- | --- |
 | Create a blank contract scaffold | `fluid forge --blank` | No |
-| Let the CLI interview you and scaffold a project | `fluid forge` | Optional but recommended |
+| Let the CLI interview you and scaffold a project | `fluid forge` *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The built-in interview is removed. AI mode opens a coding agent loaded with the FLUID Agent Skills, or makes one model call, then runs `fluid validate --offline`. `fluid forge --offline` keeps the local guided interview. | Optional but recommended |
 | Forge a model from YAML/JSON business intent | `fluid forge data-model from-intent` | Optional |
 | Reverse-engineer existing SQL DDL | `fluid forge data-model from-ddl` | Optional |
 | Forge directly from a metadata catalog | `fluid forge data-model from-source` | Optional for modeling, catalog credentials required |
@@ -137,11 +137,15 @@ This path writes a contract scaffold (`contract.fluid.yaml`) only. It does not c
 
 Use this when you want the CLI to discover local context, ask a short interview, and scaffold the first product draft.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The built-in interview, local discovery and `--domain` are removed. AI mode runs on the FLUID Agent Skills: with a coding agent, forge opens it in the workspace and the agent asks its own questions. `fluid forge --offline` keeps the local guided interview. The flow below describes forge-cli 0.29.0.
+
 ```bash
 fluid forge
 ```
 
 Useful variants:
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed on `fluid forge`: `--domain`, `--discovery-path`, `--no-discover`, `--save-memory` and `--tiered`. `--no-memory` is still accepted and ignored.
 
 ```bash
 fluid forge --domain retail
@@ -153,6 +157,8 @@ fluid forge --save-memory
 fluid forge --llm-provider openai --llm-model gpt-4.1-mini
 fluid forge --llm-provider gemini --tiered --require-llm
 ```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The interview is removed (`fluid forge --offline` keeps a local guided interview).
 
 The interview keeps three concepts separate:
 
@@ -502,6 +508,8 @@ fluid forge data-model learn \
   --original customer_orders.fluid.yaml \
   --edited customer_orders.reviewed.fluid.yaml
 ```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Copilot memory is removed on `fluid forge` (`--save-memory`, `--no-memory` and `FLUID_COPILOT_SEMANTIC_MEMORY` do nothing useful). `fluid forge data-model learn` stays.
 
 Use memory intentionally:
 

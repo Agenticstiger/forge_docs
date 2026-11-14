@@ -17,9 +17,9 @@ The recordings were made with CLI 0.10.0 and have not been re-recorded for 0.18.
 |---|---|---|---|
 | Writing a data contract per source by hand | [`$0.03` per data product](#_0-03-per-data-product) | ~50 s | Three LLM providers, one flag swapped, the same contract shape. |
 | Setting up acquisition for one Postgres source | [Six months → sixty seconds](#six-months-→-sixty-seconds) | ~40 s | A Bronze contract from a Postgres URL, run on embedded DuckDB. |
-| An interview that asks what it could infer | [23 questions, skipped](#_23-questions-skipped) | ~50 s | A 47 ms scan answers most of the interview, four questions are asked. |
+| An interview that asks what it could infer (the interview is removed on `main`) | [23 questions, skipped](#_23-questions-skipped) | ~50 s | A 47 ms scan answers most of the interview, four questions are asked. |
 | A pipeline broke and you need the cause | [Skip the panic](#skip-the-panic) | ~75 s | `fluid runs` narrows a failure to a fix and `fluid ship` redeploys it. |
-| An agent loop that accumulates tool history | [`$0.50` → `$0.05`](#_0-50-→-0-05) | ~40 s | One env var selects the compaction strategy. |
+| An agent loop that accumulates tool history (the agent loop is removed on `main`) | [`$0.50` → `$0.05`](#_0-50-→-0-05) | ~40 s | One env var selects the compaction strategy. |
 
 ---
 
@@ -57,6 +57,8 @@ Pairs with [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acqu
 
 ## 23 questions, skipped
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The AI mode interview, its slash commands and the streaming contract preview are removed. The welcome scan, the 5-mode picker and the pre-write panel stay. A coding agent now runs AI mode with the FLUID skills and asks its own follow-up questions.
+
 `fluid forge` scans the working directory before it asks anything. In the recording the scan takes 47 ms, offers a 5-mode picker, asks four questions (most accept an inferred default), shows cost-cap progress as it runs, and shows a pre-write panel listing what will and will not change.
 
 <CliCast
@@ -88,6 +90,8 @@ Pairs with [`fluid runs`](/forge_docs/cli/runs.html), [`fluid retention`](/forge
 ---
 
 ## $0.50 → $0.05
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop and `FLUID_COMPACTION_STRATEGY` are removed; this recording shows 0.29.0.
 
 A long agent loop accumulates tool results, and each turn carries the previous ones, so cost grows faster than the number of turns. `FLUID_COMPACTION_STRATEGY` selects how the loop compacts: `truncate`, `summarize` (LLM-backed) or `hybrid` (cheap path first, summariser as a safety net). The recording compares them on a 20-turn run.
 

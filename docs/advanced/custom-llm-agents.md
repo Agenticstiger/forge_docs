@@ -1,5 +1,9 @@
 # Built-in And Custom Forge Guidance
 
+::: warning Removed on forge-cli main
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: `--domain`, the domain agents, `--prompt-profile`, `--prompt-overlay`, `--memory`, `--save-memory`, `--discovery-path` and the `mcp-sampling` provider on `fluid forge`. AI mode now runs on the FLUID Agent Skills; see [`fluid forge`](../cli/forge.md). The text below describes forge-cli 0.29.0.
+:::
+
 This page explains the public `fluid forge` domain-guidance flow and where deeper agent customization now fits.
 
 ## Public user workflow

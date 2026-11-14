@@ -49,7 +49,7 @@ fluid ai models --json
 | `--name NAME` | Saved name. For a source it defaults to `<source>-prod`; the saved name is the `--credential-id` for `fluid forge data-model from-source`. |
 | `--quiet`, `-q` | Suppress the v2-preview banner. Also honours `FLUID_QUIET` and `FLUID_NONINTERACTIVE`. |
 
-`fluid ai setup --source CATALOG --name NAME` configures source-catalog credentials for `fluid forge data-model from-source` and MCP `forge_from_source` calls. `--source` is the catalog type (`snowflake`, `unity`, `bigquery`, `dataplex`, `glue`, `datahub`, or `datamesh_manager`). It walks you through the auth method, saves the credential to the OS keyring and `~/.fluid/sources.yaml`, and tests the connection.
+`fluid ai setup --source CATALOG --name NAME` configures source-catalog credentials for `fluid forge data-model from-source` and MCP `forge_from_source` calls. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed; the credentials still serve `fluid forge data-model from-source` and the MCP catalog read tools. `--source` is the catalog type (`snowflake`, `unity`, `bigquery`, `dataplex`, `glue`, `datahub`, or `datamesh_manager`). It walks you through the auth method, saves the credential to the OS keyring and `~/.fluid/sources.yaml`, and tests the connection.
 
 ### `ai status`
 
@@ -152,7 +152,7 @@ fluid ai models --json | jq '.gemini.tier_models'
 - *(since 0.29.0, [forge-cli #853](https://github.com/Agenticstiger/forge-cli/pull/853))* While a project's `.env` points a provider at its own host, for example with `OPENAI_BASE_URL` and `OPENAI_API_KEY`, setup asks for no key for that provider, skips a key it would import, and checks none, because the check would send the key there. Run `fluid ai setup` outside the project. See [LLM endpoints in a project file](../advanced/project-dotenv-trust.md#llm-endpoints-in-a-project-file).
 - Provider environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, etc.) are respected as a fallback.
 - For strict provider validation, run `fluid forge data-model from-intent ... --require-llm` so provider failures do not silently fall back to heuristics.
-- For tiered per-stage model selection, pass `--tiered` on the forge command. Tiering stays within the active provider and collapses to single-model mode when the provider has no distinct tier catalog.
+- *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid forge --tiered` is removed (it stays on `fluid forge data-model`). For tiered per-stage model selection, pass `--tiered` on the forge command. Tiering stays within the active provider and collapses to single-model mode when the provider has no distinct tier catalog.
 - Use [`fluid doctor`](./doctor.md) to see AI status as part of a broader environment check.
 - Full AI and model-first journeys are documented in [AI Forge And Data-Model Journeys](../walkthrough/ai-forge-data-model.md).
 

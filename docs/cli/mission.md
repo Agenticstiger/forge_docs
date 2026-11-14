@@ -1,5 +1,9 @@
 # `fluid mission`
 
+::: warning Removed on forge-cli main
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid mission` is removed: on `main` it fails with `invalid choice` (exit 2). To pursue a goal with an AI agent, use a coding agent with the FLUID skills ([`fluid scaffold-ide`](./scaffold-ide.md), or AI mode in [`fluid forge`](./forge.md#ai-mode-on-forge-cli-main)). This page describes 0.29.0.
+:::
+
 Declarative, verifiable goals for a data product. A **mission** is a YAML file that pairs a
 plain-language `goal` with **deterministic `success_criteria`** — and the criteria, not the model,
 decide when the mission is done.

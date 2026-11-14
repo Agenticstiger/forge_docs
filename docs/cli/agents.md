@@ -2,6 +2,8 @@
 
 Inspect and clean up the `.fluid/agents/<run-id>/` artifact stack that AI-copilot `fluid forge` runs write — stage records, cost, judge score, transcript, and reasoning receipts. The same directory also holds [custom domain agent specs](#custom-domain-agents).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Custom domain agent specs are removed, and so are the judge score and the resume, fork and from-stage runs. `fluid agents` itself stays and lists the `.fluid/agents/<run-id>/` runs that forge writes; runs from the resume and judge stages exist only in 0.29.0.
+
 ## Syntax
 
 ```bash
@@ -59,11 +61,14 @@ fluid agents prune --older-than 90d --delete -y  # permanent, no prompt
 
 ## Notes
 
+- *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--resume`, `--fork` and `--from-stage` are removed.
 - A run-id is minted by each AI-copilot `fluid forge` run. Resume a paused run with [`fluid forge --resume <run-id>`](/forge_docs/cli/forge.html), fork it with `--fork`, or re-run from one stage with `--from-stage` (see [Resume, fork and time-travel](./forge.md#resume-fork-and-time-travel)). There is no `fluid agents resume`.
 - `show` surfaces the same receipts the [pre-write preview panel](/forge_docs/advanced/guided-forge-ux.html) persisted (`cost.json`, `reasoning.md`, `transcript.json`), so nothing is lost if you Ctrl-C at the prompt.
 - Aggregate cost and judge scores across many runs with [`fluid stats`](/forge_docs/cli/stats.html).
 
 ## Custom domain agents
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: `fluid forge --domain`, `.fluid/agents/<name>.yaml` specs and `fluid init --agent`. There is no replacement; the coding agent reads your workspace and the FLUID skills.
 
 `fluid forge --domain <name>` loads a domain agent: a YAML spec with the interview questions, defaults and tips for one industry or team. Built in: `ai_ready`, `education`, `energy`, `finance`, `government`, `healthcare`, `insurance`, `logistics`, `manufacturing`, `media`, `pharma`, `retail`, `telco`. A spec you add yourself sits in the same directory as the run records above, as a file rather than a run directory:
 

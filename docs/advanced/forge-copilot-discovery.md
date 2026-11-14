@@ -1,5 +1,9 @@
 # Forge Discovery Guide
 
+::: warning Removed on forge-cli main
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: local file discovery (`--discover`, `--no-discover`, `--discovery-path`) on `fluid forge`. The coding agent reads the workspace itself. The text below describes forge-cli 0.29.0.
+:::
+
 This guide explains how the current `fluid forge` flow discovers local context before it scaffolds a project.
 
 ## Current public entry point

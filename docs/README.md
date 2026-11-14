@@ -98,6 +98,8 @@ fluid forge
 fluid forge --domain retail
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: `fluid forge --domain`. Use `fluid forge --context "<what the product is for>"`, or name the domain in the prompt.
+
 `fluid init` scaffolds from a fixed template or blueprint. `fluid forge` drafts a contract from the files in your directory with the LLM provider you configure with `fluid ai setup`. An API-key provider needs `pip install "data-product-forge[litellm]"`. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* Without an API key, `fluid forge --llm-provider claude-code` uses your Claude Code login, and `fluid forge --template starter` uses no AI. To forge a data model from a business intent file and generate dbt from it:
 
 ```bash
@@ -121,7 +123,7 @@ These are the groups `fluid --help` prints on `0.18.1`:
 | Safety & Supply Chain | `rollback`, `verify-signature` |
 | Utilities | `config`, `ai`, `split`, `auth`, `doctor`, `providers`, `exporters`, `version` |
 
-`--help` promotes a short surface. Commands such as `bundle`, `diff`, `verify`, `runs`, `stats`, `ship` and [`mission`](./cli/mission.md) are registered and documented, and `--help` names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. The [CLI reference](./cli/README.md) covers the commands.
+`--help` promotes a short surface. Commands such as `bundle`, `diff`, `verify`, `runs`, `stats`, `ship` and [`mission`](./cli/mission.md) are registered and documented, and `--help` names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. The [CLI reference](./cli/README.md) covers the commands. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid mission` and `fluid memory` are removed.
 
 :::: tip Current release — `0.18.1`, schema **0.7.5** stable (GA)
 `pip install data-product-forge` gives you `0.18.1`. Its notes:
@@ -153,7 +155,7 @@ These are the groups `fluid --help` prints on `0.18.1`:
 - [`0.14.0`](/forge_docs/RELEASE_NOTES_0.14.0.html) — live-verification hardening: the dbt Iceberg
   loop reaching all three cloud warehouses.
 - [`0.13.0`](/forge_docs/RELEASE_NOTES_0.13.0.html) — verifiable autonomy and declarative packaging,
-  with the [`fluid mission`](/forge_docs/cli/mission.html) command.
+  with the [`fluid mission`](/forge_docs/cli/mission.html) command. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid mission` is removed.
 - [`0.12.0`](/forge_docs/RELEASE_NOTES_0.12.0.html) — dbt integration and schema GA: `0.7.5` promoted
   to stable as the default for untagged contracts, plus the brownfield
   [`fluid import dbt`](/forge_docs/cli/import.html) importer.

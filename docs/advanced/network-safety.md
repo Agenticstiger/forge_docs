@@ -9,7 +9,7 @@ This page describes the user-visible behaviour: which flags opt in, which enviro
 
 | Surface | Old default | New default | Override |
 |---|---|---|---|
-| `fluid forge --seed-from <url>` | (did not exist) | Local only; remote `http(s)` references are rejected | `--seed-allow-remote` |
+| `fluid forge --seed-from <url>` | (did not exist) | Local only; remote `http(s)` references are rejected | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; use `fluid odps import <path>` with `--allow-remote`, then `fluid forge --refine`. `--seed-allow-remote` |
 | `fluid odps import <url>` | Followed `http(s)` `contractId` references | Local only; remote references are rejected | `--allow-remote` |
 | `BitolOdpsProvider().import_contract(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (keyword) |
 | `ContractResolver(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (keyword) |

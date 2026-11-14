@@ -126,6 +126,8 @@ from fluid_build.cli.forge_copilot_runtime import _run_adaptive_interview
 from fluid_build.copilot.agents.base import _retry_with_backoff
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid_build.cli.forge_copilot_runtime._run_adaptive_interview` is removed; it is an internal example only.
+
 The rule of thumb: anything imported from `fluid_build.api.*` is governed by the SemVer policy above. Anything else is internal and may change without notice — even between 0.x.y patch releases. If you find yourself reaching into `fluid_build.cli.*` or `fluid_build.copilot.*`, file an issue requesting that surface be promoted to the public API.
 
 ## See also
@@ -133,4 +135,4 @@ The rule of thumb: anything imported from `fluid_build.api.*` is governed by the
 - [Source-Aligned Acquisition](./source-aligned-acquisition.md): the framework the public API supports
 - [Contract-loading API](./contract-loading-api.md): `load_contract` and its siblings
 - [Custom Providers](../providers/custom-providers.md): the same pattern for `Provider` extensions
-- [Forge Tools](./forge-tools.md): the `@forge_tool` decorator for in-process tool extensions (separate from the public API; lives in the copilot stack)
+- [Forge Tools](./forge-tools.md): *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. the `@forge_tool` decorator for in-process tool extensions (separate from the public API; lives in the copilot stack)

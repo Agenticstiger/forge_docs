@@ -18,7 +18,7 @@ This page is the operator + contributor reference for each one.
 | [`RunCostTracker`](#runcosttracker) | `fluid_build.copilot.cost` | Token / cost / per-agent attribution |
 | [`CriticAgent`](#criticagent) | `fluid_build.copilot.agents.critic_agent` | Heuristic reviewer between staged outputs |
 | [`ConformanceAgent`](#conformanceagent) | `fluid_build.copilot.agents.conformance_agent` | Pre-emit lint against Fluid + OSI + ODCS / DCS readiness |
-| [`retrieve_similar_models`](#retrieve-similar-models-rag-helper) | `fluid_build.copilot.retrieval` | RAG helper against `memory/semantic` |
+| [`retrieve_similar_models`](#retrieve-similar-models-rag-helper) | `fluid_build.copilot.retrieval` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed with copilot semantic memory. RAG helper against `memory/semantic` |
 
 ## StageSession
 
@@ -201,6 +201,8 @@ tokenizer; modern context windows are 128K–1M tokens and the
 ~10–20% heuristic error is far below the precision required to make
 a different decision.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop and its compaction (`FLUID_AGENT_COMPACT_AFTER`, `FLUID_COMPACTION_STRATEGY`) are removed; the token-budget pre-flight above is unaffected.
+
 When the multi-turn agent loop runs longer than `FLUID_AGENT_COMPACT_AFTER`
 iterations (default `6`), middle messages get compacted to keep
 total tokens under the budget. Three strategies:
@@ -305,6 +307,8 @@ Defaults to `OSI_SUPPORTED_DIALECTS` so back-fill never produces
 values that fail OSI's Literal enum.
 
 ## retrieve_similar_models (RAG helper)
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed with copilot semantic memory.
 
 Single canonical entry point for `memory/semantic` retrieval:
 

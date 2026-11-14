@@ -69,6 +69,8 @@ Change the `binding` block and re-deploy. The schema, dq.rules and build stages 
 
 ## AI copilot — full Gemini-powered flow
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: `--domain`, copilot project memory, local file discovery before generation and the streaming interview. This recording shows 0.29.0. On `main`, use `fluid forge --llm-provider gemini` with `--context`.
+
 The `fluid forge` AI copilot generating a finance-domain contract end-to-end: project memory loaded, finance domain expertise pack applied (SOX + GDPR), local context discovered, a Gemini streaming call, and the contract emerging block-by-block with the agentPolicy gate. The version below is hand-scripted to follow the real-API flow; a real-capture script (`scripts/demos/forge_gemini_real_capture.py`) is kept for recording an actual session.
 
 <CliCast
@@ -96,6 +98,8 @@ The `snowflake-biz-lab` flow at full fidelity: env credentials sourced, real `va
 ---
 
 ## AI copilot — interview shape only
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid forge --domain` is removed. `fluid forge --blank` stays.
 
 `fluid forge --blank` skips the LLM call entirely and just scaffolds the structured stub for the chosen domain. Useful when you know what you want and don't need an LLM round-trip.
 
@@ -163,6 +167,8 @@ The casts below pair with the [See it run](/forge_docs/see-it-run.html) page. Ea
 
 ### 23 questions, skipped — guided UX
 
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The AI mode interview and its slash commands are removed; the welcome scan, picker and pre-write panel stay.
+
 <CliCast
   src="/forge_docs/demos/guided-forge-ux.svg"
   title="fluid forge — guided UX in action"
@@ -182,6 +188,8 @@ The casts below pair with the [See it run](/forge_docs/see-it-run.html) page. Ea
 />
 
 ### `$0.50` → `$0.05` — agent-loop compaction
+
+*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop and `FLUID_COMPACTION_STRATEGY` are removed.
 
 <CliCast
   src="/forge_docs/demos/agent-compaction.svg"
