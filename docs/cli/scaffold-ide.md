@@ -50,6 +50,43 @@ Running into a workspace that has files of its own:
 - The files are written in order and the run stops at the first one that exists, so a refusal can come after some files were already written. With an existing `.ai/steering/01-forge-cli.md`, `--target generic` had already written `mcp.json` and `AGENTS.md`.
 - `--force` replaces a file with the pack's version, and does not merge. A root `CLAUDE.md` or `AGENTS.md` loses its other text, and an MCP file such as `.mcp.json` loses servers other than `fluid`. Commit or copy those first.
 
+### The Claude Code validate hook
+
+*(since 0.29.0, [forge-cli #851](https://github.com/Agenticstiger/forge-cli/pull/851))* `--target claude-code` also copies the FLUID agent skills into `.claude/skills/`, and writes a `PostToolUse` hook into `.claude/settings.local.json` instead of the `.claude/settings.json` in the table above. The hook names this machine's Python, so it goes in the personal settings file, and the run adds that file to `.gitignore`. An existing `.claude/settings.local.json` keeps its other settings, and a second run with `--force` replaces the hook instead of adding another. The `fluid` Claude Code plugin runs the same hook script; install it with `/plugin marketplace add Agenticstiger/forge-cli`, then `/plugin install fluid@forge-cli`.
+
+After each `Edit` or `Write` of a file whose name ends in `.fluid.yaml`, `.fluid.yml` or `.fluid.json`, the hook runs `fluid validate <file> --offline` and tells the agent what it found. It runs the `fluid` next to the Python that runs the hook, or else the first one on `PATH`, and never one in the project directory, where the agent writes. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* It adds `--format json`, and reads each finding's code, pointer and fix from [`issues`](./validate.md#finding-codes-and-issues):
+
+| Result | What the agent gets |
+| --- | --- |
+| The contract fails | Exit 2, which Claude Code shows the agent. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* One line per error and warning, with its code and [pointer](./validate.md#finding-codes-and-issues), then its fix. In 0.30.1 and earlier, the text that `fluid validate` prints. |
+| It passes, with warnings | *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* The warnings, the same way, as `additionalContext`, with exit 0, so the edit is not blocked. In 0.30.1 and earlier, nothing. |
+| It passes with no warning | Nothing. |
+| No `fluid` is found, or `fluid validate` takes more than 60 seconds | Exit 2, with the command to run by hand. |
+
+*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* A contract that passes with warnings reaches the agent like this, as the `hookSpecificOutput.additionalContext` of the `PostToolUse` event (two of its four warnings shown):
+
+```text
+fluid validate passed for /work/contract.fluid.yaml, with warnings that fail --strict:
+...
+- ERR_CONTRACT_PLACEHOLDER_EMAIL at /metadata/owner/email: metadata.owner.email: 'owner@example.com' is a placeholder address: example.com is reserved for documentation (RFC 2606), so no mailbox is at it. Use the owning team's real address, never a guess; if there is none, delete the key (it is optional).
+- ERR_CONTRACT_PLACEHOLDER_VALUE at /description: description: 'TODO' is a placeholder, not a value. Write the real value, or delete the key when it is optional; when it is required and nothing gives it, say so rather than make one up.
+...
+Fix each one with what the request gives; never invent a value to silence a warning.
+```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* A contract that fails reaches the agent like this:
+
+```text
+fluid validate failed for /work/contract.fluid.yaml:
+- ERR_CONTRACT_SCHEMA_UNKNOWN_FIELD at /exposes/0/binding/formatt: exposes[0].binding: Additional properties are not allowed ('formatt' was unexpected)
+  Fix: Delete or rename the property the message names: the object at the pointer does not take it. Check its spelling and nesting against the schema: fluid validate <contract> --show-schema.
+- ERR_CONTRACT_SCHEMA_REQUIRED at /exposes/0/binding: exposes[0].binding: 'format' is a required property
+  Fix: Add the property the message names to the object at the pointer: the schema requires it there. fluid validate <contract> --show-schema prints the schema, with the required properties of each object.
+Fix these errors, then run: fluid validate /work/contract.fluid.yaml --offline
+```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* A `Fix:` line is left out when the message already ends with the fix, as the [placeholder and starter-value warnings](./validate.md#placeholders-and-starter-values) do. With a `fluid` older than `issues`, the hook shows the messages without codes.
+
 ## Notes
 
 - This is the editor half of the agentic-IDE workflow; the CLI half is [`fluid forge --agent`](./forge.md#headless-agent-mode), which drives Forge headlessly with JSON-Lines progress output.
