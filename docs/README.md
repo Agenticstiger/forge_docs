@@ -60,9 +60,9 @@ message,created_at
 Hello from the my-first-product data product,2026-10-05 10:35:49.479853+02
 ```
 
-[Getting Started](./getting-started/README.md) walks through each step with its output, then makes the product read a CSV and adds a data-quality rule. It explains why it uses the `fluid.starter` blueprint rather than `fluid init --quickstart` on 0.18.1.
+[Getting Started](./getting-started/README.md) walks through each step with its output, then makes the product read a CSV and adds a data-quality rule. It explains why it uses the `fluid.starter` blueprint rather than `fluid init --quickstart`.
 
-This site documents CLI `0.26.0`, with contract schema `0.7.6` as the stable default and `0.7.7` as an [opt-in preview](./reference/preview-fields.md). `fluid version` is the CLI release you installed; `fluidVersion` inside a contract is the [schema version](./reference/README.md) it is written against. Which version each scaffold writes is in [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
+This site documents CLI `0.29.0`, with contract schema `0.7.6` as the stable default and `0.7.7` as an [opt-in preview](./reference/preview-fields.md). `fluid version` is the CLI release you installed; `fluidVersion` inside a contract is the [schema version](./reference/README.md) it is written against. Which version each scaffold writes is in [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
 
 ## Follow one product from laptop to production
 
@@ -112,7 +112,7 @@ See [AI forge and data-model journeys](./walkthrough/ai-forge-data-model.md).
 
 ## Promoted command groups
 
-These are the groups `fluid --help` prints on `0.18.1`:
+These are the groups `fluid --help` prints on `0.29.0`:
 
 | Group | Commands |
 | --- | --- |
@@ -125,49 +125,9 @@ These are the groups `fluid --help` prints on `0.18.1`:
 
 `--help` promotes a short surface. Commands such as `bundle`, `diff`, `verify`, `runs`, `stats`, `ship` and [`mission`](./cli/mission.md) are registered and documented, and `--help` names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. The [CLI reference](./cli/README.md) covers the commands. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid mission` and `fluid memory` are removed.
 
-:::: tip Current release — `0.18.1`, schema **0.7.5** stable (GA)
-`pip install data-product-forge` gives you `0.18.1`. Its notes:
-[`0.18.0` and `0.18.1`](./RELEASE_NOTES_0.18.0.md). Coming from an older release? The
-[upgrade guide](./upgrading.md) has a checklist for each version you cross.
-
-**Since `0.15.0`:**
-
-- **`0.15.1`–`0.16.2`** ([notes](./RELEASE_NOTES_0.16.0.md)) — a stage name such as `../../ESCAPED` can
-  no longer make `fluid generate transformation` write outside `--output`, and contract values
-  are escaped in generated Airflow, Prefect and Dagster code. Generated SQL
-  now creates views, which drops grants on Snowflake and Databricks. AWS resources go to the
-  binding's region, and BigQuery bindings load their rows.
-- **`0.16.3`–`0.17.0`** ([notes](./RELEASE_NOTES_0.17.0.md)) — one contract deploys to AWS and
-  to Google Cloud through `--env` overlays and is governed the same on both, checked by
-  `fluid verify`. The generated 11-stage pipeline runs as generated. Upgrading has one-time
-  steps: retire old Airflow DAGs, move state to a per-provider key, and let the first
-  GCP apply revoke stale dataset grants.
-- **`0.18.0`** — a contract's `$ref` and its SQL are confined to the contract's directory tree and declared
-  locations, unless you widen them.
-- **`0.18.1`** — the drift gate (`fluid diff --exit-on-drift`) reads a target whose binding
-  names its project or path through an environment variable.
-
-::: details Before that, each release keeping its own work
-- [`0.15.0`](./RELEASE_NOTES_0.15.0.md) — sovereignty enforcement: `sovereignty.enforcementMode`
-  blocks, warns or informs as declared, the region→jurisdiction table comes from the vendors'
-  data, and a jurisdiction-pinned MCP output port refuses to start on stdio, or on HTTP with no
-  auth mode. It documents `0.14.1` with it.
-- [`0.14.0`](/forge_docs/RELEASE_NOTES_0.14.0.html) — live-verification hardening: the dbt Iceberg
-  loop reaching all three cloud warehouses.
-- [`0.13.0`](/forge_docs/RELEASE_NOTES_0.13.0.html) — verifiable autonomy and declarative packaging,
-  with the [`fluid mission`](/forge_docs/cli/mission.html) command. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid mission` is removed.
-- [`0.12.0`](/forge_docs/RELEASE_NOTES_0.12.0.html) — dbt integration and schema GA: `0.7.5` promoted
-  to stable as the default for untagged contracts, plus the brownfield
-  [`fluid import dbt`](/forge_docs/cli/import.html) importer.
-- [`0.11.0`](/forge_docs/RELEASE_NOTES_0.11.0.html) — the AI-ready / RAG surface: vector output port,
-  semantic-drift guard, `ai_ready` agent.
-- [`0.10.0`](/forge_docs/RELEASE_NOTES_0.10.0.html) — plugin governance: an operator trust boundary
-  over plugins, with [`fluid plugins`](/forge_docs/cli/plugins.html) and
-  [`fluid exporters`](/forge_docs/cli/exporters.html).
-- [`0.9.0`](/forge_docs/RELEASE_NOTES_0.9.0.html) — the streaming Kafka → Iceberg sink.
-- [`0.8.6`](/forge_docs/RELEASE_NOTES_0.8.6.html) — the [`fluid mcp`](/forge_docs/cli/mcp.html)
-  output-port gateway: `agentPolicy` enforced at runtime, with JWT-bearer identity.
-:::
+:::: tip Every release in one place
+[All releases](./releases.md) lists every CLI version with what changed. [Upgrading](./upgrading.md) has the steps for each version you cross.
+::::
 
 The vocabulary and the product types behind all of it:
 [SDK & Plugins](/forge_docs/sdk-and-plugins/),

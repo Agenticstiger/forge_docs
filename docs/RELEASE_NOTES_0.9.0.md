@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.9.0`
+---
+title: Release notes — CLI 0.9.0
+description: The streaming Kafka to Iceberg sink, derived from the same contract, and contract schema 0.7.5 as the default for new contracts.
+---
+
+# Release notes — CLI 0.9.0
 
 **Release Date:** June 25, 2026
-**Status:** Current stable docs baseline (supersedes [`0.8.11`](./RELEASE_NOTES_0.8.11.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.11`](./RELEASE_NOTES_0.8.11.md).
 
 ## Headline
 

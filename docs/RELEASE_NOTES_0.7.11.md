@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.7.11`
+---
+title: Release notes — CLI 0.7.11
+description: Pinned the supported CLI version, added a CI check for docs and CLI drift, and documented every command the CLI registers.
+---
+
+# Release notes — CLI 0.7.11
 
 **Release Date:** April 16, 2026
-**Status:** Historical docs baseline (superseded by [`0.8.0`](./RELEASE_NOTES_0.8.0.md), supersedes [`0.7.9`](./RELEASE_NOTES_0.7.9.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.7.9`](./RELEASE_NOTES_0.7.9.md).
 
 ## What changed in the docs
 

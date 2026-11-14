@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.8`
+---
+title: Release notes — CLI 0.8.8
+description: fluid apply --ensure-opentofu fetches a pinned, verified tofu without root, and fluid market now queries real DataHub, OpenMetadata and Data Mesh Manager.
+---
+
+# Release notes — CLI 0.8.8
 
 **Release Date:** May 31, 2026
-**Status:** Superseded by [`0.8.9`](./RELEASE_NOTES_0.8.9.md) (supersedes [`0.8.7`](./RELEASE_NOTES_0.8.7.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.7`](./RELEASE_NOTES_0.8.7.md).
 
 ## Headline
 

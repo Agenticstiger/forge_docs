@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.6`
+---
+title: Release notes — CLI 0.8.6
+description: The MCP output-port gateway enforces agentPolicy at runtime, with contract schema 0.7.4, JWT and mTLS identity, and real BigQuery and Lake Formation IAM compilers.
+---
+
+# Release notes — CLI 0.8.6
 
 **Release Date:** May 29, 2026
-**Status:** Superseded by [`0.8.7`](./RELEASE_NOTES_0.8.7.md) (supersedes [`0.8.5`](./RELEASE_NOTES_0.8.5.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.5`](./RELEASE_NOTES_0.8.5.md).
 
 ## Headline
 

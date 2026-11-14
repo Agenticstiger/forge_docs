@@ -1,11 +1,16 @@
-# Fluid Forge v0.7.1 - Multi-Provider Export Release
+---
+title: Release notes — CLI 0.7.1
+description: Multi-provider export with Airflow DAG generation for AWS, GCP and Snowflake, plus Dagster and Prefect pipelines.
+---
+
+# Release notes — CLI 0.7.1
 
 ::: warning Archived release notes
-This page is preserved for historical context. The primary docs baseline now tracks CLI `0.8.0`, and current scaffolded contract examples use `fluidVersion: 0.7.2`.
+This page is kept for history. For the latest release, see [All releases](./releases.md).
 :::
 
 **Release Date:** January 30, 2026  
-**Status:** ✅ Production Ready
+**Status:** Superseded. The latest release is in [All releases](./releases.md).
 
 ---
 

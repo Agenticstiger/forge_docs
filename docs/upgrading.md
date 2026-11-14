@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.30.0, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.30.1, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,25 +19,28 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.18.1                                                              │
+│ Version: 0.29.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
-│ • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5, 0.7.6 (preview)                   │
-│ • Default: 0.7.5                                                             │
-│ • Latest (stable): 0.7.5                                                     │
+│ • FLUID 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5, 0.7.6, 0.7.7 (preview)            │
+│ • Default: 0.7.6                                                             │
+│ • Latest (stable): 0.7.6                                                     │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ...
 ```
 
-Install the extras your targets need: `local` (DuckDB and pandas), `aws`, `gcp`, `snowflake`.
+Install the extras your targets need: `local` (DuckDB and pandas), `aws`, `gcp`, `snowflake` and
+`databricks` (`fluid apply` on Databricks needs it for metric views and dbt job runs since
+`0.30.0`). For AI forge, MCP and lineage (`litellm`, `mcp`, `lineage`, `standard`) see
+[Changes in 0.28.0](#changes-in-0-28-0).
 Since `0.18.0` the `local` extra requires `duckdb>=1.5.0`, and the engine refuses an older
 DuckDB.
 
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.18.1"
+pip install "data-product-forge[local]==0.29.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -53,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.18.1
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.29.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -61,7 +64,7 @@ Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it,
 
 ## Contracts do not need a new `fluidVersion`
 
-Upgrading the CLI does not change the schema your contracts declare. `0.28.0` reads
+Upgrading the CLI does not change the schema your contracts declare. `0.29.0` reads
 `fluidVersion` `0.7.1` to `0.7.6`, and `0.7.7` as a preview (the list `fluid version`
 prints). `0.7.6` is stable since `0.26.0`: it is the default, and the contracts forge-cli
 writes declare it. A contract that declares `0.7.5` still validates as `0.7.5`.
@@ -98,15 +101,42 @@ next, declare `fluidVersion: "0.7.7"`.
    fluid generate ci contract.fluid.yaml --system jenkins
    ```
 
-5. Work through the section for each version you cross, below.
+5. Work through the section for each version you cross. The table below says which ones.
+
+Find the row for the version you run now, and read it and every row after it, up to the version
+you move to. The last two rows are topic sections that cut across versions: read them as well
+when they apply.
+
+| You run | Read |
+|---|---|
+| `0.15.x` | [From 0.15.x to 0.16](#from-0-15-x-to-0-16) |
+| `0.16.x` | [From 0.16 to 0.17](#from-0-16-to-0-17) |
+| `0.17.x` | [From 0.17 to 0.18.2](#from-0-17-to-0-18-2) |
+| `0.18.x` | [Changes in 0.19.0](#changes-in-0-19-0). On `0.18.0` or `0.18.1`, also the `fluid diff` row of [From 0.17 to 0.18.2](#from-0-17-to-0-18-2) |
+| `0.19.x` | [Changes in 0.20.0](#changes-in-0-20-0), which fixes six security advisories |
+| `0.20.x` | [Changes in 0.21.0](#changes-in-0-21-0) |
+| `0.21.x` | [Changes in 0.22.0](#changes-in-0-22-0) |
+| `0.22.x` | [Changes in 0.23.0](#changes-in-0-23-0) |
+| `0.23.x` | [Changes in 0.24.0](#changes-in-0-24-0) |
+| `0.24.x`, `0.25.x` | [Changes in 0.25.0 and 0.26.0](#changes-in-0-25-0-and-0-26-0) |
+| `0.26.x` | [Changes in 0.27.0](#changes-in-0-27-0) and [Extras in 0.27.0](#extras-in-0-27-0) |
+| `0.27.x` | [Changes in 0.28.0](#changes-in-0-28-0) |
+| `0.28.x` | [Changes in 0.29.0](#changes-in-0-29-0) |
+| `0.29.x` | [Changes in 0.30.0](#changes-in-0-30-0) |
+| `0.30.0` | [Changes in 0.30.1](#changes-in-0-30-1) |
+| Anything before `0.24.0`, if you read forge's ODCS or ODPS output | [Read this first if you consume the exported artifacts](#read-this-first-if-you-consume-the-exported-artifacts) (`0.23.0` and `0.24.0`) |
+| Anything before `0.23.0`, and any DuckDB upgrade | [DuckDB 1.x to 2.x](#duckdb-1-x-to-2-x) (`0.22.0` and `0.23.0`) |
+
+What is not in any release yet is under [Not in a release yet](#not-in-a-release-yet).
 
 ## Read this first if you consume the exported artifacts
 
-::: warning New in `0.23.0`
+::: warning New in `0.23.0` and `0.24.0`
 Exported ODCS and ODPS documents change shape. Every change below corrects output that was
 wrong, but the old values may be baked into whatever reads them, so this is the section to read
 before you upgrade rather than after. The work is
-[forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753).
+[forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753) (`0.23.0`) and
+[forge-cli #756](https://github.com/Agenticstiger/forge-cli/pull/756) (`0.24.0`).
 
 Nothing here changes a FLUID contract. If you do not consume `fluid generate standard`,
 `fluid odcs export`, `fluid odps export` or `fluid generate artifacts` output, skip it.
@@ -121,6 +151,8 @@ Nothing here changes a FLUID contract. If you do not consume `fluid generate sta
 | Derived quality rules carry an `id`, and rules declared in `dq.rules` are exported as ODCS quality | Nothing. A DQ engine that labels results by rule id stops refusing the document | `quality[].id` is present on every rule the exporter mints |
 | `fluid odps import` refuses to write a contract that does not validate, and its pass-through bucket moved from `metadata.odps_passthrough` to the root `extensions.odps` | Read the bucket at its new address. Pass `--lenient` if you need the old write-anyway behaviour | An import that used to print a success tick and write an invalid file now fails and writes nothing |
 | **Breaking.** Two exposes resolving to one contract id fail `fluid validate` and every export | Give each expose its own `exposes[].contract.id`, or rename the expose whose id is derived | `fluid validate` names both exposes and the shared id |
+| `0.24.0`: an ODPS export of a contract with `consumes[]` gains `outputPorts[].inputContracts`, and an input port's `version` may differ from `1.0.0` where the contract states a version range ([forge-cli #756](https://github.com/Agenticstiger/forge-cli/pull/756)) | Update a consumer that compares exported documents byte for byte, or one that expects `1.0.0` on every input port | Export a contract with a `consumes[]` entry that has a `versionConstraint`: the input port's `version` is the lowest version the range accepts, and `outputPorts[].inputContracts` lists the upstream |
+| `0.24.0`: an ODCS `sql` quality rule derived from `exposes[].contract.quality[].expression` is a counting query (`SELECT COUNT(*) FROM ${table} WHERE (<expression>) IS NOT TRUE`) with `mustBe: 0`, not the bare expression with `mustBe: true`; its `description` changes with it ([forge-cli #756](https://github.com/Agenticstiger/forge-cli/pull/756)) | Update a DQ configuration or test that pins the old `query` string or the boolean `mustBe`. An expression already written as a `SELECT` or `WITH` query is unchanged | Export the contract and read `query` and `mustBe` on the rule |
 
 ### The Kafka `physicalType` change is the urgent one
 
@@ -422,9 +454,9 @@ the base contract. A contract's own `environments` block warns but does not refu
   reports its run to the Command Center ([what it sends](./concepts/command-center.md#what-fluid-apply-reports)). Set `FLUID_COMMAND_CENTER_ENABLED=false` to turn it
   off.
 
-## From 0.17 to 0.18.1
+## From 0.17 to 0.18.2
 
-Release notes: [`0.18.0` and `0.18.1`](./RELEASE_NOTES_0.18.0.md). That page has a "Do I need
+Release notes: [`0.18.0` to `0.18.2`](./RELEASE_NOTES_0.18.0.md). That page has a "Do I need
 to change anything?" table; the short version:
 
 | Change | What to do | How to check |
@@ -433,7 +465,7 @@ to change anything?" table; the short version:
 | Contract SQL runs in DuckDB's sandbox: no URLs other than declared `s3://`, no `SET` or `PRAGMA` that change a setting, no autoloaded extensions | Allow a directory with `FLUID_DUCKDB_ALLOWED_DIRS`, land remote data first, remove `SET` / `PRAGMA` | Run each local build once: `fluid apply contract.fluid.yaml --mode amend-and-build --yes` |
 | OpenAPI documents in a bundle may not `$ref` another file or URL | Inline the schemas under `components` | `fluid validate` on the bundle reports `OAS-REF-EXTERNAL` |
 | The `local` extra needs `duckdb>=1.5.0` | `pip install -U "data-product-forge[local]"` | The engine refuses an older DuckDB by version |
-| `fluid diff`'s live check resolves `{{ env.* }}` (`0.18.1`) | Upgrade to `0.18.1`; no contract change | Stage 5 (`fluid diff --exit-on-drift`) passes on a BigQuery binding whose project is an env placeholder |
+| `fluid diff` resolves `{{ env.* }}` in a binding. `0.18.1` fixed only the live check ([forge-cli #692](https://github.com/Agenticstiger/forge-cli/pull/692)): `fluid diff` still failed with `diff_failed` for every silver and gold whose gcp binding names its project through `{{ env.* }}`, until `0.18.2` ([forge-cli #696](https://github.com/Agenticstiger/forge-cli/pull/696)) | Upgrade to `0.18.2`, not `0.18.1`; no contract change | Stage 5 (`fluid diff --exit-on-drift`) passes on a silver or gold whose gcp binding names its project through an env placeholder |
 
 Check a bundle the way CI builds it:
 
@@ -446,20 +478,46 @@ Background: [Composing a contract with `$ref`](./concepts/contract-refs.md),
 [DuckDB sandbox for contract SQL](./advanced/duckdb-sandbox.md),
 [Contract loading API](./advanced/contract-loading-api.md) (new in `fluid_build.api` `1.1`).
 
+## Changes in 0.19.0
+
+`0.19.0` moves the AWS provider to terraform-provider-aws 6, and adds column masking and row
+filters ([forge-cli #700](https://github.com/Agenticstiger/forge-cli/pull/700)). The first row can stop an AWS apply that worked before.
+
+| Change | What to do | How to check |
+|---|---|---|
+| terraform-provider-aws is pinned to `~> 6.0`. Provider 6.23 and later read a bucket's tags through S3 Control, which needs `s3:ListTagsForResource` | Grant `s3:ListTagsForResource` to the identity that applies AWS products | Run `fluid apply contract.fluid.yaml --env aws --dry-run` as that identity on an already applied product: the plan shows no change. With the pin moved and nothing else, eleven applied AWS products planned no change on provider 6.67 |
+| A full-refresh BigQuery load uses `WRITE_TRUNCATE_DATA`, where it used `WRITE_TRUNCATE` | Nothing. `WRITE_TRUNCATE` removed every row access policy of the table it wrote, so each build undid the row filters the apply had made. `WRITE_TRUNCATE_DATA` replaces the rows and keeps the table's policies, policy tags and partitioning. An emulator keeps `WRITE_TRUNCATE` | After a full-refresh build, the table still has its row access policies |
+
+A contract that sets neither `columnRestrictions` with `access: mask` nor `policy.authz.rowFilters`
+is not affected by the rest of the release. A contract that sets them is refused where its binding
+cannot enforce them, with an `unsupported_binding` kind that names the fix:
+
+- `column-mask-unenforceable`: an AWS binding masks a column and declares no
+  `governance.lakeFormation.maskedViews` (`definer` and `validationConnection`). Lake Formation
+  cannot mask, so a protected Glue view returns the masked columns. Declare the field, or deny the
+  columns instead of masking them.
+- `row-filter-unenforceable`: an AWS binding filters rows with no Lake Formation grant that lets the
+  filtered principal read the table. Grant `SELECT`, or remove the filter.
+- `row-filter-view`: a row filter on a BigQuery view. Row access policies attach to tables, so
+  filter the table the view reads.
+
 ## Changes in 0.20.0
 
-These changes shipped in forge-cli `0.20.0`, after the `0.18.1` the sections above cover.
-Each row names the pull request that made it.
+These changes shipped in forge-cli `0.20.0`, after the `0.19.0` the section above covers. It fixes
+six security advisories: they come after the first table. Each row of the first table names the
+pull request that made it.
 
 | Change | What to do | How to check |
 |---|---|---|
 | `fluid apply` validates the contract against its schema on both engines and in every mode ([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714)). A cloud apply (`aws`, `gcp`, `snowflake`, `confluent`) or a build mode skipped the check, so a contract `fluid validate` rejects could apply with exit 0. It now stops before planning with `apply_contract_invalid`, or `contract_version_unsupported` below `fluidVersion` 0.7 | Run `fluid validate <contract> --env <env>` for each overlay you apply, and fix what it reports. No flag skips the check | `fluid apply <contract> --env <env> --dry-run` stops before `tofu plan` with the event |
 | A `plan.json` that embeds no contract is refused with `apply_plan_missing_contract` ([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714)). It used to run its actions unchecked on the native engine | Re-run `fluid plan` and apply the new plan | The apply fails before anything runs |
-| An `aws` contract with `orchestration.engine: airflow` and an `orchestration.schedule` fails `fluid apply` and `fluid generate iac` with `unsupported_binding`, kind `mwaa-environment-not-emitted` ([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715)). The apply reported success and created no MWAA environment | Set `orchestration.engine: none` to schedule through EventBridge Scheduler, or run the DAGs on an MWAA environment you own and drop `orchestration.schedule`. See [Scheduling on AWS](./providers/aws.md#scheduling-on-aws) | `fluid generate iac contract.fluid.yaml` refuses with the kind and writes no module |
+| An `aws` contract with `orchestration.engine: airflow` or `mwaa` and an `orchestration.schedule` fails `fluid apply` and `fluid generate iac` with `unsupported_binding`, kind `mwaa-environment-not-emitted` ([forge-cli #715](https://github.com/Agenticstiger/forge-cli/pull/715)). The apply reported success and created no MWAA environment | Set `orchestration.engine: none` to schedule through EventBridge Scheduler, or run the DAGs on an MWAA environment you own and drop `orchestration.schedule`. See [Scheduling on AWS](./providers/aws.md#scheduling-on-aws) | `fluid generate iac contract.fluid.yaml` refuses with the kind and writes no module |
+| An AWS Iceberg expose with a `location.catalog` other than `glue` (`rest`, `iceberg_rest`, `polaris`, `unity`, `nessie`, `lakekeeper`) holds a Glue database and table that earlier releases created for it. A Snowflake Iceberg expose with `catalog: lakekeeper`, `bigquery`, `iceberg-rest`, `hive`, `jdbc`, `hadoop` or `dynamodb` holds an EXTERNAL VOLUME `0.19.0` and earlier created. `fluid apply` stops before planning with `iceberg_catalog_move_blocked` ([forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707)), where it planned to destroy them. Destroying a Glue database deletes every table in it | Run the `tofu state rm` commands the refusal prints, then apply again. The resources stay where they are | `fluid apply <contract> --env <env> --dry-run` stops with the event and prints the commands |
+| A Kafka Connect or embedded Debezium build whose Iceberg sink config forge-cli derives is refused when its expose names no table namespace (`location.database`, or `location.dataset` on GCP). A Kafka Connect build is also refused when its expose names no `location.table` ([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710)). The derived config used to name the table `None.<table>`, or leave Debezium Server on its default namespace | Set the field on the expose. An override that sets `iceberg.tables` or `table-namespace` itself is not affected | The build is refused before it runs, with a message that the expose's binding names no table namespace, or no table |
 
 A key the schema does not have is one way a contract fails the first row. With
 `fluid apply --dry-run`, a GCP contract that still uses the deprecated `metadata.policies`
-went on to `tofu plan` on forge-cli main before #714, and now stops:
+went on to `tofu plan` before `0.20.0`, and now stops:
 
 ```text
 ❌ apply_contract_invalid  [ERR_APPLY_CONTRACT_INVALID]
@@ -470,6 +528,185 @@ went on to `tofu plan` on forge-cli main before #714, and now stops:
 ```
 
 Background: [Contract validation](./cli/apply.md#contract-validation).
+
+### Security advisories
+
+`0.20.0` fixes six security advisories. Each changes what a project file, an MCP client or a proxy
+may do, so a setup that relied on the old behaviour stops working until you move the setting. The
+full upgrade notes are in the
+[forge-cli CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md).
+
+| Change | What to do | How to check |
+|---|---|---|
+| **Project-config catalog endpoints are no longer trusted** ([GHSA-vw85-xrwh-3p3x](https://github.com/Agenticstiger/forge-cli/security/advisories/GHSA-vw85-xrwh-3p3x)). A catalog endpoint set by `.fluidrc.yaml`, `.fluidrc`, `fluid.config.yaml` or `.fluid/config.yaml` in the checkout (Command Center, Data Mesh Manager, DataHub, OpenMetadata) gets only a key that the same file carries. It no longer gets `FLUID_API_KEY`, `DMM_API_KEY` or any other key from the environment, `/etc/fluid` or `~/.fluid`. `${VAR}` placeholders in it are kept as written. The `fluid apply` Command Center report needs `https://` for every host that is not loopback or on `FLUID_COMMAND_CENTER_HOST_ALLOWLIST` | Set the endpoint yourself: `FLUID_CC_ENDPOINT`, `DMM_API_URL`, `DATAHUB_GMS_URL` or `OPENMETADATA_SERVER_URL`, the endpoint in `~/.fluid/config.yaml`, or `fluid publish --target <name>:<endpoint>`. Move `${VAR}` placeholders out of project configs, and quote credentials | `fluid publish` fails, or `fluid apply` prints `run not reported (...)`. The message names what was withheld, never its value |
+| **A workspace root above the project no longer widens the DuckDB sandbox** ([GHSA-58px-v64p-6ppm](https://github.com/Agenticstiger/forge-cli/security/advisories/GHSA-58px-v64p-6ppm)). A `fluid.workspace.yaml` at `$HOME`, above it, in a home-holding directory (`/home`, `/Users`), in a temp directory, at `/`, or above the contract's repository (`.git`, `.hg`) is found but not granted to contract SQL | Move the workspace file into the directory that holds the products. For products cloned side by side, list their common directory in `FLUID_DUCKDB_ALLOWED_DIRS` and declare the file. Move a contract saved straight in `$HOME` or `/tmp` into a directory of its own | The build runs with the contract's own directory and logs `local_workspace_not_granted`, naming the directory and the fix |
+| **A project `.env` can no longer set operator-only variables** (same advisory). `FLUID_COMMAND_CENTER_URL`, `DMM_API_URL`, `HTTPS_PROXY`, `FLUID_STATE_BACKEND`, `FLUID_DUCKDB_ALLOWED_DIRS`, `FLUID_SECRETS_FILE`, `PGHOSTADDR`, `PATH` and git transport variables are among them. If CI or your shell exports a credential while a committed `.env` names the matching endpoint (`OPENAI_BASE_URL`, `PGHOST`, `SNOWFLAKE_ACCOUNT`), that endpoint is ignored | Export the variable in the shell or the CI job, or put it in a `FLUID_SECRETS_FILE` you export. See [What a project's `.env` may set](./advanced/project-dotenv-trust.md) | `fluid` prints `Ignored ... from project dotenv files` and runs without the variable |
+| **An MCP client can no longer use the host's cloud identity** ([GHSA-m7j5-jcrq-cmxm](https://github.com/Agenticstiger/forge-cli/security/advisories/GHSA-m7j5-jcrq-cmxm)). The source-catalog tools honour a client's `allow_metadata_service: true` only when the server runs with `--allow-metadata-service` (or `FLUID_ALLOW_METADATA_SERVICE=1`). A catalog read that relied on a bare `AWS_REGION`, `GOOGLE_CLOUD_PROJECT` or similar variable now needs the same opt-in, `fluid forge data-model from-source` included | Add `--allow-metadata-service` to the server's `args` in your MCP client config if you rely on instance-role, workload-identity or ADC auth. See [Credential resolver](./advanced/credential-resolver.md) | The tool call fails with an error that names the flag, or a catalog read fails with "No credentials resolved" |
+| **Federation credentials need an operator allowlist** ([GHSA-m288-j7hc-rhrj](https://github.com/Agenticstiger/forge-cli/security/advisories/GHSA-m288-j7hc-rhrj)). A federated upstream whose `auth.secret_ref` attaches a credential is refused unless the operator lists it in `FLUID_FEDERATION_SECRET_REF_ALLOWLIST`, except `GITHUB_TOKEN` or `GH_TOKEN` sent to a GitHub host. An `http://` or `git://` endpoint that carries one is refused | Set `FLUID_FEDERATION_SECRET_REF_ALLOWLIST` (for example `CATALOG_TOKEN@catalog.acme.com`, and `GITHUB_TOKEN@<your host>` for GitHub Enterprise Server) in the shell, the CI environment or a `FLUID_SECRETS_FILE` outside the project, with hosts written without a port. Move the endpoint to `https://` (`ssh://` for git) | The upstream is reported as `unreachable`. The federation gate warns and does not stop `fluid apply` |
+| **The MCP output port reads a client certificate only from a trusted proxy** ([GHSA-x4fj-f8p7-p9f3](https://github.com/Agenticstiger/forge-cli/security/advisories/GHSA-x4fj-f8p7-p9f3)). `X-Client-CN` and `X-Client-Fingerprint` are read only after `shared-token` or `jwt` auth, from a peer listed in `FLUID_MCP_TRUSTED_PROXIES`. `fluid mcp output-port serve` exits 2 over stdio for an expose whose row filter reads `${caller.client_cn}` or `${caller.client_fingerprint}`, and over HTTP without gateway auth | Set `FLUID_MCP_TRUSTED_PROXIES` to the proxy's address if you run behind an mTLS proxy: `127.0.0.1` for the shipped nginx and Caddy templates. List only the proxy, or the narrowest CIDR that covers its replicas. Serve such an expose over HTTP with gateway auth | Calls a certificate filter applies to fail with `RowFilterIdentityMissing`, and the WARNING names the address to add |
+| **`fluid init --discover` keeps passwords out of contracts** ([GHSA-25mh-f2f4-9vxp](https://github.com/Agenticstiger/forge-cli/security/advisories/GHSA-25mh-f2f4-9vxp)). A contract from a Postgres or MySQL/MariaDB URI that holds a password carries `secretRef: env://PGPASSWORD` or `env://MYSQL_PWD`, not `password:`. A URL contract keeps no query string, fragment or `user:password@` part | Export `PGPASSWORD` or `MYSQL_PWD` before `fluid apply`. Add back by hand any query parameter the source needs that is not a credential. Against a remote host the `env://` reference also needs an allowlist since `0.23.0`: see [Changes in 0.23.0](#changes-in-0-23-0) | The contract has no `password:` line, and the closing line of `--discover` lists the URL parameters it dropped |
+
+## Changes in 0.21.0
+
+`0.21.0` caps how far a YAML file may expand, merges overlay lists by id from `fluidVersion`
+`0.7.6`, and stops running Flink SQL as SQL of forge-cli's own.
+
+| Change | What to do | How to check |
+|---|---|---|
+| The YAML guard refuses a file, FLUID contracts included, that nests more than 128 levels, or whose aliases add more than 100,000 nodes or 5,242,880 characters of text, or that grows more than 100-fold past 1,000 nodes ([forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725)). The 5 MiB size cap counts UTF-8 bytes. ODCS and ODPS files now go through the guard too, so `fluid odps import` and `validate`, `fluid odcs validate` and `import`, `fluid odps-bitol validate` and `fluid forge --seed-from` refuse a file over 5 MiB or with more than 50 aliases | Write the repeated blocks out instead of reusing them through anchors | The error names the sizes. A bundle directory whose ODPS document the guard refuses, or that does not parse, fails instead of importing as ODCS-only |
+| A file the resolver probes for a port's `contractId` must declare that `contractId` as its `id` ([forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725)) | Make the port's `contractId` and the ODCS `id` agree | A strict import fails, or skips the port under `--lenient` (an input port is always skipped) |
+| In a contract whose `fluidVersion` is `0.7.6` or later, an overlay patches `builds`, `exposes` and `consumes` by id, not by position ([forge-cli #732](https://github.com/Agenticstiger/forge-cli/pull/732)). An overlay entry with no id, or two naming the same id, fails the load where the base's entries carry unique ids | Give each overlay entry the id of the entry it patches. See [Changes in 0.25.0 and 0.26.0](#changes-in-0-25-0-and-0-26-0) for the rule, since `0.7.6` became stable in `0.26.0`. A `0.7.5` contract still merges by position | `fluid validate contract.fluid.yaml --env <env>` fails with `contract_load_failed` for an id-less entry. An entry whose id the base lacks is appended and logged as `overlay_entry_added` |
+| A build with `properties.language: flink_sql` is no longer run as SQL ([forge-cli #731](https://github.com/Agenticstiger/forge-cli/pull/731)). `fluid apply --mode amend-and-build` ran its Flink SQL on DuckDB or refused it, and the local, AWS, GCP and Snowflake planners planned it as a DuckDB, Athena, BigQuery or Snowflake statement. It is now reported as run outside forge-cli, planned without SQL, and left out of generated schedules | Run the job on the platform that runs Flink. Declare `engine: flink` with `fluidVersion: "0.7.6"` to name the engine too | `fluid apply --mode amend-and-build` counts the build on its own summary line as run outside forge-cli |
+
+## Changes in 0.22.0
+
+`0.22.0` makes `--strict` fail on a retargeted overlay patch, changes the operators in generated
+Airflow DAGs, and lets the local engine run on DuckDB 2.x. The DuckDB changes are in
+[DuckDB 1.x to 2.x](#duckdb-1-x-to-2-x), which follows this section.
+
+| Change | What to do | How to check |
+|---|---|---|
+| `fluid validate --env <env> --strict` (one contract or a whole workspace), `fluid contract-validation --env <env> --strict` and `fluid test --env <env> --strict` fail when an overlay patch lands on an entry that names another id (`overlay_patch_retargeted`), which an overlay merged by position can do ([forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734)). `fluid validate <bundle>.tgz --strict` fails on one the bundle recorded ([forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735)), and stage 2 of the generated pipelines runs `--strict` | Put the overlay's entries in the base's order, or set `fluidVersion: "0.7.6"` with a unique id on every base entry, so overlays patch by id. Rebuild a bundle made before `0.22.0`: it records no such warning and passes as before. `fluid contract-validation` and `fluid test` do not read the bundle's record, so run them on the contract file with `--env` | `fluid validate contract.fluid.yaml --env <env> --strict` fails. Without `--strict` the finding is a warning |
+| Generated Airflow DAGs run Snowflake SQL through `SQLExecuteQueryOperator` with `conn_id`, because apache-airflow-providers-snowflake 6.0 removed `SnowflakeOperator`. A GCP `create_table` task uses `BigQueryCreateTableOperator` where the google provider has it (13 and later), and `BigQueryCreateEmptyTableOperator` before that ([forge-cli #736](https://github.com/Agenticstiger/forge-cli/pull/736)) | Regenerate each committed DAG: a DAG generated before does not load on providers-snowflake 6.0 | Generate the schedule again and diff the DAG: the operator names change |
+| The new operators render more of their arguments as Jinja: `SQLExecuteQueryOperator` renders `conn_id` and `hook_params` (the warehouse and database), and `BigQueryCreateTableOperator` renders `table_resource` (the schema). A literal `{{`, `{%` or `{#` in a warehouse or database name, or in a schema field such as a description, now fails the task when it runs ([forge-cli #736](https://github.com/Agenticstiger/forge-cli/pull/736)) | Escape it as `{{ '{{' }}`, `{{ '{%' }}` or `{{ '{#' }}`, or wrap the value in `{% raw %}` ... `{% endraw %}` | The task fails at run time, not at generation |
+| `fluid scaffold-composer` writes no DAG for a contract whose every build runs outside forge-cli (`engine: flink`, `properties.language: flink_sql`) or continuously and that declares no `orchestration.tasks`, where it used to write one. It takes the DAG's cron from the first build a scheduler starts ([forge-cli #737](https://github.com/Agenticstiger/forge-cli/pull/737)) | Delete a DAG it wrote for such a contract before, from `--out-dir` and from Cloud Composer if you deployed it. The command names the file when it finds it under the name it writes now | `fluid scaffold-composer` writes no file for such a contract |
+| A product whose every build becomes `continuous` (or runs outside forge-cli) gets no `schedule/` artifacts, so pipeline stage 11 skips `fluid schedule-sync` ([forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734)) | Remove by hand a DAG deployed for it earlier: it stays in the scheduler | `fluid generate schedule` writes no files for the contract |
+| An environment overlay cannot turn a scheduled build `continuous` (`trigger.type: continuous`, a `0.7.6` preview): overlays cannot delete the base's `cron` or `schedule`, which a continuous trigger refuses ([forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734)) | Declare the trigger in each environment's overlay instead of in the base | The schema error names the field and the trigger type that takes it |
+
+## DuckDB 1.x to 2.x
+
+`0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so
+`pip install -U "data-product-forge[local]"` can now resolve DuckDB 2.x. DuckDB 2.0 needs
+Python 3.11, so a Python 3.10 install stays on 1.5.x and nothing below changes for it.
+
+Nothing here asks you to upgrade DuckDB. Read it before you do, and before anything else in
+your stack does it for you — `pip install -U` on a fresh environment, a rebuilt CI image, or
+another tool in the same environment pulling DuckDB 2.x in.
+
+```bash
+python -c "import duckdb; print(duckdb.__version__)"
+```
+
+| Change | What to do | How to check |
+|---|---|---|
+| A DuckDB **database file** another 2.x tool wrote cannot be opened on 1.5. That covers dbt-duckdb, dlt, and forge-cli `0.21.0` or older running on DuckDB 2.0 | Convert it, or keep every reader of that file on 2.x. The conversion is below | `fluid apply` on 1.5.x fails to open the file |
+| **Contract SQL runs on the DuckDB that is installed**, and 2.0 changed some SQL: `x -> x + 1` is an error, and integer `//` and `%` by zero raise instead of returning NULL | Write `lambda x: x + 1`; wrap a division that can divide by zero in `TRY(...)` | Run each local build once: `fluid apply contract.fluid.yaml --mode amend-and-build --yes` |
+| A **DuckDB acquisition build now resolves a Postgres source's `connection.secretRef`** (`0.22.0`). It used to ignore it, and libpq's `PGPASSWORD` or `~/.pgpass` supplied the password | In `0.22.0`, remove the `secretRef` to keep using `PGPASSWORD`. From `0.23.0` an acquisition build no longer sees `PGPASSWORD` from the environment (see [Changes in 0.23.0](#changes-in-0-23-0)): declare the credential on the connection. An inline `password` still wins over a `secretRef` | The build fails, naming the reference, where the `secretRef` does not resolve on the host that runs `fluid apply` |
+| An **incremental timestamp cursor** written on 1.5 and read on 2.0 could silently drop or duplicate rows | Nothing: no state file needs rewriting. Upgrade to the release below before you move an incremental build across DuckDB versions | A run that lands fewer rows than are due, at exit code 0, with the stream recorded `succeeded` |
+| A pipeline **discovered on 1.5 failed `SchemaDriftError` on 2.0** on a false positive | Nothing, in the release below | `fluid apply` fails the drift gate after a DuckDB upgrade, with no contract edit and no new data |
+
+A file forge-cli itself creates on 2.x — `fluid demo`'s `.fluid/db.duckdb`, the local
+provider's session and `persist` databases, a Meltano acquisition's DuckDB destination — is
+written in the format DuckDB 1.5 writes, which DuckDB 1.0 and later open. A column type that
+needs a newer format, such as `VARIANT`, is refused in it on 2.x exactly as it is on 1.5. A
+file that already exists keeps the format it has.
+
+To convert a file that only opens on 2.x, run this on 2.x:
+
+```sql
+ATTACH 'old.duckdb' AS src (READ_ONLY);
+ATTACH 'new.duckdb' AS dst (STORAGE_VERSION 'v1.0.0');
+COPY FROM DATABASE src TO dst;
+```
+
+DuckDB's own [2.0 migration notes](https://duckdb.org/docs/2.0/operations_manual/migration.html)
+cover the SQL changes in full.
+
+### The two drift defects, and what fixes them
+
+::: tip Fixed in `0.23.0`
+Both fixes shipped in `0.23.0`, in
+[forge-cli #749](https://github.com/Agenticstiger/forge-cli/pull/749).
+:::
+
+**An incremental cursor written on 1.5 and read on 2.0 silently dropped or duplicated rows.**
+A cursor is stored as text and pasted into `WHERE <field> > '<text>'` as an untyped literal,
+so DuckDB coerces it to the column's type — and the two versions disagree about that type.
+`read_json_auto` over a timestamp carrying `Z` gives `TIMESTAMP` on 1.5 and
+`TIMESTAMP WITH TIME ZONE` on 2.0, where a naive literal is read in the session time zone,
+which is the host's. On a host at a non-zero UTC offset the `>` boundary therefore moved. An
+end-to-end run that wrote its cursor on 1.5 and continued on 2.0 landed 5 of 6 rows and
+advanced the cursor past the row it skipped — exit code 0, stream recorded `succeeded`. Both
+versions satisfy `duckdb>=1.5.0`, so one install can write state another reads. CSV sources
+were never affected: `read_csv_auto` already sniffed `TIMESTAMPTZ` on 1.5.
+
+A timestamp cursor now compares **instants** (`epoch_us`), which no session time zone can
+shift, and the stored text is normalised to a naive UTC instant.
+
+- **No state file needs rewriting.** A cursor a shipped 2.0 install already wrote carries an
+  explicit offset, and is normalised when it is read.
+- The instant comparison is used only for a column whose type `epoch_us` accepts
+  (`TIMESTAMP`, `TIMESTAMP WITH TIME ZONE`, `TIMESTAMPTZ`, `TIMESTAMP_S`, `TIMESTAMP_MS`,
+  `TIMESTAMP_NS`, `TIMESTAMPTZ_NS`, `DATE`, `TIME`). Integer, date-as-integer and opaque
+  string cursors keep the plain comparison, because `epoch_us` raises `BinderException` on
+  them. The choice is made from the **column's** type, never from the cursor text's shape: a
+  `VARCHAR` column of timestamp-looking strings yields a cursor indistinguishable from a real
+  timestamp's.
+- Pinning the session time zone to UTC would also have worked, and is deliberately not used.
+  `TimeZone` is an ICU-backed setting, the [DuckDB sandbox](./advanced/duckdb-sandbox.md)
+  forbids autoloading extensions, and where ICU is absent DuckDB does not recognise the option
+  at all — so a pin would fail the connection in exactly the hardened environments the sandbox
+  exists for.
+- The accepted cost: wrapping the column in a function can stop the predicate being pushed
+  into the Parquet or JSON reader, so a large source scans more than it would have.
+
+**A pipeline discovered on 1.5 failed `SchemaDriftError` on 2.0.** The drift gate compared
+type *names*, and 2.0 infers `HUGEINT` where 1.5 infers `DOUBLE` for the same integer literal,
+and `TIMESTAMP WITH TIME ZONE` where 1.5 infers `TIMESTAMP` for the same JSON timestamp.
+Upgrading DuckDB — no contract edit, no new data — broke a working pipeline on a false
+positive: the inferrer drifted, the data did not. Those pairs are now treated as one physical
+type under two names.
+
+- The widening and narrowing classification is unchanged. The family check runs *after* it, so
+  `type_widened` and `type_narrowed` still fire for every ordered numeric pair.
+- `DOUBLE` and `HUGEINT` are **not** value-identical: for the same literal 1.5 landed a lossy
+  17-significant-digit float where 2.0 lands the exact 128-bit integer. So the non-failing path
+  says the physical type moved rather than passing silently, with a line that ends "the same
+  physical type under two names ... The stored width does change, so a value's precision may
+  differ between the two."
+
+**`fluid init --discover` emitted contracts its own `fluid validate` rejected.** The emitter
+wrote the source's type name straight through, so a discover on DuckDB 2.0 produced
+`type: hugeint` and `type: '"null"'`, and `fluid validate` then exited 1 on the file the tool
+had just written. Validating every name in DuckDB's own `duckdb_types()` against the bundled
+schema showed **35 rejected names**, not the two reported: `uinteger` and `integer[]` were
+rejected on 1.5 as well, so this was never only a 2.0 problem. Discovered types are now
+canonicalised at the emitter, each rejected name mapping to the nearest one the schema accepts
+and every already-valid name left untouched. An unsigned or 128-bit type maps to a width that
+holds its range (`uinteger` → `bigint`, `hugeint` → `numeric`) rather than to the
+similar-sounding name. A contract already emitted with an invalid type stays invalid — the fix
+is at emit time — but such a contract already failed validation, so nothing working changes.
+
+Background: [DuckDB sandbox for contract SQL](./advanced/duckdb-sandbox.md),
+[Source-aligned acquisition](./advanced/source-aligned-acquisition.md).
+
+## Changes in 0.23.0
+
+`0.23.0` changes what forge exports, fixes three DuckDB 2.0 defects, and stops a contract from
+choosing where an environment variable is sent.
+
+| Change | What to do | How to check |
+|---|---|---|
+| Exported ODCS and ODPS documents change shape ([forge-cli #753](https://github.com/Agenticstiger/forge-cli/pull/753)) | Read [Read this first if you consume the exported artifacts](#read-this-first-if-you-consume-the-exported-artifacts) before you upgrade | See that section's table |
+| Three DuckDB 2.0 defects are fixed: an incremental cursor written on 1.5 and read on 2.0 dropped or duplicated rows, a pipeline discovered on 1.5 failed `SchemaDriftError` on 2.0, and `fluid init --discover` wrote types `fluid validate` rejected ([forge-cli #749](https://github.com/Agenticstiger/forge-cli/pull/749)) | Upgrade to `0.23.0` before you move an incremental build across DuckDB versions. See [The two drift defects, and what fixes them](#the-two-drift-defects-and-what-fixes-them) | See that section |
+| **A contract that uses `env://` in `connection.secretRef` against a remote host fails until the operator allows it** ([forge-cli #751](https://github.com/Agenticstiger/forge-cli/pull/751)). All six acquisition runners (airbyte, debezium, dlt, duckdb, kafka_connect, meltano) refuse to resolve the reference unless every destination the connection block carries is loopback | Set `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` to the variable's own name: `PG_PASSWORD@db.example.com` for that host only, or `PG_PASSWORD` for any host. Write the host without a port. Set it in the shell, in CI or in a `FLUID_SECRETS_FILE` outside the project, not in a project `.env`, where it is ignored. `localhost`, `127.0.0.0/8` and `::1` need nothing. For a production credential, use `vault://`, `aws://`, `gcp://`, `azure://` or `file://`, which are not policed. See [Environment variables](./advanced/environment-variables.md) | The build fails before the secret is read, with a refusal that names the variable and the host, never the value |
+| `fluid init --discover` against a remote host writes a contract with `env://` | Set the same allowlist before `fluid apply`. The discover hint does not print it yet: the refusal from `apply` does | `fluid apply` refuses the contract until the variable is allowlisted |
+| An acquisition source no longer receives this host's ambient database credentials: `PGPASSWORD`, `PGPASSFILE`, `PGSERVICE`, `MYSQL_PWD` and ten more variables are hidden while a postgres or mysql source is attached ([forge-cli #750](https://github.com/Agenticstiger/forge-cli/pull/750)). A source whose declared connection carries its own credentials is unaffected | Put the credential on the connection (`secretRef` or an inline `password`) | A build that took its password from `PGPASSWORD` or `MYSQL_PWD` alone now fails to authenticate |
+
+## Changes in 0.24.0
+
+`0.24.0` fixes three more exports: lineage, versions and quality SQL ([forge-cli #756](https://github.com/Agenticstiger/forge-cli/pull/756)). Exported
+documents change shape again, so read the `0.24.0` rows of
+[Read this first if you consume the exported artifacts](#read-this-first-if-you-consume-the-exported-artifacts)
+before you upgrade:
+
+- An ODPS export of a contract with `consumes[]` gains `outputPorts[].inputContracts`, and an input
+  port's `version` may differ from `1.0.0`.
+- An ODCS `sql` quality rule becomes a counting query with `mustBe: 0`.
+
+Nothing else in this release asks you to act. `consumes[].contractVersion` is new and optional
+(`0.7.6`): the exact upstream version a product was built against, within `versionConstraint`. It
+wins over the lowest version of the range as the version an exported input port claims.
 
 ## Changes in 0.25.0 and 0.26.0
 
@@ -776,7 +1013,7 @@ pip install "data-product-forge[standard]"  # litellm and mcp: the pre-0.28.0 AI
 
 `[dev]` and `[all]` include all three. The Docker image profiles already install `[standard]` and `[lineage]`.
 
-**The CLI stops before it does any work.** An explicit `--llm-provider` naming an API-key provider (`fluid forge`, `fluid forge data-model`, `--agent-loop`), the `fluid ai setup` wizard and the MCP commands (`mcp serve`, `mcp output-port serve`, `scaffold-ide`) print the exact `pip install` line and exit 1, with no traceback. `--llm-model` alone resolves to the provider saved with `fluid ai setup`, and to `ollama` when none is saved. For AI forge the check runs before the interview reads any context or memory, and before the `fluid ai setup` wizard reads the OS keyring or asks for a key. The forge message names `--llm-provider claude-code` (your Claude Code login) and `--template starter`; the `--agent-loop` message names only `--template starter`; `ai setup` and `init` name `claude-code`, `codex`, `cursor`, `kiro`, `mcp-sampling` and `--template starter`. Only Claude Code needs no setup of its own: `codex`, `cursor` and `kiro` reuse their own CLI login or key, and `mcp-sampling` runs inside `fluid mcp serve`, which needs `[mcp]`. `fluid forge data-model` with no provider flags runs offline. `fluid init` does not exit 1: its AI hand-off prints the line and the options, then continues in template mode (it picks Claude Code if `claude` is on `PATH`). Bare interactive `fluid forge` with no provider uses Claude Code when it is installed, and otherwise prints the hint and offers guided mode. Template and blank forge are unchanged. `fluid scaffold-ide` writes nothing without `mcp`, because every entry it writes launches `fluid mcp serve`.
+**The CLI stops before it does any work.** An explicit `--llm-provider` naming an API-key provider (`fluid forge`, `fluid forge data-model`, `--agent-loop`), the `fluid ai setup` wizard and the MCP commands (`mcp serve`, `mcp output-port serve`, `scaffold-ide`) print the exact `pip install` line and exit 1, with no traceback. `--llm-model` alone resolves to the provider saved with `fluid ai setup`, and to `ollama` when none is saved. For AI forge the check runs before the interview reads any context or memory, and before the `fluid ai setup` wizard reads the OS keyring or asks for a key. The forge message names `--llm-provider claude-code` (your Claude Code login) and `--template starter`; the `--agent-loop` message names only `--template starter`; `ai setup` and `init` name `claude-code`, `codex`, `cursor`, `kiro`, `mcp-sampling` and `--template starter`. Only Claude Code needs no setup of its own: `codex`, `cursor` and `kiro` reuse their own CLI login or key, and `mcp-sampling` runs inside `fluid mcp serve`, which needs `[mcp]`. `fluid forge data-model` with no provider flags runs offline. `fluid init` does not exit 1 for a missing extra: its AI hand-off prints the line and the options, then continues in template mode (it picks Claude Code if `claude` is on `PATH`). Since 0.30.0 it does exit 1 in one case: with litellm installed and keys for two or more providers set, with no provider named, the AI path stops instead of writing a template ([forge-cli #857](https://github.com/Agenticstiger/forge-cli/pull/857); see [Changes in 0.30.0](#changes-in-0-30-0)). Bare interactive `fluid forge` with no provider uses Claude Code when it is installed, and otherwise prints the hint and offers guided mode. Template and blank forge are unchanged. `fluid scaffold-ide` writes nothing without `mcp`, because every entry it writes launches `fluid mcp serve`.
 
 ```text
 ❌ The MCP server needs mcp, which is not installed.
@@ -870,24 +1107,24 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
   - **The next `fluid apply` updates the tags in place.** The plan shows each changed tag as `~`. Nothing is replaced or destroyed, and no `--allow-data-loss` is needed. Until that apply, `fluid verify` reports each old value as a changed tag (`CRITICAL`). On Databricks Free Edition, a product carrying the old values planned `+0 ~17 -0`.
   - **A value over 256 characters is refused** as `databricks-tag-value-too-long` by `fluid validate`, `fluid generate iac` and `fluid apply`. Up to 0.29.0 it was cut to 63 characters. Shorten the value before you upgrade.
   - **Anything that reads a tag value sees the new text**, for example a query on `information_schema.table_tags` that matches `'us'`.
+- *(since 0.30.0, [forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861))* **`fluid apply --mode amend-and-build` on Databricks runs each dbt job build now, and waits for it.** Up to 0.29.0 it only provisioned the job, so a manual job never ran. A pipeline that applies with `amend-and-build` or `replace-and-build` now waits for each run, up to `FLUID_DATABRICKS_RUN_TIMEOUT_SECONDS` (by default an hour, or the job's own limits plus 15 minutes), and fails when a run fails. It needs `databricks-sdk`: without `pip install 'data-product-forge[databricks]'`, the apply is refused before anything is applied. To provision a job without running it, apply with `--mode amend`. See [Running the job from `fluid apply`](./providers/databricks.md#running-the-job-from-fluid-apply).
+- *(since 0.30.0, [forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864))* **A Databricks expose with a freshness or completeness SLO turns on data quality monitoring at the next `fluid apply`.** A contract that already states `qos.freshnessSLO`, `qos.completenessTarget`, an `observability.defaultSLIs` freshness or completeness block, or a `contract.dq.rules` entry of type `freshness`, `completeness` or `anomaly_detection` gets a `databricks_data_quality_monitor` on the schema it owns. Its scans run on serverless compute, billed as `DATA_QUALITY_MONITORING`. On Databricks Free Edition, expect them to count toward the daily compute quota (not measured), and a workspace over it stops all compute for the rest of the day. If Databricks refuses the monitor (it documents that monitoring needs serverless compute and `MANAGE` on the schema or its catalog), the apply now fails after the tables are created. To keep an expose unwatched, set `contract.dq.monitoring.enabled: false` on it. See [Data quality monitoring](./providers/databricks.md#data-quality-monitoring).
+- *(since 0.30.0, [forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871))* **A Databricks dbt job runs the contract's `dq.rules` as dbt tests at the next `fluid apply`, and a rule that cannot run is refused.** Up to 0.29.0 the job ignored these rules, and `fluid validate` accepted them whatever they said. The upload now gains the generated test files, one or more per rule, in a `fluid_dq/` folder under the first of the project's `test-paths`, and `dbt build` runs each test right after its model. A rule of severity `critical` or `error` that fails now fails the run, skips the models below it, and fails the `--mode amend-and-build` apply that started it. A `warn` or `info` rule is reported and does not. Before you upgrade, run `fluid validate` on each contract. On an expose a Databricks dbt job writes, it now refuses a `drift_detection` rule, an `anomaly_detection` rule on an expose with monitoring turned off, a `valid_values` rule with no allowed values, a rule that names a column the schema does not declare, a build whose `repository` is a Git URL while an expose it writes has rules, and a project that already holds a test with a rule's name, or a file at the path of a generated test (`<test path>/fluid_dq/<model>/<name>.sql`). To keep a rule from failing runs, set its `severity` to `warn`. See [Contract rules as dbt tests](./providers/databricks.md#contract-rules-as-dbt-tests).
 
 ### Other changes
 
 - *([forge-cli #868](https://github.com/Agenticstiger/forge-cli/pull/868), since 0.30.0)* Logs and printed errors no longer mask a fully qualified name such as `catalog.schema.table`: `fluid apply` printed `databricks.load table=***REDACTED***`, and now prints the table's name. A JWT or JWE is still masked, recognised by its JOSE header (a first part that decodes to a JSON object). `redact_secret_text()` no longer takes the `keep_dotted_names` keyword, so code that passes it gets a `TypeError`.
+- *([forge-cli #857](https://github.com/Agenticstiger/forge-cli/pull/857), since 0.30.0)* **Keys for two or more providers stop the run, even with Ollama running.** With `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` both set (or one provider's key and `OLLAMA_HOST`) and nothing naming a provider, a run without a terminal used a running local Ollama, and interactive setup used the first key it found. Forge now stops with `copilot_no_llm_provider` and names the keys, without asking Ollama. `fluid ai test` and `fluid doctor` say the same, and `fluid init`'s AI path exits 1 where it used to write a template. A `fluid ai setup` choice and a single keyring key still come first, and `GEMINI_API_KEY` with `GOOGLE_API_KEY` is one provider. Pick one with `--llm-provider` or `FLUID_LLM_PROVIDER`. See [No LLM provider is selected](./advanced/production-troubleshooting.md#no-llm-provider-is-selected).
+
+## Changes in 0.30.1
+
+`0.30.1` fixes one regression of `0.30.0`. Use `0.30.1`, not `0.30.0`.
+
+| Change | What to do | How to check |
+|---|---|---|
+| `fluid validate --strict` no longer fails a dbt-built Databricks product that describes its tables. `0.30.0` warned on every Databricks expose a dbt build writes when the contract has a table or column description, because dbt's `CREATE OR REPLACE` sets the comments and `fluid apply` sets none. `--strict` turned that warning into an error, so stage 2 of the generated pipelines (`VALIDATE_STRICT` defaults to true) failed for every such product. The message is now a note with the same text | Upgrade to `0.30.1`, not `0.30.0` | `fluid validate --strict` passes. The note is under "Validation Notes:", `--format json` lists it under `notes`, and a bundle reports it as an `info` issue |
 
 ## Not in a release yet
-
-*On forge-cli's feat/databricks-build-run-now branch ([forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861)), not yet on `main` or in a release.*
-
-- **`fluid apply --mode amend-and-build` on Databricks runs each dbt job build now, and waits for it.** In 0.29.0 it only provisioned the job, so a manual job never ran. A pipeline that applies with `amend-and-build` or `replace-and-build` now waits for each run, up to `FLUID_DATABRICKS_RUN_TIMEOUT_SECONDS` (by default an hour, or the job's own limits plus 15 minutes), and fails when a run fails. It needs `databricks-sdk`: without `pip install 'data-product-forge[databricks]'`, the apply is refused before anything is applied. To provision a job without running it, apply with `--mode amend`. See [Running the job from `fluid apply`](./providers/databricks.md#running-the-job-from-fluid-apply).
-
-*On forge-cli `main`, not yet in a release ([forge-cli #864](https://github.com/Agenticstiger/forge-cli/pull/864)).*
-
-- **A Databricks expose with a freshness or completeness SLO turns on data quality monitoring at the next `fluid apply`.** A contract that already states `qos.freshnessSLO`, `qos.completenessTarget`, an `observability.defaultSLIs` freshness or completeness block, or a `contract.dq.rules` entry of type `freshness`, `completeness` or `anomaly_detection` gets a `databricks_data_quality_monitor` on the schema it owns. Its scans run on serverless compute, billed as `DATA_QUALITY_MONITORING`. On Databricks Free Edition, expect them to count toward the daily compute quota (not measured), and a workspace over it stops all compute for the rest of the day. If Databricks refuses the monitor (it documents that monitoring needs serverless compute and `MANAGE` on the schema or its catalog), the apply now fails after the tables are created. To keep an expose unwatched, set `contract.dq.monitoring.enabled: false` on it. See [Data quality monitoring](./providers/databricks.md#data-quality-monitoring).
-
-*On forge-cli `main`, not yet in a release ([forge-cli #871](https://github.com/Agenticstiger/forge-cli/pull/871)).*
-
-- **A Databricks dbt job runs the contract's `dq.rules` as dbt tests at the next `fluid apply`, and a rule that cannot run is refused.** The job ignored these rules until now, and `fluid validate` accepted them whatever they said. The upload now gains the generated test files, one or more per rule, in a `fluid_dq/` folder under the first of the project's `test-paths`, and `dbt build` runs each test right after its model. A rule of severity `critical` or `error` that fails now fails the run, skips the models below it, and fails the `--mode amend-and-build` apply that started it. A `warn` or `info` rule is reported and does not. Before you upgrade, run `fluid validate` on each contract. On an expose a Databricks dbt job writes, it now refuses a `drift_detection` rule, an `anomaly_detection` rule on an expose with monitoring turned off, a `valid_values` rule with no allowed values, a rule that names a column the schema does not declare, a build whose `repository` is a Git URL while an expose it writes has rules, and a project that already holds a test with a rule's name, or a file at the path of a generated test (`<test path>/fluid_dq/<model>/<name>.sql`). To keep a rule from failing runs, set its `severity` to `warn`. See [Contract rules as dbt tests](./providers/databricks.md#contract-rules-as-dbt-tests).
 
 *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).*
 
@@ -916,114 +1153,7 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **`fluid mcp serve` reads source catalogs with one tool, `source_catalog`, and serves 7 tools.** `list_source_adapters`, `list_source_tables`, `inspect_source_table`, `list_source_lineage` and `list_source_glossary` are now `source_catalog` with `kind` set to `adapters`, `tables`, `table`, `lineage` or `glossary`. The other arguments keep their names, and no alias keeps the old tool names: rename the calls in agent instructions and scripts. Every result names its `kind`, and a `table` or `lineage` result now sits under it, as in `{"kind": "table", "table": {...}}`. A result is `concise` unless the call asks for `"response_format": "detailed"`, which returns every field, as the five tools did. See [`source_catalog`](./advanced/mcp.md#source-catalog).
 - **An unknown tool name in `--allow-tools` or `--deny-tools` stops `fluid mcp serve` with exit 2.** A name that is not a tool now fails at startup: a typo, one of the five tools, or a tool that [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881) removed. In 0.30.1 those tools were still served, and a typo was ignored. Replace the five names with `source_catalog`. An IDE config that an older `fluid scaffold-ide` wrote lists the five old tools under `autoApprove`, so the client does not auto-approve `source_catalog`: add it to the list by hand, or run `fluid scaffold-ide --force`, which writes the scaffold's files again over any edits. See [Access controls](./cli/mcp.md#access-controls).
 - **A result estimated at more than 6,000 tokens comes back as a resource.** The call returns a short envelope and a `resource_link` to `fluid://artifacts/<id>`, which the client reads with `resources/read`. Over stdio the envelope also names a file holding the same JSON. A client that reads only a result's text sees the envelope where it used to see the result. `FLUID_MCP_INLINE_TOKEN_LIMIT=0` keeps every result inline. See [Large results](./advanced/mcp.md#large-results).
-- **A catalog listing with a scope now works through an MCP client.** In 0.29.0 and 0.30.1, `list_source_tables` and a scoped `list_source_glossary` failed for an ordinary scope such as `{"database": "DB", "schema": "SALES"}`, on SDK 2.x as `Error executing tool`: the server sent the scope's unset `tables` back as `null`.
-
-## DuckDB 1.x to 2.x
-
-`0.22.0` raised the local engine's DuckDB range to `duckdb>=1.5.0` with no upper bound, so
-`pip install -U "data-product-forge[local]"` can now resolve DuckDB 2.x. DuckDB 2.0 needs
-Python 3.11, so a Python 3.10 install stays on 1.5.x and nothing below changes for it.
-
-Nothing here asks you to upgrade DuckDB. Read it before you do, and before anything else in
-your stack does it for you — `pip install -U` on a fresh environment, a rebuilt CI image, or
-another tool in the same environment pulling DuckDB 2.x in.
-
-```bash
-python -c "import duckdb; print(duckdb.__version__)"
-```
-
-| Change | What to do | How to check |
-|---|---|---|
-| A DuckDB **database file** another 2.x tool wrote cannot be opened on 1.5. That covers dbt-duckdb, dlt, and forge-cli `0.21.0` or older running on DuckDB 2.0 | Convert it, or keep every reader of that file on 2.x. The conversion is below | `fluid apply` on 1.5.x fails to open the file |
-| **Contract SQL runs on the DuckDB that is installed**, and 2.0 changed some SQL: `x -> x + 1` is an error, and integer `//` and `%` by zero raise instead of returning NULL | Write `lambda x: x + 1`; wrap a division that can divide by zero in `TRY(...)` | Run each local build once: `fluid apply contract.fluid.yaml --mode amend-and-build --yes` |
-| A **DuckDB acquisition build now resolves a Postgres source's `connection.secretRef`** (`0.22.0`). It used to ignore it, and libpq's `PGPASSWORD` or `~/.pgpass` supplied the password | To keep using `PGPASSWORD`, remove the `secretRef`. An inline `password` still wins over it | The build fails, naming the reference, where the `secretRef` does not resolve on the host that runs `fluid apply` |
-| An **incremental timestamp cursor** written on 1.5 and read on 2.0 could silently drop or duplicate rows | Nothing: no state file needs rewriting. Upgrade to the release below before you move an incremental build across DuckDB versions | A run that lands fewer rows than are due, at exit code 0, with the stream recorded `succeeded` |
-| A pipeline **discovered on 1.5 failed `SchemaDriftError` on 2.0** on a false positive | Nothing, in the release below | `fluid apply` fails the drift gate after a DuckDB upgrade, with no contract edit and no new data |
-
-A file forge-cli itself creates on 2.x — `fluid demo`'s `.fluid/db.duckdb`, the local
-provider's session and `persist` databases, a Meltano acquisition's DuckDB destination — is
-written in the format DuckDB 1.5 writes, which DuckDB 1.0 and later open. A column type that
-needs a newer format, such as `VARIANT`, is refused in it on 2.x exactly as it is on 1.5. A
-file that already exists keeps the format it has.
-
-To convert a file that only opens on 2.x, run this on 2.x:
-
-```sql
-ATTACH 'old.duckdb' AS src (READ_ONLY);
-ATTACH 'new.duckdb' AS dst (STORAGE_VERSION 'v1.0.0');
-COPY FROM DATABASE src TO dst;
-```
-
-DuckDB's own [2.0 migration notes](https://duckdb.org/docs/2.0/operations_manual/migration.html)
-cover the SQL changes in full.
-
-### The two drift defects, and what fixes them
-
-::: tip Fixed in `0.23.0`
-Both fixes shipped in `0.23.0`, in
-[forge-cli #749](https://github.com/Agenticstiger/forge-cli/pull/749).
-:::
-
-**An incremental cursor written on 1.5 and read on 2.0 silently dropped or duplicated rows.**
-A cursor is stored as text and pasted into `WHERE <field> > '<text>'` as an untyped literal,
-so DuckDB coerces it to the column's type — and the two versions disagree about that type.
-`read_json_auto` over a timestamp carrying `Z` gives `TIMESTAMP` on 1.5 and
-`TIMESTAMP WITH TIME ZONE` on 2.0, where a naive literal is read in the session time zone,
-which is the host's. On a host at a non-zero UTC offset the `>` boundary therefore moved. An
-end-to-end run that wrote its cursor on 1.5 and continued on 2.0 landed 5 of 6 rows and
-advanced the cursor past the row it skipped — exit code 0, stream recorded `succeeded`. Both
-versions satisfy `duckdb>=1.5.0`, so one install can write state another reads. CSV sources
-were never affected: `read_csv_auto` already sniffed `TIMESTAMPTZ` on 1.5.
-
-A timestamp cursor now compares **instants** (`epoch_us`), which no session time zone can
-shift, and the stored text is normalised to a naive UTC instant.
-
-- **No state file needs rewriting.** A cursor a shipped 2.0 install already wrote carries an
-  explicit offset, and is normalised when it is read.
-- The instant comparison is used only for a column whose type `epoch_us` accepts
-  (`TIMESTAMP`, `TIMESTAMP WITH TIME ZONE`, `TIMESTAMPTZ`, `TIMESTAMP_S`, `TIMESTAMP_MS`,
-  `TIMESTAMP_NS`, `TIMESTAMPTZ_NS`, `DATE`, `TIME`). Integer, date-as-integer and opaque
-  string cursors keep the plain comparison, because `epoch_us` raises `BinderException` on
-  them. The choice is made from the **column's** type, never from the cursor text's shape: a
-  `VARCHAR` column of timestamp-looking strings yields a cursor indistinguishable from a real
-  timestamp's.
-- Pinning the session time zone to UTC would also have worked, and is deliberately not used.
-  `TimeZone` is an ICU-backed setting, the [DuckDB sandbox](./advanced/duckdb-sandbox.md)
-  forbids autoloading extensions, and where ICU is absent DuckDB does not recognise the option
-  at all — so a pin would fail the connection in exactly the hardened environments the sandbox
-  exists for.
-- The accepted cost: wrapping the column in a function can stop the predicate being pushed
-  into the Parquet or JSON reader, so a large source scans more than it would have.
-
-**A pipeline discovered on 1.5 failed `SchemaDriftError` on 2.0.** The drift gate compared
-type *names*, and 2.0 infers `HUGEINT` where 1.5 infers `DOUBLE` for the same integer literal,
-and `TIMESTAMP WITH TIME ZONE` where 1.5 infers `TIMESTAMP` for the same JSON timestamp.
-Upgrading DuckDB — no contract edit, no new data — broke a working pipeline on a false
-positive: the inferrer drifted, the data did not. Those pairs are now treated as one physical
-type under two names.
-
-- The widening and narrowing classification is unchanged. The family check runs *after* it, so
-  `type_widened` and `type_narrowed` still fire for every ordered numeric pair.
-- `DOUBLE` and `HUGEINT` are **not** value-identical: for the same literal 1.5 landed a lossy
-  17-significant-digit float where 2.0 lands the exact 128-bit integer. So the non-failing path
-  says the physical type moved rather than passing silently, with a line that ends "the same
-  physical type under two names ... The stored width does change, so a value's precision may
-  differ between the two."
-
-**`fluid init --discover` emitted contracts its own `fluid validate` rejected.** The emitter
-wrote the source's type name straight through, so a discover on DuckDB 2.0 produced
-`type: hugeint` and `type: '"null"'`, and `fluid validate` then exited 1 on the file the tool
-had just written. Validating every name in DuckDB's own `duckdb_types()` against the bundled
-schema showed **35 rejected names**, not the two reported: `uinteger` and `integer[]` were
-rejected on 1.5 as well, so this was never only a 2.0 problem. Discovered types are now
-canonicalised at the emitter, each rejected name mapping to the nearest one the schema accepts
-and every already-valid name left untouched. An unsigned or 128-bit type maps to a width that
-holds its range (`uinteger` → `bigint`, `hugeint` → `numeric`) rather than to the
-similar-sounding name. A contract already emitted with an invalid type stays invalid — the fix
-is at emit time — but such a contract already failed validation, so nothing working changes.
-
-Background: [DuckDB sandbox for contract SQL](./advanced/duckdb-sandbox.md),
-[Source-aligned acquisition](./advanced/source-aligned-acquisition.md).
+- **A catalog listing with a scope now works through an MCP client.** On MCP SDK 2.x, `list_source_tables` (now `source_catalog` with `kind` set to `tables`) and a scoped `list_source_glossary` failed with `Error executing tool` for an ordinary scope such as `{"database": "DB", "schema": "SALES"}`: the server sent the scope's unset `tables` back as `null`. Unset fields are now left out.
 
 ## Older releases
 

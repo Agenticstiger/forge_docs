@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.13.0`
+---
+title: Release notes — CLI 0.13.0
+description: The fluid mission command with deterministic success criteria, declarative packaging in the 0.7.6 preview schema, and accessPolicy as the IaC access grant.
+---
+
+# Release notes — CLI 0.13.0
 
 **Release Date:** July 18, 2026
-**Status:** Current stable docs baseline (supersedes [`0.12.0`](./RELEASE_NOTES_0.12.0.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.12.0`](./RELEASE_NOTES_0.12.0.md).
 
 ## Headline
 

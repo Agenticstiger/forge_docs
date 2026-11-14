@@ -1,14 +1,13 @@
 ---
-title: Upgrading to CLI 0.18.0 and 0.18.1
-description: Breaking changes and migration steps for data-product-forge 0.18.0 — $ref confinement, the DuckDB sandbox, and the public contract-loading API — and the 0.18.1 drift-gate fix.
+title: Release notes — CLI 0.18.0 to 0.18.2
+description: Breaking changes and migration steps for data-product-forge 0.18.0 — $ref confinement, the DuckDB sandbox, and the public contract-loading API — and the 0.18.1 and 0.18.2 drift-gate fixes.
 ---
 
-# Upgrading to CLI `0.18.0`
+# Release notes — CLI 0.18.0 to 0.18.2
 
-**Release dates:** `0.18.0` on October 3, 2026; `0.18.1` on October 5, 2026.
-**Status:** Current docs baseline, CLI `0.18.1`. Supersedes
-[`0.17.0`](./RELEASE_NOTES_0.17.0.md). Coming from an older release? Start with the
-[upgrade guide](./upgrading.md).
+**Release dates:** `0.18.0` on October 3, 2026; `0.18.1` and `0.18.2` on October 5, 2026.
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.17.0`](./RELEASE_NOTES_0.17.0.md).
+Coming from an older release? Start with the [upgrade guide](./upgrading.md).
 
 ## Headline
 
@@ -25,9 +24,11 @@ These changes matter most to services, CI jobs or shared hosts that run
 contracts other people wrote: before 0.18.0, such a contract could make the
 engine read files and URLs its operator never meant to expose.
 
-`0.18.1` fixes one thing: [`fluid diff`](./cli/diff.md) reads a live target whose
-binding names its project or path through `{{ env.* }}`. See
-[What changed in 0.18.1](#what-changed-in-0-18-1).
+`0.18.1` and `0.18.2` fix one thing between them: [`fluid diff`](./cli/diff.md) on a
+binding that names its project or path through `{{ env.* }}`. `0.18.1` fixed the live
+check and `0.18.2` fixed the plan. See
+[What changed in 0.18.1](#what-changed-in-0-18-1) and
+[What changed in 0.18.2](#what-changed-in-0-18-2).
 
 ## What changed in 0.18.1
 
@@ -42,9 +43,29 @@ table is not a valid id", so `fluid diff --exit-on-drift`, stage 5 of a pipeline
 `fluid verify` read the real table. It was found on 4 October 2026, on the first run of a gcp
 overlay against real BigQuery.
 
-**Action:** upgrade. Nothing in a contract needs to change. A generated Jenkinsfile installs
-the version that generated it, so regenerate the pipeline or set its `FLUID_PACKAGE_SPEC`
-parameter to `0.18.1`.
+`0.18.1` fixed only the live check. A silver or gold whose gcp binding names its project
+through `{{ env.FLUID_GCP_PROJECT }}` still failed, as the next section describes.
+
+**Action:** upgrade to `0.18.2`. Nothing in a contract needs to change. A generated
+Jenkinsfile installs the version that generated it, so regenerate the pipeline or set its
+`FLUID_PACKAGE_SPEC` parameter to `0.18.2`.
+
+## What changed in 0.18.2
+
+`fluid diff` now plans the contract it resolved, not the one as written. The contract is
+resolved once, as soon as it is loaded, the way `fluid plan` and `fluid apply` read it
+([forge-cli #696](https://github.com/Agenticstiger/forge-cli/pull/696)).
+
+Before `0.18.2`, `fluid diff` resolved `{{ env.* }}` for the live check only. It still built
+the provider from the binding's project as written. For a gcp binding whose project is
+`{{ env.FLUID_GCP_PROJECT }}`, the GCP planner refused the placeholder ("Invalid GCP
+project ID") while wrapping an embedded-SQL build into
+`CREATE OR REPLACE TABLE <project>...`. So `fluid diff --exit-on-drift`, stage 5 of the
+generated pipelines, failed with `diff_failed` for every silver and gold. A bronze, with no SQL build, passed. It was
+found on the demo lab's GCP chain on `0.18.1`.
+
+**Action:** upgrade. Nothing in a contract needs to change. Regenerate the pipeline or set
+its `FLUID_PACKAGE_SPEC` parameter to `0.18.2`, as above.
 
 ## Do I need to change anything?
 
@@ -60,7 +81,7 @@ parameter to `0.18.1`.
 | `SET` or `PRAGMA` a DuckDB setting in contract SQL (`memory_limit`, `threads`, `TimeZone`, …) | [remove the statement](#set-and-pragma-in-contract-sql) |
 | call `read_xlsx`, `sqlite_scan`, `ST_Read`, `delta_scan` or `iceberg_scan` in contract SQL | [convert or land the data](#functions-duckdb-used-to-autoload) |
 | install DuckDB yourself at a version below 1.5.0 | [upgrade DuckDB](#upgrade-duckdb) |
-| name a binding's project or path through `{{ env.* }}` and are checked by `fluid diff --exit-on-drift` | [upgrade to 0.18.1](#what-changed-in-0-18-1) |
+| name a binding's project or path through `{{ env.* }}` and are checked by `fluid diff --exit-on-drift` | [upgrade to 0.18.2](#what-changed-in-0-18-2) |
 
 ## Breaking changes and migration
 

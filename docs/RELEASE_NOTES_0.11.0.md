@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.11.0`
+---
+title: Release notes — CLI 0.11.0
+description: A vector output port for RAG, a semantic-drift guard in the authoring copilot, LocalStack-compatible AWS config, and a guided fluid init Quickstart.
+---
+
+# Release notes — CLI 0.11.0
 
 **Release Date:** July 13, 2026
-**Status:** Superseded by [`0.12.0`](./RELEASE_NOTES_0.12.0.md)
+**Status:** Superseded. The latest release is in [All releases](./releases.md).
 
 ## Headline
 

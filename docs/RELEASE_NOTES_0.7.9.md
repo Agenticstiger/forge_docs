@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.7.9`
+---
+title: Release notes — CLI 0.7.9
+description: The docs now track the promoted fluid --help command surface, with a local-first path through Home, getting-started and the CLI reference.
+---
+
+# Release notes — CLI 0.7.9
 
 **Release Date:** April 6, 2026  
-**Status:** Historical docs baseline (superseded by [`0.7.11`](./RELEASE_NOTES_0.7.11.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md).
 
 ## What changed in the docs
 

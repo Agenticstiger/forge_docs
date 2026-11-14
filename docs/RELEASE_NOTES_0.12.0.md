@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.12.0`
+---
+title: Release notes — CLI 0.12.0
+description: Contract schema 0.7.5 becomes stable, plus a dbt integration wave with brownfield import, model contracts, a MetricFlow bridge and dbt Fusion detection.
+---
+
+# Release notes — CLI 0.12.0
 
 **Release Date:** July 18, 2026
-**Status:** Current stable docs baseline (supersedes [`0.11.0`](./RELEASE_NOTES_0.11.0.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.11.0`](./RELEASE_NOTES_0.11.0.md).
 
 ## Headline
 

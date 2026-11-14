@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.4`
+---
+title: Release notes — CLI 0.8.4
+description: Bitol ODPS becomes the default format, the engine module gets a public API, and Data Mesh Manager publish shows access-agreement status.
+---
+
+# Release notes — CLI 0.8.4
 
 **Release Date:** May 26, 2026
-**Status:** Superseded by [`0.8.5`](./RELEASE_NOTES_0.8.5.md) (supersedes [`0.8.3`](./RELEASE_NOTES_0.8.3.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.3`](./RELEASE_NOTES_0.8.3.md).
 
 ## Headline
 
