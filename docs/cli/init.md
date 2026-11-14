@@ -94,7 +94,7 @@ Commit `fluid.workspace.yaml`, `.gitignore`, `.fluid/team-memory.yaml` and every
 | `--show-work` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Stream the agent's reasoning and tool calls during the init-to-forge handoff. Also saved under `.fluid/agents/<run-id>/`. |
 | `--agent NAME` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Scaffold a custom domain agent spec in `.fluid/agents/`. See [Custom domain agents](./agents.md#custom-domain-agents). |
 | `--yes`, `-y` | Skip confirmation prompts. |
-| `--dry-run` | Preview what would be created. See the [known issues](#known-issues-as-of-0-18-1). |
+| `--dry-run` | Preview what would be created. See the [known issues](#known-issues-as-of-0-29-0). |
 | `--dir`, `-C` | Directory to initialize, or, with `--discover`, where the contracts are written. |
 | `--quiet`, `-q` | Suppress the next-steps panel. |
 
@@ -207,21 +207,21 @@ A default `fluid apply` does not run the acquisition build. It writes a 24-byte 
 fluid apply contract.orders.fluid.yaml --mode amend-and-build --yes
 ```
 
-In a directory holding one CSV (`orders.csv` with `id,name` and two rows), the run wrote `out/orders.parquet` with those two rows. Two limits apply on 0.18.1:
+In a directory holding one CSV (`orders.csv` with `id,name` and two rows), the run wrote `out/orders.parquet` with those two rows. Two limits apply as of 0.29.0:
 
 - **The source must sit inside the contract's directory tree.** Contract SQL is limited to the contract directory, its workspace, `./runtime` and the locations the contract declares inside those. Discovering `file:///data/csvs` into `--dir found` and applying from `found/` failed with `file system operations are disabled by configuration`, because `csvs/` is outside `found/`. Run `fluid init --discover` from the directory that holds the data, or see the [DuckDB sandbox](../advanced/duckdb-sandbox.md) for how to widen the roots.
-- **The build reads the whole directory.** Each emitted contract points `source.connection.uri` at the directory, so a directory whose CSVs have different columns fails the build with `Schema mismatch between globbed files`. Discover from a directory of files that share one schema, or edit `source.connection.uri` to a single file.
+- **The build reads the whole directory.** *(seen on 0.18.1; not re-checked on 0.29.0)* Each emitted contract points `source.connection.uri` at the directory, so a directory whose CSVs have different columns fails the build with `Schema mismatch between globbed files`. Discover from a directory of files that share one schema, or edit `source.connection.uri` to a single file.
 
 See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition.html) for the full framework, or [the Postgres → DuckDB walkthrough](/forge_docs/walkthrough/source-aligned-postgres-duckdb.html) for an end-to-end example.
 
-## Known issues (as of 0.18.1)
+## Known issues (as of 0.29.0)
 
-- `--dry-run` prevents writes with `--blank` and with `fluid demo`, but `--quickstart`, `--template` and `--blueprint` still write the workspace files and the project.
+- `--dry-run` writes nothing with `--blank`. With `--blueprint` it previews the project but the workspace files (`fluid.workspace.yaml`) are still written first. `--quickstart` and `--template` ignore it and write the workspace files and the project.
 - `fluid init --discover sqlite://...` fails with `unsupported source scheme`, although the error message lists `sqlite` as supported.
-- `fluid init --discover postgres://...` against an unreachable host (`127.0.0.1:1`) failed with `Unknown secret storage found: 'local_file'` instead of a connection error. No live Postgres or MySQL server was available for this page, so those two schemes are untested end to end on 0.18.1; the `file://` example above is the measured one.
-- `--provider azure` is rejected with `Unknown provider 'azure'`. The providers registered in the test install were `aws`, `datamesh_manager`, `gcp`, `local`, `redshift` and `snowflake`.
+- `fluid init --discover postgres://...` against an unreachable host (`127.0.0.1:1`) failed with `Unknown secret storage found: 'local_file'` instead of a connection error. No live Postgres or MySQL server was available for this page, so those two schemes are untested end to end on 0.18.1; the `file://` example above is the measured one. (Seen on 0.18.1; not re-checked on 0.29.0.)
+- `--provider azure` is rejected with `Unknown provider 'azure'`, and the run exits 2. The built-in providers in 0.29.0 are `aws`, `databricks`, `gcp`, `local` and `snowflake`; `redshift` and `datamesh_manager` are retired and name their replacement when you pass them.
 - Any `--provider gcp` run logs `Provider 'gcp' requires --project to be specified` unless the global `--project` is set. The scaffold is still written.
-- *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init --agent` is removed. In 0.29.0, `fluid init --agent NAME` fails with a missing `custom.yaml.template` in the 0.18.1 wheel. The workaround is in [Custom domain agents](./agents.md#custom-domain-agents).
+- *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init --agent` is removed. In 0.29.0, `fluid init --agent NAME` still looks for `custom.yaml.template` in the package, and the package-data globs ship only the `*.yaml` files of `cli/agent_specs`, so the template is likely missing from the installed wheel (read from source; the wheel was not run). The workaround is in [Custom domain agents](./agents.md#custom-domain-agents).
 
 ## Notes
 

@@ -20,7 +20,7 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
   |    FLUID_PIP_INDEX_URL       = 'https://test.pypi.org/simple/'  (TestPyPI)
   |    FLUID_PIP_EXTRA_INDEX_URL = 'https://pypi.org/simple/'   (fallback)
   |    FLUID_ALLOW_PRERELEASE    = true  (pip --pre, alpha/rc releases)
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.18.1
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.29.0
   |- Jenkins plugins required: workflow-aggregator, git
 ```
 
@@ -28,7 +28,7 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
 pip picks the highest version of a package across every index it is given. With `FLUID_PIP_INDEX_URL` set to TestPyPI and `FLUID_PIP_EXTRA_INDEX_URL` set to PyPI, as the output above suggests, whichever index holds the higher version wins, for `data-product-forge` and for each of its dependencies. Anyone can register a name on TestPyPI, so a pilot build can install a package you did not choose. Run TestPyPI pilots only on an agent that holds no deploy credentials. For private packages, set `FLUID_PIP_INDEX_URL` to one mirror that proxies PyPI and leave `FLUID_PIP_EXTRA_INDEX_URL` empty.
 :::
 
-Commit the `Jenkinsfile` beside the contract. The file is generated once and then belongs to you: after you upgrade the CLI, regenerate it and review the diff to pick up changes. The `CONTRACT` parameter defaults to the path you generated from, and `FLUID_PACKAGE_SPEC` to the CLI version that generated the file with the extras the contract and its overlays need. A contract that has an `overlays/gcp.yaml` binding to BigQuery generates `data-product-forge[gcp,local]==0.18.1`; `--fluid-package-spec` overrides it.
+Commit the `Jenkinsfile` beside the contract. The file is generated once and then belongs to you: after you upgrade the CLI, regenerate it and review the diff to pick up changes. The `CONTRACT` parameter defaults to the path you generated from, and `FLUID_PACKAGE_SPEC` to the CLI version that generated the file with the extras the contract and its overlays need. A contract that has an `overlays/gcp.yaml` binding to BigQuery generates `data-product-forge[gcp,local]==0.29.0`; `--fluid-package-spec` overrides it.
 
 ## Set up Jenkins
 

@@ -447,3 +447,13 @@ div[class*="language-"] {
   max-width: 100%;
   overflow-x: auto;
 }
+
+// Prose at the 740px column ran ~91 characters a line; cap top-level paragraphs
+// and lists near a readable 75 characters (tables, code and containers keep full width).
+// Page prose renders inside [vp-content] > #content. em, not ch: Geist's "0" is
+// wider than its average letter, so 65ch still measured 82-90 characters a line.
+[vp-content] > #content > p,
+[vp-content] > #content > ul,
+[vp-content] > #content > ol {
+  max-width: 38em;
+}

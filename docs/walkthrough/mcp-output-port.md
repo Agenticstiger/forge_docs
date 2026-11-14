@@ -222,7 +222,7 @@ The server compiles that to a `SELECT` over the bound table, runs it on DuckDB, 
 }
 ```
 
-To break that total down by segment, a real MCP client (Claude, Cursor) sends the `dimensions` argument as a JSON array — `{"metric": "ltv_total", "dimensions": ["segment"]}` — and the server adds `segment` to both the `SELECT` and a `GROUP BY`. For the example data it returns `enterprise` 59100.75, `smb` 6800.0 and `consumer` 2650.75, ordered by the metric. (The Inspector CLI's `--tool-arg key=value` form only sends scalars, so use a real client, or the `query` examples in the [CLI reference](../cli/mcp.md#the-four-agent-tools), to pass arrays and `filters`.)
+To break that total down by segment, a real MCP client (Claude, Cursor) sends the `dimensions` argument as a JSON array — `{"metric": "ltv_total", "dimensions": ["segment"]}` — and the server adds `segment` to both the `SELECT` and a `GROUP BY`. For the example data it returns `enterprise` 59100.75, `smb` 6800.0 and `consumer` 2650.75, ordered by the metric. (The Inspector CLI's `--tool-arg key=value` form only sends scalars, so use a real client, or the `query` examples in the [CLI reference](../cli/mcp.md#the-agent-tools), to pass arrays and `filters`.)
 
 ---
 

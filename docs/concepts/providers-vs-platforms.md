@@ -89,7 +89,7 @@ After `pip install my-fluid-provider`, `fluid providers` will list it automatica
 | `plan(contract)` | `fluid plan` | Stage 6 — *Plan* | Return the list of actions that would change the target. Same contract and same deployed state should give the same actions: `fluid apply` refuses a `plan.json` whose `planDigest` no longer matches its content. |
 | `apply(actions)` | `fluid apply` | Stage 7 — *Apply* | Execute the actions against the target and report success or failure per action. Re-running an apply should be safe. |
 
-For `aws`, `gcp` and `snowflake`, `fluid apply` compiles the contract into the OpenTofu module that `fluid generate iac` writes and runs `tofu` on it; the provider's planner still runs for checks such as the [sovereignty gate](./sovereignty.md#apply-re-checks-placements-on-aws-and-gcp-and-binds-the-plan-by-digest). On that path a plan that destroys a resource holding data is refused unless you pass `--allow-data-loss`; removing a grant or a policy tag is not counted as data loss.
+For `aws`, `gcp` and `snowflake`, `fluid apply` compiles the contract into the OpenTofu module that `fluid generate iac` writes and runs `tofu` on it; the provider's planner still runs for checks such as the [sovereignty gate](./sovereignty.md#apply-re-checks-placements-on-aws-gcp-and-databricks-and-binds-the-plan-by-digest). On that path a plan that destroys a resource holding data is refused unless you pass `--allow-data-loss`; removing a grant or a policy tag is not counted as data loss.
 
 Verification and policy compilation are **engine-level pipeline stages**, not provider abstract methods — the CLI drives them around the provider's `plan`/`apply` rather than calling extra methods on `BaseProvider`.
 
