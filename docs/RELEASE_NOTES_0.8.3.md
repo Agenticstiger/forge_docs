@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.3`
+---
+title: Release notes — CLI 0.8.3
+description: First stable 0.8.x release, with the ODCS and Bitol ODPS provider, a unified catalog registry, an SSRF import gate and the OpenTofu autogenerator for fluid apply.
+---
+
+# Release notes — CLI 0.8.3
 
 **Release Date:** May 25, 2026
-**Status:** Current stable docs baseline (supersedes [`0.8.0`](./RELEASE_NOTES_0.8.0.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.0`](./RELEASE_NOTES_0.8.0.md).
 
 ## Headline
 

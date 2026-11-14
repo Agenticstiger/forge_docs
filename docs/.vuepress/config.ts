@@ -175,11 +175,9 @@ export default defineUserConfig({
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
 
-    // Twitter / X. Kept hand-written: plugin-seo emits twitter:* tags only
-    // when a page declares a frontmatter cover, so these do not collide.
+    // Twitter / X. Only the card type and image are set here; X falls back to
+    // each page's og:title and og:description for the rest.
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: 'Fluid Forge — Declarative Data Products' }],
-    ['meta', { name: 'twitter:description', content: 'Write YAML, deploy anywhere. One contract, every cloud.' }],
     ['meta', { name: 'twitter:image', content: `${CANONICAL_ROOT}/og-card.png` }],
 
     ['meta', { name: 'keywords', content: 'fluid forge, data products, declarative data engineering, duckdb, bigquery, snowflake, aws, cli' }],
@@ -203,7 +201,13 @@ export default defineUserConfig({
 
       // plugin-seo emits rel="canonical" only when `canonical` is set; passing
       // `hostname` alone gives per-page og:* but no canonical at all.
-      seo: { canonical: CANONICAL_ROOT },
+      // fallBackImage and author fill JSON-LD `image` and `author`, which were
+      // empty on every page.
+      seo: {
+        canonical: CANONICAL_ROOT,
+        fallBackImage: `${CANONICAL_ROOT}/og-card.png`,
+        author: { name: 'Agentics Transformation Pty Ltd', url: 'https://fluidhq.io' },
+      },
     },
 
     // Dark is the brand default (matches agenticstransformation.com).
@@ -339,11 +343,8 @@ export default defineUserConfig({
       {
         text: 'Releases',
         children: [
-          { text: 'Upgrading', link: '/upgrading.md' },
-          { text: '0.18.0 and 0.18.1', link: '/RELEASE_NOTES_0.18.0.md' },
-          { text: '0.17.0', link: '/RELEASE_NOTES_0.17.0.md' },
-          { text: '0.16.0', link: '/RELEASE_NOTES_0.16.0.md' },
-          { text: '0.15.0', link: '/RELEASE_NOTES_0.15.0.md' }
+          { text: 'All releases', link: '/releases.md' },
+          { text: 'Upgrading', link: '/upgrading.md' }
         ]
       }
     ],
@@ -707,37 +708,39 @@ export default defineUserConfig({
             }
           ]
         },
-        // Releases: the upgrade guide first, then the notes, newest first.
+        // Releases: the index of every release first, then the upgrade guide, then
+        // the per-release notes pages, newest first (a page can cover several versions).
         {
           text: 'Releases',
           collapsible: true,
           children: [
+            { text: 'All releases', link: '/releases.md' },
             '/upgrading.md',
-            '/RELEASE_NOTES_0.18.0.md',
-            '/RELEASE_NOTES_0.17.0.md',
-            '/RELEASE_NOTES_0.16.0.md',
-            '/RELEASE_NOTES_0.15.0.md',
-            '/RELEASE_NOTES_0.14.0.md',
-            '/RELEASE_NOTES_0.13.0.md',
-            '/RELEASE_NOTES_0.12.0.md',
-            '/RELEASE_NOTES_0.11.0.md',
-            '/RELEASE_NOTES_0.10.0.md',
-            '/RELEASE_NOTES_0.9.0.md',
-            '/RELEASE_NOTES_0.8.11.md',
-            '/RELEASE_NOTES_0.8.10.md',
-            '/RELEASE_NOTES_0.8.9.md',
-            '/RELEASE_NOTES_0.8.8.md',
-            '/RELEASE_NOTES_0.8.7.md',
-            '/RELEASE_NOTES_0.8.6.md',
-            '/RELEASE_NOTES_0.8.5.md',
-            '/RELEASE_NOTES_0.8.4.md',
-            '/RELEASE_NOTES_0.8.3.md',
+            { text: '0.18.0 – 0.18.2', link: '/RELEASE_NOTES_0.18.0.md' },
+            { text: '0.16.3 – 0.17.0', link: '/RELEASE_NOTES_0.17.0.md' },
+            { text: '0.15.1 – 0.16.2', link: '/RELEASE_NOTES_0.16.0.md' },
+            { text: '0.14.1 – 0.15.0', link: '/RELEASE_NOTES_0.15.0.md' },
+            { text: '0.13.1 – 0.14.0', link: '/RELEASE_NOTES_0.14.0.md' },
+            { text: '0.13.0', link: '/RELEASE_NOTES_0.13.0.md' },
+            { text: '0.12.0', link: '/RELEASE_NOTES_0.12.0.md' },
+            { text: '0.11.0', link: '/RELEASE_NOTES_0.11.0.md' },
+            { text: '0.10.0', link: '/RELEASE_NOTES_0.10.0.md' },
+            { text: '0.9.0', link: '/RELEASE_NOTES_0.9.0.md' },
+            { text: '0.8.11', link: '/RELEASE_NOTES_0.8.11.md' },
+            { text: '0.8.10', link: '/RELEASE_NOTES_0.8.10.md' },
+            { text: '0.8.9', link: '/RELEASE_NOTES_0.8.9.md' },
+            { text: '0.8.8', link: '/RELEASE_NOTES_0.8.8.md' },
+            { text: '0.8.7', link: '/RELEASE_NOTES_0.8.7.md' },
+            { text: '0.8.6', link: '/RELEASE_NOTES_0.8.6.md' },
+            { text: '0.8.5', link: '/RELEASE_NOTES_0.8.5.md' },
+            { text: '0.8.4', link: '/RELEASE_NOTES_0.8.4.md' },
+            { text: '0.8.3', link: '/RELEASE_NOTES_0.8.3.md' },
             // The catalog-integration work, first stable in 0.8.3.
             { text: 'Catalog integration (0.8.3)', link: '/advanced/v1.5-release-notes.md' },
-            '/RELEASE_NOTES_0.8.0.md',
-            '/RELEASE_NOTES_0.7.11.md',
-            '/RELEASE_NOTES_0.7.9.md',
-            '/RELEASE_NOTES_0.7.1.md'
+            { text: '0.8.0', link: '/RELEASE_NOTES_0.8.0.md' },
+            { text: '0.7.11', link: '/RELEASE_NOTES_0.7.11.md' },
+            { text: '0.7.9', link: '/RELEASE_NOTES_0.7.9.md' },
+            { text: '0.7.1', link: '/RELEASE_NOTES_0.7.1.md' }
           ]
         }
       ]

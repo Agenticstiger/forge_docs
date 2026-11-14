@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.5`
+---
+title: Release notes — CLI 0.8.5
+description: A LiteLLM Router with cloud fallback, a JudgeAgent that scores contracts, pausable fluid forge runs, and the fluid describe --self surface.
+---
+
+# Release notes — CLI 0.8.5
 
 **Release Date:** May 28, 2026
-**Status:** Superseded by [`0.8.6`](./RELEASE_NOTES_0.8.6.md) (supersedes [`0.8.4`](./RELEASE_NOTES_0.8.4.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.4`](./RELEASE_NOTES_0.8.4.md).
 
 ## Headline
 

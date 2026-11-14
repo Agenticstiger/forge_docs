@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.9`
+---
+title: Release notes — CLI 0.8.9
+description: The fluid forge copilot generates and validates plugin extension blocks from the plugin's own JSON Schema, with no per-extension CLI changes.
+---
+
+# Release notes — CLI 0.8.9
 
 **Release Date:** June 1, 2026
-**Status:** Superseded by [`0.8.10`](./RELEASE_NOTES_0.8.10.md) (supersedes [`0.8.8`](./RELEASE_NOTES_0.8.8.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.8`](./RELEASE_NOTES_0.8.8.md).
 
 ## Headline
 

@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.14.0`
+---
+title: Release notes — CLI 0.13.1 to 0.14.0
+description: The dbt Iceberg loop reaches BigQuery, and fluid validate now rejects any Iceberg expose an emitter would silently skip. Also covers 0.13.1.
+---
+
+# Release notes — CLI 0.13.1 to 0.14.0
 
 **Release Date:** July 28, 2026
-**Status:** Current stable docs baseline (supersedes [`0.13.0`](./RELEASE_NOTES_0.13.0.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.13.0`](./RELEASE_NOTES_0.13.0.md).
 
 This baseline covers **two CLI releases**: `0.13.1` (July 26) and `0.14.0` (July 28). `0.13.1`
 did not receive its own docs pass, so both change sets are documented here.

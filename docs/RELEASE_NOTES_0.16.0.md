@@ -1,14 +1,13 @@
 ---
-title: Release notes — CLI 0.16.0
+title: Release notes — CLI 0.15.1 to 0.16.2
 description: What changed in data-product-forge 0.15.1 through 0.16.2, what can break on upgrade, and what to check — generated code that runs and cannot be injected, and one contract landing where it says on AWS and Google Cloud.
 ---
 
-# Fluid Forge Docs Baseline: CLI `0.16.0`
+# Release notes — CLI 0.15.1 to 0.16.2
 
 **Release dates:** `0.15.1`, `0.15.2` and `0.15.3` on September 15, 2026; `0.16.0`, `0.16.1`
 and `0.16.2` on September 23, 2026.
-**Status:** Superseded by [`0.17.0`](./RELEASE_NOTES_0.17.0.md). The current baseline is
-[`0.18.1`](./RELEASE_NOTES_0.18.0.md). Supersedes [`0.15.0`](./RELEASE_NOTES_0.15.0.md).
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.15.0`](./RELEASE_NOTES_0.15.0.md).
 
 This baseline covers six CLI releases. None of `0.15.1` to `0.16.2` had a docs pass of its own,
 so they are documented together here. To move a project from `0.15.x` to today's release, use

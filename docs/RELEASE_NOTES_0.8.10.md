@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.10`
+---
+title: Release notes — CLI 0.8.10
+description: fluid describe --self reports the full CLI surface, plus opt-in telemetry, BigQuery rollback and security fixes for generated DAGs, Redshift and MCP tools.
+---
+
+# Release notes — CLI 0.8.10
 
 **Release Date:** June 8, 2026
-**Status:** Superseded by [`0.8.11`](./RELEASE_NOTES_0.8.11.md) (supersedes [`0.8.9`](./RELEASE_NOTES_0.8.9.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.9`](./RELEASE_NOTES_0.8.9.md).
 
 ## Headline
 

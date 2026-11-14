@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.0`
+---
+title: Release notes — CLI 0.8.0
+description: Docs pinned to the stable PyPI release, with the 11-stage production pipeline as the baseline and Jenkins and Data Mesh Manager behavior documented.
+---
+
+# Release notes — CLI 0.8.0
 
 **Release Date:** April 24, 2026
-**Status:** Current stable docs baseline (supersedes [`0.7.11`](./RELEASE_NOTES_0.7.11.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.7.11`](./RELEASE_NOTES_0.7.11.md).
 
 ## What changed in the docs
 

@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.11`
+---
+title: Release notes — CLI 0.8.11
+description: fluid forge data-model becomes extensible through entry points for custom source adapters and modeling techniques, with new flat and custom techniques.
+---
+
+# Release notes — CLI 0.8.11
 
 **Release Date:** June 16, 2026
-**Status:** Superseded by [`0.9.0`](./RELEASE_NOTES_0.9.0.md) (supersedes [`0.8.10`](./RELEASE_NOTES_0.8.10.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.10`](./RELEASE_NOTES_0.8.10.md).
 
 ## Headline
 

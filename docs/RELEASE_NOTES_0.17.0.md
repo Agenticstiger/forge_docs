@@ -1,14 +1,13 @@
 ---
-title: Release notes — CLI 0.17.0
+title: Release notes — CLI 0.16.3 to 0.17.0
 description: What changed in data-product-forge 0.16.3 through 0.17.0 — one contract governed the same on AWS and Google Cloud, a generated pipeline that runs as generated, and the upgrade steps that come with them.
 ---
 
-# Fluid Forge Docs Baseline: CLI `0.17.0`
+# Release notes — CLI 0.16.3 to 0.17.0
 
 **Release dates:** `0.16.3` on September 26, `0.16.4` on September 27, and `0.16.5`, `0.16.6`,
 `0.16.7` and `0.17.0` on September 28, 2026.
-**Status:** Superseded by [`0.18.0`](./RELEASE_NOTES_0.18.0.md), whose page also covers the
-current release, `0.18.1`. Supersedes [`0.16.0`](./RELEASE_NOTES_0.16.0.md).
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.16.0`](./RELEASE_NOTES_0.16.0.md).
 
 This baseline covers six CLI releases, documented together because none had a docs pass of
 its own. To move a project from an older release, use the [upgrade guide](./upgrading.md).
@@ -51,7 +50,11 @@ Federation. In that run:
   reads: `User has neither fine-grained reader nor masked get permission to get data
   protected by policy tag "<taxonomy> : <tag>" on column <project>.<dataset>.<table>.<column>.`
 
-The same run found the drift-gate failure on `0.18.0` that [`0.18.1`](./RELEASE_NOTES_0.18.0.md#what-changed-in-0-18-1) fixes.
+The same run found the drift-gate failures on `0.18.0` that `0.18.1` and `0.18.2` fix
+([forge-cli #692](https://github.com/Agenticstiger/forge-cli/pull/692) and
+[#696](https://github.com/Agenticstiger/forge-cli/pull/696)). See
+[`0.18.1`](./RELEASE_NOTES_0.18.0.md#what-changed-in-0-18-1) and
+[`0.18.2`](./RELEASE_NOTES_0.18.0.md#what-changed-in-0-18-2).
 
 Not proven: the Lake Formation half against a real AWS account as `0.17.0` derives it from
 `columnRestrictions`. The grant shape it emits (excluded columns beside `wildcard`) was applied
@@ -107,6 +110,13 @@ The [upgrade guide](./upgrading.md#from-0-16-to-0-17) has a check for each.
     DAGs.** DAGs move from `<product-id>/` with dag id `<product>__<build>` to
     `<product-id>__<env>/` with dag id `<product>__<env>__<build>`. Left in place, the old DAG
     runs beside the new one, and both apply the same product against the same state.
+    With `--scheduler airflow`, `--delete-scope product` (the default) and a local or
+    `git+ssh` destination, the first sync retires, from `<product-id>/`, only the DAGs
+    rendered for the same product and env under the old id. For any other destination
+    it cannot read the destination, so it prints a note instead, and you delete the old
+    DAG files for that env there yourself. `--delete-scope destination` removes the old
+    directory along with everything else the sync does not ship. The
+    [upgrade guide](./upgrading.md) has the full step.
 13. **Remote state moves to a per-provider key on the first apply**:
     `fluid/<id>/<provider>/terraform.tfstate`. The apply copies the state with OpenTofu's own
     migration and leaves the old object in place. A key shared with another cloud's
@@ -249,8 +259,8 @@ The generated 11-stage pipeline runs as generated.
   `FLUID_CC_ORG_ID` (or the caller's single organization, or an organization slug in
   `fluid.config.yaml`), takes `--env`, records each contract version, and keeps the
   contract's classification. `--dry-run` shows the body it would send.
-- **`fluid verify` and `fluid diff` find a local file whose path uses `{{ env.NAME }}`**
-  (`0.16.4`), where the build wrote it.
+- **`fluid verify` and `fluid diff` find a local file whose path uses `{{ env.NAME }}`**,
+  where the build wrote it: `fluid verify` in `0.16.4` (#661) and `fluid diff` in `0.16.5` (#665).
 - New `fluid generate ci` options (`0.16.3`): `--apply-mode-default`,
   `--schedule-sync-default`, `--scheduler-default`, `--scheduler-destination-default`,
   `--diff-last-applied` and `--fluid-package-spec`.
@@ -258,7 +268,7 @@ The generated 11-stage pipeline runs as generated.
 ## See also
 
 - [Upgrade guide](./upgrading.md)
-- [`0.18.0` and `0.18.1` release notes](./RELEASE_NOTES_0.18.0.md)
+- [`0.18.0`, `0.18.1` and `0.18.2` release notes](./RELEASE_NOTES_0.18.0.md)
 - [`0.16.0` release notes](./RELEASE_NOTES_0.16.0.md)
 - [One contract, two clouds](./recipes/one-contract-two-clouds.md),
   [Per-environment overlays](./recipes/per-environment-overlays.md),

@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.8.7`
+---
+title: Release notes — CLI 0.8.7
+description: A schema patch that restores every field 0.8.6 dropped, so contract schema 0.7.4 is again a backward-compatible superset of 0.7.3.
+---
+
+# Release notes — CLI 0.8.7
 
 **Release Date:** May 30, 2026
-**Status:** Superseded by [`0.8.8`](./RELEASE_NOTES_0.8.8.md) (supersedes [`0.8.6`](./RELEASE_NOTES_0.8.6.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.8.6`](./RELEASE_NOTES_0.8.6.md).
 
 ## Headline
 

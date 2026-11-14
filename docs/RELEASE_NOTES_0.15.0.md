@@ -1,8 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.15.0`
+---
+title: Release notes — CLI 0.14.1 to 0.15.0
+description: Sovereignty enforcement now blocks for real, so a contract that passed fluid validate on 0.14.1 can fail. Also covers 0.14.1 and the MCP jurisdiction check.
+---
+
+# Release notes — CLI 0.14.1 to 0.15.0
 
 **Release Date:** September 14, 2026
-**Status:** Superseded by [`0.16.0`](./RELEASE_NOTES_0.16.0.md); the current baseline is
-[`0.18.1`](./RELEASE_NOTES_0.18.0.md). Supersedes [`0.14.0`](./RELEASE_NOTES_0.14.0.md).
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.14.0`](./RELEASE_NOTES_0.14.0.md).
 Since `0.16.0`, the federation digest gate described in checklist step 11, in the git-backed
 digest items and under Fixed logs `apply_consumes_drift` and applies instead of exiting 1.
 The [upgrade guide](./upgrading.md) has a checklist for each version after this page.
@@ -41,7 +45,8 @@ Three more upgrade risks sit outside sovereignty, and none of them announces its
 ceiling widens from `<2.0` to `<3.0`** (#604), so a fresh `pip install` now resolves the 2.x
 generation — where a client can no longer self-attest identity through `clientInfo` extras.
 **Git-backed federation digests are computed differently** (#587), so a `consumes[].upstreamDigest`
-pinned on `0.14.1` against a `git_registry` upstream reads as drift and aborts `fluid apply`. And
+pinned on `0.14.1` against a `git_registry` upstream reads as drift and aborts `fluid apply` (since `0.16.0` it
+warns and applies). And
 **DataHub `customProperties` keys lose their dots** (#596) — `fluid.layer` becomes `fluid_layer` —
 so any saved search, dashboard or ingestion rule keyed on the old spelling must be updated.
 
@@ -137,7 +142,7 @@ Work through this before you upgrade a CI lane, not after.
    `servers[]` and a missing `required: ["name"]` beside a `$ref` both fail now (#582).
 7. **Git-backed federation digests change value.** A `consumes[].upstreamDigest` pinned on `0.14.1`
    against a `git_registry` upstream now reads as drift, and `fluid apply` **exits 1** before any DDL
-   (#587).
+   (#587). Since `0.16.0` it warns (`apply_consumes_drift`) and applies instead.
 8. **DataHub `customProperties` keys lose their dots** — `fluid.layer` → `fluid_layer`, and three
    siblings with it (#596).
 :::
@@ -170,17 +175,30 @@ exposes:
         bucket: acme-events
 ```
 
+The message strings below are the ones in the source; the summary line, schema version and
+timing are illustrative and shortened.
+
 ```text
 # 0.14.1
 $ fluid validate contract.fluid.yaml
-⚠️  binding.location.region 'us-east-1' is outside declared jurisdiction 'EU'
-✅ Contract is valid
+✅ Valid FLUID contract (schema v0.7.5)
+⚠️  1 warning(s)
+
+Validation Warnings:
+====================
+ 1. ⚠️ [customer_events] Region 'us-east-1' (jurisdiction: US) does not match required jurisdiction: EU
+   💡 Consider using regions in EU jurisdiction
 $ echo $?
 0
 
 # 0.15.0
 $ fluid validate contract.fluid.yaml
-❌ binding.location.region 'us-east-1' is outside declared jurisdiction 'EU'
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
+
+Validation Errors:
+==================
+ 1. ❌ [customer_events] Region 'us-east-1' (jurisdiction: US) does not match required jurisdiction: EU
+   💡 Consider using regions in EU jurisdiction
 $ echo $?
 1
 ```
@@ -286,7 +304,7 @@ purpose, and matching is exact and case-sensitive — a verified `"eu"` against 
 **exit 2** on the two deployments that could never satisfy the rule:
 
 ```text
-$ fluid mcp output-port serve contract.fluid.yaml --expose customer_events
+$ fluid mcp output-port serve contract.fluid.yaml --expose-id customer_events
 fluid mcp output-port: refusing to serve over 'stdio'.
   This contract pins sovereignty.jurisdiction to EU, so every tool call needs a
   cryptographically verified caller jurisdiction.
@@ -656,12 +674,16 @@ You can reproduce it outside fluid:
 yq -o=json '.' contract.fluid.yaml | jq -cSj '.' | shasum -a 256
 ```
 
+The pinned value carries a `sha256:` prefix (`sha256:<64 hex characters>`). The command
+prints only the hex, so add the prefix when you compare or re-pin.
+
 An unparseable upstream contract returns `None`, which the caller escalates to a violation — so
 federation fails closed rather than degrading to a weaker digest.
 
 ::: warning Upgrade action, and a silent one
 For a `git_registry` upstream, a `consumes[].upstreamDigest` pinned against the old value now reads
-as drift: `fluid apply` aborts with `apply_consumes_drift` and **exit 1**, before any DDL. Re-pin
+as drift: on `0.15.0`, `fluid apply` aborts with `apply_consumes_drift` and **exit 1**, before any DDL
+(since `0.16.0` it warns and applies, as the tip below says). Re-pin
 those rows, or pass `--no-verify-federation` while you do. Two caveats. The per-workspace cache at
 `.fluid/federation/<workspace>.digest-cache.json` has no expiry check, so a machine already holding
 an entry keeps returning the `0.14.1` value until it is cleared. And only `git_registry` is affected
@@ -838,7 +860,7 @@ surfaces were missed and are fixed in `0.15.0` — see above.
 ## Compatibility
 
 - **No breaking changes to the contract schema.** `0.7.5` remains the stable default; `0.7.6` stays
-  **preview**, opt-in via `fluidVersion: "0.7.6"`, and `fluid version` now prints it as
+  **preview**, opt-in via `fluidVersion: "0.7.6"`, and `fluid version` prints it as
   `0.7.6 (preview)`.
 - **`sovereignty` behaviour changes in both directions.** `strict` now blocks where it could not, and
   `advisory` now warns where it wrongly failed the build. `deniedRegions` remains an error in every
@@ -881,4 +903,4 @@ surfaces were missed and are fixed in `0.15.0` — see above.
 - **New runtime dependency:** `rfc8785`, for the canonical JSON the policy digest is computed over.
 - **SDK / custom-scaffold:** `data-product-forge-sdk 0.10.0` (unchanged),
   `data-product-forge-custom-scaffold 0.4.1`.
-- **Install:** `pip install --upgrade data-product-forge` → `0.15.0`.
+- **Install:** `pip install "data-product-forge==0.15.0"`.

@@ -1,7 +1,12 @@
-# Fluid Forge Docs Baseline: CLI `0.10.0`
+---
+title: Release notes — CLI 0.10.0
+description: New fluid plugins and fluid exporters commands, a plugin allowlist and blocklist that gates plugins before they load, and odps and odcs reclassified as exporters.
+---
+
+# Release notes — CLI 0.10.0
 
 **Release Date:** June 27, 2026
-**Status:** Current stable docs baseline (supersedes [`0.9.0`](./RELEASE_NOTES_0.9.0.md))
+**Status:** Superseded. The latest release is in [All releases](./releases.md). Previous: [`0.9.0`](./RELEASE_NOTES_0.9.0.md).
 
 ## Headline
 
