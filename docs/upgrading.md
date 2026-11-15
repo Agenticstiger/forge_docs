@@ -1164,6 +1164,10 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **`FLUID_TELEMETRY`, `DO_NOT_TRACK` and `telemetry.enabled` in `~/.fluid/config.yaml` do nothing.** The UX telemetry and its consent are removed, and nothing emits the `forge.invocation` span fields. `fluid doctor --env` no longer lists the two variables or prints the telemetry line, and `fluid doctor --env --json` is `{"env": [...]}` without the `telemetry` key. A script that reads that key gets nothing: stop reading it.
 - **`FLUID_COPILOT_AGENT_LOOP` no longer stops forge from picking a saved or detected coding agent.** The variable does nothing, like `FLUID_COPILOT_FORCE_INTERVIEW`, `FLUID_COPILOT_JUDGE`, `FLUID_COPILOT_SELF_EVAL` and `FLUID_COPILOT_SEMANTIC_MEMORY`, which nothing reads either. Drop all of them from env files and CI settings.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).*
+
+- **A contract that pins `sovereignty.jurisdiction` starts `fluid mcp output-port serve --transport http` only with JWT auth that maps a claim to `jurisdiction`.** In 0.30.1 it also started under `shared-token`, under `jwt` without its issuer, audience or JWKS URL, and under a `FLUID_MCP_JWT_CLAIM_MAPPING` that maps the claim away, then denied every call as `missing-caller-jurisdiction`. Each now exits 2 before it listens and says why. Such a gateway answered no call, so nothing that worked stops working: switch it to `FLUID_MCP_AUTH_MODE=jwt`, or set `sovereignty.crossBorderTransfer: true` if the data may leave. See [Caller-jurisdiction enforcement](./advanced/mcp.md#caller-jurisdiction-enforcement-since-0-15-0).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

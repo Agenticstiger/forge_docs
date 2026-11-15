@@ -353,6 +353,8 @@ A jurisdiction-pinned contract **refuses to serve and exits 2** on the two deplo
 Both messages name the contract's jurisdiction and give the command that fixes it: serve over HTTP with `FLUID_MCP_AUTH_MODE=jwt` (plus `FLUID_MCP_JWT_ISSUER` / `_AUDIENCE` / `_JWKS_URL`), or set `sovereignty.crossBorderTransfer: true` if the data may leave. The most common desktop-client setup — stdio — is therefore the one configuration such a contract cannot serve.
 
 The startup check looks only at whether an auth mode is configured. `FLUID_MCP_AUTH_MODE=shared-token` passes it, and a shared token carries no jurisdiction, so such a contract then denies every call as `missing-caller-jurisdiction`. Only `jwt` can supply the claim.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).* The startup check asks the auth validator instead. Over HTTP such a contract starts only with `FLUID_MCP_AUTH_MODE=jwt`, its issuer, audience and JWKS URL set, and a claim mapped to `jurisdiction` (the default mapping has one). Every other setup exits 2 before it listens: `shared-token` with or without a token, behind a trusted proxy or not; `jwt` without its issuer, audience or JWKS URL; and a `FLUID_MCP_JWT_CLAIM_MAPPING` that maps the claim away. Each message names the jurisdiction, says why no claim can be verified, and says how to supply one (JWT auth, or mapping the IdP's claim to `jurisdiction`) or to set `sovereignty.crossBorderTransfer: true`.
 :::
 
 `jurisdiction` is also one of the [default JWT claim mappings](#authentication-modes), and it is the one default whose absence **closes** the gate rather than widening it: an operator whose IdP calls the claim something else locks themselves out of a jurisdiction-pinned contract until they map it.
@@ -372,6 +374,8 @@ Identity is resolved once at gateway start from `FLUID_MCP_AUTH_MODE`. There are
 
 ::: warning Startup refusal for a jurisdiction-pinned contract, new in `0.15.0`
 The two rows above no longer hold for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`. Because the caller-jurisdiction gate admits only claims the auth middleware verified, an unauthenticated gateway would deny **every** call — so `fluid mcp output-port serve` writes a refusal to stderr and **returns exit code 2** before binding, for `--transport stdio` (any auth mode: a pipe carries no headers) and for `--transport http` with `FLUID_MCP_AUTH_MODE` unset or `none`. See [Caller-jurisdiction enforcement](#caller-jurisdiction-enforcement-since-0-15-0).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).* The `shared-token` row does not hold for such a contract either: it refuses to start with a token too, because a shared token carries no jurisdiction. So does `jwt` when no claim maps to `jurisdiction`.
 :::
 
 Only a verified JWT binds identity. With `shared-token`, the gateway knows that the caller held the shared secret and nothing else: once the token is enforced, any `model`, `useCase` or tenant attribute the client declares for itself is dropped. A contract with an `allowedModels` or `deniedModels` gate then denies every call as `missing-model-identity`, and one with `allowedUseCases` as `missing-use-case-with-allowlist`. Use `jwt` when the gates must see who is calling.
@@ -405,6 +409,8 @@ Without an auth mode, the gateway is unauthenticated whatever the proxy does: a 
 On `0.14.1` and earlier the parsed value was assigned **wholesale**, so mapping one extra claim silently dropped all four defaults — turning off the `agentPolicy` model and use-case gates and emptying every `${caller.*}` row filter, with no error and a server still reporting healthy. Mapping a default away explicitly still works; what no longer happens is losing one by accident while adding something unrelated.
 
 Note the asymmetry for the newest default: losing `sub` / `model` / `use_case` / `tenant_id` **widens** access, while losing `jurisdiction` **closes** the gate completely — an operator who remaps their IdP's jurisdiction claim to some other attribute name locks themselves out of a jurisdiction-pinned contract rather than letting strangers in. That is the correct direction for a sovereignty control, and this mapping is where to look when it happens.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).* When no claim is left mapped to `jurisdiction`, `fluid mcp output-port serve` refuses to start such a contract and names `FLUID_MCP_JWT_CLAIM_MAPPING`, instead of denying every call.
 :::
 
 ::: warning
