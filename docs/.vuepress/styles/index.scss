@@ -298,11 +298,36 @@ body {
   border-bottom: 1px solid var(--ff-glass-border);
 }
 
+// From the mobile breakpoint up to 1440px the full navbar does not fit: its
+// ten links, the search label and the key hints need about 1400px. Show the
+// search button as an icon, as the search plugin already does below 960px,
+// and tighten the gap between links. The compact bar needs about 1240px.
+@media (min-width: #{palette.$MQMobile + 1}) and (max-width: 1439px) {
+  .vp-search-button {
+    border-radius: 50%;
+  }
+
+  .vp-search-placeholder,
+  .vp-search-key-hints {
+    display: none;
+  }
+
+  .vp-navbar .vp-navbar-item:not(:first-child) {
+    margin-inline-start: 1rem;
+  }
+}
+
 // ---------------------------------------------------------------------
 // Sidebar — accent the active page, keep the rest quiet.
 // ---------------------------------------------------------------------
 .vp-sidebar {
   background: transparent;
+
+  // At the mobile breakpoint and below, the sidebar is a drawer laid over
+  // the page, so it needs a solid surface or the page shows through the menu.
+  @media (max-width: palette.$MQMobile) {
+    background: var(--vp-c-bg);
+  }
 
   .sidebar-item.active {
     color: var(--vp-c-accent);
