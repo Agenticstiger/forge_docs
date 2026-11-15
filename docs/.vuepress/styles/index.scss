@@ -302,7 +302,9 @@ body {
 // ten links, the search label and the key hints need about 1400px. Show the
 // search button as an icon, as the search plugin already does below 960px,
 // and tighten the gap between links. The compact bar needs about 1240px.
-@media (min-width: #{palette.$MQMobile + 1}) and (max-width: 1439px) {
+// Range syntax, so a fractional width between 1279px and 1280px (browser
+// zoom) gets the compact bar too.
+@media (width > #{palette.$MQMobile}) and (width < 1440px) {
   .vp-search-button {
     border-radius: 50%;
   }
@@ -317,6 +319,21 @@ body {
   }
 }
 
+// At the mobile breakpoint and below, the theme makes the site name a block
+// as wide as the bar's free space (`width: calc(100vw - 11rem)`) so a long
+// name can end in an ellipsis. A block inside the inline brand link stretches
+// the link across the bar, so the empty bar was a link home and the focus
+// ring ran across it. Inline-block keeps the cap and the ellipsis but lets
+// the link hug the name.
+@media (max-width: palette.$MQMobile) {
+  .vp-site-name {
+    display: inline-block;
+    width: auto;
+    max-width: calc(100vw - 11rem);
+    vertical-align: top;
+  }
+}
+
 // ---------------------------------------------------------------------
 // Sidebar — accent the active page, keep the rest quiet.
 // ---------------------------------------------------------------------
@@ -325,8 +342,22 @@ body {
 
   // At the mobile breakpoint and below, the sidebar is a drawer laid over
   // the page, so it needs a solid surface or the page shows through the menu.
+  // The theme only slides the closed drawer off screen, which leaves its
+  // links in the tab order. `visibility` takes them out until it opens; the
+  // delay keeps the drawer visible while it slides away (theme: 0.3s).
   @media (max-width: palette.$MQMobile) {
     background: var(--vp-c-bg);
+    visibility: hidden;
+    transition:
+      transform var(--vp-t-transform),
+      background-color var(--vp-t-color),
+      border-color var(--vp-t-color),
+      visibility 0s linear 0.3s;
+
+    .vp-theme-container.sidebar-open & {
+      visibility: visible;
+      transition-delay: 0s;
+    }
   }
 
   .sidebar-item.active {
