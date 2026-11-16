@@ -600,7 +600,7 @@ Each of the other checks has one code, whatever its message says:
 | `ERR_CONTRACT_CONTINUOUS_TRIGGER` | [A continuous trigger on a batch build](#a-continuous-trigger-on-a-batch-build) |
 | `ERR_CONTRACT_BUILD_ID` | [An id the build phase refuses](#an-id-the-build-phase-refuses) |
 | `ERR_CONTRACT_PACKAGING` | The `packaging` block |
-| `ERR_CONTRACT_SEMANTICS` | A semantic model's measure written as an aggregate (`SUM(amount)` where `agg: sum` already sums) |
+| `ERR_CONTRACT_SEMANTICS` | A semantic model: a measure written as an aggregate (`SUM(amount)` where `agg: sum` already sums), names that clash in dbt MetricFlow ([Names dbt MetricFlow holds once](../concepts/semantic-layer.md#names-dbt-metricflow-holds-once)), a relationship or a validity window |
 | `ERR_CONTRACT_OVERLAY` | An overlay patch that lands on another entry ([`--env` and environment overlays](#env-and-environment-overlays)) |
 | `ERR_CONTRACT_EXTENSION` | A validator a plugin registered for a `contract.extensions` key |
 | `ERR_CONTRACT_VALIDATOR_FINDING` | A `Validator` plugin ([custom validators](#extension-point-custom-validators)) |

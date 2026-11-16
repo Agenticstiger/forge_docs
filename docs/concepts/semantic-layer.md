@@ -346,6 +346,39 @@ Validation Warnings:
  1. exposes[orders].semantics.relationships[0]: no entity pair matches this relationship, and the dbt MetricFlow export joins by entity name, so it will not follow the relationship. Declare an entity with expr 'customer_id' on exposes[orders] (type foreign) and one of the same name with expr 'customer_id' on exposes[customer_history] (type natural).
 ```
 
+### Names dbt MetricFlow holds once
+
+*On forge-cli `main`, not yet in a release ([forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906)).*
+
+`fluid validate` compares the names of entities and dimensions the way the
+[dbt export](#dbt-metricflow) writes them: every character that is not a
+letter, a digit or `_` becomes `_`. Two cases warn:
+
+- **A dimension has the name of an entity or another dimension of its
+  expose.** They share one namespace in a semantic model, so the export keeps
+  the first, entities before dimensions, and drops the dimension.
+- **A name is a dimension of one expose and an entity of another.** dbt gives
+  a name one element type across the semantic models of a project, so
+  `dbt parse` rejects the export whenever the project declares a metric.
+
+Entities of one name in several exposes are how MetricFlow joins them, so
+they do not warn. An `orders` expose with an entity and a dimension both named
+`region`, next to a `stores` expose with a `region` dimension, gives:
+
+```console
+$ fluid validate contract.fluid.yaml
+✅ Valid FLUID contract (schema v0.7.6)
+⚠️  2 warning(s)
+Validation completed in 0.023s
+
+Validation Warnings:
+====================
+ 1. exposes[orders].semantics.dimensions[0]: dimension 'region' and entity 'region' are one dbt MetricFlow name, 'region'. Entities and dimensions share one namespace in a semantic model, so the dbt export keeps entity 'region' and drops this dimension. Rename one of them.
+ 2. exposes[stores].semantics.dimensions[0]: the dbt MetricFlow name 'region' is a dimension of exposes[stores] and an entity of exposes[orders]. dbt MetricFlow gives a name one element type across the semantic models of a project, so `dbt parse` rejects the export whenever the project declares a metric. Rename one of them.
+```
+
+They are warnings, so `fluid validate --strict` fails on them.
+
 ## How each consumer reads the block
 
 ### MCP `query` tool
@@ -478,8 +511,15 @@ contract may leave out:
   `dbt parse` rejects a semantic layer without one.
 
 A metric whose inputs are missing is skipped, and so is a second metric with a
-name already used. A contract with no `semantics` block produces no
-`semantic_models.yml` at all.
+name already used. The entities, dimensions and measures of one model share
+one namespace: of two with one name, the generator keeps the first (entities,
+then dimensions, then measures) and drops the other, and `fluid validate`
+warns (see [Names dbt MetricFlow holds once](#names-dbt-metricflow-holds-once)).
+A contract with no `semantics` block produces no `semantic_models.yml` at all.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906)).* A collection that is not a list, such as
+`entities: 5` in a contract nobody validated, is read as empty, with a
+warning; the generator used to stop with a `TypeError`.
 
 A dimension with `validityParams` (0.7.7 preview) is exported to dbt's
 type II SCD shape. The two bounds become `validity_params` with `is_start` and
