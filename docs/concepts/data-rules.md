@@ -5,7 +5,7 @@ description: Declare in the contract what valid data looks like (derived columns
 
 # Rules about valid data
 
-*On forge-cli's `feat/fluid-data-rules` branch ([forge-cli #PRNUM](https://github.com/Agenticstiger/forge-cli/pull/PRNUM)), not yet on `main` or in a release.*
+*On forge-cli's `feat/fluid-data-rules` branch ([forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911)), not yet on `main` or in a release.*
 
 The fields on this page need `fluidVersion: 0.7.7`. That schema is an opt-in preview: a contract that does not declare it stays on 0.7.6. A 0.7.6 contract that uses one of these fields fails `fluid validate`, and the message tells you to declare 0.7.7. Every field is optional, so a contract without them validates, exports and digests exactly as before.
 
@@ -125,14 +125,14 @@ exposes:
         - {name: monthly_fee, type: "decimal(12,2)"}
 ```
 
-An `id` matches `^[A-Za-z][A-Za-z0-9_]*$` and is unique within the contract, across all exposes. Reports, tests and exported rules name the rule by it.
+An `id` matches `^[A-Za-z][A-Za-z0-9_]*$` and is unique within the contract: across all exposes, and against every `dq.rules[].id` and `contract.quality[].rule`. Reports, tests and exported rules name the rule by it.
 
 | Key | Meaning |
 | --- | --- |
 | `check` | A FLUID SQL/1 predicate over the row. |
 | `derive` | The column the invariant determines, with exactly one of `expr` and `aggregate`. |
 | `expr` | The column's value, a FLUID SQL/1 expression over the row. |
-| `aggregate` | The column's value as a summary over child rows. `function` is `count`, `sum`, `min` or `max`. `from` is the child expose, and `via` is a relationship that the child declares and that points back here. `filter` keeps only the children for which a predicate is true. `ifNone` replaces a NULL summary, as `COALESCE` would. Without `ifNone`, SQL's rules apply: `sum`, `min` and `max` of nothing are NULL, and `count` is 0. |
+| `aggregate` | The column's value as a summary over child rows. `function` is `count`, `sum`, `min` or `max`. `from` is the child expose, and `via` is a relationship that the child declares and that points back here. `column` is the child column to summarize: `count` takes none, `sum` needs a number of bounded scale (an integer or `decimal(p, s)` column), and `min` and `max` a number, string, date or timestamp. `filter` keeps only the children for which a predicate is true. `ifNone` replaces a NULL summary, as `COALESCE` would, and has the summary's type (a number, a string, or a date as `YYYY-MM-DD`). Without `ifNone`, SQL's rules apply: `sum`, `min` and `max` of nothing are NULL, and `count` is 0. |
 | `dependency` | `{from, to, bothWays}`. `bothWays: true` adds the reverse direction and takes one column on each side. |
 | `when` | A predicate that selects the rows the invariant covers. Not accepted on a `dependency`. |
 | `severity` | `error` (the default), `warning` or `info`, the words `contract.quality[]` uses. |
@@ -144,7 +144,7 @@ A summary is declared on the parent expose, as a structure and not as an aggrega
 
 A row is covered when `when` is true. Without `when`, every row is covered. A row on which a compared value is NULL is still covered, and it usually violates the rule. Write `when: "first_use_date IS NOT NULL"` to leave such rows out.
 
-Several `derive` invariants may determine one column, each with its own `when`. A row is covered by the first one, in declaration order, whose `when` holds, as in SQL's `CASE WHEN`. A row that none covers takes the column's other source. In this example, Swiss orders ship for a flat fee and every other order pays 5 percent of the net:
+Several `derive` invariants may determine one column. Each but the last needs a `when`: a derive without one covers every remaining row, so a derive after it covers none and is an error. A row is covered by the first one, in declaration order, whose `when` holds, as in SQL's `CASE WHEN`. A row that none covers takes the column's other source. In this example, Swiss orders ship for a flat fee and every other order pays 5 percent of the net:
 
 ```yaml
       invariants:
@@ -221,7 +221,7 @@ This contract fragment uses several of them. It is valid as written, in a contra
 
 ### Names
 
-Keywords and function names are case-insensitive. A column name is case-sensitive and is spelled exactly as in `contract.schema[].name`. Double-quote a name that is a keyword (`"end"`) or that does not match `[A-Za-z_][A-Za-z0-9_]*` (`"Net Amount"`), and write `""` for a quote inside it. Function names are not keywords, so a column may be called `round`.
+Keywords and function names are case-insensitive. A column name is case-sensitive and is spelled exactly as in `contract.schema[].name`. Double-quote a name that is a keyword (`"end"`) or that does not match `[A-Za-z_][A-Za-z0-9_]*` (`"Net Amount"`), and write `""` for a quote inside it. Function names are not keywords, so a column may be called `round`. A string literal compared with a column that has an `enum` rule, or listed in an `IN` against one, must be one of its values or placeholders: `kind = 'other'` is an error when the enum is `base_fee,usage`.
 
 The text has no `;`, and `--` and `/*` are refused outside a string, because SQL reads them as comments. A text is at most 4,096 code points long after NFC normalization, and so is its canonical form (which adds a space after each comma). It nests at most 64 levels deep: every operator, `NOT`, minus sign, call, `CASE` and pair of parentheses is one level, so a chain of 64 `AND`s is too deep.
 
@@ -276,7 +276,7 @@ A mask is written after COBOL picture strings:
 | `\` | Makes the next character literal, so `\A` is the letter A. |
 | any other printable ASCII character | Itself. |
 
-A mask is 1 to 64 characters long and has at least one symbol. There are no repeat counts, so write `99999` and not `9(5)`. Prefixes are a separate list, so a prefix such as `ACC` needs no escaping. Lower-case codes are not in this version; a `validationRules` regex covers them.
+A mask is 1 to 64 characters long and has at least one symbol. There are no repeat counts, so write `99999` and not `9(5)`. Prefixes are a separate list, so a prefix such as `ACC` needs no escaping. Lower-case letters work as literals, but there is no symbol for a variable lower-case letter; a `validationRules` regex covers that.
 
 ```yaml
         - name: tower_id
@@ -301,7 +301,7 @@ A mask also says how many values exist: an alternative holds the number of prefi
 - **No overlap.** Two alternatives may not accept the same value, because a value would not say which alternative made it. `fluid validate` reports the first value that both accept. Make the alternatives differ in a literal, or in length.
 - **Uniqueness** comes from the column's key or unique flag, not from the format.
 - **Regex rules.** A `validationRules` entry with `type: regex` and an `identifierFormat` both apply. `fluid validate` notes a column that declares both.
-- **Foreign keys.** A column in a relationship's `fromColumns` carries the values of the matching `toColumns` column, so it has that column's format. It may repeat the format identically. A different one is an error. It also takes the target's placeholders.
+- **Foreign keys.** A column in a relationship's `fromColumns` carries the values of the matching `toColumns` column, so it has that column's format. It may repeat the format identically. A different one is an error, and so is a format on the foreign key when its target has none. The RFC also gives the foreign key the target's placeholders, so a copied placeholder is exempt on both sides; the checks that read values come with the dbt and ODCS steps.
 - **Placeholders are exempt.** A placeholder value, described next, is not checked against the format.
 
 ## Placeholders
@@ -339,7 +339,7 @@ Two tables sometimes carry one attribute, and names do not tell you which. `stat
         - {name: account, to: accounts, fromColumns: [account_id], toColumns: [account_id], cardinality: many_to_one, sharedColumns: [status]}
 ```
 
-The entry is short for a `derive` invariant with `expr: "account.status"`. A lower share is written as that invariant, with its operator.
+The entry is short for a `derive` invariant with `expr: "account.status"` and `when: "account.account_id IS NOT NULL"`, so a row whose link reaches no account is not covered. A lower share is written as that invariant, with its operator.
 
 **Across several links, `sharedAttribute`.** Give the columns the same `sharedAttribute` name.
 
@@ -362,7 +362,7 @@ The entry is short for a `derive` invariant with `expr: "account.status"`. A low
 
 `fluid validate` parses every text with its own parser, resolves every name, and checks types and scales. It reports two kinds of finding. Each has a JSON pointer to the field and the code `ERR_CONTRACT_DATA_RULES`. The pointer shows in `--format json`, in `issues[]`.
 
-**Errors** fail validation. They are: an unknown name or a text outside FLUID SQL/1, a type or scale error, a cycle among derived columns, a column with two sources, overlapping masks, a foreign key whose format differs from its target's, a `sharedAttribute` with a missing or ambiguous owner, and a path through a relationship whose target has a validity window.
+**Errors** fail validation. They include: an unknown name or a text outside FLUID SQL/1, a type or scale error, a string literal outside its column's enum, an id that another rule already uses, a band that does not fit (two operators, a percent over 100, a range whose ends are reversed), a format or placeholders on a column that is not a string, a cycle among derived columns, a column with two sources, overlapping masks, a foreign key whose format differs from its target's, a `sharedAttribute` with a missing or ambiguous owner, and a path through a relationship whose target has a validity window.
 
 **Notes** never fail validation, and `--strict` does not count them. They are: same-named columns on the two ends of a relationship that nothing relates, a division or float arithmetic (exact here and approximate in engines), a column with both a format and a regex rule, and a `contract.quality[]` expression that could become an invariant.
 
@@ -453,5 +453,5 @@ Two consumers come later: executable ODCS quality rules rendered from the invari
 - [RFC: Rules about valid data](https://github.com/Agenticstiger/forge-cli/blob/feat/fluid-data-rules/RFC-data-rules.md): the full spec, including the grammar, the SQL renderings and the consumer matrix. It is linked on the branch because the amended text is only there.
 - [The semantic layer](./semantic-layer.md): relationships, and the validity windows that a path may not cross.
 - [Quality, SLAs and lineage](./quality-sla-lineage.md): `dq.rules` and `contract.quality[]`, where checks in the warehouse's own SQL belong.
-- [Fields that need a preview schema](../reference/preview-fields.md): how to opt in to 0.7.7.
+- [Fields that need a preview schema](../reference/preview-fields.md): which fields need a preview schema. To opt in to these, declare `fluidVersion: "0.7.7"`.
 - [`fluid validate`](../cli/validate.md): the command and its flags.
