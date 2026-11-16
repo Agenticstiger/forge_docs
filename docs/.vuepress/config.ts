@@ -513,6 +513,7 @@ export default defineUserConfig({
               children: [
                 '/cli/test.md',
                 '/cli/verify.md',
+                '/cli/profile.md',
                 '/cli/contract-tests.md',
                 '/cli/contract-validation.md',
                 '/cli/policy.md',
