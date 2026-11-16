@@ -5,7 +5,7 @@ description: The contract fields that exist only in schema 0.7.6 (a preview unti
 
 # Fields that need `fluidVersion: "0.7.6"`
 
-Some fields exist only in the 0.7.6 schema. 0.7.6 was a preview until CLI `0.26.0` made it stable and the default; a contract that declares `fluidVersion: "0.7.5"` and uses one of them still fails `fluid validate`. This page lists them and shows how to opt in. The [0.7.6 field reference](./contract-0.7.6.md) has the full row for each field; this page is the map to it. The next preview, 0.7.7, adds no field yet: its [preview delta](./contract-0.7.7-preview.md) lists what lands there.
+Some fields exist only in the 0.7.6 schema. 0.7.6 was a preview until CLI `0.26.0` made it stable and the default; a contract that declares `fluidVersion: "0.7.5"` and uses one of them still fails `fluid validate`. This page lists them and shows how to opt in. The [0.7.6 field reference](./contract-0.7.6.md) has the full row for each field; this page is the map to it. The next preview, 0.7.7, adds two semantics fields, `relationships` and `typeParams.validityParams`, described in [the semantic layer](../concepts/semantic-layer.md#relationships-and-validity-windows-need-the-0-7-7-preview). Its [preview delta](./contract-0.7.7-preview.md) lists what lands there.
 
 ## Opt in
 
