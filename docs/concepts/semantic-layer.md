@@ -181,6 +181,171 @@ the MCP compiler and the MetricFlow export, so the two consumers return the
 same number. Through the MCP `query` tool, the measure above compiles to
 `PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY amount)`.
 
+### Relationships and validity windows need the 0.7.7 preview
+
+*On forge-cli's feat/semantics-relationships-scd branch ([forge-cli #894](https://github.com/Agenticstiger/forge-cli/pull/894)), not yet on `main` or in a release.*
+
+Two fields are in the **0.7.7 preview** schema only. `relationships` names a
+foreign key from one expose to another expose of the same contract. A
+`validityParams` entry on a time dimension marks one end of the validity window
+of a type II slowly changing dimension (SCD). This contract has an `orders`
+expose and a `customer_history` expose that keeps one row per version of a
+customer:
+
+```yaml
+fluidVersion: "0.7.7"
+kind: DataProduct
+id: sales.orders_history
+name: Orders with customer history
+domain: sales
+metadata:
+  layer: Gold
+  owner:
+    team: sales-analytics
+exposes:
+  - exposeId: orders
+    kind: table
+    binding:
+      platform: local
+      format: csv
+      location:
+        path: ./orders.csv
+        table: orders
+    contract:
+      schema:
+        - { name: order_id, type: INTEGER, required: true }
+        - { name: customer_id, type: STRING }
+        - { name: order_date, type: DATE }
+        - { name: amount, type: DECIMAL }
+    semantics:
+      name: orders
+      defaultAggTimeDimension: order_date
+      entities:
+        - { name: order, type: primary, expr: order_id }
+        - { name: customer, type: foreign, expr: customer_id }
+      dimensions:
+        - { name: order_date, type: time, typeParams: { timeGranularity: day } }
+      measures:
+        - { name: revenue, agg: sum, expr: amount }
+      relationships:
+        - name: orders_to_customer_history
+          to: customer_history
+          fromColumns: [customer_id]
+          toColumns: [customer_id]
+          cardinality: many_to_one
+          joinType: left
+  - exposeId: customer_history
+    kind: table
+    binding:
+      platform: local
+      format: csv
+      location:
+        path: ./customer_history.csv
+        table: customer_history
+    contract:
+      schema:
+        - { name: customer_id, type: STRING, required: true }
+        - { name: segment, type: STRING }
+        - { name: valid_from, type: TIMESTAMP }
+        - { name: valid_to, type: TIMESTAMP }
+    semantics:
+      name: customer_history
+      entities:
+        - { name: customer, type: natural, expr: customer_id }
+      dimensions:
+        - { name: segment, type: categorical }
+        - name: valid_from
+          type: time
+          typeParams:
+            timeGranularity: day
+            validityParams: { isStart: true }
+        - name: valid_to
+          type: time
+          typeParams:
+            timeGranularity: day
+            validityParams: { isEnd: true }
+```
+
+```console
+$ fluid validate contract.fluid.yaml
+✅ Valid FLUID contract (schema v0.7.7)
+Validation completed in 0.013s
+```
+
+A relationship has five required fields and one optional one:
+
+| Field | Holds |
+|---|---|
+| `name` | The relationship's name. Names must differ within one expose |
+| `to` | The `exposeId` of the target. It must be an expose of the same contract |
+| `fromColumns` | The foreign-key columns of the expose that declares the relationship, in key order |
+| `toColumns` | The key columns of the target, in the order of `fromColumns` |
+| `cardinality` | `many_to_one` or `one_to_one`. Required |
+| `joinType` | `left` (the default) keeps rows with no match. `inner` drops them |
+
+Declare a relationship on the many side, the expose that holds the foreign key.
+The two column lists pair up by position, so they must have the same length and
+every column must be one the expose declares in `contract.schema`. A composite
+key is one relationship with two columns in each list, not two relationships.
+Against a target that has a validity window, the one matching row is the
+version valid at the time of the declaring row.
+
+A validity window is how the contract says a table keeps history. A model that
+uses `validityParams` needs exactly:
+
+- two time dimensions, one with `validityParams: { isStart: true }` and one with
+  `validityParams: { isEnd: true }`, and
+- one `natural` entity, the key whose versions the window separates
+  (`customer` above).
+
+A contract that declares `fluidVersion: "0.7.6"` and uses either field fails
+validation, and the error says which version to set:
+
+```console
+$ fluid validate contract.fluid.yaml
+❌ Invalid FLUID contract (3 error(s)) (schema v0.7.6)
+Validation completed in 0.008s
+
+Validation Errors:
+==================
+ 1. exposes[0].semantics: 'relationships' (named relationships between exposes) is a field of the 0.7.7 preview schema: set the contract's fluidVersion to 0.7.7 to use it
+ 2. exposes[1].semantics.dimensions[1].typeParams: 'validityParams' (the validity window of a slowly changing dimension) is a field of the 0.7.7 preview schema: set the contract's fluidVersion to 0.7.7 to use it
+ 3. exposes[1].semantics.dimensions[2].typeParams: 'validityParams' (the validity window of a slowly changing dimension) is a field of the 0.7.7 preview schema: set the contract's fluidVersion to 0.7.7 to use it
+```
+
+On 0.7.7, `fluid validate` also checks what the schema cannot. With `to:
+customers` in place of `to: customer_history`:
+
+```console
+$ fluid validate contract.fluid.yaml
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.7)
+Validation completed in 0.012s
+
+Validation Errors:
+==================
+ 1. exposes[orders].semantics.relationships[0].to: 'customers' is not an exposeId of this contract (customer_history, orders). A relationship joins two exposes of one contract.
+```
+
+The same checks reject lists of different lengths, a column the expose does not
+declare, a repeated relationship name, and a window that is not two time
+dimensions beside one natural entity.
+
+A one-column relationship also gets a warning when no entity pair matches it,
+because the dbt export joins by entity name (see
+[dbt MetricFlow](#dbt-metricflow)). Renaming the natural entity above to
+`client` gives:
+
+```console
+$ fluid validate contract.fluid.yaml
+✅ Valid FLUID contract (schema v0.7.7)
+⚠️  1 warning(s)
+Validation completed in 0.012s
+
+Validation Warnings:
+====================
+ 1. exposes[orders].semantics.relationships[0]: no entity pair matches this relationship, and the dbt MetricFlow export joins by entity name, so it will not follow the relationship. Declare an entity with expr 'customer_id' on exposes[orders] (type foreign) and one of the same name with expr 'customer_id' on exposes[customer_history] (type natural).
+```
+
 ## How each consumer reads the block
 
 ### MCP `query` tool
@@ -222,6 +387,11 @@ What the compiler does, as of 0.18.1:
   a column out of query results, deny it to the caller with
   [`policy.authz.columnRestrictions`](./governance-policy.md#column-restrictions-policy-authz-columnrestrictions),
   which also rejects the column as a filter key.
+
+Relationships (0.7.7 preview) are returned by the `describe` tool with the rest
+of the `semantics` block. No `query` call joins on them yet, and
+`validityParams` are ignored, so a `query` over a type II dimension reads every
+version of a row.
 
 Governance on this path (agent policy, row filters, authentication) is
 described in [MCP Server → The contract is the policy](../advanced/mcp.md#the-contract-is-the-policy).
@@ -311,6 +481,46 @@ A metric whose inputs are missing is skipped, and so is a second metric with a
 name already used. A contract with no `semantics` block produces no
 `semantic_models.yml` at all.
 
+A dimension with `validityParams` (0.7.7 preview) is exported to dbt's
+type II SCD shape. The two bounds become `validity_params` with `is_start` and
+`is_end`, and the model gets `primary_entity:` naming the natural entity. For
+`customer_history` above, the generated `semantic_models.yml` has:
+
+```yaml
+- name: customer_history
+  model: ref('customer_history')
+  primary_entity: customer
+  entities:
+  - name: customer
+    type: natural
+    expr: customer_id
+  dimensions:
+  - name: segment
+    type: categorical
+  - name: valid_from
+    type: time
+    type_params:
+      time_granularity: day
+      validity_params:
+        is_start: true
+  - name: valid_to
+    type: time
+    type_params:
+      time_granularity: day
+      validity_params:
+        is_end: true
+```
+
+dbt rejects some elements beside a window, so the generator drops them with a
+warning: primary and unique entities, and measures. It also drops a `natural`
+entity that has no window, because dbt accepts one only beside a window.
+
+Relationships are not exported. MetricFlow joins two semantic models by entity
+name, so the foreign entity on `orders` and the entity of the same name on the
+target are what it follows. When a one-column relationship has no such pair,
+`fluid validate` warns (see the example above), so the contract and the dbt
+project do not drift apart.
+
 The `filter` is copied as written. MetricFlow expects filters written against
 its own dimension references, so a plain SQL predicate that the MCP compiler
 accepts may need rewriting before dbt's semantic layer will run it; the
@@ -323,6 +533,21 @@ generated project's parse check (`--dbt-validate`) is the place to find out.
 expose's `semantics`. What the contract schema cannot hold (window groupings,
 cumulative and conversion metrics, `agg_params` on a contract older than the
 0.7.6 preview) is listed in the import report rather than written.
+
+With the 0.7.7 preview, the import also recovers what dbt holds for a type II
+SCD and for joins:
+
+- **`validity_params`** become `typeParams.validityParams` on the dimension.
+- **Relationships** are derived from the entity graph. For each `foreign`
+  entity, the import writes a `many_to_one` relationship to each expose of the
+  same contract that holds a `primary`, `unique` or `natural` entity of that
+  name, on the two entities' columns, as MetricFlow joins them.
+- **What cannot be written is reported.** A target in another product (a split
+  import) and an entity whose key is an expression, not a column, appear in the
+  import report, because a relationship names an expose of its own contract and
+  real columns.
+- **The contract moves to `fluidVersion: 0.7.7`** only when it carries one of
+  these fields. Every other imported contract keeps the stable version.
 
 ## The OSI sidecar
 
@@ -366,6 +591,13 @@ semantic_model:
 - The sidecar is built from the forged logical model (`*.model.json`), not
   from the contract's `semantics` block. Editing `semantics` in the contract
   afterwards does not change it; re-forge to regenerate both.
+- The OSI document's relationships are also written into the contract. With the
+  0.7.7 preview, when both datasets of a relationship are exposes of the
+  contract (the `flat` technique, one expose per dataset) and declare its
+  columns, `fluid forge data-model` puts it on the from expose's
+  `semantics.relationships` 1:1, composite keys included, and sets
+  `fluidVersion: 0.7.7`. A contract with no relationship keeps the stable
+  version.
 - `--osi-sidecar-format json` writes `*.semantics.osi.json` instead. That is
   the form dbt Core 1.12 and later reads from a project's `OSI/` directory.
 - As of 0.18.1 the sidecar is always written: `--emit-osi-sidecar` is on by
