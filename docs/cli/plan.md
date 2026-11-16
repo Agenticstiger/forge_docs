@@ -49,6 +49,8 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 | `--region` | Override the region / location from the contract |
 | `--html` | Generate an HTML visualization with a mermaid-rendered action DAG (colour-coded by mode: blue=amend, red=replace, grey=skipped). Optional path argument; defaults to `plan.html` in the current directory. |
 
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* With `--tofu`, the saved plan is encrypted when `FLUID_STATE_ENCRYPTION` is set, and `fluid apply` of that plan needs the same setting. See [State and plan encryption](./apply.md#state-and-plan-encryption).
+
 ## Plan binding
 
 `0.8.0` plans embed two cryptographic digests:

@@ -62,6 +62,8 @@ The rules:
 - A profile for a different workspace than `DATABRICKS_HOST` is refused. So is a missing `DATABRICKS_HOST` and a plain-HTTP host.
 - Before 0.26.0, a run without `DATABRICKS_HOST` went to whatever workspace the `DEFAULT` profile named, with its token.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The OIDC auth types `github-oidc`, `azure-devops-oidc`, `env-oidc` and `file-oidc` need no secret: the job's own token is exchanged for a Databricks one on behalf of a service principal. `DATABRICKS_CLIENT_ID`, the service principal's application id, is part of that credential. forge keeps it and requires it for these types, and `fluid apply` refuses a run that sets one of them without it. Before #905 forge blanked it for any type but `oauth-m2m`. `tofu` gets GitHub's `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` for `github-oidc` only, and Azure DevOps's `SYSTEM_ACCESSTOKEN` and the other `SYSTEM_*` job variables for `azure-devops-oidc` only.
+
 `fluid apply`, `fluid diff` and `fluid verify` all use this one policy. A Databricks personal access token is masked in logs.
 
 ## A minimal contract
