@@ -1168,6 +1168,12 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 
 - **A contract that pins `sovereignty.jurisdiction` starts `fluid mcp output-port serve --transport http` only with JWT auth that maps a claim to `jurisdiction`.** In 0.30.1 it also started under `shared-token`, under `jwt` without its issuer, audience or JWKS URL, and under a `FLUID_MCP_JWT_CLAIM_MAPPING` that maps the claim away, then denied every call as `missing-caller-jurisdiction`. Each now exits 2 before it listens and says why. Such a gateway answered no call, so nothing that worked stops working: switch it to `FLUID_MCP_AUTH_MODE=jwt`, or set `sovereignty.crossBorderTransfer: true` if the data may leave. See [Caller-jurisdiction enforcement](./advanced/mcp.md#caller-jurisdiction-enforcement-since-0-15-0).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906)).*
+
+- **`fluid validate --strict` fails on two new warnings about dbt MetricFlow names**: a dimension with the name of an entity or another dimension of its expose, and a name that is a dimension of one expose and an entity of another, which `dbt parse` rejects whenever the project declares a metric. Rename one of the two. See [Names dbt MetricFlow holds once](./concepts/semantic-layer.md#names-dbt-metricflow-holds-once).
+- **A contract that `fluid forge data-model` writes with one expose per dataset gives each relationship's foreign entity to its `from` expose only.** Every expose used to get the foreign entity of every relationship, most of them on a column the expose does not have, and `fluid generate transformation` exported them to dbt. Forge the contract again, then generate its dbt project again.
+- **`fluid generate transformation` reads a `semantics` collection that is not a list as empty, with a warning**, where it stopped with a `TypeError`.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
