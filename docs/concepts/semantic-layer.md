@@ -183,7 +183,7 @@ same number. Through the MCP `query` tool, the measure above compiles to
 
 ### Relationships and validity windows need the 0.7.7 preview
 
-*On forge-cli's feat/semantics-relationships-scd branch ([forge-cli #894](https://github.com/Agenticstiger/forge-cli/pull/894)), not yet on `main` or in a release.*
+*On forge-cli `main`, not yet in a release ([forge-cli #894](https://github.com/Agenticstiger/forge-cli/pull/894)).*
 
 Two fields are in the **0.7.7 preview** schema only. `relationships` names a
 foreign key from one expose to another expose of the same contract. A
