@@ -46,6 +46,7 @@ Each page builds on the ones before it.
 | Page | What it explains |
 | --- | --- |
 | [The semantic layer](./semantic-layer.md) | Measures, dimensions and metrics declared in `exposes[].semantics`, and the three parts of the CLI that read them. |
+| [Rules about valid data](./data-rules.md) | `exposes[].contract.invariants[]`, identifier formats, placeholders and shared attributes: what valid data looks like, in one SQL subset (0.7.7 preview). |
 | [Product types](../data-products/product-type.md) | `metadata.productType` (SDP, ADP, CDP) beside the medallion layer, and the `consumes[]` composition rules `fluid validate` checks. |
 | [Consuming products from another mesh](./federation.md) | Pinning an upstream contract that lives in another repository or catalog, and what apply does when it changes. |
 | [The CLI and the Command Center](./command-center.md) | What `fluid publish` and `fluid apply` send to a FLUID Command Center, and how to turn reporting off. |

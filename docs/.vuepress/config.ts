@@ -431,6 +431,7 @@ export default defineUserConfig({
             '/concepts/sovereignty.md',
             '/concepts/agent-policy.md',
             '/concepts/semantic-layer.md',
+            '/concepts/data-rules.md',
             '/data-products/product-type.md',
             '/concepts/federation.md',
             '/concepts/command-center.md',
