@@ -181,7 +181,7 @@ The seven resources the example above produces:
 | `aws_lakeformation_permissions` (two) | `grants[]` | One resource per grant. The `intern` grant is `table_with_columns` with the two restricted columns excluded. |
 | `aws_s3_bucket_policy` | `grants[]` with an `arn:` principal | Plan-time `count`: zero unless a grantee is in another AWS account. See [Bucket policy](#bucket-policy). |
 
-Declaring more fields adds resources: the [Lake Formation](#lake-formation) fields add `aws_lakeformation_data_lake_settings`, `aws_lakeformation_lf_tag`, `aws_lakeformation_resource_lf_tags` and `aws_lakeformation_data_cells_filter`, and the [0.7.6 fields](#encryption-at-rest-and-retention) add `aws_kms_key`, `aws_kms_alias`, `aws_s3_bucket_server_side_encryption_configuration` and `aws_s3_bucket_lifecycle_configuration`.
+Declaring more fields adds resources: the [Lake Formation](#lake-formation) fields add `aws_lakeformation_lf_tag`, `aws_lakeformation_resource_lf_tags` and `aws_lakeformation_data_cells_filter`, and the [0.7.6 fields](#encryption-at-rest-and-retention) add `aws_kms_key`, `aws_kms_alias`, `aws_s3_bucket_server_side_encryption_configuration` and `aws_s3_bucket_lifecycle_configuration`.
 
 The module also looks up the caller's account (`data.aws_caller_identity`) whenever a Lake Formation, KMS or `{account}-fluid-data` bucket reference needs it.
 
@@ -298,6 +298,28 @@ Parquet files written under the old schema, by an Athena `INSERT` or `CTAS` or b
 
 Until that apply, `fluid verify` and `fluid diff` compare the live table with the new mapping and report the mismatch on those columns: CRITICAL from `verify`, drift from `diff`. `verify`'s "require table recreation" wording is wrong for them, because a re-apply updates the column in place. A consumer that compares these columns as strings (`small = '5'`) may need changes.
 :::
+
+### Iceberg tables in Glue
+
+*On forge-cli `main`, not yet in a release ([forge-cli #915](https://github.com/Agenticstiger/forge-cli/pull/915)).* A `format: iceberg` expose in the Glue catalog gets a table that has a first metadata file. Up to 0.30.1 the table was registered without one, and Athena refused it with `Detected Iceberg type table without metadata location` until an engine wrote one.
+
+The `aws_glue_catalog_table` now carries `open_table_format_input` with `iceberg_input` set to `metadata_operation = "CREATE"` and `version = "2"`, so Glue writes the table's first v2 metadata file when it creates the table. The module sets `lifecycle.ignore_changes` on `parameters` and `open_table_format_input`, and the table depends on the bucket when the module owns the bucket, because Glue writes the metadata into it with the applier's credentials. Parquet tables, and Iceberg tables in another catalog, are unchanged. The module never passes `table_type=ICEBERG`: Glue sets it itself and refuses a create that passes it.
+
+An existing table is never replaced. Its state holds no `open_table_format_input`, the ignore keeps that value, and the plan shows no change. An engine's commits change `metadata_location` in `parameters`, which is ignored too.
+
+**A table created before this change** has no metadata, so Athena still refuses it. Give it metadata only once you know it is empty:
+
+1. Check that no engine has written to it. Its Glue parameters must have no `metadata_location`, and its prefix must hold no data files:
+
+   ```bash
+   aws glue get-table --database-name <db> --name <table> --query 'Table.Parameters.metadata_location'
+   aws s3 ls s3://<bucket>/<path>/ --recursive
+   ```
+
+   The first command prints `None`, and the second lists nothing.
+2. Replace the table: run `tofu taint aws_glue_catalog_table.<address>` before the next apply, or apply with `fluid apply --mode replace`.
+
+A table that already has a `metadata_location` has its metadata, written by an engine, so leave it alone.
 
 ### Shared vs. isolated containers
 
@@ -557,17 +579,38 @@ To keep Airflow, run the DAGs on an MWAA environment you create in your own VPC,
 
 ### Planned operations the module does not create
 
-The AWS planner plans some operations the OpenTofu module has no resource for. They are no longer dropped without a word: each is named in a WARNING line, and the apply goes on.
+*On forge-cli `main`, not yet in a release ([forge-cli #900](https://github.com/Agenticstiger/forge-cli/pull/900)).* The AWS planner can plan six operations the OpenTofu module has no resource for. A contract that plans any of them is refused with `aws-op-not-emitted`, by `fluid validate`, `fluid plan`, `fluid generate iac` and `fluid apply`. Up to 0.30.1 the module was written without them, `fluid apply` exited 0, and the access policy, view or schedule the contract declared did not exist. The refusal names every operation at once, with the contract field that planned it:
+
+| Operation | Planned by | What to do instead |
+|---|---|---|
+| `iam.bind_glue_database` | `metadata.policies` on an expose whose aws binding names `binding.database` | Declare who reads the table as `governance.lakeFormation.grants` on the aws binding, and drop `metadata.policies` from the aws overlay |
+| `iam.bind_s3_bucket` | `metadata.policies` on an expose bound to platform `s3` | Grant bucket access outside the contract, in an IAM policy your platform team owns, and drop `metadata.policies` from the s3 overlay |
+| `athena.create_view` | A view expose (`kind: view`) with `binding.query` | Create the view in a build step (an Athena `CREATE VIEW` in your dbt project), and remove `binding.query` |
+| `redshift.ensure_schema` | An expose bound to platform `redshift` with `binding.schema` | Create the schema and table in a build step (dbt on Redshift) |
+| `redshift.ensure_table` | A table expose bound to platform `redshift` with `binding.table` | The same |
+| `events.ensure_schedule` | `execution.trigger` of type `schedule` | Set `orchestration.schedule` to an EventBridge Scheduler `cron()` or `rate()` expression, with an `orchestration.engine` other than `airflow` or `mwaa` (`custom`, say), and remove `execution.trigger`. `fluid apply` then creates the schedule; see [Scheduling without Airflow](#scheduling-without-airflow) |
+
+`format: redshift_serverless` provisions Redshift Serverless compute only: a namespace and a workgroup. It never creates a schema or a table, so those come from a build step.
+
+Seen on `fluid generate iac` for a contract with `execution.trigger` of type `schedule`:
+
+```text
+❌ generate_iac_failed  [ERR_GENERATE_IAC_FAILED]
+  error: The AWS plan for this contract lists events.ensure_schedule (from execution.trigger of type schedule). The OpenTofu engine does not create these yet, so fluid apply would report success without them. Set orchestration.schedule (an EventBridge Scheduler cron() or rate() expression, passed as written) with an orchestration.engine other than airflow or mwaa, e.g. custom: fluid apply provisions it as an EventBridge Scheduler schedule. Remove execution.trigger.
+```
+
+No bundled schema (0.7.1 to 0.7.7) admits the fields that plan these operations, and `fluid plan` and `fluid apply` check the schema first. So the paths that were affected are the ones that skip it: `fluid generate iac`, and code that calls the planner directly.
+
+Two kinds of planned operation are still only warned about, and the apply goes on:
+
+| Warning | What it names |
+|---|---|
+| `aws_orchestration_task_not_emitted` | An `orchestration.tasks` entry. Tasks run in the scheduler, and the module provisions nothing for them |
+| `planned_op_not_emitted` | An operation the AWS module does not know, such as another cloud's under `--provider aws` on a multi-cloud contract |
 
 ```text
 aws_orchestration_task_not_emitted op='athena.execute_query' id='refresh_orders': orchestration tasks run in the scheduler, and fluid apply provisions nothing for them
 ```
-
-| Warning | What it names |
-|---|---|
-| `aws_planned_op_not_emitted` | An operation nothing in the module provisions yet: IAM bindings from `metadata.policies` (`iam.bind_glue_database`, `iam.bind_s3_bucket`), Athena views (`athena.create_view`), Redshift schemas and tables (`redshift.ensure_schema`, `redshift.ensure_table`), and a top-level `execution.trigger` schedule (`events.ensure_schedule`) |
-| `aws_orchestration_task_not_emitted` | An `orchestration.tasks` entry. Tasks run in the scheduler, and the module provisions nothing for them |
-| `planned_op_not_emitted` | An operation the AWS module does not know, such as another cloud's under `--provider aws` on a multi-cloud contract |
 
 The operations the module builds from `exposes[]` (the bucket, the Glue database and tables) and the build steps the build runner executes pass without a warning.
 
@@ -673,12 +716,12 @@ A policy the binding cannot apply is refused rather than dropped: `fluid validat
 
 ### Lake Formation
 
-On AWS, access and row- and column-level governance are implemented through **Lake Formation**, declared under `binding.governance.lakeFormation` (with account-level admins and tag definitions under the top-level `governance.lakeFormation` block). On the OpenTofu apply path Forge emits:
+On AWS, access and row- and column-level governance are implemented through **Lake Formation**, declared under `binding.governance.lakeFormation` (and, under the top-level `governance.lakeFormation` block, account-wide tag definitions, which a contract may own only by an explicit opt-in). On the OpenTofu apply path Forge emits:
 
 | Contract field | AWS resource emitted |
 |----------------|----------------------|
-| `governance.lakeFormation.admins` | `aws_lakeformation_data_lake_settings` |
-| `governance.lakeFormation.tagDefinitions` | `aws_lakeformation_lf_tag` |
+| `governance.lakeFormation.admins` | Nothing: refused. See [Account-wide Lake Formation objects](#account-wide-lake-formation-objects) |
+| `governance.lakeFormation.tagDefinitions` | `aws_lakeformation_lf_tag`, only with `packaging.containers.lfTagVocabulary: isolated`. See [Account-wide Lake Formation objects](#account-wide-lake-formation-objects) |
 | `binding.governance.lakeFormation.registerLocation` | `aws_lakeformation_resource` |
 | `binding.governance.lakeFormation.grants` | `aws_lakeformation_permissions` (column-limited grants use `table_with_columns`) |
 | `binding.governance.lakeFormation.bucketPolicy` | Controls the `aws_s3_bucket_policy` written beside the grants *(0.7.6)* |
@@ -711,13 +754,58 @@ exposes:
 As of 0.18.1, Forge writes the data cells filter and no grant on it: `grants[]` entries are grants on the table, and a table-level `SELECT` reads every row. A principal reads through the filter only after a grant on the filter that you make outside the contract.
 :::
 
-::: warning `governance.lakeFormation.admins` is authoritative
-Lake Formation's `PutDataLakeSettings` replaces the account's admin list with the one Forge sends. Any admin you do not list is removed on apply, **including the role or user that runs the apply**, and the Lake Formation grants and registrations that need an admin can then fail.
+#### Account-wide Lake Formation objects
 
-The resource also clears the settings the contract does not set: the account's default permissions for new databases and tables (the `IAMAllowedPrincipals` defaults), trusted resource owners and parameters. Destroying it empties the admin list.
+*On forge-cli `main`, not yet in a release ([forge-cli #907](https://github.com/Agenticstiger/forge-cli/pull/907)).* Two Lake Formation objects belong to the account, not to one product. A product's OpenTofu state must not own them, because destroying the product would destroy them for everyone. `fluid validate`, `fluid generate iac` and `fluid apply` refuse both.
 
-List every principal that must stay an admin, the CI apply role included.
-:::
+- **`governance.lakeFormation.admins` is refused in every contract** (`lakeformation-admins-not-in-a-product`). It used to emit `aws_lakeformation_data_lake_settings`, the account's one Lake Formation settings object per region. That resource is authoritative: apply replaces the admin list and clears the default permissions it does not set, and destroying the product empties the list, which leaves the account with no Lake Formation admin. Manage the admins in your platform's bootstrap state, in one `aws_lakeformation_data_lake_settings` that lists every admin and keeps the account's other settings. To add one admin without touching the rest, read `aws lakeformation get-data-lake-settings`, append the principal to `DataLakeAdmins`, and send the whole object back with `aws lakeformation put-data-lake-settings`.
+- **`governance.lakeFormation.tagDefinitions` is refused unless the contract declares `packaging.containers.lfTagVocabulary: isolated`** at the top level (`lakeformation-tag-vocabulary-not-owned`). A tag key is one object per account, shared by every product that associates it. Define the tags in the domain's or the platform's state instead, and keep only the associations in the product: `binding.governance.lakeFormation.tags` names a tag defined outside the contract by its key, with no definition. The contract that owns the vocabulary for a domain declares it:
+
+  ```yaml
+  fluidVersion: "0.7.7"   # preview
+  packaging:
+    containers:
+      lfTagVocabulary: isolated
+  governance:
+    lakeFormation:
+      tagDefinitions:
+        domain: [web, sales]
+  ```
+
+  `lfTagVocabulary` is one of the container kinds of the 0.7.7 preview (see [Preview fields](../reference/preview-fields.md)). The declaration must be explicit: a blanket `packaging.mode: isolated` does not count. Declaring the kind makes the contract a packaging contract, so its other containers follow `mode` (isolated by default). A contract with a Kafka or Confluent expose then also needs `containers.cluster: shared` and a pool.
+
+On `fluid generate iac`, a contract with `admins` fails with this:
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: lakeformation-admins-not-in-a-product
+  error: governance.lakeFormation.admins would make this product's OpenTofu state own aws_lakeformation_data_lake_settings, the account's Lake Formation admin list. That resource is authoritative: apply replaces the list and clears the default permissions it does not set, and destroying the product empties it, leaving the account with no Lake Formation admin.
+```
+
+`fluid validate` checks the account-level block only when an expose is bound to AWS. The emit refuses it always.
+
+#### Who a grant, a row filter and a column restriction name
+
+*On forge-cli `main`, not yet in a release ([forge-cli #897](https://github.com/Agenticstiger/forge-cli/pull/897)).* Lake Formation unions every grant a principal holds. A grant written another way for the same role can therefore undo a row filter or a column restriction. forge compares principals by identity, not by the text of the ARN:
+
+- An IAM role or user is one identity per partition, account and name. The path is dropped and the name is compared in lower case, because IAM keeps one role per name in an account and does not tell names apart by case. So `role/Analyst` and `role/data/analyst` are the same role. An account ID and an account's `:root` ARN are one identity, the account.
+- A grant reads the table when `SELECT` or `ALL` is in `permissions` or in `permissionsWithGrantOption`. `SELECT` held only with the grant option still lets the principal grant the table to itself, so it counts as a read.
+
+A row filter (`policy.authz.rowFilters`, schema 0.7.6 or later) is refused with `row-filter-unenforceable`, by `fluid validate`, `fluid generate iac` and `fluid apply`, when:
+
+- the filtered role holds `SELECT` or `ALL` in `permissionsWithGrantOption`. Before, the option was dropped without a word. The role reads through a data cells filter granted `SELECT` only. Remove `SELECT` from the option, or give the option to a principal no filter names;
+- a read grant names a set that may hold the filtered role: `IAM_ALLOWED_PRINCIPALS`, the filtered role's account or its `:root` ARN, an organization or an organizational unit. Grant each reader by its own role or user ARN;
+- two filters resolve to one role. Combine their predicates into one filter;
+- no read grant carries the filter, so the filter would narrow nothing. Grant the principal `SELECT`, or remove the filter.
+
+A column restriction is refused with `column-restriction-unenforceable` when the restricted principal's grant puts `SELECT` or `ALL` in `permissionsWithGrantOption` while columns are withheld from it. On the table, the option would let the principal grant itself the withheld columns. Remove `SELECT` from the option, or name the columns it may read in the grant's `columns`, which keeps the option. A second grant for the same role in another spelling beside a column limit is refused for the same reason as before: see [Column-limited grants](#column-limited-grants).
+
+A grant whose principal Lake Formation checks against IAM can still fail at `GrantPermissions`: it refused a pathed role's ARN written without its path ("Invalid path for user") and a role name in another case ("Invalid principal"), measured on a live account. The comparison by identity moves those mistakes to `fluid validate`.
+
+Two changes in the module follow from this:
+
+- **Every data cells filter writes `excluded_column_names`**, an empty list when nothing is excluded. Without it `tofu apply` failed on real AWS with `Provider produced inconsistent result after apply`, so a filter that only restricted rows could not be applied before.
+- **A masked view is built only for a grant that reads and is emitted.** A `DESCRIBE`-only grant no longer gets one, so a contract that had one sees the later `<table>_masked_N` names renumber. The next apply then changes those addresses in state.
 
 #### Column-limited grants
 
@@ -1168,6 +1256,8 @@ The release notes for [`0.16.0`](../RELEASE_NOTES_0.16.0.md) and [`0.17.0`](../R
 - **Since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787):** S3 state is locked on OpenTofu 1.10 or newer. Every role that plans or applies needs `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on `<key>.tflock`, or `FLUID_TOFU_S3_LOCKFILE=0`; see [Locking](../concepts/state.md#locking).
 - **Since 0.27.0, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793):** column types reach Glue faithfully or are refused. A column typed `array`, `struct`, `map`, `object`, `record` or `row` now fails `fluid validate`, `fluid generate iac` and `fluid apply` with `column-type`, where it validated and was written as `string`. The first apply on a table an earlier release created changes the types of columns that were `string`, and needs `--allow-data-loss`. See [Column types](#column-types).
 - **Since 0.27.0, [forge-cli #794](https://github.com/Agenticstiger/forge-cli/pull/794):** a schedule is never dropped silently. A dotted or long contract id gets a valid, hashed name; an AWS plan the validator refuses now fails `fluid generate iac` and `fluid apply` even without a schedule; a plan that emits the scheduled Lambda warns `schedule_placeholder_lambda`. See [Schedule names and refusals](#schedule-names-and-refusals).
+
+- **On forge-cli `main`, not yet in a release ([forge-cli #897](https://github.com/Agenticstiger/forge-cli/pull/897), [#900](https://github.com/Agenticstiger/forge-cli/pull/900), [#907](https://github.com/Agenticstiger/forge-cli/pull/907)):** three contracts that used to be accepted are refused. A row filter or column restriction with a read grant that could undo it fails with `row-filter-unenforceable` or `column-restriction-unenforceable`; a contract that plans `iam.bind_glue_database`, `iam.bind_s3_bucket`, `athena.create_view`, `redshift.ensure_schema`, `redshift.ensure_table` or `events.ensure_schedule` fails with `aws-op-not-emitted`; and `governance.lakeFormation.admins`, or `tagDefinitions` without `packaging.containers.lfTagVocabulary: isolated`, fails with `lakeformation-admins-not-in-a-product` or `lakeformation-tag-vocabulary-not-owned`. See [Who a grant, a row filter and a column restriction name](#who-a-grant-a-row-filter-and-a-column-restriction-name), [Planned operations the module does not create](#planned-operations-the-module-does-not-create) and [Account-wide Lake Formation objects](#account-wide-lake-formation-objects).
 
 ## How far this has been exercised
 
