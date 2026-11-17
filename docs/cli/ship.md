@@ -108,19 +108,19 @@ With no contract path and no `contract.fluid.yaml` in the current directory, `sh
 $ fluid ship --explain
 fluid ship: 9 stage(s) selected (env=dev, mode=amend, contract=contract.fluid.yaml)
    1 bundle              run      fluid bundle contract.fluid.yaml --env dev --format tgz --out runtime/bundle.tgz
-   2 validate            run      fluid validate runtime/bundle.tgz --env dev --strict
+   2 validate            run      fluid validate runtime/bundle.tgz --env dev --report runtime/validate-report.json --strict
    3 generate-artifacts  run      fluid generate artifacts runtime/bundle.tgz --env dev --contract-path contract.fluid.yaml --out dist/artifacts/
-   4 validate-artifacts  run      fluid validate-artifacts dist/artifacts/ --strict
+   4 validate-artifacts  run      fluid validate-artifacts dist/artifacts/ --report runtime/validate-artifacts-report.json --strict
    5 diff                run      fluid diff runtime/bundle.tgz --exit-on-drift --env dev --out runtime/diff-report.json
    6 plan                run      fluid plan runtime/bundle.tgz --out runtime/plan.json --mode amend --env dev --check-sovereignty
    7 apply               run      fluid apply runtime/plan.json --bundle runtime/bundle.tgz --mode amend --env dev --ensure-opentofu --report runtime/apply-report.html
    8 policy-apply        run      fluid policy-apply dist/artifacts/policy/bindings.json --mode enforce
    9 verify              run      fluid verify runtime/bundle.tgz --strict --env dev --out runtime/verify-report.json
-  10 publish             not run  (opt-in: pass --publish)
-  11 schedule-sync       not run  (opt-in: pass --schedule-sync)
+  10 publish             not run  (opt-in: pass --publish or set RUN_STAGE_10_PUBLISH=true)
+  11 schedule-sync       not run  (opt-in: pass --schedule-sync or set RUN_STAGE_11_SCHEDULE_SYNC=true)
 ```
 
-Stages 10 and 11 run only when asked for, with `--publish` and `--schedule-sync`. A stage with nothing to do is skipped with its reason: stage 3 for a reference-only contract or with `--no-generate-artifacts`, stage 4 when stage 3 generates no `dist/artifacts/`, stage 8 without `dist/artifacts/policy/bindings.json`, stages 9 to 11 after a dry-run apply, and stage 11 without a scheduler or without DAGs in `dist/artifacts/schedule/`. After a dry run, stage 8 checks the policy bindings instead of enforcing them.
+Stages 10 and 11 run only when asked for, with `--publish` and `--schedule-sync` or their [switches](#stage-switches-and-knobs). A stage with nothing to do is skipped with its reason: stage 3 for a reference-only contract or with `--no-generate-artifacts`, stage 4 when stage 3 generates no `dist/artifacts/`, stage 8 without `dist/artifacts/policy/bindings.json`, stages 9 to 11 after a dry-run apply, and stage 11 without a scheduler or without DAGs in `dist/artifacts/schedule/`. After a dry-run apply in the same pipeline, stage 8 checks the policy bindings instead of enforcing them.
 
 ### Select stages
 
@@ -141,13 +141,11 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `[contract-path]` | | `contract.fluid.yaml` in the current directory | The contract. |
 | `--env <env>` | `FLUID_ENV` | `dev` | Environment overlay for every stage that reads one. It must start with a letter and hold only letters, digits, `.`, `_` and `-`, at most 64 characters: another name exits 2 before stage 1, because a later stage would refuse it. |
 | `--yes`, `-y` | | | Passed to `fluid apply`. Needed in CI. |
-| `--strict`, `--no-strict` | | `--strict` | `--strict` for `validate` and `validate-artifacts`. |
 | `--dry-run` | | | Same as `--apply-mode dry-run`: apply changes nothing in the target. Plan still writes `runtime/plan.json`. |
 | `--apply-mode <mode>` | `APPLY_MODE` | `amend` | Mode for plan and apply: `dry-run`, `create-only`, `amend`, `amend-and-build`, `replace`, `replace-and-build`. |
 | `--build-id <id>` | `APPLY_BUILD_ID` | the contract's only build | For `amend-and-build` and `replace-and-build`. An empty value means no build id. |
 | `--allow-data-loss` | `ALLOW_DATA_LOSS=true` | | Passed to `fluid apply`. |
 | `--no-verify-digest` | `NO_VERIFY_DIGEST=true` | | Passes `--no-verify-plan-binding --no-verify-federation` to `fluid apply`. |
-| `--no-verify-strict` | | | Drops `--strict` from `verify`. |
 | `--no-generate-artifacts` | | | Skips stage 3. |
 | `--publish` | | | Runs stage 10. |
 | `--target <catalog>` | `PUBLISH_TARGETS` (space-separated; the older `CATALOG` too) | `datamesh-manager` | Catalog to publish to; repeatable. A target names a catalog, never an endpoint: one with `:` exits 2 when stage 10 will publish. |
@@ -156,18 +154,44 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--schedule-sync-dry-run` | `SCHEDULE_SYNC_DRY_RUN=true` | | Passes `--dry-run` to `schedule-sync`. |
 | `--until <stage>` | | | Stops after that stage. |
 | `--stage <spec>` | | | Runs only these stages: `7`, `6-9`, `plan,apply`. |
-| `--skip-stage <stage>` | | | Skips a stage; repeatable. `--skip-stage apply` is a pipeline without stage 7, so a dry-run mode no longer skips stages 9 to 11; stage 8 still checks the bindings instead of enforcing them. |
+| `--skip-stage <stage>` | | | Skips a stage; repeatable. `--skip-stage apply` is a pipeline without stage 7, so a dry-run mode no longer skips stages 9 to 11, and stage 8 enforces the bindings, as the Jenkins pipeline does. |
 | `--explain` | | | Prints the resolved plan and runs nothing. Exits 0, or 2 when ship refuses its arguments; a stage a real run would refuse for a missing input shows as a warning line. |
 | `--ci-output` | | `auto` | Log grouping: `auto`, `github`, `gitlab`, `azure`, `plain`. |
 | `--report-dir <dir>` | | `runtime/` where ship runs | Where the run reports go. Ship runs in the current directory, or in the contract's own directory when the contract is outside it. A relative path is taken from the current directory. |
 | `--skip-bundle` | | | Accepted and ignored: ship always bundles, so no stage runs a stale bundle. |
 | `--skip-plan` | | | Removed: exits 2. Use `--stage` or `--until`. |
 
+The options for single stages (`--strict`, `--emit`, `--exit-on-drift`, `--last-applied`, `--plan-html`, `--policy-mode`, `--verify-strict`) and the `RUN_STAGE_<N>_<NAME>` switches are in [Stage switches and knobs](#stage-switches-and-knobs).
+
+### Stage switches and knobs
+
+*On forge-cli `main`, not yet in a release ([forge-cli #929](https://github.com/Agenticstiger/forge-cli/pull/929)).*
+
+A generated pipeline exposes a switch per stage, `RUN_STAGE_<N>_<NAME>` (`RUN_STAGE_1_BUNDLE` to `RUN_STAGE_11_SCHEDULE_SYNC`), and `fluid ship` reads the same variables:
+
+- `false` switches a stage off, under `--stage` too: a CI step names its stage, it does not decide whether it runs. A step whose stages are all switched off prints `fluid ship: stage 5 diff is switched off (RUN_STAGE_5_DIFF=false): nothing to run` and exits 0 without writing a report; the run's first step records the switch for that stage in the shared report. Flags that leave nothing to run on their own still exit 2.
+- `true` switches on stage 10 or 11, only in a run that does not name its stages with `--stage`, so a CI step that runs `--stage 3` never publishes. `--publish` and `--schedule-sync` beat their own switch.
+- Any other value leaves the default. With stage 3 switched off, stage 4 skips instead of asking for `dist/artifacts/`. With stage 7 switched off, a dry-run mode no longer skips stages 9 to 11, and stage 8 enforces the bindings.
+
+Each stage option takes the flag, then the variable the Jenkins pipeline already read, then the default. A flag beats its variable both ways:
+
+| Stage | Option | Variable | Default | Description |
+|---|---|---|---|---|
+| 2, 4 | `--strict`, `--no-strict` | `VALIDATE_STRICT` | on, unless the variable is `false` | `--strict` for `validate` and `validate-artifacts`. |
+| 3 | `--emit <list>` | `GENERATE_EMIT` | every emitter | `generate artifacts --emit`, comma-separated: `odps-bitol`, `odcs`, `opds`, `schedule`, `policies`. `--explain` assumes only the outputs it names, so stage 8 shows as skipped without `policies`. |
+| 5 | `--exit-on-drift`, `--no-exit-on-drift` | `DIFF_EXIT_ON_DRIFT` | on, unless the variable is `false` | Whether drift fails stage 5 or is only reported. |
+| 5 | `--last-applied <plan>` | `DIFF_LAST_APPLIED` | | `diff --last-applied`: compares with the plan the last apply ran, so a change the contract makes is pending, not drift. A missing file is a first run, compared with the contract alone. |
+| 6 | `--plan-html`, `--no-plan-html` | `PLAN_HTML` | off, unless the variable is `true` | Also writes `runtime/plan.html`. |
+| 8 | `--policy-mode <mode>` | `POLICY_APPLY_MODE` | `enforce` | `enforce` or `check`. After a dry-run apply in the same pipeline, `enforce` becomes `check`. Another value exits 2 before stage 1. |
+| 9 | `--verify-strict`, `--no-verify-strict` | `VERIFY_STRICT` | on, unless the variable is `false` | `--strict` for `verify`. |
+
+Stages 2 and 4 also write `runtime/validate-report.json` and `runtime/validate-artifacts-report.json`.
+
 ### Exit status
 
 | Code | Meaning |
 |---|---|
-| `0` | Every selected stage passed or was skipped. |
+| `0` | Every selected stage passed or was skipped, or every stage the flags selected is [switched off](#stage-switches-and-knobs). |
 | `1` | A stage failed. |
 | `2` | Ship refused its arguments: an unknown stage or a reversed range, no stage left to run, an environment name a stage would refuse, a publish target with `:`, `--dry-run` with another `--apply-mode`, a missing input, no contract, a contract that is missing, symlinked or under a system path, or `--skip-plan`. |
 | `3` | A stage failed after apply changed something, so those changes are live. A dry-run apply changes nothing. |

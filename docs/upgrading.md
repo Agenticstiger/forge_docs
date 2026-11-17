@@ -1203,6 +1203,10 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 
 - **The templates and scaffolds write no stand-in owner email.** The templates bundled for `fluid init` carry none, and `fluid init`, `fluid market --instantiate`, `fluid forge --template`, `fluid product-new` and `fluid import` leave `metadata.owner.email` out rather than write one (`--owner-email` gives one to `fluid init --blueprint` and `--discover`). `fluid init --template csv-basics` and the `fluid market` blueprints' default no longer write the starter team `data-team`. A contract you scaffolded before keeps its placeholder: replace it with the team's real address, or delete it, before `fluid validate --strict`, `fluid ship` or a generated pipeline's stage 2.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #929](https://github.com/Agenticstiger/forge-cli/pull/929)).*
+
+- **`fluid ship` reads the generated pipelines' switches and stage knobs.** A `RUN_STAGE_<N>_<NAME>=false` in the environment switches that stage off, `--stage` included, and `VALIDATE_STRICT`, `VERIFY_STRICT`, `GENERATE_EMIT`, `DIFF_EXIT_ON_DRIFT`, `DIFF_LAST_APPLIED`, `PLAN_HTML` and `POLICY_APPLY_MODE` reach their stage. A job that exports one of them for another tool now changes what ship runs: unset it in that step (for a knob, its flag also beats the variable). After a dry-run apply, stage 8 checks the bindings only when stage 7 is in the pipeline; without it, stage 8 enforces them. See [Stage switches and knobs](./cli/ship.md#stage-switches-and-knobs).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
