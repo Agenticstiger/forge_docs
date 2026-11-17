@@ -82,6 +82,22 @@ export FLUID_STATE_BACKEND=s3://<your-state-bucket>     # bucket only: per-contr
 fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 ```
 
+## Spark on AWS (preview)
+
+*On forge-cli `main`, not yet in a release ([forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919), [forge-cli #924](https://github.com/Agenticstiger/forge-cli/pull/924), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #934](https://github.com/Agenticstiger/forge-cli/pull/934)).* [Spark to Iceberg on AWS](./spark-iceberg-aws.md#operator-settings) says what each of these protects. An unset allowlist allows nothing. Every `*_ALLOWLIST` and `*_URL` setting, and `FLUID_SPARK_MAVEN_REPOSITORY`, is read from the operator's environment: a project `.env` cannot set it.
+
+| Variable | Effect |
+|---|---|
+| `FLUID_SPARK_TARGET_ALLOWLIST` | The existing runtimes a contract may name (`emr-serverless:<applicationId>`, `emr-ec2:<clusterId>`, `emr-eks:<virtualClusterId>`) and the MSK clusters it may read (`msk:<cluster ARN>`). |
+| `FLUID_SPARK_EXECUTION_ROLE_ALLOWLIST` | The roles `parameters.spark.executionRoleArn` may name: a role ARN, or an ARN prefix ending in `/`. |
+| `FLUID_SPARK_CONF_ALLOWLIST` | `sparkConf` keys beyond the built-in tuning keys: a key, or a prefix ending in `*`. A key that loads code, sets credentials or moves the catalog or checkpoint is refused even when listed. |
+| `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` a Spark job may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>`. |
+| `FLUID_SPARK_WAIT_SECONDS` | How long a reconcile waits for a cancelled run to stop and a started one to leave its pending states. Default 900. |
+| `FLUID_SPARK_MAVEN_REPOSITORY` | One https Maven mirror that replaces Confluent's repository in `spark.jars.repositories`. A URL with a user or password, a query, a comma, plain http or a link-local host is refused. |
+| `FLUID_SPARK_GLUE_JARS_URL` | `s3://<bucket>/<prefix>/`: where the platform keeps the pinned jars of a Glue Confluent Avro build. |
+| `FLUID_AIRFLOW_ALLOW_UNMAPPED` | `1` renders a task whose action the provider cannot map as a log-only task, instead of refusing (*On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).*). The same as `--allow-unmapped` on `fluid generate schedule`. |
+| `SCHEMA_REGISTRY_REST_ENDPOINT`, `SCHEMA_REGISTRY_ID`, `SCHEMA_REGISTRY_API_KEY`, `SCHEMA_REGISTRY_API_SECRET` | *On forge-cli `main`, not yet in a release ([forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913)).* The registry OpenTofu registers a produced Confluent subject in, and its credential. The first two cannot come from a project `.env`. See [Schema registry](./schema-registry.md#confluent-the-operator-s-registry). |
+
 ## Managed Flink (preview)
 
 *(since 0.27.0, [forge-cli #784](https://github.com/Agenticstiger/forge-cli/pull/784))* [Managed Flink to Iceberg](./managed-flink-iceberg.md#operator-settings) says what each of these protects. Each takes a comma-separated list. An unset list allows nothing, and a project `.env` cannot set any of them.
@@ -136,6 +152,7 @@ The CLI itself does not read these; the generated pipeline and the generated DAG
 | `FLUID_BIN` | the generated Airflow DAG | The `fluid` executable on the worker. Default `fluid`. |
 | `FLUID_DAG_ENV_PASSTHROUGH` | the generated Airflow DAG | Space-separated extra variable names handed to the `fluid apply` process. A name that starts with `AIRFLOW` never passes, so the worker's Airflow configuration and connection variables stay out of `fluid`. |
 | `FLUID_DAG_CONTRACT`, `FLUID_DAG_ENV`, `FLUID_DAG_BUILD_ID`, `FLUID_DAG_CONTRACT_ENV` | the generated Airflow DAG | Set by the DAG's task from constants in the file; do not set them on the worker. |
+| `FLUID_DAG_RUN_TIMEOUT` | the generated Airflow DAG of a Spark build | *On forge-cli `main`, not yet in a release ([forge-cli #936](https://github.com/Agenticstiger/forge-cli/pull/936)).* Set by the task: the run's wait in seconds, from `execution.runtime.timeout`, passed to `fluid spark run` as `--timeout`. Do not set it on the worker. |
 
 See [Airflow](./airflow.md) for which variables reach `fluid apply` on the worker and [Operating in CI](./operating-in-ci.md) for the pipeline parameters.
 
