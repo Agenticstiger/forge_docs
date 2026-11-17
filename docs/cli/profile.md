@@ -2,22 +2,36 @@
 
 Profile one expose's records where they live, and write a profile document of output-checked aggregates. A FLUX Simulation pins the document by its digest, so the FLUX engine reads aggregates of the real data and never a record of it.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925)).*
+*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925), [forge-cli #946](https://github.com/Agenticstiger/forge-cli/pull/946)).*
 
 FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
 
-::: warning flux-stats comes from git until it is released
-`flux-stats` is not on PyPI yet, so on `main` the `[profile]` extra installs it from the flux-engine repository, and `pip` needs `git` to do that. A forge-cli release that includes `fluid profile` waits for the flux-stats release. Without flux-stats, `fluid profile` stops before it reads anything:
+::: warning flux-stats comes from git until forge-cli pins a release
+forge-cli `main` reads flux-stats at a commit of the flux-engine repository that no PyPI release carries, and PyPI refuses a package whose metadata names a git dependency, so the `[profile]` extra installs DuckDB only. Install flux-stats yourself, from the flux-engine repository at the commit forge-cli names in `requirements/flux-stats.txt`; `pip` needs `git` to do that. Without flux-stats, `fluid profile` stops before it reads anything and prints the command:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
-  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed
+  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed. flux-stats is not on PyPI yet; install it from git with: pip install "flux-stats @ git+https://github.com/Agenticstiger/flux-engine.git@9ea8edf9bcddd58951f418db13a77253c02bdd7d#subdirectory=packages/flux-stats"
   read: nothing: no record was read
-  next: pip install 'data-product-forge[profile]'
+  next: pip install 'data-product-forge[profile]' && pip install "flux-stats @ git+https://github.com/Agenticstiger/flux-engine.git@9ea8edf9bcddd58951f418db13a77253c02bdd7d#subdirectory=packages/flux-stats"
 ```
 
-If a `flux-stats` distribution is installed but cannot be imported, the detail names its version instead. PyPI's `flux-stats` 0.0.1 is a placeholder that holds no code.
+If a `flux-stats` distribution is installed but cannot be imported, the detail names its version instead. PyPI's `flux-stats` 0.0.1 is a placeholder that holds no code, and forge-cli does not pin the 0.6.0 release yet.
 :::
+
+## Before you start
+
+`fluid profile` profiles an expose that a FLUID contract declares. If your data is in a file and you have no contract for it yet, let [`fluid init --discover`](./init.md) write one from the file's schema. It reads files with DuckDB, which the `[profile]` extra installs:
+
+```bash
+fluid init orders --discover "file://$PWD/data"
+```
+
+It writes one contract per file in `data/`, here `contract.orders.fluid.yaml` for `data/orders.parquet`, with the columns and types it found and no records. The project name, `orders`, goes into the product id. Read the contract and correct what a schema cannot tell, such as which columns are required. Then profile the expose it declares:
+
+```bash
+fluid profile contract.orders.fluid.yaml --expose orders --source data/orders.parquet
+```
 
 ## Where it runs
 
@@ -38,13 +52,14 @@ fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE]
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory. |
 | `--env` | An environment overlay to apply to the contract first. |
 
-Install the extra, which adds DuckDB and flux-stats:
+Install the extra, which adds DuckDB, and then flux-stats from git, at the commit forge-cli names:
 
 ```bash
 pip install 'data-product-forge[profile]'
+pip install -r https://raw.githubusercontent.com/Agenticstiger/forge-cli/main/requirements/flux-stats.txt
 ```
 
-Until a release includes `fluid profile`, install forge-cli from a checkout of `main` with `pip install -e '.[profile]'`.
+Until a release includes `fluid profile`, install forge-cli from a checkout of `main` with `pip install -e '.[profile]'`, then flux-stats with `pip install -r requirements/flux-stats.txt`.
 
 ## Sources
 
@@ -125,15 +140,25 @@ Pin it in the FLUX Simulation:
   profile: {digest: sha256:32aefe6ed451030bb4961edc5750d8f4cd0ea1b05a741168390abc1faba19285}
 ```
 
-The document is FLUX's profile format `1-0-0` in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. Pin the digest in the Simulation:
+The document is FLUX's profile format `1-0-0` in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
 
 ```yaml
 extensions:
   com.agentics.flux/1:
-    profile:
-      digest: sha256:32aefe6ed451030bb4961edc5750d8f4cd0ea1b05a741168390abc1faba19285
+    profile: {digest: sha256:32aefe6ed451030bb4961edc5750d8f4cd0ea1b05a741168390abc1faba19285}
+    emits:
+      payment:
+        # the emit's declarations
 ```
 
 Nothing is written, and no directory is made, until the profile is formed. The document is written readable by you alone, and never through a symbolic link: a link at the target is refused, and so is an `--out` that names the source file. The default name is `<exposeId>.profile.json` only when the exposeId holds nothing but letters, digits, `_`, `.` and `-`. Otherwise name the file with `--out`.
 
 Each refusal names a stable code, for example `profile_expose_not_found`, `profile_source_unreadable`, `profile_value_refused` or `profile_out_is_a_link`, and nothing is written. A refusal names a column, a row or line number and the kind of value at fault, never the value itself.
+
+## Next: FLUX
+
+A FLUX Simulation turns the profile into synthetic rows. [From your data to a synthetic copy](https://agenticstiger.github.io/flux/guide/from-your-data.html) follows the whole path: a contract from a data file, this profile, a Simulation written from the profile's numbers, then rows from the FLUX engine. The engine does not generate rows from a profile yet, so you write the Simulation's declarations from the values the profile published.
+
+The engine checks a run against the profile it pins, from flux-sim-engine 0.6.0. It compares each fidelity property with a statistic the profile carries for it, such as `mean/1` or a histogram, and `fluid profile` writes the column metrics above and none of those statistics yet. So today `fluxsim verify` refuses each property, and `fluxsim ship` withholds the run. The guide says what to do instead.
+
+The rest of the FLUX documentation is at [agenticstiger.github.io/flux](https://agenticstiger.github.io/flux/).
