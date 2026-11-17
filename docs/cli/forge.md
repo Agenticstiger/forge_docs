@@ -16,29 +16,25 @@ fluid forge data-model <from-intent|from-ddl|from-source|validate|diff|dump-ddl|
 ## Examples
 
 ```bash
-# Interactive AI copilot
+# AI mode: your coding agent, or one model call
 fluid forge
 
-# Target a provider or a domain
+# Target a provider
 fluid forge --provider gcp
-fluid forge --domain finance
 
 # Choose the model
 fluid forge --llm-provider openai --llm-model gpt-4.1-mini
-fluid forge --llm-provider gemini --tiered --require-llm
+fluid forge --llm-provider gemini --require-llm
 
 # No model: an empty contract, or a guided interview with no network
 fluid forge --blank --target-dir ./out
 fluid forge --offline --non-interactive --yes --target-dir ./out
 
-# Keep the contract in fragments, and add a CI pipeline
-fluid forge --fragments --ci github_actions
-
-# Pick up a paused run
-fluid forge --resume
+# Add a CI pipeline
+fluid forge --ci github_actions
 ```
 
-*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--domain`, `--tiered`, `--fragments` and `--resume` are removed; see [Removed flags](#removed-flags). A non-interactive AI run takes the product to build in `--context`:
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--domain`, `--tiered`, `--fragments` and `--resume` are removed from `fluid forge`; see [Removed flags](#removed-flags). A non-interactive AI run takes the product to build in `--context`:
 
 ```bash
 fluid forge --llm-provider claude-code --non-interactive --context "orders from the shop API, refreshed daily"
@@ -51,7 +47,7 @@ For a guided walkthrough of the forge journeys, see [AI Forge And Data-Model Jou
 
 *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))*
 
-AI mode runs on the four FLUID Agent Skills that ship with forge-cli, the same skills [`fluid scaffold-ide`](./scaffold-ide.md) installs for a coding agent. The embedded copilot is gone, with its interview, slash commands, streaming preview, prompt profiles and overlays, agent loop, memory, resume, judge, domain agents and tiered routing.
+AI mode runs on the four FLUID Agent Skills that ship with forge-cli, the same skills [`fluid scaffold-ide`](./scaffold-ide.md) installs for a coding agent. The embedded copilot is gone, with its interview, slash commands, streaming preview, prompt profiles and overlays, agent loop, memory, resume, judge, domain agents and, on `fluid forge`, tiered routing (`fluid forge data-model` keeps `--tiered`).
 
 | You have | What `fluid forge` does |
 | --- | --- |
@@ -78,7 +74,7 @@ Why the change: on forge-cli's agent-skills eval, a coding agent with these skil
 
 ### Removed flags
 
-Each of these fails with `unrecognized arguments` (exit 2) in 0.31.0:
+Each of these exits 2 in 0.31.0, with `unrecognized arguments`, or with `invalid choice` for the word after a flag that took a value (`--domain`, `--prompt-profile`, `--prompt-overlay`, `--from-stage`, `--fork`, `--llm-routing-model`, `--llm-routing-endpoint`, `--seed-from`, `--discovery-path`, `--also-emit`):
 
 | Removed | Use instead |
 | --- | --- |
@@ -341,7 +337,8 @@ fluid forge data-model from-intent --validate intent.yaml
 | `--industry NAME` | Lint the model against an industry pack's canonical skeleton (`telecommunications`, `retail`, `healthcare`, `finance`). |
 | `--allow-semantic-warnings` | Write artifacts even when the industry check still warns. |
 | `--llm-timeout-seconds N` | Timeout for staged model calls. Default 120. |
-| `--review`, `--dry-run`, `--deterministic`, `--require-llm`, `--tiered`, `--no-cache` | As on `fluid forge`. `--review` opens the logical sidecar in `$EDITOR`. |
+| `--review`, `--dry-run`, `--deterministic`, `--require-llm`, `--no-cache` | As on `fluid forge`. `--review` opens the logical sidecar in `$EDITOR`. |
+| `--tiered` | Route the staged calls across models; it exists on `data-model` only, because `fluid forge` removed it. |
 | `--llm-provider`, `--llm-model`, `--llm-endpoint`, `--llm-routing-model`, `--llm-routing-endpoint` | As on `fluid forge`. |
 
 `from-ddl` takes `--ddl FILE...` and `--source-type` (`snowflake`, `bigquery`, `postgres`, `postgresql`, `oracle`, `mysql`). `from-source` takes `--source`, `--credential-id`, `--database`, `--schema`, `--catalog`, `--tables`, `--name`, and `--uri` for the JDBC sources; `--allow-metadata-service` lets the credential resolver use cloud workload identity.

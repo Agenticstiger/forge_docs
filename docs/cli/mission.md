@@ -250,10 +250,11 @@ cosmetics ([`0.13.0` security fixes](../RELEASE_NOTES_0.13.0.md#security)).
 
 `check` is the CI-safe half: no LLM, no network, no credentials.
 
+<!-- cli-version: historical -->
 ```yaml
 - name: Mission gate
   run: |
-    pip install data-product-forge==0.31.0
+    pip install data-product-forge==0.29.0
     fluid mission check quality-coverage contract.fluid.yaml
 ```
 

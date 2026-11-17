@@ -83,7 +83,7 @@ fluid mcp serve: --deny-tools names no such tool: list_source_tables, forge_run.
 
 The flags take `source_catalog` whole: they cannot allow one `kind` and deny another.
 
-Each tool carries an MCP `inputSchema`, so clients can offer typed autocomplete and validate arguments before dispatch. The tool catalog and the LLM sampling backchannel are in the [Advanced MCP server guide](../advanced/mcp.md#authoring-tools).
+Each tool carries an MCP `inputSchema`, so clients can offer typed autocomplete and validate arguments before dispatch. The tool catalog is in the [Advanced MCP server guide](../advanced/mcp.md#authoring-tools).
 
 ### Serve over HTTP
 

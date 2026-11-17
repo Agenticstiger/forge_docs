@@ -106,7 +106,6 @@ flag_oracle_ok:
   - docs/**::fluid forge --llm-provider gemini --tiered
   - docs/cli/forge.md::--resume
   - docs/cli/forge.md::--fork
-  - docs/cli/forge.md::--fragments
   - docs/cli/forge.md::--seed-from
 
 # Files the version sweep must not scan, as paths relative to the repo root

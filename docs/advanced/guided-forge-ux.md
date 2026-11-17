@@ -2,7 +2,7 @@
 
 Fluid Forge's `fluid forge` flow is detect-first, mode-aware, slash-command-friendly, and never writes a file before showing you what it's about to write.
 
-*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The mode picker and the welcome scan are kept. The pre-write preview panel, the guided interview, its mode-aware short-circuits, the slash commands, the streaming contract preview and the self-healing repair loop are removed with the embedded copilot; AI mode's one-call path asks `Keep this contract at <path>? [Y/n]` instead of showing the panel. AI mode runs on the FLUID Agent Skills: see [AI mode in 0.31.0](../cli/forge.md#ai-mode-in-0-31-0).
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The mode picker and the welcome scan are kept. The pre-write preview panel, the AI copilot's interview, its mode-aware short-circuits, the slash commands, the streaming contract preview and the self-healing repair loop are removed with the embedded copilot; AI mode's one-call path asks `Keep this contract at <path>? [Y/n]` instead of showing the panel. The guided mode of `fluid forge --offline` stays: `fluid forge --offline --non-interactive --yes` still writes a contract. AI mode runs on the FLUID Agent Skills: see [AI mode in 0.31.0](../cli/forge.md#ai-mode-in-0-31-0).
 
 <iframe
   src="/forge_docs/reels/guided-forge-ux.html"

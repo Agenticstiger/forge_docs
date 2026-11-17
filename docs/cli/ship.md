@@ -16,8 +16,10 @@ fluid ship [contract-path] [options]
 
 ## Examples
 
+These are the four-stage macro's examples (0.30.1 and earlier). The first exits 2 in 0.31.0, where `--skip-plan` is removed; see [The 11-stage runner in 0.31.0](#the-11-stage-runner-in-0-31-0).
+
 ```bash
-# Local dev: validate + apply only
+# Local dev: validate + apply only (0.30.1 and earlier)
 fluid ship --skip-bundle --skip-plan --yes
 
 # Production-style: validate strictly, then deploy the prod overlay
@@ -85,7 +87,7 @@ A `fragments/` directory next to the contract does not change where the bundle g
 | For demo and quickstart speed | You need stage-specific flags `ship` doesn't expose (per-stage `--out` paths, `bundle --format`, `plan --html`) |
 | | You want to inspect `plan.json` before apply, or bind the apply to the plan |
 
-For the production-grade 11-stage pipeline (cryptographic plan binding, drift gating, supply-chain signing), use [`fluid generate ci`](./generate.md#fluid-generate-ci) to emit the full pipeline for your CI system instead of `fluid ship`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The pipeline `fluid generate ci` writes calls `fluid ship` for every stage, so the macro and the generated pipeline run the same code: see [What a generated pipeline runs](../advanced/operating-in-ci.md#what-a-generated-pipeline-runs).
+In 0.30.1 and earlier, for the production-grade 11-stage pipeline (cryptographic plan binding, drift gating, supply-chain signing), use [`fluid generate ci`](./generate.md#fluid-generate-ci) to emit the full pipeline for your CI system instead of `fluid ship`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The pipeline `fluid generate ci` writes calls `fluid ship` for every stage, so the macro and the generated pipeline run the same code: see [What a generated pipeline runs](../advanced/operating-in-ci.md#what-a-generated-pipeline-runs).
 
 ## Exit codes
 
