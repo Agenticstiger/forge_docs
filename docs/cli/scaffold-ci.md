@@ -1,5 +1,9 @@
 # `fluid scaffold-ci`
 
+::: danger Removed on forge-cli main
+*On forge-cli `main`, not yet in a release ([forge-cli #941](https://github.com/Agenticstiger/forge-cli/pull/941)).* `fluid scaffold-ci` is removed: it exits 2 as an unknown command. Use [`fluid generate ci --system <system>`](./generate.md#fluid-generate-ci). This page describes 0.30.1 and earlier.
+:::
+
 Generate a single-file CI pipeline for GitLab, GitHub Actions, or Jenkins that wires together the FLUID validate / generate / plan / test / apply / publish steps.
 
 For the 11-stage pipeline (bundle, artifacts, drift check, policy apply, verify, schedule sync), use [`fluid generate ci`](./generate.md#fluid-generate-ci) instead. `scaffold-ci` writes the short form.

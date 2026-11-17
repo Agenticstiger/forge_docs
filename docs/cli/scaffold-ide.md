@@ -96,5 +96,5 @@ Fix these errors, then run: fluid validate /work/contract.fluid.yaml --offline
 
 - [`fluid forge`](./forge.md) — AI-assisted scaffolding, including headless `--agent` mode
 - [`fluid mcp`](./mcp.md) — the MCP server the generated IDE config points at
-- [`fluid scaffold-ci`](./scaffold-ci.md) — the equivalent generator for CI pipelines
+- [`fluid generate ci`](./generate.md#fluid-generate-ci): the equivalent generator for CI pipelines
 - [Advanced MCP server guide](../advanced/mcp.md)
