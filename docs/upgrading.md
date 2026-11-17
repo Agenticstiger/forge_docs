@@ -1178,6 +1178,10 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 
 - **`fluid profile` is a new command, and it does not profile yet.** It reads one expose's records where they live and writes a FLUX profile document of output-checked aggregates, which a Simulation pins by digest. It forms every statistic with `flux-stats`, which is not published yet, so for now it stops before it reads anything. Nothing that exists changes. The `[profile]` extra adds DuckDB. See [`fluid profile`](./cli/profile.md).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911)).*
+
+- **0.7.7 (preview) contracts can state rules about valid data, and `fluid validate` checks them.** `exposes[].contract.invariants[]` holds checks, derived columns and dependencies, written in FLUID SQL/1. Columns gain `identifierFormat`, `placeholders` and `sharedAttribute`, and relationships gain `sharedColumns`. Every field is optional. A 0.7.7 contract that uses none of them gets no new errors, though it may get notes, which `--strict` never counts. See [Rules about valid data](./concepts/data-rules.md).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
