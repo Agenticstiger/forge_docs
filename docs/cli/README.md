@@ -85,7 +85,7 @@ These commands are for production-safety concerns that live alongside the pipeli
 | --- | --- |
 | [`fluid generate`](./generate.md) | Unified generation entry point (transformations, schedules, CI, standards, artifacts) |
 | [`fluid generate artifacts`](./generate-artifacts.md) | Stage 3 fanout — ODCS + ODPS-Bitol + schedule + policy bindings |
-| [`fluid generate-pipeline`](./generate-pipeline.md) | Universal pipeline scaffolds (legacy alias) |
+| [`fluid generate-pipeline`](./generate-pipeline.md) | Universal pipeline scaffolds (removed on forge-cli main; use `fluid generate ci`) |
 | [`fluid generate-airflow`](./generate-airflow.md) | Compatibility shim for `generate schedule --scheduler airflow` |
 | [`fluid generate iac`](./generate-iac.md) | Review-only emit of an OpenTofu module from a contract |
 | [`fluid generate vector`](./generate-vector.md) | Review-only emit of a pgvector RAG target from a contract |
@@ -156,7 +156,7 @@ ODPS and ODCS are **spec exporters**, not cloud providers — they serialize a c
 | Command | What it is for |
 | --- | --- |
 | [`fluid generate ci`](./generate.md) | Generate parameterised 11-stage CI pipelines, including Jenkins publish/verify defaults |
-| [`fluid scaffold-ci`](./scaffold-ci.md) | Legacy CI/CD scaffolds (superseded by `generate ci` for 11-stage) |
+| [`fluid scaffold-ci`](./scaffold-ci.md) | Legacy CI/CD scaffolds (removed on forge-cli main; use `fluid generate ci`) |
 | [`fluid scaffold-composer`](./scaffold-composer.md) | Generate Cloud Composer scaffolds |
 | [`fluid scaffold-ide`](./scaffold-ide.md) | Generate agentic-IDE configuration for Kiro, Cursor, Claude Code, Cline or a generic `AGENTS.md` |
 | [`fluid docs`](./docs.md) | Build / index in-product documentation |

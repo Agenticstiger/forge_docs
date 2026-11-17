@@ -298,7 +298,7 @@ o/
 6. An interactive menu.
 7. Nothing, when none of the above applies and there is no terminal.
 
-For finer control over what the pipeline contains, use `fluid generate ci` ([generate](./generate.md)) or [`fluid generate-pipeline`](./generate-pipeline.md).
+For finer control over what the pipeline contains, use `fluid generate ci` ([generate](./generate.md)).
 
 ## Forging a data model
 

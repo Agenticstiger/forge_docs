@@ -1,5 +1,9 @@
 # `fluid generate-pipeline`
 
+::: danger Removed on forge-cli main
+*On forge-cli `main`, not yet in a release ([forge-cli #941](https://github.com/Agenticstiger/forge-cli/pull/941)).* `fluid generate-pipeline` is removed: it exits 2 as an unknown command. Use [`fluid generate ci --system <system>`](./generate.md#fluid-generate-ci). This page describes 0.30.1 and earlier.
+:::
+
 Generate a CI/CD pipeline configuration tailored to a chosen provider, complexity level, and environment list.
 
 ::: warning Known issue in 0.18.1: `--provider` is refused
