@@ -460,6 +460,81 @@ State that an earlier release wrote at `fluid/<id>/terraform.tfstate` has to fol
 | `state_migration_probe_failed` | The state at a key could not be read. | Check the bucket, the key and the credentials. |
 | `state_shared_with_another_provider` | A remote key that does not name the provider holds another cloud's resources, and this apply would plan them as orphans to destroy. | Give each provider its own state: a key that names the provider in `--state-backend`, or a bucket-only `FLUID_STATE_BACKEND`. |
 
+## State and plan encryption
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).*
+
+The OpenTofu state of an apply holds what the resources hold: connection strings, generated passwords, ids. Encrypting it is opt-in. Set `FLUID_STATE_ENCRYPTION` in the environment of the job to name one OpenTofu key provider, and forge writes a `terraform.encryption` block into the module with `enforced = true` for both the state and the saved plan. `tofu` then refuses to write either one unencrypted.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The variable names a key by reference. There are four forms, and each reaches its key with credentials you already have:
+
+| `FLUID_STATE_ENCRYPTION` | Key provider | Where the key's credentials come from |
+| --- | --- | --- |
+| `aws-kms://<key id, key ARN or alias/name>` | `aws_kms` | The AWS credentials of the run. The region comes from a key ARN, else from `AWS_REGION` or `AWS_DEFAULT_REGION`; a bare key id or alias with neither is refused. |
+| `gcp-kms://projects/<p>/locations/<l>/keyRings/<r>/cryptoKeys/<k>` | `gcp_kms` | The Google credentials of the run (application default credentials, impersonation, a workload identity). |
+| `openbao://<transit mount path>/<key name>` | `openbao` | The transit engine of your OpenBao, for example `openbao://transit/fluid`. forge gives `tofu` the store's address (`BAO_ADDR` or `VAULT_ADDR`) and a token: the one forge's vault resolver finds in the environment or the token helper file, a response-wrapped token, or a CI JWT login. A token forge minted is revoked when the run ends. `BAO_NAMESPACE` and the CA bundle go along when set. |
+| `pbkdf2+<secret reference>` | `pbkdf2` | A passphrase the reference names, for example `pbkdf2+env://FLUID_STATE_PASSPHRASE` or `pbkdf2+vault://kv/lab/state#passphrase`. It resolves under your [secret policy](./secrets.md), and OpenTofu needs at least 16 characters. |
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The setting applies to every command that runs `tofu` against the state: `fluid apply`, `fluid plan --tofu`, `fluid diff` and `fluid verify --state-drift`. A saved plan from `fluid plan --tofu` is encrypted too, so `fluid apply` of that plan needs the same `FLUID_STATE_ENCRYPTION`. The `encryption:` line of an apply names the provider and the key, never a value:
+
+```text
+  encryption:  pbkdf2, passphrase from env://FLUID_STATE_PASSPHRASE
+```
+
+### Where the key material goes
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The key itself is never written down. `main.tf.json` holds the key's name and no passphrase, and neither the plan nor the state carries it. forge never sets `TF_ENCRYPTION`, and an `TF_ENCRYPTION` in your environment never reaches `tofu`, because OpenTofu would let it override the module. A pbkdf2 passphrase reaches `tofu` as an ephemeral variable, `TF_VAR_fluid_state_passphrase`, in the environment of that one process: OpenTofu keeps only the variable's name in a saved plan and never puts it in the state.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* `FLUID_STATE_ENCRYPTION` is a protected name. A `.env` file in a project cannot set it, because whoever chooses the key chooses who can read the state. Set it in the job's own environment. See [project `.env` trust](../advanced/project-dotenv-trust.md).
+
+### OpenTofu 1.13 or newer
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* With the setting on, forge refuses a `tofu` older than 1.13. Before 1.13, `tofu init -backend=false`, which forge runs for local state, read an encrypted local state without the encryption configuration and failed. `--ensure-opentofu` installs a pinned build only when no `tofu` is on `PATH`, so upgrade a `tofu` you already have.
+
+### Errors and fixes
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).*
+
+| Error | Meaning | What to do |
+| --- | --- | --- |
+| `opentofu_state_encryption_invalid` | `FLUID_STATE_ENCRYPTION` names no provider, a provider forge does not support, or a key that does not match its form (an `aws-kms` key id with no region, a malformed GCP key path, an unparsable passphrase reference). | Set it to one of the four forms above. The message says which part is wrong. |
+| `opentofu_state_encryption_unsupported` | The `tofu` on this machine is older than 1.13. | Upgrade OpenTofu to 1.13 or newer. |
+| `opentofu_state_encryption_unavailable` | The key could not be reached or used: the passphrase reference does not resolve, the passphrase is shorter than 16 characters, the OpenBao address or token is missing, or `tofu` could not use the KMS key. | Fix the reference or the store, or give the run an identity that may use the key. `--debug` shows `tofu`'s full diagnostic. |
+| `opentofu_state_not_encrypted` | The state is plaintext and `FLUID_STATE_ENCRYPTION` asks for encrypted state. | Migrate it once (below), or unset the variable to keep this state unencrypted. |
+| `opentofu_state_encrypted_without_key` | The state is encrypted and `FLUID_STATE_ENCRYPTION` is not set. | Set it to the key that encrypted the state. |
+| `opentofu_state_decrypt_failed` | The state or the plan could not be decrypted with the key the variable names. | Set it to the key that encrypted them. forge does not change keys yet, which needs the old key as a fallback. |
+
+### Encrypting a state that already exists
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* Plaintext state is refused once encryption is on, and the `opentofu_state_not_encrypted` error names the fix: run `fluid apply` once with the hidden flag `--migrate-state-encryption`. That run reads the plaintext state through OpenTofu's `unencrypted` fallback and writes it back encrypted. It needs `FLUID_STATE_ENCRYPTION` set and refuses without it. The flag is not in `--help`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* OpenTofu forbids a fallback under `enforced`, so the state of that one run is not enforced and a warning (`opentofu_state_encryption_migration`) says so. The plan is still enforced. Later runs need no flag.
+
+## What `tofu` gets from the environment
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* Every `tofu` call of a run, from `init` to `apply`, gets an allowlist of your environment, not a copy of it. A model API key, a GitHub token or a Command Center secret in the job's environment never reaches `tofu` or the provider processes it starts.
+
+What passes:
+
+- The process basics: `PATH`, `HOME`, the user and locale variables, the temporary directory, the XDG directories, and the Windows system and profile directories.
+- Proxies (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, in both cases) and CA bundles (`SSL_CERT_FILE`, `SSL_CERT_DIR`).
+- OpenTofu's own settings by name, such as `TF_LOG`, `TF_DATA_DIR`, `TF_WORKSPACE`, `TF_CLI_CONFIG_FILE` and `TF_PLUGIN_CACHE_DIR`, and `TF_TOKEN_*` for a private registry.
+- `TOFU_CLI_PATH` and `GITHUB_OUTPUT`, which the default wrapper of `opentofu/setup-opentofu` needs. They hold paths, no credential.
+- Each plugin's credential families: `AWS_` for AWS; `GOOGLE_`, `GCLOUD_`, `CLOUDSDK_` and `GCE_METADATA_` for GCP; `SNOWFLAKE_` for Snowflake; `DATABRICKS_`, `ARM_`, `AZURE_` and `GOOGLE_` for Databricks; `CONFLUENT_` and `TABLEFLOW_` for Confluent. A whole family keeps every way a provider can sign in working: a profile with a `credential_process`, a web identity token file, container credentials, application default credentials and impersonation.
+- The cloud of the state backend (`s3://` is AWS, `gcs://` is GCP) and of the encryption key, whatever the plugin is. Snowflake resources with state in S3 get `AWS_`.
+
+What never passes:
+
+- `TF_CLI_ARGS` and `TF_CLI_ARGS_<command>`, which would add flags such as `-auto-approve`, `-target` or `-lock=false` to every command forge runs.
+- `TF_VAR_*` from your environment, which would set the module's variables. forge sets the ones it needs itself.
+- `TF_ENCRYPTION`, which would override the module's state encryption. Use `FLUID_STATE_ENCRYPTION`.
+- `TF_INPUT` and `TF_REATTACH_PROVIDERS`.
+- Model keys that sit inside a cloud's family: `GOOGLE_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `AWS_BEARER_TOKEN_BEDROCK`, `AZURE_API_KEY`, and the `AZURE_OPENAI_` and `AZURE_AI_` families.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* When a `TF_` variable is dropped, forge logs a `tofu_env_dropped` warning that names the variables and never their values. `fluid generate iac --validate` uses the same allowlist.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* An IaC plugin that lives outside forge declares what its provider reads: exact names in `credential_env_vars` and whole families in `credential_env_prefixes` (for example `("MYCLOUD_",)`). A plugin that declares no prefixes is warned about once, with `tofu_env_plugin_undeclared`, and gets only its `credential_env_vars` and the basics. A job that relied on a variable the allowlist now drops needs it declared there, or set another way.
+
 ## Reporting to the Command Center (since 0.17.0)
 
 The [Command Center page](../concepts/command-center.md#what-fluid-apply-reports) covers what the report holds and how to configure it.

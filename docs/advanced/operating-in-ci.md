@@ -170,6 +170,99 @@ The payload has `violations[]` with `violation_kind`, `counts_by_kind`, `drift_c
 
 The generated Jenkinsfile passes `--yes` to apply; set the variables when you script stages by hand. `FLUID_AUTO_CONFIRM` is not read by 0.18.1; see [Environment variables](./environment-variables.md#variables-with-no-effect-in-0-18-1).
 
+## Keyless cloud login
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).*
+
+`fluid generate ci` reads the contract and writes a pipeline that holds no static cloud key. The CI system hands each job a short-lived OIDC ID token, and the cloud, or your secret store, trusts the CI system's issuer and the job's subject. No generated pipeline file holds a cloud key.
+
+### What it detects
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The platforms come from the contract and from every overlay, since a pipeline can run any of them:
+
+- A `binding.platform` of `aws`, `gcp`, `snowflake` or `databricks`, with the aliases `fluid apply` accepts (such as `bigquery` or `s3`), and `binding.provider`.
+- The runtime platform of each build, because a build there needs a login even beside another cloud's exposes.
+- `openbao`, when any `secretRef` is a `vault://` or `openbao://` reference. forge's vault resolver then logs in to OpenBao or Vault with the job's token.
+
+A contract that binds no cloud gets a header that says so, and no login. Run `fluid generate ci <contract>` again after adding a binding.
+
+### What each system gets
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* GitHub Actions:
+
+- `permissions: id-token: write` on the jobs that reach the cloud: the deploy jobs (apply, policy, verify and publish run in them), the enterprise compliance job, and the single job of the basic workflow. The validate, generate, plan and test jobs keep `contents: read`, and the workflow's default is none.
+- AWS: `aws-actions/configure-aws-credentials` v6.3.0, pinned by commit SHA, with `AWS_ROLE_ARN` and `AWS_REGION`.
+- GCP: `google-github-actions/auth` v3.0.0, pinned by SHA, with `GCP_PROJECT_NUMBER`, `WIF_POOL`, `WIF_PROVIDER` and `GCP_SA_EMAIL`.
+- Snowflake: workload identity federation. The job asks for an ID token for the audience `snowflakecomputing.com`, writes it to a file with mode 600 under `$RUNNER_TEMP`, and exports `SNOWFLAKE_AUTHENTICATOR`, `SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER` and `SNOWFLAKE_TOKEN_FILE_PATH`. `SNOWFLAKE_ACCOUNT` is a repository variable.
+- OpenBao: a JWT from the job in a mode-600 file named by `FLUID_VAULT_JWT_FILE`, with `FLUID_VAULT_JWT_ROLE` and `BAO_ADDR` from repository variables.
+- Databricks: `DATABRICKS_AUTH_TYPE=github-oidc` with `DATABRICKS_HOST` and `DATABRICKS_CLIENT_ID`. The SDK and the OpenTofu provider make the token exchange themselves.
+- GitHub's ID tokens last about five minutes, so the Snowflake and OpenBao token files are replaced every four minutes for the later steps of the job.
+- The login steps are skipped on pull requests from forks and from Dependabot, which get no ID token, so the job does not fail before validate runs.
+
+This is an excerpt of a workflow generated for a contract with a Snowflake binding:
+
+```yaml
+jobs:
+  deploy-dev:
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ vars.SNOWFLAKE_ACCOUNT }}
+    environment: dev
+    # ...
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+    # ...
+    - if: github.event.pull_request.head.repo.fork != true && github.actor != 'dependabot[bot]'
+      name: Authenticate to Snowflake (workload identity federation)
+      run: |
+        set -euo pipefail
+        umask 077
+        token_file="$RUNNER_TEMP/snowflake-id-token"
+        mint() {
+          token="$(curl -sSf -H @- "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=snowflakecomputing.com" <<<"Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" | python3 -I -c 'import json, sys; print(json.load(sys.stdin)["value"])')"
+          [ -n "$token" ] || return 1
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$token_file.new" && mv -f "$token_file.new" "$token_file"
+        }
+        mint
+        # GitHub's ID tokens expire after about five minutes and the request URL stays
+        # valid for the whole job, so a fresh one replaces the file every four minutes
+        # for the later steps that read it (GitHub ends the loop with the job). A failed
+        # refresh keeps the last token. Only the first token is masked in the log, so
+        # no step should print this file.
+        ( while sleep 240; do mint || true; done ) >/dev/null 2>&1 &
+        {
+          echo "SNOWFLAKE_AUTHENTICATOR=WORKLOAD_IDENTITY"
+          echo "SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER=OIDC"
+          echo "SNOWFLAKE_TOKEN_FILE_PATH=$token_file"
+        } >> "$GITHUB_ENV"
+      shell: bash
+```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* GitLab CI: each job that reaches the cloud gets `id_tokens`, one per platform (`AWS_OIDC_TOKEN` for `sts.amazonaws.com`, `GCP_OIDC_TOKEN`, `SNOWFLAKE_OIDC_TOKEN`, `DATABRICKS_OIDC_TOKEN` for your Databricks account id, `OPENBAO_OIDC_TOKEN`). Its script writes the AWS, GCP, Snowflake and OpenBao tokens to mode-600 files in a private temporary directory that is removed when the job ends, and points the SDKs at them. Databricks reads its token from `DATABRICKS_OIDC_TOKEN` directly, with `DATABRICKS_AUTH_TYPE=env-oidc`, and needs a `DATABRICKS_ACCOUNT_ID` variable. Databricks uses `DATABRICKS_AUTH_TYPE=env-oidc` and needs a `DATABRICKS_ACCOUNT_ID` variable.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* Jenkins has no native OIDC, so a Jenkinsfile stays on credentials binding. Its header says so and recommends credentials that expire, such as a role session or a short-lived token from your vault, kept in the Jenkins credential store or the agent's environment. Azure DevOps, Bitbucket, CircleCI and Tekton are not wired for OIDC yet: their headers name the system's own mechanism and the variables forge reads once a job holds a token in a file.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* `fluid forge` scaffolds the same keyless CI from the project's contract.
+
+### The trust you create on the cloud side
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The header of each pipeline lists the non-secret variables to set and the trust to create. Bind every trust to the job's subject, never to a whole organization.
+
+For GitHub, the subject is immutable: `repo:OWNER@OWNER-ID/REPO@REPO-ID:<context>` is the default for repositories created after 2026-07-15. Older repositories keep `repo:OWNER/REPO:<context>` until they opt in, which makes a renamed or re-created repository unable to inherit the trust. Opt in, then bind to the immutable form. The `<context>` is `environment:<name>` for a job that declares an environment (the deploy jobs do), `pull_request` for a job a pull request runs, and `ref:refs/heads/<branch>` otherwise. The issuer is `https://token.actions.githubusercontent.com`.
+
+For GitLab, bind to `project_path:GROUP/PROJECT:ref_type:branch:ref:main`, a protected branch or environment. The issuer is your GitLab instance URL.
+
+| Platform | Trust to create |
+| --- | --- |
+| `aws` | An IAM OIDC provider for the issuer, and a role whose trust policy allows `sts:AssumeRoleWithWebIdentity` with `aud = sts.amazonaws.com` and the subject above. |
+| `gcp` | A workload identity pool and an OIDC provider for the issuer, mapping `google.subject=assertion.sub`, and permission for the subject to impersonate the service account. |
+| `snowflake` | A service user that trusts the token: `CREATE USER FLUID_CI TYPE = SERVICE WORKLOAD_IDENTITY = (TYPE = OIDC ISSUER = '<issuer>' SUBJECT = '<sub>');`, with the role the contract's bindings use granted to it. |
+| `databricks` | A service principal and an account federation policy for it, with the issuer, your Databricks account id as the audience, and the subject. `DATABRICKS_CLIENT_ID` is the service principal's application id. |
+| `openbao` | The JWT auth method trusting the issuer, and a role bound to the audience and the subject. |
+
 ## Credentials on runners
 
 Do not put credentials in the pipeline file. The generated templates read them from the CI system's secret store at run time:

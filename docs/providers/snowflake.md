@@ -436,6 +436,25 @@ opens (`fluid auth status snowflake`, discovery, dbt). This applies only to the
 OpenTofu apply path.
 :::
 
+### Workload identity federation
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).*
+
+forge can connect to Snowflake with no user, password or key pair, from a CI job's own identity. Set:
+
+| Variable | Meaning |
+| --- | --- |
+| `SNOWFLAKE_AUTHENTICATOR` | `WORKLOAD_IDENTITY`. |
+| `SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER` | `OIDC`, `AWS`, `AZURE` or `GCP`: the identity the workload presents. |
+| `SNOWFLAKE_TOKEN_FILE_PATH` | For `OIDC` only: the file that holds the job's ID token. |
+| `SNOWFLAKE_ACCOUNT` | The account, as for any other login. |
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* With `OIDC`, forge hands the token file's path to the Snowflake connector, which reads the token, and sends no other credential: a stray password or key path in the environment is not sent. This needs snowflake-connector-python 3.17 or newer. A missing provider, or `OIDC` with no token file, stops the connection with a message that names the variable to set. Snowflake side, the identity is a service user that trusts the token's issuer and subject; [Operating in CI](../advanced/operating-in-ci.md#keyless-cloud-login) shows the statement a generated pipeline prints.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The `snowflakedb/snowflake` OpenTofu provider reads the same variables, so `fluid apply` needs nothing more. A token file needs provider 2.23 or newer. [`fluid auth`](../cli/auth.md) and [`fluid doctor`](../cli/doctor.md) accept the login without `SNOWFLAKE_USER`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* Builds that run through dbt, dlt or Airbyte do not read these variables yet, so give them another credential.
+
 ### Jenkins CI (Recommended)
 
 Create a Jenkins **Secret File** credential containing your Snowflake env vars:

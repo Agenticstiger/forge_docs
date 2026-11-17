@@ -231,5 +231,6 @@ pip install --force-reinstall data-product-forge
 
 ## Notes
 
+- *On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* With `SNOWFLAKE_AUTHENTICATOR=WORKLOAD_IDENTITY`, the Snowflake check does not ask for `SNOWFLAKE_USER`. See [Workload identity federation](../providers/snowflake.md#workload-identity-federation).
 - Use [`fluid describe --self`](./describe.md) to read what the CLI ships. `describe` reports what is installed; `doctor` reports whether the tools around it are present.
 - For the first response to a failed run, the sequence in [Production troubleshooting](../advanced/production-troubleshooting.md) starts with `fluid doctor`.
