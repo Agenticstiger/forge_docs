@@ -5,7 +5,7 @@ description: Declare in the contract what valid data looks like (derived columns
 
 # Rules about valid data
 
-*On forge-cli's `feat/fluid-data-rules` branch ([forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911)), not yet on `main` or in a release.*
+*On forge-cli `main`, not yet in a release ([forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911)).*
 
 The fields on this page need `fluidVersion: 0.7.7`. That schema is an opt-in preview: a contract that does not declare it stays on 0.7.6. A 0.7.6 contract that uses one of these fields fails `fluid validate`, and the message tells you to declare 0.7.7. Every field is optional, so a contract without them validates, exports and digests exactly as before.
 
@@ -366,7 +366,7 @@ The entry is short for a `derive` invariant with `expr: "account.status"` and `w
 
 **Notes** never fail validation, and `--strict` does not count them. They are: same-named columns on the two ends of a relationship that nothing relates, a division or float arithmetic (exact here and approximate in engines), a column with both a format and a regex rule, and a `contract.quality[]` expression that could become an invariant.
 
-These outputs are from the branch's CLI, run as `fluid validate contract.fluid.yaml --offline`. The first three start from a small contract with one `invoices` expose and one change, as stated. The overlap and note outputs come from small contracts of their own.
+These outputs are from the CLI on forge-cli `main`, run as `fluid validate contract.fluid.yaml --offline`. The first three start from a small contract with one `invoices` expose and one change, as stated. The overlap and note outputs come from small contracts of their own.
 
 An accepted contract. Its one `invoices` expose declares `gross_from_net`, `due_after_issue` and `group_name_by_id`, and nothing is flagged:
 
@@ -450,7 +450,7 @@ Two consumers come later: executable ODCS quality rules rendered from the invari
 
 ## Where to look next
 
-- [RFC: Rules about valid data](https://github.com/Agenticstiger/forge-cli/blob/feat/fluid-data-rules/RFC-data-rules.md): the full spec, including the grammar, the SQL renderings and the consumer matrix. It is linked on the branch because the amended text is only there.
+- [RFC: Rules about valid data](https://github.com/Agenticstiger/forge-cli/blob/main/RFC-data-rules.md): the full spec, including the grammar, the SQL renderings and the consumer matrix.
 - [The semantic layer](./semantic-layer.md): relationships, and the validity windows that a path may not cross.
 - [Quality, SLAs and lineage](./quality-sla-lineage.md): `dq.rules` and `contract.quality[]`, where checks in the warehouse's own SQL belong.
 - [Fields that need a preview schema](../reference/preview-fields.md): which fields need a preview schema. To opt in to these, declare `fluidVersion: "0.7.7"`.
