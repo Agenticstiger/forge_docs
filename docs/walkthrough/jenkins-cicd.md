@@ -34,7 +34,7 @@ Commit the `Jenkinsfile` beside the contract. The file is generated once and the
 
 | Where | What it needs |
 | --- | --- |
-| Controller | the plugins `workflow-aggregator` (Pipeline) and `git`; `copyartifact` only if you generate with `--diff-last-applied` |
+| Controller | the plugins `workflow-aggregator` (Pipeline) and `git`; `copyartifact` only if you generate with `--diff-last-applied`. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Also `lockable-resources` and `junit` |
 | Agent | `python3` with the `venv` module, and `rsync` when the stage-11 destination is a `file://` or `ssh://` path |
 | Workspace cleanup | nothing: the Jenkinsfile removes the workspace with the core `deleteDir()` step, so the `ws-cleanup` plugin is not needed |
 
@@ -112,7 +112,9 @@ The overlay is a file beside the contract, `overlays/<env>.yaml`, that patches t
 
 ### Require approval before apply
 
-The generated Jenkinsfile does not pause for approval. To add a gate, put a Jenkins `input` step before stage 7 and keep the edit in your repository, since regenerating the file removes it:
+*On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* The generated Jenkinsfile now asks. Stages 7 to 11 sit behind an `Approve apply` stage: an `input` step (the `APPLY_APPROVAL` parameter, default `true`, set it to `false` for an unattended job), then a `milestone`, then a `lock` per environment (`fluid-apply-<FLUID_ENV>`), so one build applies to an environment at a time. A change request (pull request build) stops after stage 6 with its reviewed plan archived, and a branch build applies only on the default branch (`main`, or `--default-branch`). Each stage runs `fluid ship "$CONTRACT" --stage N`. A change request build has no applied-plan baseline for stage 5, because its own job never applies. The rest of this section describes 0.30.1.
+
+In 0.30.1 the generated Jenkinsfile does not pause for approval. To add a gate, put a Jenkins `input` step before stage 7 and keep the edit in your repository, since regenerating the file removes it:
 
 ```groovy
 stage('Approve apply') {

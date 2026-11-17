@@ -1211,6 +1211,17 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 
 - **`fluid scaffold-ci` and `fluid generate-pipeline` are removed.** Both exit 2 as unknown commands. Run `fluid generate ci --system <system>` instead (`github`, `gitlab`, `jenkins`, `azure`, `bitbucket`, `circleci` or `tekton`). A script or CI job that calls either one needs the change; `fluid forge --ci <provider>` still writes CI files.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).*
+
+- **`fluid generate ci --complexity` exits 2.** One pipeline shape replaces the four tiers. Drop the flag from scripts and add what the advanced and enterprise tiers carried with `--add security`, `--add compliance` and `--add sbom` (repeatable). See [`fluid generate ci`](./cli/generate.md#fluid-generate-ci).
+- **GitHub Actions: the file is `.github/workflows/fluid-pipeline.yml`.** It replaces `fluid-basic.yml`, `fluid-standard.yml`, `fluid-advanced.yml` and `fluid-enterprise.yml`. The old tier files and the old `security.yml` and `compliance.yml` still run until you delete them. `fluid generate ci` and `fluid forge` name each one they find and do not delete it.
+- **Give the GitHub environment required reviewers before you regenerate.** An apply (stages 7 to 11) now runs on a push to the default branch, in the environment named after `FLUID_ENV` (`dev` unless you set it). With no reviewers on that environment nothing waits for a person. Settings > Environments is where they go. The other systems have their own gate: see [Operating in CI](./advanced/operating-in-ci.md#what-a-generated-pipeline-runs).
+- **The install settings are repository or project variables.** `FLUID_PACKAGE_SPEC`, `FLUID_PIP_INDEX_URL`, `FLUID_PIP_EXTRA_INDEX_URL` and `FLUID_ALLOW_PRERELEASE` are no longer a run-time input on GitHub Actions, GitLab CI, Azure DevOps, Bitbucket or CircleCI. A pipeline that passed one when it started a run now sets it as a variable in the repository or project settings. Jenkins and Tekton still take them as build parameters. On GitLab CI, keep the minimum role to use pipeline variables at Maintainer or No one allowed (Settings > CI/CD > Variables), since the Run pipeline form takes any variable.
+- **`--publish-include-env` is removed.** `fluid ship` always passes `--env` to `fluid publish`, so drop `--publish-include-env` and `--no-publish-include-env` from scripts.
+- **`fluid forge --ci-complexity` is removed.** Forge asks for the CI provider only, and `.fluid/ci-state.json` records the provider and the add-ons. A file written by an earlier forge still loads.
+- **New: `--default-branch BRANCH` names the branch whose pushes apply.** The default is the remote's default branch (`origin/HEAD`), else `main`; GitLab CI reads its own `$CI_DEFAULT_BRANCH`. A pull request or merge request against it, or a manual run on another branch, runs stages 1 to 6 only.
+- **`fluid ship` stage 11 writes `runtime/schedule-sync-report.json` when it runs.** See [Stage switches and knobs](./cli/ship.md#stage-switches-and-knobs).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
