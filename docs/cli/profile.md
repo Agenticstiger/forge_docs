@@ -2,18 +2,18 @@
 
 Profile one expose's records where they live, and write a profile document of output-checked aggregates. A FLUX Simulation pins the document by its digest, so the FLUX engine reads aggregates of the real data and never a record of it.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925)).*
+*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925), [forge-cli #946](https://github.com/Agenticstiger/forge-cli/pull/946)).*
 
 FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
 
 ::: warning flux-stats comes from git until it is released
-`flux-stats` is not on PyPI yet, so on `main` the `[profile]` extra installs it from the flux-engine repository, and `pip` needs `git` to do that. A forge-cli release that includes `fluid profile` waits for the flux-stats release. Without flux-stats, `fluid profile` stops before it reads anything:
+`flux-stats` is not on PyPI yet, and PyPI refuses a package whose metadata names a git dependency, so the `[profile]` extra installs DuckDB only. Install flux-stats yourself, from the flux-engine repository at the commit forge-cli names in `requirements/flux-stats.txt`; `pip` needs `git` to do that. Without flux-stats, `fluid profile` stops before it reads anything and prints the command:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
-  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed
+  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed. flux-stats is not on PyPI yet; install it from git with: pip install "flux-stats @ git+https://github.com/Agenticstiger/flux-engine.git@9ea8edf9bcddd58951f418db13a77253c02bdd7d#subdirectory=packages/flux-stats"
   read: nothing: no record was read
-  next: pip install 'data-product-forge[profile]'
+  next: pip install 'data-product-forge[profile]' && pip install "flux-stats @ git+https://github.com/Agenticstiger/flux-engine.git@9ea8edf9bcddd58951f418db13a77253c02bdd7d#subdirectory=packages/flux-stats"
 ```
 
 If a `flux-stats` distribution is installed but cannot be imported, the detail names its version instead. PyPI's `flux-stats` 0.0.1 is a placeholder that holds no code.
@@ -52,13 +52,14 @@ fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE]
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory. |
 | `--env` | An environment overlay to apply to the contract first. |
 
-Install the extra, which adds DuckDB and flux-stats:
+Install the extra, which adds DuckDB, and then flux-stats from git, at the commit forge-cli names:
 
 ```bash
 pip install 'data-product-forge[profile]'
+pip install -r https://raw.githubusercontent.com/Agenticstiger/forge-cli/main/requirements/flux-stats.txt
 ```
 
-Until a release includes `fluid profile`, install forge-cli from a checkout of `main` with `pip install -e '.[profile]'`.
+Until a release includes `fluid profile`, install forge-cli from a checkout of `main` with `pip install -e '.[profile]'`, then flux-stats with `pip install -r requirements/flux-stats.txt`.
 
 ## Sources
 
