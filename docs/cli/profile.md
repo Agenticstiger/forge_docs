@@ -7,7 +7,7 @@ Profile one expose's records where they live, and write a profile document of ou
 FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
 
 ::: warning flux-stats comes from git until it is released
-`flux-stats` is not on PyPI yet, and PyPI refuses a package whose metadata names a git dependency, so the `[profile]` extra installs DuckDB only. Install flux-stats yourself, from the flux-engine repository at the commit forge-cli names in `requirements/flux-stats.txt`; `pip` needs `git` to do that. Without flux-stats, `fluid profile` stops before it reads anything and prints the command:
+forge-cli `main` reads flux-stats at a commit of the flux-engine repository that no PyPI release carries, and PyPI refuses a package whose metadata names a git dependency, so the `[profile]` extra installs DuckDB only. Install flux-stats yourself, from the flux-engine repository at the commit forge-cli names in `requirements/flux-stats.txt`; `pip` needs `git` to do that. Without flux-stats, `fluid profile` stops before it reads anything and prints the command:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
@@ -16,7 +16,7 @@ FLUX's statistic registry, `flux-stats`, reads every value and forms every stati
   next: pip install 'data-product-forge[profile]' && pip install "flux-stats @ git+https://github.com/Agenticstiger/flux-engine.git@9ea8edf9bcddd58951f418db13a77253c02bdd7d#subdirectory=packages/flux-stats"
 ```
 
-If a `flux-stats` distribution is installed but cannot be imported, the detail names its version instead. PyPI's `flux-stats` 0.0.1 is a placeholder that holds no code.
+If a `flux-stats` distribution is installed but cannot be imported, the detail names its version instead. PyPI's `flux-stats` 0.0.1 is a placeholder that holds no code, and forge-cli does not pin the 0.6.0 release yet.
 :::
 
 ## Before you start
@@ -159,6 +159,6 @@ Each refusal names a stable code, for example `profile_expose_not_found`, `profi
 
 A FLUX Simulation turns the profile into synthetic rows. [From your data to a synthetic copy](https://agenticstiger.github.io/flux/guide/from-your-data.html) follows the whole path: a contract from a data file, this profile, a Simulation written from the profile's numbers, then rows from the FLUX engine. The engine does not generate rows from a profile yet, so you write the Simulation's declarations from the values the profile published.
 
-The engine checks a run against the profile it pins, and reading a profile needs the engine from its `main` branch until its next release. It compares each fidelity property with a statistic the profile carries for it, such as `mean/1` or a histogram, and `fluid profile` writes the column metrics above and none of those statistics yet. So today `fluxsim verify` refuses each property, and `fluxsim ship` withholds the run. The guide says what to do instead.
+The engine checks a run against the profile it pins, from flux-sim-engine 0.6.0. It compares each fidelity property with a statistic the profile carries for it, such as `mean/1` or a histogram, and `fluid profile` writes the column metrics above and none of those statistics yet. So today `fluxsim verify` refuses each property, and `fluxsim ship` withholds the run. The guide says what to do instead.
 
 The rest of the FLUX documentation is at [agenticstiger.github.io/flux](https://agenticstiger.github.io/flux/).
