@@ -20,7 +20,7 @@ fluid init my-project --quickstart
 fluid init my-project --blank
 
 # A bundled blueprint, with no network and no AI key
-fluid init orders --blueprint fluid.starter --domain sales --owner-team growth --owner-email growth@example.com
+fluid init orders --blueprint fluid.starter --domain sales --owner-team growth
 
 # A provider starter: a Bronze product bound to a BigQuery or Snowflake table
 fluid init my-project --quickstart --provider gcp
@@ -180,7 +180,7 @@ What it does:
 - Sets `metadata.layer: Bronze` and `metadata.productType: SDP` (both vocabularies; see [Product Types](/forge_docs/data-products/product-type.html)).
 - Picks `engine: duckdb` for embedded ingestion, with no Airbyte cluster.
 - Writes `fluidVersion: 0.7.3`. The file validates; bump it by hand if you need a later version's fields.
-- Takes `--domain`, `--owner-team` and `--owner-email` for the contract's `domain` and `metadata.owner`. Without them it writes `data`, `data-platform` and `data-platform@example.com`, which you should replace.
+- Takes `--domain`, `--owner-team` and `--owner-email` for the contract's `domain` and `metadata.owner`. Without them it writes `data` and `data-platform`, and on forge-cli `main` ([forge-cli #928](https://github.com/Agenticstiger/forge-cli/pull/928)) leaves the email out. Releases up to 0.30.1 write `data-platform@example.com` instead, which `fluid validate --strict` refuses: replace it with the team's real address or delete it.
 
 The CLI registers discoverers for the file schemes `file`, `http`, `https`, `s3`, `gs` and `gcs`, and for the database schemes `postgres`, `postgresql`, `mysql` and `mariadb`. Any other scheme fails with `unsupported source scheme`. A discovered source is read again by the build that `apply` runs, and that build runs inside the [DuckDB sandbox](../advanced/duckdb-sandbox.md), which does not read `http(s)://` or `gs://` URLs from contract SQL. This page did not run an apply against a discovered `https://`, `gs://` or `gcs://` source.
 

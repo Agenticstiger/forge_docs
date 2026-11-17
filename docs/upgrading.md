@@ -1199,6 +1199,10 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **Ship refuses before anything is written**, with exit 2: an environment name a stage would refuse (it must start with a letter, at most 64 characters), a contract that is missing, symlinked or under a system path, and an unknown stage.
 - **A contract outside the current directory runs in its own directory**, so `runtime/` and `dist/` land beside it.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #928](https://github.com/Agenticstiger/forge-cli/pull/928)).*
+
+- **The templates and scaffolds write no stand-in owner email.** The templates bundled for `fluid init` carry none, and `fluid init`, `fluid market --instantiate`, `fluid forge --template`, `fluid product-new` and `fluid import` leave `metadata.owner.email` out rather than write one (`--owner-email` gives one to `fluid init --blueprint` and `--discover`). `fluid init --template csv-basics` and the `fluid market` blueprints' default no longer write the starter team `data-team`. A contract you scaffolded before keeps its placeholder: replace it with the team's real address, or delete it, before `fluid validate --strict`, `fluid ship` or a generated pipeline's stage 2.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

@@ -51,7 +51,6 @@ metadata:
   productType: ADP
   owner:
     team: data-platform
-    email: data-platform@example.com
 
 exposes:
   - exposeId: orders_enriched

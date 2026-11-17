@@ -90,8 +90,7 @@ An `index.json` entry looks like this:
   "fluidVersion": "0.7.5",
   "kind": "DataProduct",
   "owner": {
-    "team": "customer-analytics",
-    "email": "customer-analytics@company.com"
+    "team": "customer-analytics"
   },
   "domain": "Customer Experience",
   "layer": "Gold",

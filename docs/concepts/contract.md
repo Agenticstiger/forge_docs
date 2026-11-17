@@ -34,7 +34,7 @@ A contract must declare:
 | `kind` | `DataProduct` or `MLPipeline`, the two values the schema allows. |
 | `id` | The product identifier, dotted, for example `gold.crypto.bitcoin_tracker_v1`. Other contracts name it in `consumes[].productId`, and catalogs index it. |
 | `name` | Human-readable name, shown in catalogs and dashboards. |
-| `metadata` | Must contain `owner` (team and email). Optionally `layer`, `productType`, `classification`, `tags` and business context. |
+| `metadata` | Must contain `owner` (its `team`, and optionally a contact `email`). Optionally `layer`, `productType`, `classification`, `tags` and business context. |
 | `exposes` | At least one output (table, view, file, topic). See [Builds, Exposes, Bindings](./builds-exposes-bindings.md). |
 
 The root of the contract accepts only the keys the schema defines; any other top-level key fails `fluid validate` with `root: Additional properties are not allowed`.
@@ -71,7 +71,6 @@ metadata:
   layer: Bronze
   owner:
     team: learning-team
-    email: team@example.com
 
 exposes:
   - exposeId: hello_output

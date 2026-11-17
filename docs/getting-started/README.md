@@ -127,7 +127,6 @@ metadata:
   layer: Bronze
   owner:
     team: data-platform
-    email: data-platform@example.com
   provenance:
     ...
 builds:
