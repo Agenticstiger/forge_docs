@@ -2,7 +2,7 @@
 
 Profile one expose's records where they live, and write a profile document of output-checked aggregates. A FLUX Simulation pins the document by its digest, so the FLUX engine reads aggregates of the real data and never a record of it.
 
-*On forge-cli's `feat/fluid-profile-groundwork` branch ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909)), not yet on `main` or in a release.*
+*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909)).*
 
 ::: warning Groundwork: it does not profile yet
 FLUX's statistic registry forms every statistic, and the fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers. The registry is becoming its own package, `flux-stats`, which is not published yet. Until it is, `fluid profile` stops before it reads anything:
@@ -14,7 +14,7 @@ FLUX's statistic registry forms every statistic, and the fidelity check uses the
   next: pip install 'data-product-forge[profile]' once flux-stats is published
 ```
 
-The rest of this page describes the command as the branch builds it.
+The rest of this page describes the command as forge-cli's `main` builds it.
 :::
 
 ## Where it runs

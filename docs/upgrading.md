@@ -1174,7 +1174,7 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **A contract that `fluid forge data-model` writes with one expose per dataset gives each relationship's foreign entity to its `from` expose only.** Every expose used to get the foreign entity of every relationship, most of them on a column the expose does not have, and `fluid generate transformation` exported them to dbt. Forge the contract again, then generate its dbt project again.
 - **`fluid generate transformation` reads a `semantics` collection that is not a list as empty, with a warning**, where it stopped with a `TypeError`.
 
-*On forge-cli's `feat/fluid-profile-groundwork` branch ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909)), not yet on `main` or in a release.*
+*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909)).*
 
 - **`fluid profile` is a new command, and it does not profile yet.** It reads one expose's records where they live and writes a FLUX profile document of output-checked aggregates, which a Simulation pins by digest. It forms every statistic with `flux-stats`, which is not published yet, so for now it stops before it reads anything. Nothing that exists changes. The `[profile]` extra adds DuckDB. See [`fluid profile`](./cli/profile.md).
 

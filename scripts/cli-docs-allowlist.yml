@@ -43,8 +43,9 @@ docs_only_ok:
                     # odps-v4.1`; only the deprecated `export-opds` alias still
                     # registers (undocumented_ok above). Page kept as the
                     # migration reference for the historical surface.
-  - profile         # `fluid profile` is on a forge-cli branch (forge-cli #909), not in
-                    # the pinned CLI. Drop this entry at the pin bump that carries it.
+  - profile         # `fluid profile` is on forge-cli `main` (forge-cli #909) but in no
+                    # release, so not in the pinned CLI. Drop this entry at the pin bump
+                    # that carries it.
 
 # Fenced `fluid ...` invocations the flag oracle must not report.
 # Two forms:
@@ -67,9 +68,9 @@ flag_oracle_ok:
                      # from the core CLI's parser. The pages tell the reader to
                      # pip install it first. Scoped to this one invocation.
   - docs/cli/profile.md::fluid profile
-                     # `fluid profile` is on a forge-cli branch (forge-cli #909), not in
-                     # the pinned CLI, so the oracle cannot know its flags. Drop this entry at
-                     # the pin bump that carries it.
+                     # `fluid profile` is on forge-cli `main` (forge-cli #909) but in no
+                     # release, so the pinned CLI lacks it and the oracle cannot know its
+                     # flags. Drop this entry at the pin bump that carries it.
                      # The entry point is NAMED `generate-custom-scaffold`, and
                      # `fluid --help` lists that name, but its register()
                      # adds the subcommand `custom-scaffold`: on companion
