@@ -378,6 +378,7 @@ Root governance and access policies, and output or nested quality and policy rul
 
 ## See also
 
+- [Spark to Iceberg on AWS](./spark-iceberg-aws.md): the same `properties.stream` and `properties.mapping`, compiled to Spark SQL for EMR Serverless, Glue, EMR on EC2 and EMR on EKS. *On forge-cli `main`, not yet in a release ([forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902)).* `maskAtIngest: hash` on a mapped column is Spark only, and this lane refuses it by name.
 - [Source-aligned acquisition](./source-aligned-acquisition.md): batch and CDC ingestion through the acquisition engines.
 - [Environment variables](./environment-variables.md#managed-flink-preview): every variable this lane reads.
 - [What a project's `.env` may set](./project-dotenv-trust.md): why the operator settings cannot come from a project file.
