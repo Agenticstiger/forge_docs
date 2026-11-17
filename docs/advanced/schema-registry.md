@@ -23,7 +23,7 @@ Both places take the same object, `$defs/schemaRegistry`:
 | Field | Meaning |
 |---|---|
 | `kind` | `glue` or `confluent`. |
-| `url` | Confluent only: the registry's https URL. No user, password, query or fragment. |
+| `url` | Confluent only: the registry's REST endpoint, `http://` or `https://`. No user, password, query or fragment. A credential goes only over https. |
 | `registryName` | Glue only: the registry's name. |
 | `subject` | The subject. On Glue, the schema name. It defaults to `<topic>-value`. |
 | `version` | `latest` or an integer from 1. |
