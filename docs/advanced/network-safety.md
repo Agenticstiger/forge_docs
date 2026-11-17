@@ -31,6 +31,8 @@ The client applies these, in order:
 
 These surfaces use that client: the ODPS contract resolver, the Kafka Connect and schema-registry clients, the Airbyte runner, the DataHub, OpenMetadata and Data Mesh Manager registrars, the OpenLineage emitter, the federation fetcher, the schema manager's remote fetch, the forge web tools, and an authentication provider's API check. Other outbound calls do not: LLM provider requests go to the provider's endpoint, `fluid apply --ensure-opentofu` downloads OpenTofu, and the Command Center client and the webhook alerter apply their own host check, described next.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913)).* A schema registry the contract names is one of these hosts. A Confluent registry's host goes through `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` (link-local never, a public host only when listed), and a credential sent to it needs `NAME@host` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`: `SCHEMA_REGISTRY_API_SECRET@<host>` for a produced subject. The plan-time read judges the address each request is pinned to. See [Schema registry](./schema-registry.md#operator-settings).
+
 ## Allowlists for outbound integrations
 
 A few integrations need to call hosts that the private-address filter would refuse, such as an internal webhook receiver or a self-hosted registry. Use the matching allowlist variable:

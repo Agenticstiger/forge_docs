@@ -53,6 +53,50 @@ fluid odcs import third-party-contract.yaml -o my-contract.fluid.yaml
 fluid odcs validate contract.odcs.yaml
 ```
 
+## Quality rules in the export
+
+*On forge-cli `main`, not yet in a release ([forge-cli #910](https://github.com/Agenticstiger/forge-cli/pull/910)).* A FLUID `dq.rules` threshold is the share of rows that **pass**. ODCS `nullValues`, `duplicateValues` and `invalidValues` count the rows that **fail**. Up to 0.30.1 the exporter copied the threshold across, so `threshold: 1.0` with `operator: ">="` came out as "at least one null". Every ODCS export is affected, among them the contracts [`fluid publish --target datamesh-manager`](./publish.md) sends. The export now mirrors the share:
+
+| `dq.rules` rule | Exported as |
+| --- | --- |
+| `completeness`, threshold 1.0 | `nullValues` with `mustBe: 0` |
+| `completeness`, a partial share, as in `>= 0.95` | The null share, as a percentage: `nullValues` with `mustBeLessOrEqualTo: 5` and `unit: percent` |
+| `uniqueness`, threshold 1.0 | `duplicateValues` with `mustBe: 0` |
+| `uniqueness`, a partial share | Not exported, with a warning: no ODCS metric equals a share of distinct values over the non-null ones |
+| `valid_values`, any threshold | `invalidValues` with `mustBe: 0`, as `fluid test` checks it |
+| `freshness` | A `text` rule, as before |
+
+A threshold with no `operator` reads as `>=`, as `fluid test` reads it. A threshold that is not a number from 0 to 1 is not exported. The SodaCL exporter already worked this way.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #921](https://github.com/Agenticstiger/forge-cli/pull/921)).* **A rule lands on the columns it checks.** Up to 0.30.1 a completeness rule on `"a, b"`, or with no selector, was exported as an object-level `nullValues` check that named no column. Now:
+
+- `completeness` and `valid_values` give one check for each listed column, matched in any case;
+- `uniqueness` gives one check, for one column;
+- a rule that selects no column, or a column the schema does not declare, or (for `uniqueness`) several columns, is **not exported**. The export logs a warning that names the rule and the reason, and the rule is still carried verbatim under `customProperties.fluidExtras`.
+- A document that was exported before and imported again no longer doubles the rule.
+
+Seen on forge-cli `main`, for a contract with `completeness` rules on `order_id` (threshold 1.0), on `email` (`>= 0.95`, severity `warn`) and on the selector `"order_id, email"`, a `uniqueness` rule at `>= 0.99`, and a rule on a column the schema lacks. The `email` property gets:
+
+```yaml
+- id: email_mostly
+  description: completeness check on email
+  dimension: completeness
+  severity: warning
+  type: library
+  unit: percent
+  metric: nullValues
+  mustBeLessOrEqualTo: 5
+```
+
+and the two rules the export cannot express are named:
+
+```text
+dq rule 'id_unique' (type 'uniqueness') on expose 'orders' has no ODCS v3.1.0 quality form: its threshold >= 0.99 is a partial uniqueness share (distinct over non-null values), which no ODCS duplicateValues count or percent equals; only full uniqueness (threshold 1.0 with >= or ==) is expressible. It is NOT exported as ODCS quality; it rides along verbatim under customProperties.fluidExtras so nothing is lost. ...
+dq rule 'ghost' (type 'completeness') on expose 'orders' has no ODCS v3.1.0 quality form: it selects 'nosuchcol', which the expose's schema does not declare. It is NOT exported as ODCS quality; it rides along verbatim under customProperties.fluidExtras so nothing is lost. ...
+```
+
+A consumer that read the old export, such as a data quality engine or a catalog that seeds assertions from `quality`, sees thresholds that mean the opposite of what it saw. Re-export and re-publish.
+
 ## Notes
 
 - ODCS is bidirectional: `export` goes FLUID -> ODCS, `import` goes ODCS -> FLUID. The underlying exporter was modularised under `providers/odcs/` in `v0.8.3` with paired `to_fluid()` / `to_odcs()` mappers and per-level `odcs_passthrough` buckets for lossless round-trip. As of `0.10.0`, ODCS is a spec exporter (surfaced by [`fluid exporters`](./exporters.md)), not a registered cloud provider — it is not listed by [`fluid providers`](./providers.md).

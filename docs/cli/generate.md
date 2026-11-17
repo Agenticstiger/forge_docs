@@ -281,6 +281,7 @@ Key options:
 - `--overwrite`
 - `--env` — environment overlay. For a `fluid apply` DAG it is also the `--env` each scheduled run passes to `fluid apply`.
 - `--contract-path PATH` — the contract's path relative to `$FLUID_PROJECT_DIR` on the Airflow worker, for a `fluid apply` DAG. Default: the `contract` argument relative to the current directory.
+- `--dag-id ID`, `--schedule SCHEDULE` — *On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).* Override the DAG id and the schedule (a cron expression or an Airflow keyword) of the one DAG rendered from an `orchestration` section. The contract id stays in the DAG's header and tags. A DAG that comes from a scheduled build takes both from its trigger, so these options are refused there, with `generate_schedule_override_not_supported` and exit 2.
 - `--list`, `--verbose`
 
 Builds that declare `execution.trigger.schedule` (or `cron`) and no explicit `orchestration.tasks` get Airflow DAGs, with Airflow as the default engine. Each DAG runs its build through `fluid apply --mode amend-and-build`:
@@ -300,6 +301,10 @@ The DAG's contents, its worker requirements and the environment it passes to flu
 `generate schedule` writes the DAG file straight into `-o`, with no per-product directory. [`fluid schedule-sync`](./schedule-sync.md) with its default `--delete-scope product` refuses a directory that is not one directory per product, so write to `-o <dags-dir>/<product-id>/`; see [What gets deleted](./schedule-sync.md#what-gets-deleted). A DAG id that changed in 0.17.0 needs the one-time retirement of the old DAG described under [Upgrading from 0.16.7 and earlier](./schedule-sync.md#upgrading-from-0-16-7-and-earlier).
 
 This is the promoted path for orchestration generation.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).* One renderer writes every Airflow DAG a contract's `orchestration` section describes: `fluid generate schedule`, [`fluid generate-airflow`](./generate-airflow.md) and `fluid export --engine airflow` all call `fluid_build.schedulers.airflow.render_dag`, for AWS, GCP and Snowflake. See [`fluid generate-airflow`](./generate-airflow.md#what-it-writes) for what that changed, and the [Airflow integration](../advanced/airflow.md#scheduled-spark-builds) for a scheduled Spark build, which gets a DAG that runs [`fluid spark run`](./spark.md).
+
+`generate schedule` must run from the project directory when the contract has scheduled builds: a contract path outside the current directory stops with `generate_schedule_contract_outside_project` and exit 2. It resolves the settings a DAG needs the way the provider does, and never writes a placeholder: see [`fluid generate-airflow`](./generate-airflow.md#what-it-writes).
 
 ### `fluid generate ci`
 

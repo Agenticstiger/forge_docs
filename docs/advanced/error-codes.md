@@ -264,7 +264,7 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 
 `ERR_OPENTOFU_ENGINE_INSTALL_FAILED`. The documentation link lands on [Getting started](../getting-started/README.md).
 
-- Install OpenTofu &gt;= 1.6.0 and ensure 'tofu' is on PATH
+- Install OpenTofu &gt;= 1.6.0 and ensure 'tofu' is on PATH. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The catalog text says 1.12.0.
 - See https://opentofu.org/docs/intro/install/
 
 ### opentofu_init_failed

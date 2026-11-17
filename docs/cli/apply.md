@@ -253,6 +253,7 @@ When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` 
 | | `apply_plan_digest_bundle_mismatch` | `bundleDigest` in `plan.json` against the MANIFEST SHA-256 of the tgz bundle the plan was built from. |
 | | `apply_plan_digest_bundle_missing` | A plan that carries a `bundleDigest` but has no locatable bundle. It fails closed instead of skipping the check. |
 | Mode | `apply_plan_mode_mismatch` | The `mode` recorded in `plan.json` against `--mode`. A plan made without `--mode` and `amend` count as the same. |
+| Saved OpenTofu plan | `apply_plan_digest_tofu_plan_invalid`, `_missing`, `_mismatch`, `_target`, `_stale` | *On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* The `opentofuPlan` record of a plan made with `fluid plan --tofu`. See [Applying a saved OpenTofu plan](#applying-a-saved-opentofu-plan). |
 | Environment | `plan_env_mismatch` | The `contract_metadata.env` recorded in `plan.json` against `--env`. Checked for the build modes (`amend-and-build`, `replace-and-build`). |
 
 This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryptographically. A tampered plan stops here:
@@ -298,6 +299,30 @@ When the plan records no env but was made from a bundle, the bundle's own env is
 ```
 
 Relative local paths in a contract (`binding.location.path` on the `local` provider, for example) resolve against the directory of the source contract, not the directory you run `fluid` from. For a plan or a bundle, that is the source contract the plan or bundle was made from.
+
+### Applying a saved OpenTofu plan
+
+*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* A `plan.json` made with [`fluid plan --tofu`](./plan.md#saving-the-opentofu-plan-tofu) binds a saved OpenTofu plan, `plan.tfplan`, in its `opentofuPlan` record. `fluid apply plan.json` then runs exactly that plan. It does not plan again:
+
+1. It reads `plan.tfplan` from the directory of `plan.json`, once, and checks its sha256 against the record. The bytes that matched are the bytes applied.
+2. Before `tofu init`, it refuses a plan made for another provider or another state than this apply resolves.
+3. It writes the verified bytes to the work directory.
+4. Before any step that acts outside OpenTofu (a Databricks `prepare_destroys` drop, say), it compares the state lineage and serial the plan recorded with the state now, and refuses a stale plan.
+5. The [data-loss gate](#opentofu-data-loss-gate) reads the saved plan. `--allow-data-loss` on this apply decides, as for any apply.
+6. It runs `tofu apply` of the saved plan, with no plan of its own. It never resumes destroys that the gate blocked, because that would need a second plan nobody reviewed.
+
+OpenTofu's own check stays as the backstop: it refuses a saved plan whose state serial moved ("Saved plan is stale") or whose lineage differs. A `plan.json` with no `opentofuPlan` record takes the earlier path, which plans and applies in one step. `--dry-run` applies nothing from a saved plan.
+
+| Error | Meaning | What to do |
+| --- | --- | --- |
+| `apply_plan_digest_tofu_plan_invalid` | The `opentofuPlan` record is malformed: no `sha256:` digest, or a `planFile` that is not a bare file name | Re-run `fluid plan --tofu` |
+| `apply_plan_digest_tofu_plan_missing` | `plan.tfplan` is not next to `plan.json` | Keep the plan's files together: in CI, pass every file `fluid plan --tofu` wrote as artifacts |
+| `apply_plan_digest_tofu_plan_mismatch` | The saved plan's sha256 differs from the bound one: it is not the plan that was reviewed | Re-run `fluid plan --tofu` and approve the new plan |
+| `apply_plan_digest_tofu_plan_target` | The plan was made for another provider or state | Apply with the `--state-backend` (or `FLUID_STATE_BACKEND`) and the work directory the plan was made with, or re-run `fluid plan --tofu` |
+| `apply_plan_digest_tofu_plan_stale` | The state changed after the plan was made, for example another apply ran in between. Nothing was applied | Re-run `fluid plan --tofu`, review the new plan, apply that one |
+| `apply_tofu_plan_unreadable` | `tofu show -json` could not read the saved plan | Apply where the plan was made: the plan needs the OpenTofu version and providers it was made with. A plan made with `FLUID_STATE_ENCRYPTION` set is read only with the same setting, and one made without it only without it |
+
+Each of the first five carries a stable `kind` tag in the error (`tofu-plan-invalid`, `tofu-plan-missing`, `tofu-plan-mismatch`, `tofu-plan-target`, `tofu-plan-stale`), and the event is the code. `--no-verify-plan-binding` skips the digest comparison and logs at WARNING, but the saved plan still has to be there: without it there is nothing reviewed to run.
 
 ## Safety gates
 
@@ -426,7 +451,7 @@ Bucket names are global: use a bucket you own. The bucket name `acme-fluid-state
   state:       remote: s3://acme-fluid-state/fluid/analytics.web.pageviews/aws/terraform.tfstate (from FLUID_STATE_BACKEND)
 ```
 
-`--state-backend` takes `s3://<bucket>/<key>` or `gcs://<bucket>/<prefix>`. Its default is `$FLUID_STATE_BACKEND`, else local state. `--state-backend ""` forces local state when the environment sets the variable. The `state:` line names the object the run uses and where the spec came from. When an apply or a drift check fails on state or region, [State and region errors](../advanced/production-troubleshooting.md#state-and-region-errors) lists the causes.
+`--state-backend` takes `s3://<bucket>/<key>` or `gcs://<bucket>/<prefix>`. Its default is `$FLUID_STATE_BACKEND`, else local state. `--state-backend ""` forces local state when the environment sets the variable. *On forge-cli `main`, not yet in a release ([forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901)).* An S3 spec can end in `?region=<region>`, as in `s3://<bucket>/<key>?region=eu-west-1`. That names the region of the state bucket, which may differ from the region the resources live in, and forge writes it as the backend's `region`. Without it, `tofu` reads `AWS_REGION`. Only that exact tail is read as a region: any other `?` stays part of the key, so an existing key does not change. The `state:` line names the object the run uses and where the spec came from. When an apply or a drift check fails on state or region, [State and region errors](../advanced/production-troubleshooting.md#state-and-region-errors) lists the causes.
 
 ### Which key a bucket-only spec gets
 
@@ -449,6 +474,7 @@ State that an earlier release wrote at `fluid/<id>/terraform.tfstate` has to fol
 
 - It copies the old object to the new key with OpenTofu's own `tofu init -force-copy` (the migration path `tofu init -migrate-state` uses). It leaves the old object where it was, reads the copy back to check the resources match, and prints a `state move:` line naming both keys and the number of resources it moved.
 - It copies only when the new key holds no state and the old key holds this provider's resources. A state that holds another provider's resources is left alone (`state move: ... not this provider's; left in place`): the first `gcp` apply of a contract whose old key holds the `aws` state starts a new `gcp` state and does not touch the `aws` one.
+- *On forge-cli `main`, not yet in a release ([forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901)).* After a move, the summary ends with the commands that remove the old object, for you to run once you have checked the new state: `aws s3 rm <old s3 uri>` and `aws s3 rm <old s3 uri>.tflock` (the second clears a stale lock object), each with `--region <region>` when the spec names one, or `gcloud storage rm <gs uri of default.tfstate>` for GCS. The URIs are shell-quoted where they need it, and carry no wildcard and no `--recursive`. forge never deletes state: the old object is the only way back until you have checked the new key.
 - `--dry-run` never moves state. While a move is pending it plans against the old key, and so do [`fluid diff`](./diff.md) and `fluid verify --state-drift`, which only read.
 
 | Error | Meaning | What to do |

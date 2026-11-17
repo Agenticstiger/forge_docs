@@ -1,6 +1,6 @@
 # `fluid import`
 
-Convert existing tooling into FLUID contracts. Two modes: scan an existing dbt / Terraform / SQL directory, or import a foreign tool project (Meltano, Airbyte, dlt, Singer, dbt).
+Convert existing tooling into FLUID contracts. Two modes: scan an existing dbt / Terraform / SQL directory, or import a foreign tool project (Meltano, Airbyte, dlt, Singer, dbt). *On forge-cli `main`, not yet in a release ([forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939)).* A schema registry subject can seed a contract too.
 
 ## Syntax
 
@@ -35,6 +35,7 @@ fluid import airbyte <workspace-id> --server-url https://airbyte.example.com
 fluid import dlt <pipeline-name-or-dir>                   # dlt pipeline (state.json)
 fluid import singer <tap-config.json>[:<target-config.json>]
 fluid import dbt <project-dir|manifest>                   # dbt project (target/manifest.json)
+fluid import schema-registry <subject> --registry confluent --url https://sr.example.com
 ```
 
 | Option | Description |
@@ -57,6 +58,90 @@ What each importer reads and writes:
 | `dbt` | `target/manifest.json` (+ optional `catalog.json`) | One contract per project by default; `--split-by folder`/`group` splits along product boundaries — see below |
 
 The ingestion importers set `mode: full_refresh` and `fluidVersion: 0.7.3`, and use `owner.team: imported` as a placeholder. The dbt importer also writes `0.7.3`. A `0.7.3` contract validates; change the version line to `0.7.5` when you want a later version's fields.
+
+### Importing a schema registry subject
+
+*On forge-cli `main`, not yet in a release ([forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939)).* `fluid import schema-registry` reads one subject from a schema registry and writes a consumer contract: a `0.7.7` contract with one build whose `properties.stream` (topic, format, schema and registry) comes from the subject. [Schema registry](../advanced/schema-registry.md) says what the contract does with it.
+
+```bash
+fluid import schema-registry <subject> --registry confluent --url https://sr.example.com [--version N]
+fluid import schema-registry <subject> --registry glue [--registry-name NAME] [--version N]
+```
+
+| Option | Description |
+| --- | --- |
+| `<subject>` | The subject. On Glue, the schema's name. |
+| `--registry {confluent\|glue}` | Required: the registry kind. |
+| `--url URL` | The Confluent registry's https URL. Required with `--registry confluent`, and refused with `glue`. |
+| `--registry-name NAME` | The Glue registry's name. Default: Glue's default registry. Refused with `confluent`. |
+| `--version N` | The subject version to read. Default: the latest. |
+| `--out PATH` | Output contract path. Default `contract.<id>.fluid.yaml` in the current directory. |
+| `--yes`, `-y` | Skip the confirmation prompt |
+
+The registry options are refused with any other tool, and with the directory scan.
+
+**What it does.** It reads the subject and sends no credential: a registry that needs one has to be read another way. The egress rules run before any request: a link-local host is always refused, and a public host is read only when the operator lists it in `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` (see [Schema registry](../advanced/schema-registry.md#operator-settings)). A loopback registry needs no entry. The topic is the subject without a `-value` suffix. The contract's registry block names the version that was read, for a latest read too, so it records what it was seeded from. It writes the contract only when `fluid validate` and `fluid plan` would accept it: the contract is validated in process before anything is written, and the columns go through the same parse `fluid plan` uses.
+
+Captured on forge-cli `main` against a Confluent-compatible registry on loopback, for the subject `commerce.orders-value` (Avro, version 3):
+
+```text
+📥 Importing schema-registry configuration from commerce.orders-value…
+✓ Wrote imported.fluid.yaml
+
+  Mapped 1:1 (2):
+    • topic commerce.orders
+    • schema version 3 read (3 columns, format avro-confluent)
+
+  Used defaults (1):
+    • exposes[0] binds platform: other (no sink chosen); builds[0] sets no engine
+
+  Notes:
+    – Choose the engine and the sink, replace `properties.sql`, then run `fluid validate`.
+```
+
+The file it wrote has this build:
+
+```yaml
+builds:
+- id: consume-commerce-orders
+  pattern: embedded-logic
+  outputs:
+  - commerce_orders
+  properties:
+    sql: '-- TODO: transform the stream into the output'
+    stream:
+      kind: kafka
+      topic: commerce.orders
+      format: avro-confluent
+      schema:
+      - name: order_id
+        type: string
+        required: true
+      - name: amount
+        type: decimal(18,2)
+        required: true
+      - name: note
+        type: string
+        required: false
+      registry:
+        kind: confluent
+        url: http://127.0.0.1:18081
+        version: 3
+```
+
+The contract validates, with two warnings: its description and its `properties.sql` carry a `TODO`, so `fluid validate --strict` fails until you choose the engine and the sink and replace the placeholder. The expose binds `platform: other`.
+
+**Refusals.** Each names the subject and the version, and nothing is written:
+
+- a subject that gives no valid Kafka topic;
+- field names that are not identifiers;
+- a subject with no fields;
+- a schema with no FLUID column type;
+- a Protobuf subject, because `0.7.7` has no consumed Protobuf stream format.
+
+Without `--registry`, `fluid import schema-registry` stops with `` `fluid import schema-registry` requires --registry ``, and `--registry confluent` without `--url` with `--registry confluent requires --url`. A subject that does not exist stops with `could not read subject '<subject>' (latest) from the confluent registry`, and `HTTP 404 (40401): Subject not found`.
+
+**The Glue region.** A Glue read takes the environment's region in the AWS SDK's order: `AWS_REGION`, then `AWS_DEFAULT_REGION`, then the profile. boto3 1.x reads only `AWS_DEFAULT_REGION`, so forge applies the order itself. A not-found names the region it read in, which is the first thing to check.
 
 ### Airbyte needs a server URL
 

@@ -228,6 +228,19 @@ Six container kinds are accepted:
 | `warehouse` | `snowflake_warehouse` — `isolated` gives per-product cost attribution |
 | `cluster` | Confluent environment/cluster — **`shared` only in v1**; the resolver rejects `isolated` (dedicated-cluster provisioning is not yet supported) |
 
+*On forge-cli `main`, not yet in a release ([forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903)).* The `0.7.7` preview schema accepts six more container kinds for the AWS streaming-to-Iceberg lane, parsed like the six above (a `containers` entry wins over `mode`):
+
+| Kind | Resource | Who reads it today |
+| --- | --- | --- |
+| `lfTagVocabulary` | `aws_lakeformation_lf_tag` | The emitter reads the declared key: `isolated` is the explicit opt-in that lets a contract own `governance.lakeFormation.tagDefinitions` ([forge-cli #907](https://github.com/Agenticstiger/forge-cli/pull/907); see [Account-wide Lake Formation objects](../providers/aws.md#account-wide-lake-formation-objects)). A blanket `mode: isolated` does not count. |
+| `emrApplication` | `aws_emrserverless_application` | A Spark build on EMR Serverless with no `applicationId` ([forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918); see [Spark to Iceberg on AWS](../advanced/spark-iceberg-aws.md#what-forge-provisions)). |
+| `schemaRegistry` | `aws_glue_registry` | A produced topic on the Glue Schema Registry: `isolated` creates the registry, otherwise it is read as a data source ([forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913); see [Schema registry](../advanced/schema-registry.md)). |
+| `athenaWorkgroup` | `aws_athena_workgroup` | Parsed and validated. No emitter reads it yet. |
+| `kmsKey` | `aws_kms_key` | Parsed and validated. No emitter reads it yet. |
+| `mwaaEnvironment` | `aws_mwaa_environment` | Always `shared`: the platform team owns the environment and a product ships its DAG files into it. It resolves as referenced whenever a block is present, an explicit `isolated` is refused (`shared-only-container`), and it never makes `pool` required. |
+
+These kinds stay out of the packaging summary `plan.json` carries, so the plan digest of a contract that already declares a block does not change.
+
 `binding.packaging` overrides the contract-wide block per exposure. Precedence is `binding.packaging` > top-level `packaging` > absent-LEGACY. `pool` propagates as the `fluid_pool` label/tag for cost attribution.
 
 ### What `shared` changes per provider
@@ -258,7 +271,7 @@ Detection is deliberately conservative: over-flagging asks a human to look, unde
 
 ## Operational requirements
 
-- **`tofu ≥ 1.6.0` on `PATH`.** `require_tofu_version()` catches the silent `terraform`-on-`PATH`-as-`tofu` mixup at apply time.
+- **`tofu ≥ 1.6.0` on `PATH`.** *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is 1.12.0. `require_tofu_version()` catches the silent `terraform`-on-`PATH`-as-`tofu` mixup at apply time.
 - **Subprocess timeout:** default `1800` seconds per `tofu` invocation. Override via `FLUID_TOFU_TIMEOUT_SECONDS=<seconds>`. *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* A call that runs past it is interrupted first, so OpenTofu releases its state lock, and killed only if it is still running 30 seconds later.
 - **S3 state lock.** *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* With OpenTofu 1.10 or newer, `tofu init` locks S3 state through a `<key>.tflock` object; the module `generate iac` writes does not change. Every role that plans or applies needs `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on it, or `FLUID_TOFU_S3_LOCKFILE=0`. See [Locking](../concepts/state.md#locking).
 

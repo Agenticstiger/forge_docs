@@ -34,7 +34,7 @@ Deploy data products to Databricks Unity Catalog (a schema, a managed Delta tabl
 
 | You need | Why |
 | --- | --- |
-| OpenTofu `1.6.0` or newer on `PATH` | `fluid apply` runs `tofu`. An older one stops the run. |
+| OpenTofu `1.6.0` or newer on `PATH` | `fluid apply` runs `tofu`. An older one stops the run. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is `1.12.0`. |
 | A Unity Catalog workspace with an existing catalog | The catalog is read, never created. The identity that applies needs `USE CATALOG` and `CREATE SCHEMA` on it. |
 | A SQL warehouse, its id in `DATABRICKS_WAREHOUSE_ID` | Every table statement runs on it, and so do the dbt jobs. Find the id under SQL Warehouses, Connection details. The id is not a secret. |
 | A Unity Catalog volume of its own, `/Volumes/<catalog>/<schema>/<volume>` in `DATABRICKS_STAGING_VOLUME` | Only for a DuckDB acquisition that lands in Databricks (see [Landing a DuckDB acquisition](#landing-a-duckdb-acquisition)). |

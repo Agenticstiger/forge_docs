@@ -204,6 +204,39 @@ Two more checks stop a pipeline that mixes environments. A bundle is never re-ov
 `fluid apply --no-verify-plan-binding` skips the digest verification and logs at WARNING. It is a narrowly scoped disaster-recovery hatch; never bake it into a pipeline default. The federation check is a different thing, described next.
 :::
 
+### The OpenTofu plan is what gets approved
+
+*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* On the OpenTofu engine (`aws`, `gcp`, `snowflake`, `confluent`, `databricks`), a manual approval between plan and apply covers the OpenTofu diff only if the plan stage ran `tofu plan`. Run it with `--tofu` and keep the files together:
+
+```bash
+# plan job: needs read and write on the state and its lock
+fluid plan runtime/bundle.tgz --env "$FLUID_ENV" --mode "$APPLY_MODE" \
+  --out runtime/plan.json --check-sovereignty \
+  --tofu --state-backend s3://<your-state-bucket>/<key>
+# -> runtime/plan.json, runtime/plan.tfplan, runtime/plan.tfplan.json,
+#    runtime/plan.gitlab-tofu.json   (all four are artifacts of the plan job)
+
+# approval: a person reads plan.tfplan.json, or GitLab shows plan.gitlab-tofu.json
+
+# apply job: fetch the four files and the bundle, then
+fluid apply runtime/plan.json --bundle runtime/bundle.tgz \
+  --mode "$APPLY_MODE" --env "$FLUID_ENV" --state-backend s3://<your-state-bucket>/<key> --yes
+```
+
+The apply runs `tofu apply` of `plan.tfplan` and plans nothing of its own. What stops it:
+
+- **A plan file that is not the approved one** (`apply_plan_digest_tofu_plan_mismatch`, or `_missing` when it is not there).
+- **State that moved since the plan** (`apply_plan_digest_tofu_plan_stale`), because another apply ran in between. Plan and apply again; the approval covered a state that no longer exists.
+- **A plan made for another state** (`apply_plan_digest_tofu_plan_target`). The two jobs must resolve the same provider and state, so use the same `--state-backend` or `FLUID_STATE_BACKEND`.
+
+Three requirements follow:
+
+1. **A remote state.** Local state in a CI workspace is gone when the apply job starts, so the plan is refused as stale or as made for another target.
+2. **Protected artifacts.** The plan files are plaintext unless [`FLUID_STATE_ENCRYPTION`](../cli/apply.md#state-and-plan-encryption) is set, and `plan.tfplan.json` holds every sensitive value. Keep them in short-lived job artifacts that only the plan job can write, because the digests are not signatures.
+3. **The same providers.** The apply job's `tofu init` must resolve the provider versions the plan was made with, and the apply job needs the same `tofu` and, if the plan was made with it, the same `FLUID_STATE_ENCRYPTION`.
+
+See [Applying a saved OpenTofu plan](../cli/apply.md#applying-a-saved-opentofu-plan) for the errors and [`fluid plan --tofu`](../cli/plan.md#saving-the-opentofu-plan-tofu) for the files.
+
 ### The federation check warns
 
 [Federated upstreams](../concepts/federation.md) explains the pin, the manifest and the digest cache. The [upgrade guide](../upgrading.md) lists when the gate became advisory.
@@ -354,7 +387,7 @@ If a pipeline runs an LLM-driven command, cap spend explicitly:
 
 Cloud applies go through the OpenTofu engine, which runs the `tofu` binary:
 
-- **Version floor.** `tofu` must be 1.6.0 or newer; an older one fails before any state is touched.
+- **Version floor.** `tofu` must be 1.6.0 or newer; an older one fails before any state is touched. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is 1.12.0, and the module declares `required_version = ">= 1.12"`. On OpenTofu 1.11, adding retention to a live GCP table plans an in-place update that BigQuery refuses at apply, and the data-loss gate sees no removal. From 1.12 the plan replaces the table, which the gate sees.
 - **Provision on demand.** `fluid apply --ensure-opentofu` downloads a pinned OpenTofu build when `tofu` is missing, with no root or gpg needed, and checks it against the release's `SHA256SUMS` (integrity, not a signature). The generated apply stage passes it. For production, install OpenTofu on the runner image with a cosign- or gpg-verified install instead.
 - **State.** CI wipes the workspace after every run, and a wiped local state re-plans every resource as new. Set `FLUID_STATE_BACKEND=s3://<bucket>` or `gcs://<bucket>` once for the pipeline: each contract and provider then gets its own key. See [Environment variables](./environment-variables.md#apply-state-and-opentofu).
 - **S3 state lock.** *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* With OpenTofu 1.10 or newer, S3 state is locked through a `<key>.tflock` object, and `tofu plan` takes the lock too. Every role in the pipeline that plans or applies, a plan-only job and a drift check (`fluid diff`, `fluid verify --state-drift`) included, needs `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on that object, or `FLUID_TOFU_S3_LOCKFILE=0` in the job's environment (a project `.env` cannot set it). A job that is killed hard can leave the lock behind; `tofu force-unlock <ID>` in the contract's workdir clears it. See [Locking](../concepts/state.md#locking).

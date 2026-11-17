@@ -46,6 +46,9 @@ docs_only_ok:
   - profile         # `fluid profile` is on forge-cli `main` (forge-cli #909) but in no
                     # release, so not in the pinned CLI. Drop this entry at the pin bump
                     # that carries it.
+  - spark           # `fluid spark` is on forge-cli `main` (forge-cli #912) but in no
+                    # release, so not in the pinned CLI. Drop this entry at the pin bump
+                    # that carries it.
 
 # Fenced `fluid ...` invocations the flag oracle must not report.
 # Two forms:
@@ -67,10 +70,6 @@ flag_oracle_ok:
                      # through the command-plugin entry point, so it is absent
                      # from the core CLI's parser. The pages tell the reader to
                      # pip install it first. Scoped to this one invocation.
-  - docs/cli/profile.md::fluid profile
-                     # `fluid profile` is on forge-cli `main` (forge-cli #909) but in no
-                     # release, so the pinned CLI lacks it and the oracle cannot know its
-                     # flags. Drop this entry at the pin bump that carries it.
                      # The entry point is NAMED `generate-custom-scaffold`, and
                      # `fluid --help` lists that name, but its register()
                      # adds the subcommand `custom-scaffold`: on companion
@@ -78,6 +77,37 @@ flag_oracle_ok:
                      # prints the command's options and
                      # `fluid generate-custom-scaffold --help` prints the
                      # top-level usage. The pages document the name that runs.
+  - docs/cli/profile.md::fluid profile
+                     # `fluid profile` is on forge-cli `main` (forge-cli #909) but in no
+                     # release, so the pinned CLI lacks it and the oracle cannot know its
+                     # flags. Drop this entry at the pin bump that carries it.
+  - docs/cli/spark.md::fluid spark
+                     # `fluid spark` is on forge-cli `main` (forge-cli #912, #919) but in
+                     # no release, so the pinned CLI lacks the command and the oracle
+                     # cannot know its flags. Drop this entry at the pin bump that
+                     # carries it.
+  - docs/cli/plan.md::--tofu
+                     # Newer than the pin: forge-cli #898 (on main, in no release yet)
+                     # added `fluid plan --tofu`; 0.29.0 and 0.30.1 register no --tofu.
+                     # Remove this entry when cli-version.json moves to the release that
+                     # carries #898.
+  - docs/cli/plan.md::--state-backend
+                     # Newer than the pin: forge-cli #898 (on main, in no release yet)
+                     # made `fluid plan --tofu` take --state-backend; the pinned `fluid
+                     # plan` registers none. The same page's `fluid apply` examples
+                     # are covered by this entry too. Remove it with the --tofu entry.
+  - docs/advanced/operating-in-ci.md::--tofu
+                     # Newer than the pin: forge-cli #898, as in the plan.md entry above.
+                     # Scoped to the proof-gate walkthrough's `fluid plan --tofu` call.
+  - docs/advanced/operating-in-ci.md::--state-backend
+                     # Newer than the pin: forge-cli #898 (`fluid plan --state-backend`),
+                     # as above. Remove it with the --tofu entry.
+  - docs/cli/import.md::fluid import schema-registry
+                     # Newer than the pin: forge-cli #939 (on main, in no release yet)
+                     # added the `schema-registry` tool to `fluid import`, with
+                     # --registry, --url, --registry-name and --version; the pinned
+                     # `fluid import` registers none of them. Remove this entry when
+                     # cli-version.json moves to the release that carries #939.
   - docs/cli/plan.md::--no-check-sovereignty
                      # Newer than the pin: forge-cli 0.30.0 (#868) made
                      # --check-sovereignty a BooleanOptionalAction, and the

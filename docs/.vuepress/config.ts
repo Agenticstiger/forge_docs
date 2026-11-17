@@ -491,6 +491,7 @@ export default defineUserConfig({
                 '/cli/viz-graph.md',
                 '/cli/publish.md',
                 '/cli/ship.md',
+                '/cli/spark.md',
                 '/cli/rollback.md',
                 '/cli/schedule-sync.md'
               ]
@@ -618,6 +619,8 @@ export default defineUserConfig({
                 '/advanced/blueprints.md',
                 '/advanced/source-aligned-acquisition.md',
                 '/advanced/managed-flink-iceberg.md',
+                '/advanced/spark-iceberg-aws.md',
+                '/advanced/schema-registry.md',
                 '/advanced/duckdb-sandbox.md'
               ]
             },

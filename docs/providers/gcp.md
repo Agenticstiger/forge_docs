@@ -38,6 +38,8 @@ gcloud services enable datacatalog.googleapis.com  # column restrictions (policy
 gcloud services enable cloudkms.googleapis.com     # binding.encryption.kms (0.7.6)
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is OpenTofu 1.12.
+
 ### A minimal contract
 
 ```yaml

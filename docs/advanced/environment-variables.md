@@ -69,7 +69,7 @@ Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may ho
 | `FLUID_TOFU_TIMEOUT_SECONDS` | Wall-clock cap per `tofu` invocation. Default `1800`. A timed-out call reports exit code 124. *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* `tofu` is interrupted first, so it releases its state lock, and killed only if it is still running 30 seconds later. |
 | `FLUID_DATABRICKS_RUN_TIMEOUT_SECONDS` | *(since 0.30.0, [forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861))* How long `fluid apply --mode amend-and-build` or `replace-and-build` waits for a Databricks job run, in whole seconds, before it cancels the run and fails the build. Unset, an hour, or the job's own timeouts and retries plus 15 minutes when that is longer. A value that is not a whole number of seconds above 0, in at most nine digits, is not used, and the apply says so. `fluid doctor --env` lists it, and a project `.env` may set it. See [Running the job from `fluid apply`](../providers/databricks.md#running-the-job-from-fluid-apply). *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* It also caps the wait for a Lakeflow pipeline update, an hour when unset, and at the cap the pipeline is stopped (see [Running it from `fluid apply`](../providers/databricks.md#running-it-from-fluid-apply)). |
 | `FLUID_TOFU_S3_LOCKFILE` | *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* `0`, `false`, `no` or `off` stops `fluid apply` from asking `tofu init` to lock S3 state (`-backend-config=use_lockfile=true`, OpenTofu 1.10 or newer). Set it for a role that cannot write `<key>.tflock`, in the environment of the job: a project `.env` cannot set it (see [project `.env` trust](./project-dotenv-trust.md)). Unset, or any other value, keeps the lock on. See [Locking](../concepts/state.md#locking). |
-| `FLUID_OPENTOFU_VERSION` | Pins the OpenTofu version that [`fluid apply --ensure-opentofu`](../cli/apply.md) installs when `tofu` is missing. |
+| `FLUID_OPENTOFU_VERSION` | Pins the OpenTofu version that [`fluid apply --ensure-opentofu`](../cli/apply.md) installs when `tofu` is missing. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The default pin is 1.13.9. |
 | `FLUID_REDSHIFT_WORKGROUP`, `FLUID_REDSHIFT_DATABASE`, `FLUID_REDSHIFT_SQL` | Set by the generated AWS module for its Redshift Serverless statements. They are outputs of the generator, not settings. |
 | `SNOWFLAKE_AUTHENTICATOR`, `SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER`, `SNOWFLAKE_TOKEN_FILE_PATH` | *On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* `WORKLOAD_IDENTITY`, then `OIDC`, `AWS`, `AZURE` or `GCP`, and for `OIDC` the file that holds the CI job's ID token. Connects without a user or a password. See [Workload identity federation](../providers/snowflake.md#workload-identity-federation). |
 | `SNOWFLAKE_ORGANIZATION_NAME`, `SNOWFLAKE_ACCOUNT_NAME` | The account identity that the generated module's Snowflake provider 2.x expects. fluid derives them from a `SNOWFLAKE_ACCOUNT` in `<org>-<account>` form when they are not set. |
@@ -81,6 +81,22 @@ With a bucket-only `FLUID_STATE_BACKEND`, the remote state key is `fluid/<id>/<p
 export FLUID_STATE_BACKEND=s3://<your-state-bucket>     # bucket only: per-contract, per-provider keys
 fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 ```
+
+## Spark on AWS (preview)
+
+*On forge-cli `main`, not yet in a release ([forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919), [forge-cli #924](https://github.com/Agenticstiger/forge-cli/pull/924), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #934](https://github.com/Agenticstiger/forge-cli/pull/934)).* [Spark to Iceberg on AWS](./spark-iceberg-aws.md#operator-settings) says what each of these protects. An unset allowlist allows nothing. Every `*_ALLOWLIST` and `*_URL` setting, and `FLUID_SPARK_MAVEN_REPOSITORY`, is read from the operator's environment: a project `.env` cannot set it.
+
+| Variable | Effect |
+|---|---|
+| `FLUID_SPARK_TARGET_ALLOWLIST` | The existing runtimes a contract may name (`emr-serverless:<applicationId>`, `emr-ec2:<clusterId>`, `emr-eks:<virtualClusterId>`) and the MSK clusters it may read (`msk:<cluster ARN>`). |
+| `FLUID_SPARK_EXECUTION_ROLE_ALLOWLIST` | The roles `parameters.spark.executionRoleArn` may name: a role ARN, or an ARN prefix ending in `/`. |
+| `FLUID_SPARK_CONF_ALLOWLIST` | `sparkConf` keys beyond the built-in tuning keys: a key, or a prefix ending in `*`. A key that loads code, sets credentials or moves the catalog or checkpoint is refused even when listed. |
+| `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` a Spark job may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>`. |
+| `FLUID_SPARK_WAIT_SECONDS` | How long a reconcile waits for a cancelled run to stop and a started one to leave its pending states. Default 900. |
+| `FLUID_SPARK_MAVEN_REPOSITORY` | One https Maven mirror that replaces Confluent's repository in `spark.jars.repositories`. A URL with a user or password, a query, a comma, plain http or a link-local host is refused. |
+| `FLUID_SPARK_GLUE_JARS_URL` | `s3://<bucket>/<prefix>/`: where the platform keeps the pinned jars of a Glue Confluent Avro build. |
+| `FLUID_AIRFLOW_ALLOW_UNMAPPED` | `1` renders a task whose action the provider cannot map as a log-only task, instead of refusing. *On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).* The same as `--allow-unmapped` on `fluid generate schedule`. |
+| `SCHEMA_REGISTRY_REST_ENDPOINT`, `SCHEMA_REGISTRY_ID`, `SCHEMA_REGISTRY_API_KEY`, `SCHEMA_REGISTRY_API_SECRET` | *On forge-cli `main`, not yet in a release ([forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913)).* The registry OpenTofu registers a produced Confluent subject in, and its credential. The first two cannot come from a project `.env`. See [Schema registry](./schema-registry.md#confluent-the-operator-s-registry). |
 
 ## Managed Flink (preview)
 
@@ -136,6 +152,7 @@ The CLI itself does not read these; the generated pipeline and the generated DAG
 | `FLUID_BIN` | the generated Airflow DAG | The `fluid` executable on the worker. Default `fluid`. |
 | `FLUID_DAG_ENV_PASSTHROUGH` | the generated Airflow DAG | Space-separated extra variable names handed to the `fluid apply` process. A name that starts with `AIRFLOW` never passes, so the worker's Airflow configuration and connection variables stay out of `fluid`. |
 | `FLUID_DAG_CONTRACT`, `FLUID_DAG_ENV`, `FLUID_DAG_BUILD_ID`, `FLUID_DAG_CONTRACT_ENV` | the generated Airflow DAG | Set by the DAG's task from constants in the file; do not set them on the worker. |
+| `FLUID_DAG_RUN_TIMEOUT` | the generated Airflow DAG of a Spark build | *On forge-cli `main`, not yet in a release ([forge-cli #936](https://github.com/Agenticstiger/forge-cli/pull/936)).* Set by the task: the run's wait in seconds, from `execution.runtime.timeout`, passed to `fluid spark run` as `--timeout`. Do not set it on the worker. |
 
 See [Airflow](./airflow.md) for which variables reach `fluid apply` on the worker and [Operating in CI](./operating-in-ci.md) for the pipeline parameters.
 
