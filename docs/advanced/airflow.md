@@ -158,7 +158,7 @@ For a walkthrough that builds a pipeline from a contract, see the [Declarative A
 
 ## Scheduled Spark builds
 
-*On forge-cli `main`, not yet in a release ([forge-cli #936](https://github.com/Agenticstiger/forge-cli/pull/936)).* A build of `engine: spark` with a cron trigger gets a DAG whose one task, `fluid_spark_run`, starts the build's run and waits for it. It runs on the worker:
+*On forge-cli `main`, not yet in a release ([forge-cli #936](https://github.com/Agenticstiger/forge-cli/pull/936)).* A build of `engine: spark` (its `parameters.spark` lives under `builds[].properties`) with a cron trigger gets a DAG whose one task, `fluid_spark_run`, starts the build's run and waits for it. It runs on the worker:
 
 ```text
 fluid spark run <contract> --build-id <id> [--env <env>] --json
@@ -171,7 +171,7 @@ Checked on forge-cli `main`: `fluid generate schedule contract.fluid.yaml -o dag
 - **Timeouts.** `execution.runtime.timeout`, an ISO-8601 duration such as `PT2H`, is how long the command waits for the run: it is passed as `--timeout`. The task's own timeout is that plus ten minutes, so the command cancels the run before Airflow kills the task. Without a `timeout`, the command waits up to its default of six hours and the task's timeout is six hours and ten minutes. A value that is not a duration of at least one second is refused when the DAG is generated.
 - **Retries** come from `execution.retries.maxAttempts`, as for every scheduled build. `fluid spark run` exits 2 when the contract or the operator's policy refuses the build, and a retry runs it again to the same answer, because Airflow cannot tell exit codes apart without `skip_on_exit_code`, which the DAG sets to `None`.
 - **A streaming build gets no DAG**, unless its `properties.stream.trigger` is `availableNow: true`. A stream runs continuously, and `fluid apply` keeps it running. A build is a stream when `parameters.spark.mode` says so, or when it declares `properties.stream` and sets no mode.
-- **A build id or product id that `fluid spark run` refuses** gets no DAG: generation fails. So does a Spark build on a contract older than `0.7.7`.
+- **A build id or product id that `fluid spark run` refuses** gets no DAG: generation fails. A Spark build on a contract older than `0.7.7` is not a managed Spark build: it keeps its `fluid apply` DAG.
 - **MWAA's `requirements.txt`** needs the line `data-product-forge[aws]==<release>`, for boto3 and the command. The DAG's docstring names it. A development build is not on PyPI, so the line is left unpinned for one.
 - **The worker's operator settings** (`FLUID_SPARK_*`) and AWS permissions are the ones [Spark to Iceberg on AWS](./spark-iceberg-aws.md#the-caller-s-permissions) lists. The worker's variable list also covers `FLUID_*` and `AWS_*`.
 - A build that is not Spark renders exactly as before. A contract of dbt and Spark builds gets a DAG for each.

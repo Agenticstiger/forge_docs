@@ -95,7 +95,7 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 | `FLUID_SPARK_WAIT_SECONDS` | How long a reconcile waits for a cancelled run to stop and a started one to leave its pending states. Default 900. |
 | `FLUID_SPARK_MAVEN_REPOSITORY` | One https Maven mirror that replaces Confluent's repository in `spark.jars.repositories`. A URL with a user or password, a query, a comma, plain http or a link-local host is refused. |
 | `FLUID_SPARK_GLUE_JARS_URL` | `s3://<bucket>/<prefix>/`: where the platform keeps the pinned jars of a Glue Confluent Avro build. |
-| `FLUID_AIRFLOW_ALLOW_UNMAPPED` | `1` renders a task whose action the provider cannot map as a log-only task, instead of refusing (*On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).*). The same as `--allow-unmapped` on `fluid generate schedule`. |
+| `FLUID_AIRFLOW_ALLOW_UNMAPPED` | `1` renders a task whose action the provider cannot map as a log-only task, instead of refusing. *On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).* The same as `--allow-unmapped` on `fluid generate schedule`. |
 | `SCHEMA_REGISTRY_REST_ENDPOINT`, `SCHEMA_REGISTRY_ID`, `SCHEMA_REGISTRY_API_KEY`, `SCHEMA_REGISTRY_API_SECRET` | *On forge-cli `main`, not yet in a release ([forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913)).* The registry OpenTofu registers a produced Confluent subject in, and its credential. The first two cannot come from a project `.env`. See [Schema registry](./schema-registry.md#confluent-the-operator-s-registry). |
 
 ## Managed Flink (preview)

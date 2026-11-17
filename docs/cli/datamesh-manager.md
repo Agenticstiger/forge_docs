@@ -36,7 +36,7 @@ A short alias `fluid dmm` is registered for the same command group.
 | `--no-create-team` | Do not auto-create the team if it is missing. |
 | `--contract-format` | `odcs` (Open Data Contract Standard v3.1.0, default) or `dcs` (Data Contract Specification 0.9.3, deprecated). |
 | `--data-product-spec` | Override `dataProductSpecification` value sent to Entropy Data (e.g. `odps` or `0.0.1`). |
-| `--odps-lineage-mode` | `contract` (default) or `source-system`. *On forge-cli `main`, not yet in a release ([forge-cli #908](https://github.com/Agenticstiger/forge-cli/pull/908)).* Both send the same payloads: lineage comes from the contract's `consumes[]` and build sources, as [ODPS lineage](#odps-lineage-and-access-agreements) says. |
+| `--odps-lineage-mode` | `contract` (default) or `source-system`. `source-system` also writes `customProperties[sourceSystem]` (the upstream product id) on each consume's input port. `fluid publish --target datamesh-manager` ignores it and warns. *On forge-cli `main`, not yet in a release ([forge-cli #908](https://github.com/Agenticstiger/forge-cli/pull/908)).* |
 | `--auto-approve-access` | Automatically approve Access agreements generated from `consumes[]`. Use for local sandboxes only; production workflows should review Access separately. |
 | `--no-auto-approve-access` | Keep Access agreements pending even when `DMM_AUTO_APPROVE_ACCESS=true` is set. Use it to override a sandbox-wide default for one publish. |
 | `--validate-generated-contracts` | Validate generated ODCS contracts locally before PUT. |
@@ -119,7 +119,7 @@ fluid dmm delete-contract my-org.customer360-contract --yes   # contracts are se
 | --- | --- |
 | `DMM_API_KEY` | Required API key. |
 | `DMM_API_URL` | API base URL. Defaults to `https://api.entropy-data.com`. |
-| `DMM_ODPS_LINEAGE_MODE` | Optional default for ODPS lineage: `contract` or `source-system`. *On forge-cli `main`, not yet in a release ([forge-cli #908](https://github.com/Agenticstiger/forge-cli/pull/908)).* Both give the same payloads. |
+| `DMM_ODPS_LINEAGE_MODE` | Optional default for ODPS lineage. `contract` (default) or `source-system`. `source-system` also writes `customProperties[sourceSystem]` (the upstream product id) on each consume's input port. `fluid publish --target datamesh-manager` ignores it and warns. *On forge-cli `main`, not yet in a release ([forge-cli #908](https://github.com/Agenticstiger/forge-cli/pull/908)).* |
 | `DMM_AUTO_APPROVE_ACCESS` | Set to `true` to auto-approve generated Access agreements. Keep unset for production review flows. |
 | `DMM_ALLOW_INSECURE_HTTP` | Set to `true` only when intentionally sending credentials to a non-local HTTP endpoint. Localhost HTTP is allowed for local development. *On forge-cli `main`, not yet in a release ([forge-cli #916](https://github.com/Agenticstiger/forge-cli/pull/916)).* This applies to `fluid publish --target datamesh-manager` too: see [Plain http](#plain-http-and-a-malformed-url). |
 
@@ -148,7 +148,7 @@ catalogs:
 - **Stale Access agreements are cancelled.** An agreement that forge made (it carries `managedBy: forge-cli`) for a consume the contract no longer has is cancelled on publish, with `POST /api/access/<id>/cancel`. The end time is set ten minutes in the past, so that Entropy ends it now: an end time even slightly in the future keeps it active until Entropy's own sweep. Agreements are never deleted, and agreements a person made, or that are already cancelled or rejected, are left alone. This is best effort: a failed reconcile logs a warning and the publish still succeeds. Both paths send the same input ports and the same Access agreement ids.
 - **A consumed product that Entropy holds twice** (as written, and under its slug, a stale copy of an older publish) is consumed under the slug, the live one. An unreadable product list now says so, where it read as an empty one. Two consumes that name one `contractId` with different `sourceSystem`s link neither, with a warning.
 
-With a `--odps-lineage-mode` of either value, the payload is the same. The option and `DMM_ODPS_LINEAGE_MODE` are still accepted.
+`--odps-lineage-mode source-system` also writes `customProperties[sourceSystem]`, the upstream product id, on each consume's input port; `contract` does not. `fluid publish --target datamesh-manager` ignores the mode and warns. The option and `DMM_ODPS_LINEAGE_MODE` are still accepted.
 
 Seen on forge-cli `main`, with `fluid datamesh-manager publish --dry-run --with-contract` on a contract that consumes `silver.crm.core_v1.crm_core` and `silver.billing.accounts_v1.billing_accounts`. The product payload carries:
 

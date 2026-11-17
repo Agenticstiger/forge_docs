@@ -2,7 +2,7 @@
 
 *On forge-cli `main`, not yet in a release ([forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919)).*
 
-Start one run of a Spark build and wait for it to end, or show a build's recent runs. A build is an `engine: spark` build with `parameters.spark`, described in [Spark to Iceberg on AWS](../advanced/spark-iceberg-aws.md).
+Start one run of a Spark build and wait for it to end, or show a build's recent runs. A build is an `engine: spark` build with `parameters.spark` (under `builds[].properties`), described in [Spark to Iceberg on AWS](../advanced/spark-iceberg-aws.md).
 
 `fluid apply` provisions a Spark build and keeps a streaming one running. A scheduled build (a batch build, or a stream with `trigger: {availableNow: true}`) is started by its scheduler instead, and `fluid spark run` is the command the scheduler calls. It runs on EMR Serverless, AWS Glue, EMR on EC2 and EMR on EKS, and needs the `[aws]` extra (`pip install 'data-product-forge[aws]'`): boto3 loads only when a run is read or started.
 

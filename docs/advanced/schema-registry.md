@@ -65,14 +65,43 @@ Each subject version checked is printed, and `plan.json` records it under `schem
 
 A subject whose registry needs a credential (`auth`) is not read at plan. Plan never fetches a contract secret. It says the subject is `verified-at-apply`, and `fluid apply` checks it before any `tofu apply`, with the same comparison, the credential sent as Basic auth over https. A failure there is `apply_schema_registry_failed`. A dry-run apply reads no registry.
 
+This example has no `parameters.spark`, so a Glue registry is accepted. On a forge Spark build (`parameters.spark`) only `kind: confluent` is accepted, and `kind: glue` is refused at `fluid validate`: "the forge Spark runner reads the Confluent Schema Registry (kind: confluent); the Glue Schema Registry is not supported yet". The Spark runner also takes only `env://` and `aws-sm://` secret references for `auth`.
+
 On a non-Kafka binding, `binding.properties.registry` is a validate warning. The managed Flink lane's legacy `schemaRegistryUrl` is not checked at plan.
 
 ## A produced topic is registered through OpenTofu
 
-A Kafka-bound expose (`platform: kafka`, or `platform: confluent` with `format: kafka_topic`) declares its registry in `binding.properties.registry`, and its schema is the expose's `contract.schema`:
+A Kafka topic the product produces is an expose with `format: kafka_topic` that declares its registry in `binding.properties.registry`, and its schema is the expose's `contract.schema`. Something has to register the subject, so `fluid validate` refuses a contract where nothing can: a Glue subject needs an expose bound to `platform: aws` in the same contract, and a Confluent subject needs the topic itself bound as `platform: confluent` with `format: kafka_topic`. A topic bound as `platform: kafka` can take a Glue subject, not a Confluent one. This contract validates, and `fluid generate iac --provider aws` writes the module (checked on forge-cli `main`):
 
 ```yaml
+fluidVersion: "0.7.7"
+kind: DataProduct
+id: commerce.orders-enriched
+name: Orders enriched
+domain: commerce
+metadata:
+  layer: Silver
+  owner:
+    team: commerce-data
+packaging:
+  mode: isolated
+  pool: commerce-platform
+  containers:
+    cluster: shared
+    schemaRegistry: shared
 exposes:
+  - exposeId: orders_lake
+    kind: table
+    binding:
+      platform: aws
+      format: parquet
+      location:
+        bucket: commerce-lake
+        path: orders/
+        region: eu-west-1
+    contract:
+      schema:
+        - {name: order_id, type: string}
   - exposeId: orders_enriched
     kind: stream
     binding:
@@ -115,7 +144,7 @@ OpenTofu registers a produced Confluent subject in the registry the `confluentin
 
 | Variable | What it is |
 |---|---|
-| `SCHEMA_REGISTRY_REST_ENDPOINT` | The registry's endpoint. It must be the contract's `url`: plan and apply refuse another, because the schema would land somewhere the contract never named. Unset, it is a validate warning, and an apply error. |
+| `SCHEMA_REGISTRY_REST_ENDPOINT` | The registry's endpoint. It must be the contract's `url`: plan and apply refuse another, because the schema would land somewhere the contract never named. Unset, it is a `fluid plan` warning and a `fluid apply` error. |
 | `SCHEMA_REGISTRY_ID` | The registry's id (Confluent Cloud). |
 | `SCHEMA_REGISTRY_API_KEY`, `SCHEMA_REGISTRY_API_SECRET` | The credential, sent to the contract's `url`. |
 
@@ -155,7 +184,7 @@ contract:
 forge writes canonical, deterministic proto3:
 
 - A struct is a nested message, an array a `repeated` field, a map a `map<string, V>`. An array or map of arrays or maps is refused.
-- A nullable scalar, or a well-known type, is `optional`.
+- A nullable scalar, or a nullable well-known type, is `optional`. A required one has no label.
 - Only the imports a schema uses are written, sorted. Type names are absolute (they start with a dot), so a topic named `google` cannot shadow them.
 
 | FLUID type | Protobuf |

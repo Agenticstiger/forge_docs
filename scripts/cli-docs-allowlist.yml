@@ -70,6 +70,13 @@ flag_oracle_ok:
                      # through the command-plugin entry point, so it is absent
                      # from the core CLI's parser. The pages tell the reader to
                      # pip install it first. Scoped to this one invocation.
+                     # The entry point is NAMED `generate-custom-scaffold`, and
+                     # `fluid --help` lists that name, but its register()
+                     # adds the subcommand `custom-scaffold`: on companion
+                     # 0.4.1 with CLI 0.18.1, `fluid custom-scaffold --help`
+                     # prints the command's options and
+                     # `fluid generate-custom-scaffold --help` prints the
+                     # top-level usage. The pages document the name that runs.
   - docs/cli/profile.md::fluid profile
                      # `fluid profile` is on forge-cli `main` (forge-cli #909) but in no
                      # release, so the pinned CLI lacks it and the oracle cannot know its
@@ -101,13 +108,6 @@ flag_oracle_ok:
                      # --registry, --url, --registry-name and --version; the pinned
                      # `fluid import` registers none of them. Remove this entry when
                      # cli-version.json moves to the release that carries #939.
-                     # The entry point is NAMED `generate-custom-scaffold`, and
-                     # `fluid --help` lists that name, but its register()
-                     # adds the subcommand `custom-scaffold`: on companion
-                     # 0.4.1 with CLI 0.18.1, `fluid custom-scaffold --help`
-                     # prints the command's options and
-                     # `fluid generate-custom-scaffold --help` prints the
-                     # top-level usage. The pages document the name that runs.
   - docs/cli/plan.md::--no-check-sovereignty
                      # Newer than the pin: forge-cli 0.30.0 (#868) made
                      # --check-sovereignty a BooleanOptionalAction, and the

@@ -7,7 +7,7 @@ description: Declare a Kafka stream, or batch SQL over catalog tables, in the co
 
 *On forge-cli `main`, not yet in a release ([forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902), [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903), [forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919), [forge-cli #924](https://github.com/Agenticstiger/forge-cli/pull/924), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #934](https://github.com/Agenticstiger/forge-cli/pull/934)).*
 
-A build with `engine: spark` and `parameters.spark` lands records in an Iceberg table that the Glue catalog holds:
+A build with `engine: spark` and `parameters.spark` (under `builds[].properties`) lands records in an Iceberg table that the Glue catalog holds:
 
 - The contract says which Kafka topic the job reads, or which SQL it runs over catalog tables, and how the result becomes the rows of the output expose.
 - forge-cli compiles that into a `job.json` and checks every output column against it before anything deploys.
@@ -144,7 +144,7 @@ An MSK source needs no broker list: forge looks the brokers up from the cluster 
 | `watermark` | `{column, delay}`. The column must be a top-level `timestamp_ltz`: Spark 3.5 does not keep a watermark on `timestamp` (an NTZ type). |
 | `checkpoint` | An `s3://` prefix. It defaults to `s3://<bucket>/_checkpoints/<product>/<build>/`, at the bucket root and never under the table, where Iceberg's orphan-file cleanup would delete it. When forge creates the job's role, a declared checkpoint must sit under `s3://<bucket>/_checkpoints/<product>/`; one outside it is refused (`spark-checkpoint-scope`). |
 | `startingOffsets` | `earliest` or `latest`, for a stream with no checkpoint yet. |
-| `registry` | The schema registry of an `avro-confluent` stream. See [Schema registry](./schema-registry.md). |
+| `registry` | The schema registry of an `avro-confluent` stream. On a forge Spark build only `kind: confluent` is accepted: `kind: glue` is refused. Its `auth` takes `env://` or `aws-sm://` references only. See [Schema registry](./schema-registry.md). |
 
 ### Batch builds
 
@@ -234,7 +234,7 @@ A key with a bad name or value gets its own message, and only a valid key that i
 
 There is no OpenTofu resource for a job run, so runs are started by forge and not by the module.
 
-`fluid plan` lists one `spark.reconcile` action per Spark build. `planDigest` covers it, and it needs no AWS credentials. The action's payload carries the runtime, mode, target, execution role, the artifact locations and a **config hash**: the sha256 of the job config, the runner's sha256 and the run settings (runtime, target, release, role, `sparkConf`, retries, and on Glue the pinned jars it loads). `fluid apply` compiles the runs again and refuses a bound plan whose Spark actions differ (`apply_spark_artifact_mismatch`). It also needs the `[aws]` extra (`apply_aws_sdk_missing`) and the OpenTofu engine (`apply_spark_needs_opentofu`).
+`fluid plan` lists one `spark.reconcile` action per Spark build. `planDigest` covers it, and it needs no AWS credentials. The action's payload carries the runtime, mode, target, execution role, the artifact locations and a **config hash**: the sha256 of the job config, the runner's sha256 and the run settings (runtime, target, release, role, `sparkConf`, retries, and on Glue the pinned jars it loads). `fluid apply` compiles the runs again and refuses a bound plan whose Spark actions differ (`apply_spark_artifact_mismatch`). A non-dry-run apply of a streaming build also needs the `[aws]` extra (`apply_aws_sdk_missing`). Apply needs the OpenTofu engine (`apply_spark_needs_opentofu`).
 
 After `tofu apply`, `fluid apply` reconciles each streaming build:
 
@@ -266,7 +266,7 @@ The role that runs `fluid apply` or `fluid spark run`, or the scheduler's execut
 | `emr-serverless` | `emr-serverless:StartJobRun`, `GetJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource`, and `ListApplications` when the contract names no `applicationId` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-serverless.amazonaws.com` |
 | `glue` | `glue:StartJobRun`, `GetJobRun`, `GetJobRuns`, `BatchStopJobRun` | |
 | `emr-ec2` | `elasticmapreduce:AddJobFlowSteps`, `ListSteps`, `DescribeStep`, `CancelSteps` | |
-| `emr-eks` | `emr-containers:StartJobRun`, `DescribeJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource` | `iam:PassRole` on the job's role |
+| `emr-eks` | `emr-containers:StartJobRun`, `DescribeJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-containers.amazonaws.com` |
 
 Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a stronger one.
 
