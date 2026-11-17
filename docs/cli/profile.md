@@ -6,7 +6,7 @@ Profile one expose's records where they live, and write a profile document of ou
 
 FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
 
-::: warning flux-stats comes from git until it is released
+::: warning flux-stats comes from git until forge-cli pins a release
 forge-cli `main` reads flux-stats at a commit of the flux-engine repository that no PyPI release carries, and PyPI refuses a package whose metadata names a git dependency, so the `[profile]` extra installs DuckDB only. Install flux-stats yourself, from the flux-engine repository at the commit forge-cli names in `requirements/flux-stats.txt`; `pip` needs `git` to do that. Without flux-stats, `fluid profile` stops before it reads anything and prints the command:
 
 ```text
