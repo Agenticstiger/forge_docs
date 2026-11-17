@@ -58,7 +58,7 @@ pip install "data-product-forge[local,gcp]"           # several extras at once
 pip install "data-product-forge[local]==0.29.0"       # an exact version, for CI
 ```
 
-A cloud `fluid apply` runs OpenTofu, so it also needs `tofu` 1.6.0 or newer on your `PATH`, or `fluid apply --ensure-opentofu`, which downloads a pinned build from the OpenTofu release and checks it against that release's `SHA256SUMS` (integrity, not a signature). For production CI, install OpenTofu with a cosign- or gpg-verified install instead, and keep `tofu` on the runner image. The local path in this tutorial does not use OpenTofu.
+A cloud `fluid apply` runs OpenTofu, so it also needs `tofu` 1.6.0 or newer on your `PATH`, or `fluid apply --ensure-opentofu`, which downloads a pinned build from the OpenTofu release and checks it against that release's `SHA256SUMS` (integrity, not a signature). *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The minimum is 1.12.0, and the pinned build is 1.13.9. For production CI, install OpenTofu with a cosign- or gpg-verified install instead, and keep `tofu` on the runner image. The local path in this tutorial does not use OpenTofu.
 
 Coming from an older release? [Upgrading](../upgrading.md) has a checklist for each version you cross.
 

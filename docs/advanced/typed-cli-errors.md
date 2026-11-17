@@ -195,7 +195,7 @@ A few catalogued events land on a page that does not explain them. The CLI choos
 |---|---|---|
 | `copilot_missing_llm_api_key` | [`fluid secrets`](../cli/secrets.md) | That page covers source and pipeline secrets. LLM keys are not stored there: run `fluid ai setup`, or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`; `--llm-provider ollama` needs no key |
 | `policy_compile_failed`, `policy_apply_failed` | [Sovereignty](../concepts/sovereignty.md) | The failure is in the contract's `agentPolicy` or `accessPolicy` block. Run `fluid policy check <contract>` to see the offending rule |
-| `opentofu_engine_install_failed` | [Getting started](../getting-started/README.md) | `tofu` is missing or older than 1.6.0. Install OpenTofu 1.6.0 or newer, or run `fluid apply --ensure-opentofu` |
+| `opentofu_engine_install_failed` | [Getting started](../getting-started/README.md) | `tofu` is missing or older than 1.6.0. Install OpenTofu 1.6.0 or newer, or run `fluid apply --ensure-opentofu`. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is 1.12.0. |
 
 ## See also
 

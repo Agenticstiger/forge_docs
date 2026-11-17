@@ -137,7 +137,7 @@ read, the flag is skipped. `fluid apply` logs a WARNING with the event
 `s3_state_unlocked` that says why, and the state is unlocked, as before.
 Upgrade OpenTofu. [`--ensure-opentofu`](../cli/apply.md) installs a pinned build
 only when `tofu` is missing or older than 1.6.0, so it does not bring a 1.6 to
-1.9 install up to date. To turn
+1.9 install up to date. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* It installs when `tofu` is older than 1.12.0, so it does bring such an install up to date. To turn
 the lock off on purpose, for a role that cannot write the lock object, set
 `FLUID_TOFU_S3_LOCKFILE=0` (`false`, `no` and `off` also work) in the environment
 of the job that runs `fluid apply`: a project `.env` cannot set it. `fluid doctor

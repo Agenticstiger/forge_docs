@@ -26,6 +26,7 @@ A GCP binding goes through three stages, each driven by the contract:
 pip install "data-product-forge[gcp,local]"
 
 # OpenTofu 1.6 or later on PATH: `fluid apply` delegates to it.
+# (1.12 or later on forge-cli main: forge-cli #899, not yet in a release)
 tofu version
 
 # Application Default Credentials, read by both OpenTofu and fluid's own BigQuery client.
