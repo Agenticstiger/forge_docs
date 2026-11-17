@@ -158,22 +158,18 @@ For a walkthrough that builds a pipeline from a contract, see the [Declarative A
 
 ## Scheduled Spark builds
 
-*On forge-cli `main`, not yet in a release ([forge-cli #936](https://github.com/Agenticstiger/forge-cli/pull/936)).* A build of `engine: spark` (its `parameters.spark` lives under `builds[].properties`) with a cron trigger gets a DAG whose one task, `fluid_spark_run`, starts the build's run and waits for it. It runs on the worker:
+*On forge-cli `main`, not yet in a release ([forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950)).* A build of `engine: spark` (its `parameters.spark` lives under `builds[].properties`) whose run ends on its own, a batch job or a stream with `trigger.availableNow`, gets the standard `fluid apply` DAG, like every scheduled build. Its one task, `fluid_apply`, runs:
 
 ```text
-fluid spark run <contract> --build-id <id> [--env <env>] --json
+fluid apply <contract> --mode amend-and-build --build-id <id> --yes
 ```
 
-[`fluid spark run`](../cli/spark.md) starts one run on EMR Serverless, Glue, EMR on EC2 or EMR on EKS, waits, and exits 0 only when the run succeeded, so the task fails when the run does. It cancels the run on SIGTERM, and prints one JSON line. The task goes through the same hardened script as the DAGs that run `fluid apply`: `env -i` with a fixed list of passed names, and every value from the contract (the build id, the env, the contract path and the timeout) reaches the shell only as an environment variable of the task, validated so it holds no quote, `$` or whitespace. Nothing is interpolated into the command text.
+The build phase of that apply starts one run on EMR Serverless, Glue, EMR on EC2 or EMR on EKS, waits for it, and fails unless the run succeeded, so the task fails when the run does. Ctrl-C, SIGTERM or SIGHUP cancel the run. The task goes through the same hardened `env -i` script as every `fluid apply` DAG.
 
-Checked on forge-cli `main`: `fluid generate schedule contract.fluid.yaml -o dags` for a batch build `compact-orders` with a `0 2 * * *` trigger, `execution.runtime.timeout: PT2H` and `execution.retries.maxAttempts: 3` writes `dags/compact_orders_dag.py`. Its DAG id is `commerce.orders-stream__compact-orders` (the product id, two underscores, the build id), its one task is `fluid_spark_run`, the run's wait is 7200 seconds and the task's `execution_timeout` is 7800.
-
-- **Timeouts.** `execution.runtime.timeout`, an ISO-8601 duration such as `PT2H`, is how long the command waits for the run: it is passed as `--timeout`. The task's own timeout is that plus ten minutes, so the command cancels the run before Airflow kills the task. Without a `timeout`, the command waits up to its default of six hours and the task's timeout is six hours and ten minutes. A value that is not a duration of at least one second is refused when the DAG is generated.
-- **Retries** come from `execution.retries.maxAttempts`, as for every scheduled build. `fluid spark run` exits 2 when the contract or the operator's policy refuses the build, and a retry runs it again to the same answer, because Airflow cannot tell exit codes apart without `skip_on_exit_code`, which the DAG sets to `None`.
+- **Timeouts.** `execution.runtime.timeout`, an ISO-8601 duration such as `PT2H`, is how long the run may take; six hours when unset. The task's timeout is the three hours every apply DAG gets plus that wait. A value that is not a duration of at least one second is refused before `tofu apply` changes anything (`apply_spark_invalid`).
+- **Retries** come from `execution.retries.maxAttempts`, as for every scheduled build.
 - **A streaming build gets no DAG**, unless its `properties.stream.trigger` is `availableNow: true`. A stream runs continuously, and `fluid apply` keeps it running. A build is a stream when `parameters.spark.mode` says so, or when it declares `properties.stream` and sets no mode.
-- **A build id or product id that `fluid spark run` refuses** gets no DAG: generation fails. A Spark build on a contract older than `0.7.7` is not a managed Spark build: it keeps its `fluid apply` DAG.
-- **MWAA's `requirements.txt`** needs the line `data-product-forge[aws]==<release>`, for boto3 and the command. The DAG's docstring names it. A development build is not on PyPI, so the line is left unpinned for one.
-- **The worker's operator settings** (`FLUID_SPARK_*`) and AWS permissions are the ones [Spark to Iceberg on AWS](./spark-iceberg-aws.md#the-caller-s-permissions) lists. The worker's variable list also covers `FLUID_*` and `AWS_*`.
+- **The worker runs the whole apply**, `tofu` included, so it needs the apply's permissions and the state backend, as for any scheduled build, plus `fluid` with boto3 (`data-product-forge[aws]` in MWAA's `requirements.txt`). The scheduler policy forge emits for a Spark product covers the run only. The operator settings (`FLUID_SPARK_*`) and the run's AWS actions are the ones [Spark to Iceberg on AWS](./spark-iceberg-aws.md#the-caller-s-permissions) lists.
 - A build that is not Spark renders exactly as before. A contract of dbt and Spark builds gets a DAG for each.
 
 ## Cloud Composer deployment

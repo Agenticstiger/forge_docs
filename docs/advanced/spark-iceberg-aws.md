@@ -5,14 +5,14 @@ description: Declare a Kafka stream, or batch SQL over catalog tables, in the co
 
 # Spark to Iceberg on AWS (preview)
 
-*On forge-cli `main`, not yet in a release ([forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902), [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903), [forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919), [forge-cli #924](https://github.com/Agenticstiger/forge-cli/pull/924), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #934](https://github.com/Agenticstiger/forge-cli/pull/934)).*
+*On forge-cli `main`, not yet in a release ([forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902), [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903), [forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919), [forge-cli #924](https://github.com/Agenticstiger/forge-cli/pull/924), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #934](https://github.com/Agenticstiger/forge-cli/pull/934), [forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950)).*
 
 A build with `engine: spark` and `parameters.spark` (under `builds[].properties`) lands records in an Iceberg table that the Glue catalog holds:
 
 - The contract says which Kafka topic the job reads, or which SQL it runs over catalog tables, and how the result becomes the rows of the output expose.
 - forge-cli compiles that into a `job.json` and checks every output column against it before anything deploys.
 - OpenTofu provisions what the job needs: its artifacts, role, logs and, where the contract asks for it, the EMR Serverless application or the Glue job.
-- `fluid apply` starts the job and keeps a streaming one running. A scheduler starts a scheduled one with [`fluid spark run`](../cli/spark.md).
+- `fluid apply` starts the job and keeps a streaming one running. A scheduled one runs through `fluid apply <contract> --mode amend-and-build --build-id <id>`, the path every scheduled build takes: see [Scheduled Spark builds](./airflow.md#scheduled-spark-builds).
 
 The lane is opt-in: the contract declares `fluidVersion: "0.7.7"`, the preview schema, and the build sets `parameters.spark`. It reads the same `properties.stream` and `properties.mapping` as the [managed Flink lane](./managed-flink-iceberg.md), compiled to Spark SQL. Everything else is unchanged.
 
@@ -222,7 +222,7 @@ A stream that reads a registry with a credential also needs the settings of the 
 
 A contract's `sparkConf` may set sizing and tuning settings only: executor and driver memory, cores and instances, `spark.sql.shuffle.partitions`, `spark.default.parallelism`, adaptive execution (`spark.sql.adaptive.*`), dynamic allocation (`spark.dynamicAllocation.*`) and a few others. Any other key needs the operator to list it in `FLUID_SPARK_CONF_ALLOWLIST`.
 
-Some keys are refused even when listed, by name or by a prefix such as `spark.sql.*`, because they load code or environment into a job that runs with its role, or move what it writes. The list is the same for `fluid spark run`, `fluid apply` and the infrastructure emit. It holds:
+Some keys are refused even when listed, by name or by a prefix such as `spark.sql.*`, because they load code or environment into a job that runs with its role, or move what it writes. The list is the same for `fluid apply` and the infrastructure emit. It holds:
 
 - keys that load code: `spark.jars*`, `spark.files*`, `spark.archives`, `spark.submit.*`, `spark.pyspark.*`, `spark.python.*`, `spark.plugins*`, `spark.extraListeners`, `spark.sql.extensions`, the `extraClassPath`, `extraJavaOptions` and `extraLibraryPath` keys of the driver and executor, `defaultJavaOptions`, `userClassPathFirst`, and the classes that `spark.sql.adaptive.customCostEvaluatorClass` and `spark.sql.streaming.stateStore.providerClass` name;
 - keys that set identity, credentials or environment: `spark.hadoop.*`, `spark.executorEnv.*`, `spark.emr-serverless.driverEnv.*` and `executorEnv.*`, `spark.yarn.*`, `spark.kubernetes.*`, `spark.kerberos.*`, `spark.security.*`, `spark.authenticate*`, `spark.ssl.*`, `spark.redaction.*`, `spark.emr-serverless.lakeformation.*`;
@@ -244,11 +244,11 @@ After `tofu apply`, `fluid apply` reconciles each streaming build:
 | A running job with another hash | Cancels it, waits for it to stop, and starts the new config on the **same checkpoint**, so it resumes where the old one stopped. |
 | A new topic or cluster, with a checkpoint an earlier run read | Refuses, before cancelling anything. A checkpoint holds the offsets of one topic on one cluster. To read the new stream, move `properties.stream.checkpoint` to a new prefix: the job then starts from `startingOffsets`. |
 | No running job | Starts one, unless the last run with this hash failed. |
-| A last run that failed | An error that names the run and its reason. On EMR Serverless a streaming job retries until it fails more than `maxFailedAttemptsPerHour` times in an hour, and then stops, so starting it again would fail the same way. Fix the cause, then run `fluid spark run <contract> --build-id <id> --restart`, or change the build. |
+| A last run that failed | An error that names the run and its reason. On EMR Serverless a streaming job retries until it fails more than `maxFailedAttemptsPerHour` times in an hour, and then stops, so starting it again would fail the same way. Fix the cause, then change the build: `fluid apply` starts it with the new config. |
 | A second active copy of the current config | Cancels it. |
 | A stream moved to `trigger.availableNow` | Cancels its old continuous job. Its scheduler starts it from now on. |
 
-A scheduled build (batch, or a stream with `availableNow`) is reported as `scheduled` and is never reconciled: its scheduler starts it with [`fluid spark run`](../cli/spark.md). A Glue stream also restarts when a pinned jar or `FLUID_SPARK_GLUE_JARS_URL` changes, because the hash covers the jars it loads; a running Glue Avro stream restarts once on the release that added this. Plan and apply need the same `FLUID_SPARK_GLUE_JARS_URL`, because the plan binds the hash, and apply refuses a plan made with another.
+A scheduled build (batch, or a stream with `availableNow`) is reported as `scheduled` and is never reconciled: its scheduler starts it through `fluid apply --mode amend-and-build` (see [Scheduled Spark builds](./airflow.md#scheduled-spark-builds)). A Glue stream also restarts when a pinned jar or `FLUID_SPARK_GLUE_JARS_URL` changes, because the hash covers the jars it loads; a running Glue Avro stream restarts once on the release that added this. Plan and apply need the same `FLUID_SPARK_GLUE_JARS_URL`, because the plan binds the hash, and apply refuses a plan made with another.
 
 Per runtime, the start is:
 
@@ -259,7 +259,7 @@ Per runtime, the start is:
 
 ### The caller's permissions
 
-The role that runs `fluid apply` or `fluid spark run`, or the scheduler's execution role (the MWAA role, say), needs these actions. For a build that runs to completion, the managed policy `fluid-<product>-spark-caller` holds them, scoped to the product's own application, job, cluster or virtual cluster:
+The role that runs `fluid apply`, or the scheduler's execution role (the MWAA role, say) that runs `fluid apply --mode amend-and-build` for a scheduled build, needs these actions. A scheduler's worker runs the whole apply, `tofu` included, so it also needs the apply's own permissions and the state backend, as for any scheduled build: the caller policy below covers the run only. For a build that runs to completion, the managed policy `fluid-<product>-spark-caller` holds them, scoped to the product's own application, job, cluster or virtual cluster:
 
 | Runtime | Actions | Also |
 |---|---|---|
@@ -333,11 +333,11 @@ In the account's `<account>-fluid-data` fallback bucket, and in a `shared` packa
 | `apply_spark_artifact_mismatch` | The bound plan lists other Spark runs than apply compiles |
 | `apply_aws_sdk_missing` | boto3 is not installed: `pip install 'data-product-forge[aws]'` |
 | `apply_spark_needs_opentofu` | The contract's apply engine is not OpenTofu |
-| `spark_run_no_build`, `spark_status_no_build` | `fluid spark run` or `status` found no such Spark build |
+| `apply_spark_invalid` | A Spark build the runner would refuse (a contract before the 0.7.7 managed lane, or an `execution.runtime.timeout` that is not an ISO-8601 duration of at least one second), refused before `tofu apply` changes anything |
 
 ## See also
 
-- [`fluid spark`](../cli/spark.md): start a scheduled run, or show a build's runs.
+- [Scheduled Spark builds](./airflow.md#scheduled-spark-builds): the `fluid apply` DAG that runs a scheduled build.
 - [Schema registry](./schema-registry.md): `stream.registry`, produced subjects and the registry operator settings.
 - [Managed Flink to Iceberg](./managed-flink-iceberg.md): the `properties.stream` and `properties.mapping` this lane shares.
 - [Scheduling Spark builds on Airflow](./airflow.md#scheduled-spark-builds).
