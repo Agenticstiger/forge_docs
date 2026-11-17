@@ -388,7 +388,7 @@ Normalization rules:
 Invalid hostnames such as `https://example.com` fail fast with a validation error instead of being silently misparsed.
 
 ::: warning `SNOWFLAKE_ACCOUNT` on the `fluid apply` path — changed in `0.15.0`
-The generated OpenTofu module pins `snowflakedb/snowflake ~> 2.0`, and from the v2
+The generated OpenTofu module pins `snowflakedb/snowflake ~> 2.0` (`~> 2.23` *on forge-cli `main`, not yet in a release ([forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901))*; 2.23 adds the `token_file_path` field, which OAuth, PAT and OIDC workload identity read a token from), and from the v2
 provider the bare `account` field is gated behind the
 `PROVIDER_CONFIGURATION_ACCOUNT_FALLBACK` experiment: the provider **errors the
 moment it sees `SNOWFLAKE_ACCOUNT`**, whether or not the v2

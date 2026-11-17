@@ -27,6 +27,8 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
                     [--provider NAME] [--project PROJECT] [--region REGION]
                     [--validate-actions] [--estimate-cost]
                     [--check-sovereignty | --no-check-sovereignty]
+                    [--tofu [--state-backend SPEC] [--adopt-shared-container]
+                     [--ensure-opentofu]]
                     [--html [PATH]] [--verbose]
 ```
 
@@ -47,6 +49,10 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 | `--provider` | Override the provider from the contract |
 | `--project` | Override the project / account from the contract |
 | `--region` | Override the region / location from the contract |
+| `--tofu` | *On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* Also run `tofu plan` as `fluid apply` would, for the providers that apply through OpenTofu, and bind the saved plan into `plan.json`. `fluid apply plan.json` then applies exactly that plan. See [Saving the OpenTofu plan](#saving-the-opentofu-plan-tofu). |
+| `--state-backend` | With `--tofu`: the OpenTofu state `fluid apply` will use, as on [`fluid apply`](./apply.md#remote-state). It belongs to `--tofu`. |
+| `--adopt-shared-container` | With `--tofu`: as on apply, confirm taking ownership of a shared pool. Audited. |
+| `--ensure-opentofu` | With `--tofu`: provision a pinned, verified `tofu` if it is missing, as on apply. |
 | `--html` | Generate an HTML visualization with a mermaid-rendered action DAG (colour-coded by mode: blue=amend, red=replace, grey=skipped). Optional path argument; defaults to `plan.html` in the current directory. |
 
 *On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* With `--tofu`, the saved plan is encrypted when `FLUID_STATE_ENCRYPTION` is set, and `fluid apply` of that plan needs the same setting. See [State and plan encryption](./apply.md#state-and-plan-encryption).
@@ -96,6 +102,56 @@ Besides the digests, `plan.json` carries what `apply` needs to refuse a plan tha
 | `contract` | Always. | Apply runs the embedded contract, which already has the overlay applied. *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* It validates it against its schema first, on both engines, and refuses a plan with no embedded contract with `apply_plan_missing_contract`. See [Contract validation](./apply.md#contract-validation). |
 
 A bundle is never re-overlaid: `fluid plan bundle.tgz --env prod` on a bundle built for `dev` is refused with `bundle_env_mismatch`. Plan the bundle without `--env`, or rebuild it with `fluid bundle <contract> --env prod --format tgz`.
+
+## Saving the OpenTofu plan (`--tofu`)
+
+*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* Without `--tofu`, `fluid plan` never runs `tofu plan`, and `fluid apply` plans and applies in one step. A manual approval in CI then covers forge's abstract `plan.json`, not the OpenTofu diff that actually runs. With `--tofu`, the approval binds the OpenTofu plan:
+
+```bash
+fluid plan contract.fluid.yaml --env prod --out runtime/plan.json \
+  --tofu --state-backend s3://<your-state-bucket>/fluid/sales.tfstate
+fluid apply runtime/plan.json --yes
+```
+
+`--tofu` works for the providers whose apply runs OpenTofu (`aws`, `gcp`, `snowflake`, `confluent`, `databricks`). For a contract whose apply engine is `native`, such as `local`, it stops with `plan_tofu_unsupported`: plan it without `--tofu`.
+
+It opens the OpenTofu engine the way `fluid apply` does: the same state backend, the same environment for `tofu`, the same `tofu init` (with the S3 lock), and the same guards before the plan, among them the [Iceberg catalog-move guard](./apply.md#iceberg-catalog-move-guard) and the packaging checks. It then adopts pre-existing resources and runs `tofu plan -out`. The step runs after the bundle and sovereignty gates, so a refused plan leaves no saved plan behind. Next to `plan.json` it writes three files, each readable by the owner only (mode `0600`), named after `--out`:
+
+| File | What it is |
+| --- | --- |
+| `plan.tfplan` | The saved OpenTofu plan. `fluid apply` runs it unchanged. |
+| `plan.tfplan.json` | `tofu show -json` of that plan |
+| `plan.gitlab-tofu.json` | The summary GitLab reads as `artifacts:reports:terraform` |
+
+With `--out runtime/plan.json` they are `runtime/plan.tfplan`, `runtime/plan.tfplan.json` and `runtime/plan.gitlab-tofu.json`. The run prints the change counts as `tofu plan: +<add> ~<change> -<remove>` and the three file names.
+
+`plan.json` gains an `opentofuPlan` record, and `planDigest` covers it:
+
+| Field | Holds |
+| --- | --- |
+| `planFile` | The file name of the saved plan, next to `plan.json` |
+| `sha256` | `sha256:<hex>` of the saved plan's bytes |
+| `provider`, `state` | The provider and the state location the plan was made for |
+| `stateLineage`, `stateSerial` | The version of that state when the plan was made. Left out when the state could not be read |
+| `changes` | The `add`, `change` and `remove` counts |
+| `imports` | The addresses of pre-existing resources the plan adopts |
+
+**Brownfield adoption.** A saved plan carries the state it was made from, so planning must leave the state as it was. Adoption runs `tofu import` to confirm each resource exists, hands the import back with `state rm`, and puts it into the plan as an `import` block. The reviewer sees the resource listed as to be imported, and the apply does the import. If the hand-back fails, the plan stops with `plan_tofu_adoption_not_released` and prints the `tofu state rm` command to run.
+
+Other errors:
+
+| Event | Meaning |
+| --- | --- |
+| `plan_tofu_unsupported` | The contract's apply engine is not OpenTofu |
+| `plan_tofu_show_failed` | `tofu show -json` could not read the plan it just saved |
+| `plan_tofu_adoption_not_released` | An adopted resource could not be released from state; see above |
+
+::: warning What to know before you store a saved plan
+- **The plan files are plaintext.** `plan.tfplan.json` holds every sensitive value in clear, as `tofu show -json` does. Mode `0600` does not protect a CI artifact download. Keep them in protected, short-lived job artifacts. With [`FLUID_STATE_ENCRYPTION`](./apply.md#state-and-plan-encryption) set, OpenTofu encrypts the saved plan.
+- **The digests are not signatures.** `planDigest` and `opentofuPlan.sha256` catch a plan that was changed by accident or by an edit. They do not prove who wrote it. Store the plan artifacts where only the plan job can write them, as for any `tofu apply <planfile>`: a forged saved plan can do anything OpenTofu can do on the apply runner.
+- **Planning writes state.** `fluid plan --tofu` moves a legacy state key as `fluid apply` does, and its adoption imports and then removes. The net content of the state is unchanged, but the plan role needs write access to the state, and to the lock.
+- **Plan and apply must share a remote state.** Local state in a CI workspace does not reach the apply job, and the plan is then refused as stale or as made for another state.
+:::
 
 ## Sovereignty gate (since 0.15.0)
 
@@ -232,7 +288,7 @@ fluid apply runtime/plan.json --mode amend --yes
 
 - `plan` is the safest place to preview a provider override or environment overlay before you run `apply`.
 - *(since 0.27.0, [forge-cli #813](https://github.com/Agenticstiger/forge-cli/pull/813))* For a contract with `builds`, `plan` prints the warning [`fluid validate` gives](./validate.md#an-id-the-build-phase-refuses) for an `id` or `builds[].id` the build phase refuses, and still writes the plan, whatever `--mode` says. `fluid apply` in a build mode refuses that id before it applies anything; see [Build ids](./apply.md#build-ids).
-- The generated plan can be passed to [`fluid apply`](./apply.md) — the digests pin the apply to exactly this plan.
+- The generated plan can be passed to [`fluid apply`](./apply.md) — the digests pin the apply to exactly this plan. Made with `--tofu`, the plan also binds the OpenTofu plan, and the apply runs that one.
 - When planning from a tgz bundle directly, `bundleDigest` is populated from `MANIFEST.json`. When planning from a raw YAML contract, `bundleDigest` is an empty string and only `planDigest` is verified.
 
 ## Visualizing the plan — `fluid viz-graph`

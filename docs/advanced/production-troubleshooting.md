@@ -53,6 +53,18 @@ Each error carries a stable `kind` tag, a distinct event CI can match:
 | `bundle-merkle-mismatch` | The merkle root recomputed from the bundle's bytes disagrees with the root declared in its `MANIFEST.json` | Rebuild the bundle; treat it as possible tampering |
 | `binding-mode-missing`, `binding-mode-invalid`, `binding-mode-mismatch` | The plan's `bindingMode` is absent, is neither `bound` nor `raw`, or contradicts the presence of `bundleDigest` (for example `bundleDigest` stripped to dodge the bundle check) | Regenerate through `fluid plan`: the plan came from an older CLI or was edited |
 
+*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* A plan made with `fluid plan --tofu` adds five more, each the event `apply_plan_digest_<kind>` with `-` written as `_`:
+
+| `kind` | Diagnosis | Fix |
+|---|---|---|
+| `tofu-plan-invalid` | The `opentofuPlan` record in `plan.json` is malformed | Re-run `fluid plan --tofu` |
+| `tofu-plan-missing` | The saved plan (`plan.tfplan`) is not next to `plan.json` | Keep the plan's files together; in CI pass every file `fluid plan --tofu` wrote as artifacts |
+| `tofu-plan-mismatch` | The saved plan's sha256 differs from the one `plan.json` binds: it is not the plan that was reviewed | Re-run `fluid plan --tofu` and approve the new plan |
+| `tofu-plan-target` | The plan was made for another provider or another state | Apply with the same `--state-backend` and work directory, or re-plan |
+| `tofu-plan-stale` | The state changed after the plan was made, so applying it would not do what it showed. Nothing was applied | Re-run `fluid plan --tofu`, review it, apply that plan |
+
+See [Applying a saved OpenTofu plan](../cli/apply.md#applying-a-saved-opentofu-plan).
+
 ::: warning `--no-verify-plan-binding` is a disaster-recovery hatch, not a fix
 When the bundle is unrecoverable, `fluid apply --no-verify-plan-binding` skips the verification and logs at WARNING so the audit trail records it. If you reach for it during routine operations, regenerate the bundle and plan pair instead.
 :::
