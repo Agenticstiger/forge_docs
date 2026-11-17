@@ -21,7 +21,7 @@ If a `flux-stats` distribution is installed but cannot be imported, the detail n
 
 ## Where it runs
 
-The profiler is the one part of FLUX that reads records. It runs inside the environment that holds the data, with that environment's own access to it. Only the profile document leaves: no record, no sample of records, and no per-record value. This is the boundary FLUX's ADR 0003 draws, and everything that crosses it has passed the checks below.
+The profiler is the one part of FLUX that reads records. It runs inside the environment that holds the data, with that environment's own access to it. Only the profile document leaves: no record, no sample of records, and no per-record value. That is the boundary FLUX keeps, and everything that crosses it has passed the checks below.
 
 ## Syntax
 
