@@ -1182,6 +1182,15 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 
 - **0.7.7 (preview) contracts can state rules about valid data, and `fluid validate` checks them.** `exposes[].contract.invariants[]` holds checks, derived columns and dependencies, written in FLUID SQL/1. Columns gain `identifierFormat`, `placeholders` and `sharedAttribute`, and relationships gain `sharedColumns`. Every field is optional. A 0.7.7 contract that uses none of them gets no new errors, though it may get notes, which `--strict` never counts. See [Rules about valid data](./concepts/data-rules.md).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917)).*
+
+- **`fluid ship` runs the 11-stage pipeline in place of the four-stage macro.** It bundles, validates, generates and validates artifacts, checks drift, plans, applies the reviewed `runtime/plan.json` against `runtime/bundle.tgz`, applies policy and verifies; `--publish` and `--schedule-sync` add stages 10 and 11. A script that runs `fluid ship` now also runs `diff`, `policy-apply` and `verify`, so a drifted target or a failed verify stops it. See [The 11-stage runner on forge-cli main](./cli/ship.md#the-11-stage-runner-on-forge-cli-main).
+- **`validate` and `validate-artifacts` run with `--strict` by default.** A contract with a warning, a placeholder owner email among them, now stops at stage 2. `--no-strict` drops it.
+- **`--skip-plan` is removed and exits 2; `--skip-bundle` is accepted and ignored.** Use `--stage` or `--until` to run part of the pipeline.
+- **The exit status is ship's own**: 0 passed, 1 a stage failed, 2 ship refused its arguments, 3 a stage failed after apply changed something, 130 interrupted. Through 0.30.1 ship exited with the failing stage's code, which is now in `runtime/ship-report.json`.
+- **Ship refuses before anything is written**, with exit 2: an environment name a stage would refuse (it must start with a letter, at most 64 characters), a contract that is missing, symlinked or under a system path, and an unknown stage.
+- **A contract outside the current directory runs in its own directory**, so `runtime/` and `dist/` land beside it.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

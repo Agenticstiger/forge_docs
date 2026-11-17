@@ -4,6 +4,8 @@
 
 This page generates that Jenkinsfile, then runs the eleven commands by hand against a local product, so you see what each gate checks and what it prints when it fires. It was run end to end on CLI `0.18.1`; output has absolute paths shortened to `...`.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917)).* `fluid ship` runs these eleven stages too, on a laptop or as the steps of a CI job: see [The 11-stage runner on forge-cli main](../cli/ship.md#the-11-stage-runner-on-forge-cli-main).
+
 ## Generate the pipeline
 
 ```bash

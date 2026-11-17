@@ -91,6 +91,14 @@ flag_oracle_ok:
                      # invocations in the "Serve over HTTP" section. Remove this
                      # entry when cli-version.json moves to the release that
                      # carries #879.
+  - docs/cli/ship.md::fluid ship
+                     # Newer than the pin: forge-cli #917 (on main, in no
+                     # release yet) made `fluid ship` the 11-stage runner, with
+                     # --stage, --until, --skip-stage, --explain, --apply-mode and
+                     # the other flags its "11-stage runner on forge-cli main"
+                     # section shows; 0.29.0 and 0.30.1 register none of them.
+                     # Remove this entry when cli-version.json moves to the
+                     # release that carries #917.
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

@@ -2,6 +2,8 @@
 
 Happy-path macro that chains `validate → bundle → plan → apply` in one command. Use it when you've already iterated on a contract locally and just want to push it through.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917)).* `fluid ship` runs the 11-stage pipeline, the same way on a laptop and in CI, in place of the four-stage macro this page describes for the pinned release. See [The 11-stage runner on forge-cli main](#the-11-stage-runner-on-forge-cli-main).
+
 ::: tip Where this fits
 `fluid ship` landed in `0.8.3` alongside the day-2 ops surface.
 :::
@@ -95,6 +97,115 @@ For the production-grade 11-stage pipeline (cryptographic plan binding, drift ga
 | Non-zero | Exit code of the failing stage (e.g. `1` from `validate` for a schema error) |
 
 With no contract path and no `contract.fluid.yaml` in the current directory, `ship` exits `1` with `contract_required`. Stage logs are written to stdout and stderr unmodified: the macro doesn't buffer or reformat them. Pipe to `tee` or to your CI system's log capture as usual.
+
+## The 11-stage runner on forge-cli main
+
+*On forge-cli `main`, not yet in a release ([forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917)).*
+
+`fluid ship` runs the [11-stage pipeline](../walkthrough/11-stage-pipeline.md) itself, the same way on a laptop and in CI. Each stage is its own `fluid` process with the argv the generated pipelines use, and stage 7 applies the reviewed `runtime/plan.json` against the bundle stage 1 froze, never a re-plan from the contract. `--explain` prints the plan for your contract and runs nothing:
+
+```text
+$ fluid ship --explain
+fluid ship: 9 stage(s) selected (env=dev, mode=amend, contract=contract.fluid.yaml)
+   1 bundle              run      fluid bundle contract.fluid.yaml --env dev --format tgz --out runtime/bundle.tgz
+   2 validate            run      fluid validate runtime/bundle.tgz --env dev --strict
+   3 generate-artifacts  run      fluid generate artifacts runtime/bundle.tgz --env dev --contract-path contract.fluid.yaml --out dist/artifacts/
+   4 validate-artifacts  run      fluid validate-artifacts dist/artifacts/ --strict
+   5 diff                run      fluid diff runtime/bundle.tgz --exit-on-drift --env dev --out runtime/diff-report.json
+   6 plan                run      fluid plan runtime/bundle.tgz --out runtime/plan.json --mode amend --env dev --check-sovereignty
+   7 apply               run      fluid apply runtime/plan.json --bundle runtime/bundle.tgz --mode amend --env dev --ensure-opentofu --report runtime/apply-report.html
+   8 policy-apply        run      fluid policy-apply dist/artifacts/policy/bindings.json --mode enforce
+   9 verify              run      fluid verify runtime/bundle.tgz --strict --env dev --out runtime/verify-report.json
+  10 publish             not run  (opt-in: pass --publish)
+  11 schedule-sync       not run  (opt-in: pass --schedule-sync)
+```
+
+Stages 10 and 11 run only when asked for, with `--publish` and `--schedule-sync`. A stage with nothing to do is skipped with its reason: stage 3 for a reference-only contract or with `--no-generate-artifacts`, stage 4 when stage 3 generates no `dist/artifacts/`, stage 8 without `dist/artifacts/policy/bindings.json`, stages 9 to 11 after a dry-run apply, and stage 11 without a scheduler or without DAGs in `dist/artifacts/schedule/`. After a dry run, stage 8 checks the policy bindings instead of enforcing them.
+
+### Select stages
+
+```bash
+fluid ship --until plan                  # stages 1-6, then review runtime/plan.json
+fluid ship --stage apply,verify --yes    # apply the reviewed plan, then verify it
+fluid ship --stage 6-9 --skip-stage policy-apply --yes
+```
+
+Stage names and numbers both work, and a range can use names (`--stage plan-verify`). `--publish` and `--schedule-sync` add their stage under `--stage` too. A stage whose input is missing is refused before any stage runs: `--stage apply` without `runtime/plan.json` exits 2 and names stage 6. After `--until`, ship prints the `--stage` value that goes on from there. After a failure it says to run the same command again, or to go on from the failed stage with the same bundle, for example `--stage 5-10` when `--publish` is set, so plan and apply run again before publish.
+
+### Options
+
+Each option takes the flag, then the variable the generated pipelines export, then the default.
+
+| Option | Variable | Default | Description |
+|---|---|---|---|
+| `[contract-path]` | | `contract.fluid.yaml` in the current directory | The contract. |
+| `--env <env>` | `FLUID_ENV` | `dev` | Environment overlay for every stage that reads one. It must start with a letter and hold only letters, digits, `.`, `_` and `-`, at most 64 characters: another name exits 2 before stage 1, because a later stage would refuse it. |
+| `--yes`, `-y` | | | Passed to `fluid apply`. Needed in CI. |
+| `--strict`, `--no-strict` | | `--strict` | `--strict` for `validate` and `validate-artifacts`. |
+| `--dry-run` | | | Same as `--apply-mode dry-run`: apply changes nothing in the target. Plan still writes `runtime/plan.json`. |
+| `--apply-mode <mode>` | `APPLY_MODE` | `amend` | Mode for plan and apply: `dry-run`, `create-only`, `amend`, `amend-and-build`, `replace`, `replace-and-build`. |
+| `--build-id <id>` | `APPLY_BUILD_ID` | the contract's only build | For `amend-and-build` and `replace-and-build`. An empty value means no build id. |
+| `--allow-data-loss` | `ALLOW_DATA_LOSS=true` | | Passed to `fluid apply`. |
+| `--no-verify-digest` | `NO_VERIFY_DIGEST=true` | | Passes `--no-verify-plan-binding --no-verify-federation` to `fluid apply`. |
+| `--no-verify-strict` | | | Drops `--strict` from `verify`. |
+| `--no-generate-artifacts` | | | Skips stage 3. |
+| `--publish` | | | Runs stage 10. |
+| `--target <catalog>` | `PUBLISH_TARGETS` (space-separated; the older `CATALOG` too) | `datamesh-manager` | Catalog to publish to; repeatable. A target names a catalog, never an endpoint: one with `:` exits 2 when stage 10 will publish. |
+| `--schedule-sync` | | | Runs stage 11. |
+| `--scheduler`, `--scheduler-destination`, `--scheduler-environment-name`, `--scheduler-location`, `--scheduler-workspace` | `SCHEDULER`, `SCHEDULER_DESTINATION`, `SCHEDULER_ENVIRONMENT_NAME`, `SCHEDULER_LOCATION`, `SCHEDULER_WORKSPACE` | | Stage 11's scheduler and its `schedule-sync` options. |
+| `--schedule-sync-dry-run` | `SCHEDULE_SYNC_DRY_RUN=true` | | Passes `--dry-run` to `schedule-sync`. |
+| `--until <stage>` | | | Stops after that stage. |
+| `--stage <spec>` | | | Runs only these stages: `7`, `6-9`, `plan,apply`. |
+| `--skip-stage <stage>` | | | Skips a stage; repeatable. `--skip-stage apply` is a pipeline without stage 7, so a dry-run mode no longer skips stages 9 to 11; stage 8 still checks the bindings instead of enforcing them. |
+| `--explain` | | | Prints the resolved plan and runs nothing. Exits 0, or 2 when ship refuses its arguments; a stage a real run would refuse for a missing input shows as a warning line. |
+| `--ci-output` | | `auto` | Log grouping: `auto`, `github`, `gitlab`, `azure`, `plain`. |
+| `--report-dir <dir>` | | `runtime/` where ship runs | Where the run reports go. Ship runs in the current directory, or in the contract's own directory when the contract is outside it. A relative path is taken from the current directory. |
+| `--skip-bundle` | | | Accepted and ignored: ship always bundles, so no stage runs a stale bundle. |
+| `--skip-plan` | | | Removed: exits 2. Use `--stage` or `--until`. |
+
+### Exit status
+
+| Code | Meaning |
+|---|---|
+| `0` | Every selected stage passed or was skipped. |
+| `1` | A stage failed. |
+| `2` | Ship refused its arguments: an unknown stage or a reversed range, no stage left to run, an environment name a stage would refuse, a publish target with `:`, `--dry-run` with another `--apply-mode`, a missing input, no contract, a contract that is missing, symlinked or under a system path, or `--skip-plan`. |
+| `3` | A stage failed after apply changed something, so those changes are live. A dry-run apply changes nothing. |
+| `130` | Interrupted. |
+
+The failing stage's own exit code is in the report and in the line ship prints when it stops, for example `Ship aborted at stage 5 diff (exit 2)`. The first Ctrl-C does not stop ship at once: it waits for the running stage to end, then stops the run (exit 130). From a terminal the stage gets the same Ctrl-C and may stop on its own. A second Ctrl-C stops the stage.
+
+### Reports
+
+Every run that starts a stage writes `runtime/ship-report.json` and `runtime/ship-junit.xml`. The JSON holds the run id, env, mode, contract and the run's exit status, and for each stage its status, the reason it was skipped or failed, its argv, exit code and duration. The JUnit file has one test case per stage.
+
+A CI job that calls `fluid ship --stage N` once per step gets one report: calls with the same run id, env, mode and contract merge, and each call keeps its own records for the stages it selected. The run id is `FLUID_RUN_ID`, else the one in `.fluid/run-id.txt`. A call that includes stage 1 starts a new report.
+
+### Output in CI
+
+`--ci-output auto` reads the CI system from the environment. On GitHub Actions each stage is a `::group::`, a failure is an error annotation and the stage table goes to the job summary; every stage runs between `::stop-commands::` markers, so nothing the checkout prints can issue a workflow command. GitLab gets collapsible sections and Azure Pipelines `##[group]` blocks. Anywhere else each stage gets a banner:
+
+```text
+── stage 1/11 · bundle ────────────────────────────────────────
+$ fluid bundle contract.fluid.yaml --env dev --format tgz --out runtime/bundle.tgz
+...
+── stage 9/11 · verify ────────────────────────────────────────
+$ fluid verify runtime/bundle.tgz --strict --env dev --out runtime/verify-report.json
+...
+Ship complete: 9 stage(s) passed, 0 skipped
+```
+
+### Where it runs
+
+A contract outside the current directory (`fluid ship /tmp/x/contract.fluid.yaml`) runs in its own directory, so `runtime/` and `dist/` land beside it. A contract below the current directory keeps the current directory as the project root.
+
+### From the four-stage macro
+
+- Apply runs the reviewed `runtime/plan.json` against `runtime/bundle.tgz`, so the plan digest binding holds. `--env` reaches bundle, validate and every other stage that reads the overlay, not only plan and apply.
+- `diff`, `generate artifacts`, `validate artifacts`, `policy-apply` and `verify` now run, and `validate` is strict by default. `--no-strict` drops `--strict` from `validate` and `validate-artifacts`.
+- `--skip-plan` exits 2, and `--skip-bundle` is ignored.
+- The bundle is `runtime/bundle.tgz` and the plan `runtime/plan.json`, not `<contract id>.fluid.bundle.tgz` beside the contract and `plan.json` in the current directory.
+- The exit status is ship's own. A script that read the failing stage's code from `$?` reads it from the report.
 
 ## See also
 
