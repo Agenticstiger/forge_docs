@@ -2,19 +2,21 @@
 
 Profile one expose's records where they live, and write a profile document of output-checked aggregates. A FLUX Simulation pins the document by its digest, so the FLUX engine reads aggregates of the real data and never a record of it.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909)).*
+*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925)).*
 
-::: warning Groundwork: it does not profile yet
-FLUX's statistic registry forms every statistic, and the fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers. The registry is becoming its own package, `flux-stats`, which is not published yet. Until it is, `fluid profile` stops before it reads anything:
+FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
+
+::: warning flux-stats comes from git until it is released
+`flux-stats` is not on PyPI yet, so on `main` the `[profile]` extra installs it from the flux-engine repository, and `pip` needs `git` to do that. A forge-cli release that includes `fluid profile` waits for the flux-stats release. Without flux-stats, `fluid profile` stops before it reads anything:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
-  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not published yet
+  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed
   read: nothing: no record was read
-  next: pip install 'data-product-forge[profile]' once flux-stats is published
+  next: pip install 'data-product-forge[profile]'
 ```
 
-The rest of this page describes the command as forge-cli's `main` builds it.
+If a `flux-stats` distribution is installed but cannot be imported, the detail names its version instead. PyPI's `flux-stats` 0.0.1 is a placeholder that holds no code.
 :::
 
 ## Where it runs
@@ -36,11 +38,13 @@ fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE]
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory. |
 | `--env` | An environment overlay to apply to the contract first. |
 
-Install the extra, which adds DuckDB:
+Install the extra, which adds DuckDB and flux-stats:
 
 ```bash
 pip install 'data-product-forge[profile]'
 ```
+
+Until a release includes `fluid profile`, install forge-cli from a checkout of `main` with `pip install -e '.[profile]'`.
 
 ## Sources
 
@@ -58,6 +62,8 @@ A path can be relative, absolute or a `file://` URL. DuckDB runs in the same san
 A timestamp value is read as RFC 3339 with an offset (`2026-07-01T10:00:00.000Z`). FLUX's clock counts milliseconds, so a value with finer precision is refused. A database or Parquet timestamp with a zone is read as its UTC instant, and one with no zone as UTC.
 
 A date or timestamp that is infinite (PostgreSQL's `infinity`) is refused, by column, rather than read as the year 9999. Every value of the profiled columns is held in memory while it is measured, so a table larger than the machine's memory is out of reach for now.
+
+A number that needs more than 1,000 digits written out, such as `1E+5000`, is refused by its cell before it is read, as `value class 'over-long number'`: a profile declares no range to bound it. A sum longer than 1,000 digits is refused when the document is checked, and nothing is written.
 
 ## What is profiled
 
