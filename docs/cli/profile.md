@@ -2,22 +2,20 @@
 
 Profile one expose's records where they live, and write a profile document of output-checked aggregates. A FLUX Simulation pins the document by its digest, so the FLUX engine reads aggregates of the real data and never a record of it.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925), [forge-cli #946](https://github.com/Agenticstiger/forge-cli/pull/946)).*
+*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925), [forge-cli #946](https://github.com/Agenticstiger/forge-cli/pull/946), [forge-cli #949](https://github.com/Agenticstiger/forge-cli/pull/949), [forge-cli #951](https://github.com/Agenticstiger/forge-cli/pull/951)).*
 
 FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
 
-::: warning flux-stats comes from git until forge-cli pins a release
-forge-cli `main` reads flux-stats at a commit of the flux-engine repository that no PyPI release carries, and PyPI refuses a package whose metadata names a git dependency, so the `[profile]` extra installs DuckDB only. Install flux-stats yourself, from the flux-engine repository at the commit forge-cli names in `requirements/flux-stats.txt`; `pip` needs `git` to do that. Without flux-stats, `fluid profile` stops before it reads anything and prints the command:
+The `[profile]` extra installs DuckDB and `flux-stats` (`>=0.6.0,<0.7`) from PyPI. Without flux-stats, `fluid profile` stops before it reads anything and says what to install:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
-  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed. flux-stats is not on PyPI yet; install it from git with: pip install "flux-stats @ git+https://github.com/Agenticstiger/flux-engine.git@9ea8edf9bcddd58951f418db13a77253c02bdd7d#subdirectory=packages/flux-stats"
+  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed. It needs flux-stats>=0.6.0,<0.7; install it with: pip install 'data-product-forge[profile]'
   read: nothing: no record was read
-  next: pip install 'data-product-forge[profile]' && pip install "flux-stats @ git+https://github.com/Agenticstiger/flux-engine.git@9ea8edf9bcddd58951f418db13a77253c02bdd7d#subdirectory=packages/flux-stats"
+  next: pip install 'data-product-forge[profile]'
 ```
 
-If a `flux-stats` distribution is installed but cannot be imported, the detail names its version instead. PyPI's `flux-stats` 0.0.1 is a placeholder that holds no code, and forge-cli does not pin the 0.6.0 release yet.
-:::
+If a `flux-stats` distribution is installed but cannot be imported, the detail names its version instead. PyPI's `flux-stats` 0.0.1 is a placeholder that holds no code, and the extra's range replaces it.
 
 ## Before you start
 
@@ -40,7 +38,7 @@ The profiler is the one part of FLUX that reads records. It runs inside the envi
 ## Syntax
 
 ```bash
-fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE] [--env ENV]
+fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE] [--fractional-bits N] [--env ENV]
 ```
 
 | Argument | What it does |
@@ -50,16 +48,16 @@ fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE]
 | `--expose`, `--expose-id` | The expose to profile. Optional when the contract has one expose. |
 | `--table` | The table of a database `--source`, as `name` or `schema.name`. Refused for a file. |
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory. |
+| `--fractional-bits` | The grid [`mean/1`](#the-mean-1-statistic) is formed on, in steps of 2^-N: 0 to 128, default 16. Set it to the fidelity block's `encoding.fractionalBits`. |
 | `--env` | An environment overlay to apply to the contract first. |
 
-Install the extra, which adds DuckDB, and then flux-stats from git, at the commit forge-cli names:
+Install the extra, which adds DuckDB and flux-stats:
 
 ```bash
 pip install 'data-product-forge[profile]'
-pip install -r https://raw.githubusercontent.com/Agenticstiger/forge-cli/main/requirements/flux-stats.txt
 ```
 
-Until a release includes `fluid profile`, install forge-cli from a checkout of `main` with `pip install -e '.[profile]'`, then flux-stats with `pip install -r requirements/flux-stats.txt`.
+Until a release includes `fluid profile`, install forge-cli from a checkout of `main` with `pip install -e '.[profile]'`.
 
 ## Sources
 
@@ -99,6 +97,39 @@ These columns are left out and named in the output:
 - geospatial values;
 - booleans, which FLUX's reader does not read yet.
 
+## The `mean/1` statistic
+
+For each `number` column the document also holds `mean/1`, the statistic FLUX's fidelity check compares a `mean` property with. Its one group holds `k`, the number of non-null values, and `Sx`, their sum on the document's grid: each value is floored to a multiple of 2^-N and counted in those steps, as the check counts the synthetic rows. flux-stats forms it with the definition the check uses.
+
+```json
+"amount": {
+  "domain": "number",
+  "metrics": {},
+  "statistics": [
+    {
+      "definition": "mean/1",
+      "sampleSize": {"min": 598, "max": 602},
+      "disclosure": "acro-default",
+      "groups": [{"group": "", "k": 600, "Sx": "1818624000", "status": "F"}]
+    }
+  ]
+}
+```
+
+That is the `amount` column of the 600 orders in [the FLUX guide](https://agenticstiger.github.io/flux/guide/from-your-data.html), with its metrics left out here. The amounts sum to 27750, so `Sx` is 27750 × 2^16 and the mean is 46.25.
+
+Two things to know about the numbers:
+- `k` is rounded to a multiple of 5, as `count` is, so the mean the engine reads is the exact sum over the rounded count. It can be off the records' own mean by up to 2/k of it: 20% at 12 records, at most 1% from 200. An exact mean next to the exact `sum` would give the exact count back.
+- Most decimals, cents among them, are not on a binary grid, so each value loses a little when it is floored. Next to the exact `sum`, `Sx` gives the total of those losses, so the mean is withheld when that total would act as a count or show one record: when the records lose at most two different amounts, a loss of nothing counting as one (prices that all end in .99, or half whole numbers and half ending in .99), or when fewer than 10 records lose anything. A column of varied cents publishes its mean. Whole numbers and halves lose nothing.
+
+The grid is the document's `encoding.fractionalBits`, 16 unless you pass `--fractional-bits`. The fidelity block must declare the same `encoding`, or the engine refuses the property with `FLX-5037` and names both grids. A block that declares no `encoding` uses 16. The summary names the grid:
+
+```text
+Fidelity statistics: mean/1 of 'amount', on fractionalBits 16 (the fidelity block must declare the same).
+```
+
+`mean/1` is written without a `groupBy`, and for number columns only. A timestamp or category column gets no statistic: a mean of timestamps would publish a sum that no metric publishes. `fluid profile` writes no other statistic yet: no histogram, `quantile/1`, `support/1` or `correlation/1`, and no `mean/1` with a `groupBy`. The engine refuses a property that reads one with `FLX-5037`.
+
 ## What leaves: the output checks
 
 Every value is checked before the document is written. The checks are ACRO's defaults (ACRO 1.1.0, from the SACRO project). The document names them as the rule `acro-default`:
@@ -113,8 +144,9 @@ Every value is checked before the document is written. The checks are ACRO's def
 | Dominance (2, 0.90) | a sum is withheld when 1 or 2 records make up 90% of it | `O` (one), `T` (two) |
 | p-ratio 0.10 | a sum is withheld when what is left after the 2 largest records is below 10% of the largest | `M` |
 | Order statistics | a `min`, `max` or quantile is published only when at least 10 records hold that exact value | `A` |
+| Means | a `mean/1` is published only when the column's `count` and `sum` are, and when its values on the grid pass the `sum` checks too, because values less than one grid step apart floor to one value. Next to the exact `sum`, `Sx` also gives the total of what the values lose below their grid points, so that total must pass the `sum` checks as well. Its `k` is rounded like every count | the code of the check that failed |
 
-A withheld value keeps its SDMX `CL_CONF_STATUS` code and carries no value. Every metric also carries `sampleSize`, the band its number of records lies in. For a withheld count the band is `0` to `9`, and for a published one it is the counts that round to it. Neither says more than the code or the rounded count.
+A withheld value keeps its SDMX `CL_CONF_STATUS` code and carries no value: a withheld `mean/1` group holds its code and no `k` or `Sx`, and FLUX scores it as censored, never as zero. Every metric also carries `sampleSize`, the band its number of records lies in. For a withheld count the band is `0` to `9`, and for a published one it is the counts that round to it. Neither says more than the code or the rounded count.
 
 Two consequences to expect:
 - A column with 1 or 2 distinct values withholds its `distinctCount`: it rounds to 0, and a published 0 would read as a zero cell.
@@ -159,6 +191,6 @@ Each refusal names a stable code, for example `profile_expose_not_found`, `profi
 
 A FLUX Simulation turns the profile into synthetic rows. [From your data to a synthetic copy](https://agenticstiger.github.io/flux/guide/from-your-data.html) follows the whole path: a contract from a data file, this profile, a Simulation written from the profile's numbers, then rows from the FLUX engine. The engine does not generate rows from a profile yet, so you write the Simulation's declarations from the values the profile published.
 
-The engine checks a run against the profile it pins, from flux-sim-engine 0.6.0. It compares each fidelity property with a statistic the profile carries for it, such as `mean/1` or a histogram, and `fluid profile` writes the column metrics above and none of those statistics yet. So today `fluxsim verify` refuses each property, and `fluxsim ship` withholds the run. The guide says what to do instead.
+The engine checks a run against the profile it pins, from flux-sim-engine 0.6.0. It compares each fidelity property with a statistic the profile carries for it, such as `mean/1` or a histogram. `fluid profile` writes [`mean/1`](#the-mean-1-statistic), so the engine scores a `mean` property over a number column against the profile. With the guide's data and Simulation on flux-sim-engine 0.6.0, the `mean` property lands within its 10% margin, `fluxsim verify` passes and `fluxsim ship --profile` packs the run. A fidelity block whose properties are all such means, each without a `groupBy`, ships the same way when the profile published each of them. Any other property is still refused with `FLX-5037`.
 
 The rest of the FLUX documentation is at [agenticstiger.github.io/flux](https://agenticstiger.github.io/flux/).
