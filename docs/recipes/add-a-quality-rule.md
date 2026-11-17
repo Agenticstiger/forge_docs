@@ -46,7 +46,6 @@ metadata:
   productType: ADP
   owner:
     team: data-platform
-    email: data-platform@example.com
 builds:
   - id: load_orders
     pattern: acquisition

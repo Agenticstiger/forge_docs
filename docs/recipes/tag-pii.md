@@ -58,7 +58,6 @@ metadata:
   productType: SDP
   owner:
     team: data-platform
-    email: data-platform@example.com
 builds:
   - id: ingest_customers
     pattern: acquisition

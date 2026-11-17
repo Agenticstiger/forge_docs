@@ -53,7 +53,6 @@ metadata:
   productType: SDP
   owner:
     team: data-platform
-    email: data-platform@example.com
 builds:
   - id: ingest_orders
     pattern: acquisition
@@ -117,7 +116,6 @@ metadata:
   productType: ADP
   owner:
     team: data-platform
-    email: data-platform@example.com
 consumes:
   - productId: bronze.crm_orders
     exposeId: orders
