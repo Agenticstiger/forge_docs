@@ -1182,9 +1182,13 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **New, opt-in: `FLUID_STATE_ENCRYPTION` encrypts the OpenTofu state and saved plan.** Nothing changes until you set it, and it needs OpenTofu 1.13 or newer. See [State and plan encryption](./cli/apply.md#state-and-plan-encryption).
 - **New: generated GitHub Actions and GitLab pipelines log in to the cloud with OIDC**, and Snowflake accepts workload identity federation. Regenerate a committed pipeline with `fluid generate ci` and create the cloud-side trust its header lists. See [Keyless cloud login](./advanced/operating-in-ci.md#keyless-cloud-login) and [Workload identity federation](./providers/snowflake.md#workload-identity-federation).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925), [forge-cli #946](https://github.com/Agenticstiger/forge-cli/pull/946)).*
+*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925), [forge-cli #946](https://github.com/Agenticstiger/forge-cli/pull/946), [forge-cli #949](https://github.com/Agenticstiger/forge-cli/pull/949)).*
 
-- **`fluid profile` is a new command.** It reads one expose's records where they live and writes a FLUX profile document of output-checked aggregates, which a Simulation pins by digest. It reads every value and forms every statistic with `flux-stats`, the registry FLUX's fidelity check uses. Nothing that exists changes. The `[profile]` extra adds DuckDB. Until a forge-cli release pins a flux-stats version on PyPI, install flux-stats from the flux-engine repository by git, at the commit `requirements/flux-stats.txt` names; `fluid profile` prints the command when it is missing. See [`fluid profile`](./cli/profile.md).
+- **`fluid profile` is a new command.** It reads one expose's records where they live and writes a FLUX profile document of output-checked aggregates, which a Simulation pins by digest. It reads every value and forms every statistic with `flux-stats`, the registry FLUX's fidelity check uses. Nothing that exists changes. The `[profile]` extra adds DuckDB and flux-stats (`>=0.6.0,<0.7`) from PyPI; `fluid profile` says what to install when flux-stats is missing. See [`fluid profile`](./cli/profile.md).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #951](https://github.com/Agenticstiger/forge-cli/pull/951)).*
+
+- **`fluid profile` writes FLUX's `mean/1` statistic for each number column**, so a run checked against the profile can pass `fluxsim verify` and `fluxsim ship`. A profile you wrote before keeps its digest. Written again, it carries `mean/1` and gets a new digest, so pin the new one. `--fractional-bits` sets the grid, 16 by default, and it must equal the fidelity block's `encoding.fractionalBits`. See [The `mean/1` statistic](./cli/profile.md#the-mean-1-statistic).
 
 *On forge-cli `main`, not yet in a release ([forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911)).*
 
