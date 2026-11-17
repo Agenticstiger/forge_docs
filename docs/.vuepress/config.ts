@@ -491,7 +491,6 @@ export default defineUserConfig({
                 '/cli/viz-graph.md',
                 '/cli/publish.md',
                 '/cli/ship.md',
-                '/cli/spark.md',
                 '/cli/rollback.md',
                 '/cli/schedule-sync.md'
               ]

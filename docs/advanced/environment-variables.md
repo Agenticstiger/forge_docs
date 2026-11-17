@@ -152,7 +152,6 @@ The CLI itself does not read these; the generated pipeline and the generated DAG
 | `FLUID_BIN` | the generated Airflow DAG | The `fluid` executable on the worker. Default `fluid`. |
 | `FLUID_DAG_ENV_PASSTHROUGH` | the generated Airflow DAG | Space-separated extra variable names handed to the `fluid apply` process. A name that starts with `AIRFLOW` never passes, so the worker's Airflow configuration and connection variables stay out of `fluid`. |
 | `FLUID_DAG_CONTRACT`, `FLUID_DAG_ENV`, `FLUID_DAG_BUILD_ID`, `FLUID_DAG_CONTRACT_ENV` | the generated Airflow DAG | Set by the DAG's task from constants in the file; do not set them on the worker. |
-| `FLUID_DAG_RUN_TIMEOUT` | the generated Airflow DAG of a Spark build | *On forge-cli `main`, not yet in a release ([forge-cli #936](https://github.com/Agenticstiger/forge-cli/pull/936)).* Set by the task: the run's wait in seconds, from `execution.runtime.timeout`, passed to `fluid spark run` as `--timeout`. Do not set it on the worker. |
 
 See [Airflow](./airflow.md) for which variables reach `fluid apply` on the worker and [Operating in CI](./operating-in-ci.md) for the pipeline parameters.
 
