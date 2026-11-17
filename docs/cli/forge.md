@@ -217,7 +217,7 @@ An unknown profile fails with `unknown prompt profile` and lists the available n
 | Option | Description |
 | --- | --- |
 | `--ci PROVIDER` | Generate a CI pipeline after forging: `github_actions`, `gitlab_ci`, `azure_devops`, `jenkins`, `bitbucket`, `circleci` (also spelled `circle_ci`), `tekton`, `none` or `ask`. |
-| `--ci-complexity LEVEL` | `basic`, `standard` (default), `advanced` or `enterprise`. |
+| `--ci-complexity LEVEL` | 0.30.1: `basic`, `standard` (default), `advanced` or `enterprise`. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Removed: forge asks for the CI provider only, and a command that passes the flag fails argument parsing. To add the scan, compliance and SBOM jobs the higher tiers carried, run `fluid generate ci --add security --add compliance --add sbom` ([generate](./generate.md#fluid-generate-ci)). |
 | `--no-ci` | Same as `--ci none`. |
 
 ## Single file or fragments?
@@ -288,7 +288,7 @@ o/
 └── contract.fluid.yaml
 ```
 
-`ci-state.json` records the provider, complexity and inputs that produced the committed files, so a later run can tell when they drift. Forge decides whether to scaffold CI in this order, and stops at the first rule that answers:
+`ci-state.json` records the provider, complexity and inputs that produced the committed files, so a later run can tell when they drift. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* On `main` the example is `fluid forge --blank --ci github_actions --non-interactive --yes --target-dir o` with no `--ci-complexity`, forge does not write `.env.ci.example`, and `ci-state.json` records the provider and the add-ons (`add_ons`, empty here). A `ci-state.json` that an earlier forge wrote, with a complexity in it, still loads. The pipeline is the one [`fluid generate ci`](./generate.md#fluid-generate-ci) writes, and forge names any file the old tiers left on GitHub Actions (`fluid-standard.yml` and its siblings) for you to delete. Forge decides whether to scaffold CI in this order, and stops at the first rule that answers:
 
 1. `FLUID_FORGE_AUTO_CI` set to `0`, `false`, `no` or `off` disables it.
 2. `--no-ci`.

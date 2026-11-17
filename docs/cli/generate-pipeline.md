@@ -24,6 +24,12 @@ fluid generate ci --system jenkins --out Jenkinsfile
 fluid generate ci --system gitlab --complexity enterprise
 ```
 
+The last line is 0.30.1. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* `--complexity` exits 2 on `main`. The same extra jobs come from `--add`:
+
+```bash
+fluid generate ci --system gitlab --add security --add compliance --add sbom
+```
+
 `fluid generate ci` takes a contract, writes the pipeline for it and has the options listed on the [`fluid generate`](./generate.md#fluid-generate-ci) page. `generate-pipeline` does not take a contract; it writes a template set from a provider, a complexity level and an environment list.
 
 ## Syntax
