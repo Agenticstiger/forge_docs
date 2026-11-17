@@ -4,7 +4,7 @@
 
 This page generates that Jenkinsfile, then runs the eleven commands by hand against a local product, so you see what each gate checks and what it prints when it fires. It was run end to end on CLI `0.18.1`; output has absolute paths shortened to `...`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917)).* `fluid ship` runs these eleven stages too, on a laptop or as the steps of a CI job: see [The 11-stage runner on forge-cli main](../cli/ship.md#the-11-stage-runner-on-forge-cli-main).
+*(since 0.31.0, [forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917))* `fluid ship` runs these eleven stages too, on a laptop or as the steps of a CI job: see [The 11-stage runner in 0.31.0](../cli/ship.md#the-11-stage-runner-in-0-31-0).
 
 ## Generate the pipeline
 
@@ -30,7 +30,7 @@ pip picks the highest version across every index it is given, so a TestPyPI inde
 
 On 0.18.1 `fluid generate ci` renders this 11-stage pipeline for Jenkins and Tekton; [which systems read which option](../cli/generate.md#which-systems-read-which-option) lists the other systems and what they take.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* All 7 systems get the 11 stages. GitHub Actions and Jenkins run each stage as a step, `fluid ship --stage <N>`, and the other systems run `fluid ship --stage 1-6` and `fluid ship --stage 7-11`, so the commands in the table below are what ship runs, not text in the CI file. A pull or merge request runs stages 1 to 6, and a push to the default branch also runs 7 to 11 behind the system's own gate; [What a generated pipeline runs](../advanced/operating-in-ci.md#what-a-generated-pipeline-runs) has each gate. The Jenkinsfile then lists the plugins `workflow-aggregator`, `git`, `lockable-resources` and `junit`, and stages 7 to 11 wait for an `input` approval (the `APPLY_APPROVAL` parameter), a `milestone` and a per-environment `lock`. A change request stops after stage 6.
+*(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* All 7 systems get the 11 stages. GitHub Actions and Jenkins run each stage as a step, `fluid ship --stage <N>`, and the other systems run `fluid ship --stage 1-6` and `fluid ship --stage 7-11`, so the commands in the table below are what ship runs, not text in the CI file. A pull or merge request runs stages 1 to 6, and a push to the default branch also runs 7 to 11 behind the system's own gate; [What a generated pipeline runs](../advanced/operating-in-ci.md#what-a-generated-pipeline-runs) has each gate. The Jenkinsfile then lists the plugins `workflow-aggregator`, `git`, `lockable-resources` and `junit`, and stages 7 to 11 wait for an `input` approval (the `APPLY_APPROVAL` parameter), a `milestone` and a per-environment `lock`. A change request stops after stage 6.
 
 The Jenkinsfile installs the CLI itself (stage 0), then runs the stages in this table. Stages 2, 3, 5, 6 and 9 read the bundle that stage 1 wrote, and stage 7 applies the plan against it, so they work on the same bytes.
 
@@ -54,7 +54,7 @@ Two invariants hold the chain together:
 - **Apply isolation.** `fluid apply` takes the plan from stage 6 and the bundle, and refuses to run unless the plan's digests match that bundle and that mode. The two refusals are shown in [Stage 7](#stage-7-apply).
 
 ::: warning The 11 stages are the Jenkins template
-Generated with 0.18.1 at the default complexity, the GitHub Actions, GitLab CI, Azure DevOps, Bitbucket and CircleCI files contain no `fluid bundle`, `fluid diff`, `fluid validate-artifacts` or `fluid schedule-sync` step. They run commands such as `validate`, `plan`, `apply` and `test`, and the set differs per system. Read what `fluid generate ci --system <name>` writes for your system. See [Operating in CI](../advanced/operating-in-ci.md). *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* This no longer holds: all 7 systems run the 11 stages through `fluid ship`, and `--complexity` is gone. See [What a generated pipeline runs](../advanced/operating-in-ci.md#what-a-generated-pipeline-runs).
+Generated with 0.18.1 at the default complexity, the GitHub Actions, GitLab CI, Azure DevOps, Bitbucket and CircleCI files contain no `fluid bundle`, `fluid diff`, `fluid validate-artifacts` or `fluid schedule-sync` step. They run commands such as `validate`, `plan`, `apply` and `test`, and the set differs per system. Read what `fluid generate ci --system <name>` writes for your system. See [Operating in CI](../advanced/operating-in-ci.md). *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* This no longer holds: all 7 systems run the 11 stages through `fluid ship`, and `--complexity` is gone. See [What a generated pipeline runs](../advanced/operating-in-ci.md#what-a-generated-pipeline-runs).
 :::
 
 ### What the first build does
@@ -92,7 +92,7 @@ fluid generate ci contract.fluid.yaml --system jenkins \
 | `--schedule-sync-default`, `--scheduler-default`, `--scheduler-destination-default` | `RUN_STAGE_11_SCHEDULE_SYNC`, `SCHEDULER`, `SCHEDULER_DESTINATION` |
 | `--diff-last-applied` | stage 5 compares against the plan the last successful build applied; needs the `copyartifact` plugin |
 
-`--publish-include-env` is on by default: stage 10 runs `fluid publish --env "${FLUID_ENV:-dev}"`, so the catalog gets the contract with the overlay that stages 5 to 9 used. Pass `--no-publish-include-env` only when the pipeline installs a CLI old enough that `fluid publish` rejects `--env`. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* The flag is removed: ship always passes `--env` to `fluid publish`.
+`--publish-include-env` is on by default: stage 10 runs `fluid publish --env "${FLUID_ENV:-dev}"`, so the catalog gets the contract with the overlay that stages 5 to 9 used. Pass `--no-publish-include-env` only when the pipeline installs a CLI old enough that `fluid publish` rejects `--env`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The flag is removed: ship always passes `--env` to `fluid publish`.
 
 A Jenkinsfile is generated once. After you upgrade the CLI, regenerate it and commit the result to pick up what changed: 0.16.3 moved stage 0 into a workspace virtual environment, pinned `FLUID_PACKAGE_SPEC`, and made the chain run from the bundle; 0.17.0 added `--check-sovereignty` to stage 6.
 

@@ -9,14 +9,14 @@ This page describes the user-visible behaviour: which flags opt in, which enviro
 
 | Surface | Old default | New default | Override |
 |---|---|---|---|
-| `fluid forge --seed-from <url>` | (did not exist) | Local only; remote `http(s)` references are rejected | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; use `fluid odps import <path> -o contract.fluid.yaml` with `--allow-remote`, then `fluid forge --refine`. `--seed-allow-remote` |
+| `fluid forge --seed-from <url>` | (did not exist) | Local only; remote `http(s)` references are rejected | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed; use `fluid odps import <path> -o contract.fluid.yaml` with `--allow-remote`, then `fluid forge --refine`. `--seed-allow-remote` |
 | `fluid odps import <url>` | Followed `http(s)` `contractId` references | Local only; remote references are rejected | `--allow-remote` |
 | `BitolOdpsProvider().import_contract(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (keyword) |
 | `ContractResolver(...)` (Python) | `allow_remote=True` | `allow_remote=False` | `allow_remote=True` (keyword) |
 | Ollama endpoint | Configurable | Localhost only | None, by design. *(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* Calls now go to `OLLAMA_HOST` whatever the host. *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* So do the probe, model discovery and the interactive setup; see [Ollama and `OLLAMA_HOST`](#ollama-and-ollama-host). |
 | HTTP redirects on a safe-HTTP client | Followed | Not followed | `follow_redirects=True` (per client) |
 
-The CLI flags `--no-remote` and `--seed-no-remote` remain as hidden aliases that do nothing, so older scripts keep working. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--seed-no-remote` is removed with `--seed-from`.
+The CLI flags `--no-remote` and `--seed-no-remote` remain as hidden aliases that do nothing, so older scripts keep working. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--seed-no-remote` is removed with `--seed-from`.
 
 ## What the safe-HTTP client enforces
 
@@ -31,7 +31,7 @@ The client applies these, in order:
 
 These surfaces use that client: the ODPS contract resolver, the Kafka Connect and schema-registry clients, the Airbyte runner, the DataHub, OpenMetadata and Data Mesh Manager registrars, the OpenLineage emitter, the federation fetcher, the schema manager's remote fetch, the forge web tools, and an authentication provider's API check. Other outbound calls do not: LLM provider requests go to the provider's endpoint, `fluid apply --ensure-opentofu` downloads OpenTofu, and the Command Center client and the webhook alerter apply their own host check, described next.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913)).* A schema registry the contract names is one of these hosts. A Confluent registry's host goes through `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` (link-local never, a public host only when listed), and a credential sent to it needs `NAME@host` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`: `SCHEMA_REGISTRY_API_SECRET@<host>` for a produced subject. The plan-time read judges the address each request is pinned to. See [Schema registry](./schema-registry.md#operator-settings).
+*(since 0.31.0, [forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913))* A schema registry the contract names is one of these hosts. A Confluent registry's host goes through `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` (link-local never, a public host only when listed), and a credential sent to it needs `NAME@host` in `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`: `SCHEMA_REGISTRY_API_SECRET@<host>` for a produced subject. The plan-time read judges the address each request is pinned to. See [Schema registry](./schema-registry.md#operator-settings).
 
 ## Allowlists for outbound integrations
 

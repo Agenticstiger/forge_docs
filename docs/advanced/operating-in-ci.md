@@ -31,7 +31,7 @@ fluid generate ci --system circleci        # CircleCI
 fluid generate ci --system tekton          # Tekton (writes tekton/*.yaml)
 ```
 
-The templates are not the same pipeline. The Jenkins template runs the stages described next (a stage 0 bootstrap, then stages 1-11), and the Tekton template generates the same eleven stages as tasks in `tekton/tasks.yaml`, with `APPLY_MODE` defaulting to `amend` where Jenkins defaults to `dry-run`. The tables below are Jenkins's. Generated with the default `standard` complexity, the GitHub Actions workflow runs `fluid doctor`, `fluid validate`, `fluid generate speed-transformation` and `fluid generate schedule`, a plan with `--check-sovereignty`, tests, and per-environment `fluid apply`, `fluid policy-apply`, `fluid verify` and `fluid contract-tests`. The GitLab file runs validation, `fluid test`, the two generate commands, the same plan, `fluid apply` and `fluid publish`. Neither of those two has a bundle, diff or schedule-sync stage. Open the generated file for the commands a given system runs. That is the 0.30.1 output. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Every system gets the same wrapper instead, described in [What a generated pipeline runs](#what-a-generated-pipeline-runs).
+The templates are not the same pipeline. The Jenkins template runs the stages described next (a stage 0 bootstrap, then stages 1-11), and the Tekton template generates the same eleven stages as tasks in `tekton/tasks.yaml`, with `APPLY_MODE` defaulting to `amend` where Jenkins defaults to `dry-run`. The tables below are Jenkins's. Generated with the default `standard` complexity, the GitHub Actions workflow runs `fluid doctor`, `fluid validate`, `fluid generate speed-transformation` and `fluid generate schedule`, a plan with `--check-sovereignty`, tests, and per-environment `fluid apply`, `fluid policy-apply`, `fluid verify` and `fluid contract-tests`. The GitLab file runs validation, `fluid test`, the two generate commands, the same plan, `fluid apply` and `fluid publish`. Neither of those two has a bundle, diff or schedule-sync stage. Open the generated file for the commands a given system runs. That is the 0.30.1 output. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Every system gets the same wrapper instead, described in [What a generated pipeline runs](#what-a-generated-pipeline-runs).
 
 ::: warning Check the GitHub and GitLab deploy steps before you use them
 As of 0.18.1, the per-environment deploy step in those two templates is written `FLUID_ENV=<env> if [ -n "$BUILD_ID" ]; then fluid apply ...; else ...; fi`. `bash` and `sh` both reject that with a syntax error (`near unexpected token 'then'`), and `fluid apply` does not read `FLUID_ENV`, so the environment is not selected by it. Pass `--env <env>` to the stage commands, as the Jenkins template does.
@@ -39,7 +39,7 @@ As of 0.18.1, the per-environment deploy step in those two templates is written 
 
 ## What a generated pipeline runs
 
-*On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* `fluid generate ci` writes a thin wrapper for each of the 7 systems. GitHub Actions and Jenkins run each stage as a step, `fluid ship [<contract>] --stage <N>`. The other systems run `fluid ship --stage 1-6` in the plan job and `fluid ship --stage 7-11` in the apply job, and ship prints a section per stage. So the 11 stages have one implementation, [`fluid ship`](../cli/ship.md), and the CI file holds the triggers, the gates and the install. No run-time value appears in a script body: values reach ship through the job environment, and only the contract path is written into the commands. The Jenkins stage table below is the 0.30.1 file; on `main` each of its commands is that `fluid ship` call.
+*(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* `fluid generate ci` writes a thin wrapper for each of the 7 systems. GitHub Actions and Jenkins run each stage as a step, `fluid ship [<contract>] --stage <N>`. The other systems run `fluid ship --stage 1-6` in the plan job and `fluid ship --stage 7-11` in the apply job, and ship prints a section per stage. So the 11 stages have one implementation, [`fluid ship`](../cli/ship.md), and the CI file holds the triggers, the gates and the install. No run-time value appears in a script body: values reach ship through the job environment, and only the contract path is written into the commands. The Jenkins stage table below is the 0.30.1 file; in 0.31.0 each of its commands is that `fluid ship` call.
 
 - A pull request or merge request runs stages 1 to 6 (bundle through plan) and keeps `runtime/`, the bundle, the reviewed plan and the reports, as an artifact.
 - A push to the default branch, or a manual run on it, also runs stages 7 to 11 in a second job, behind the system's own gate. A pull request never reaches stages 7 to 11 on any system, and a manual run on another branch plans only, with two exceptions: Tekton has no branch rule (nothing starts `fluid-apply` but you), and a Jenkins job that builds no branch (not a multibranch job) applies after the approval.
@@ -129,7 +129,7 @@ The parameters in the table below have defaults, and the stages that read them u
 | `FLUID_ENV` | `dev` | Environment overlay every stage passes to `--env`. A plain name of letters, digits, `.`, `_` and `-`, not starting with `.` or `-` |
 | `APPLY_MODE` | `dry-run` | `dry-run`, `amend`, `create-only`, `amend-and-build`, `replace`, `replace-and-build` |
 | `APPLY_BUILD_ID` | a build id from the contract | Build that an `*-and-build` mode runs; blank runs every build |
-| `APPLY_APPROVAL` | `true` | *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Stages 7 to 11 wait for a person to approve the reviewed plan (an `input` step). `false` for an unattended job |
+| `APPLY_APPROVAL` | `true` | *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Stages 7 to 11 wait for a person to approve the reviewed plan (an `input` step). `false` for an unattended job |
 | `ALLOW_DATA_LOSS` | `false` | Passes `--allow-data-loss`; required for `replace*` outside `dev` or when the target has rows |
 | `NO_VERIFY_DIGEST` | `false` | Passes both `--no-verify-plan-binding` and `--no-verify-federation`. A disaster-recovery hatch |
 | `RUN_STAGE_<N>_<NAME>` | on, except stages 10 and 11 | One toggle per stage |
@@ -157,17 +157,17 @@ A committed Jenkinsfile keeps what it was generated with. Regenerate it after up
 |---|---|
 | `--system` | The CI system. Default `gitlab` |
 | `--complexity {basic,standard,advanced,enterprise}` | 0.30.1: `basic` is validate and apply; `standard` is the default; `advanced` adds multiple environments and approvals; `enterprise` adds governance and compliance. Exits 2 on `main`: use `--add` |
-| `--add {security,compliance,sbom}` | *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Repeatable. Add a job beside the pipeline: a daily scan, a weekly compliance report and lineage check, or an SBOM. See [Add-ons](#add-ons). On `main`, `--complexity` exits 2 and points here |
-| `--default-branch <branch>` | *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* The branch whose pushes run stages 7 to 11. Default: the remote's default branch (`origin/HEAD`), else `main`. GitLab CI reads its own `$CI_DEFAULT_BRANCH` |
+| `--add {security,compliance,sbom}` | *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Repeatable. Add a job beside the pipeline: a daily scan, a weekly compliance report and lineage check, or an SBOM. See [Add-ons](#add-ons). In 0.31.0, `--complexity` exits 2 and points here |
+| `--default-branch <branch>` | *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The branch whose pushes run stages 7 to 11. Default: the remote's default branch (`origin/HEAD`), else `main`. GitLab CI reads its own `$CI_DEFAULT_BRANCH` |
 | `--out <path>` | Output path, for single-file systems |
 | `--no-generate-artifacts` | Skip stages 3 and 4 for reference-only contracts. Auto-detected for `builds[].pattern: hybrid-reference` |
-| `--install-mode {pypi,dev-source}` | 0.30.1: how the Jenkinsfile installs fluid; other systems ignore it. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Every system reads it: `dev-source` imports fluid from a `/forge-cli-src` bind mount and fails if the mount is missing |
+| `--install-mode {pypi,dev-source}` | 0.30.1: how the Jenkinsfile installs fluid; other systems ignore it. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Every system reads it: `dev-source` imports fluid from a `/forge-cli-src` bind mount and fails if the mount is missing |
 | `--fluid-package-spec <spec>` | Default of `FLUID_PACKAGE_SPEC` |
 | `--fluid-env-default <env>` | Default of `FLUID_ENV` and the fallback every stage uses. Default `dev` |
 | `--apply-mode-default <mode>` | Default of `APPLY_MODE`: `dry-run` for Jenkins, `amend` for the other systems |
 | `--default-publish-target <name>` | Default of `PUBLISH_TARGETS` and the fallback stage 10 reads. Default `datamesh-manager` |
 | `--publish-stage-default`, `--no-publish-stage-default` | Default of `RUN_STAGE_10_PUBLISH`. Off unless set |
-| `--publish-include-env`, `--no-publish-include-env` | 0.30.1: whether stage 10 passes `--env` to `fluid publish`. On unless disabled. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Removed: ship always passes `--env` |
+| `--publish-include-env`, `--no-publish-include-env` | 0.30.1: whether stage 10 passes `--env` to `fluid publish`. On unless disabled. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Removed: ship always passes `--env` |
 | `--verify-strict-default`, `--no-verify-strict-default` | Default of `VERIFY_STRICT`. On unless disabled |
 | `--schedule-sync-default`, `--no-schedule-sync-default` | Default of `RUN_STAGE_11_SCHEDULE_SYNC`. Off unless set |
 | `--scheduler-default {airflow,mwaa,composer,astronomer,prefect,dagster}` | Default of `SCHEDULER`. Blank means no-op |
@@ -206,7 +206,7 @@ Two more checks stop a pipeline that mixes environments. A bundle is never re-ov
 
 ### The OpenTofu plan is what gets approved
 
-*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* On the OpenTofu engine (`aws`, `gcp`, `snowflake`, `confluent`, `databricks`), a manual approval between plan and apply covers the OpenTofu diff only if the plan stage ran `tofu plan`. Run it with `--tofu` and keep the files together:
+*(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))* On the OpenTofu engine (`aws`, `gcp`, `snowflake`, `confluent`, `databricks`), a manual approval between plan and apply covers the OpenTofu diff only if the plan stage ran `tofu plan`. Run it with `--tofu` and keep the files together:
 
 ```bash
 # plan job: needs read and write on the state and its lock
@@ -262,13 +262,13 @@ The generated Jenkinsfile passes `--yes` to apply; set the variables when you sc
 
 ## Keyless cloud login
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).*
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))*
 
 `fluid generate ci` reads the contract and writes a pipeline that holds no static cloud key. The CI system hands each job a short-lived OIDC ID token, and the cloud, or your secret store, trusts the CI system's issuer and the job's subject. No generated pipeline file holds a cloud key.
 
 ### What it detects
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The platforms come from the contract and from every overlay, since a pipeline can run any of them:
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* The platforms come from the contract and from every overlay, since a pipeline can run any of them:
 
 - A `binding.platform` of `aws`, `gcp`, `snowflake` or `databricks`, with the aliases `fluid apply` accepts (such as `bigquery` or `s3`), and `binding.provider`.
 - The runtime platform of each build, because a build there needs a login even beside another cloud's exposes.
@@ -278,9 +278,9 @@ A contract that binds no cloud gets a header that says so, and no login. Run `fl
 
 ### What each system gets
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* GitHub Actions:
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* GitHub Actions:
 
-- `permissions: id-token: write` on the jobs that reach the cloud: the deploy jobs (apply, policy, verify and publish run in them), the enterprise compliance job, and the single job of the basic workflow. The validate, generate, plan and test jobs keep `contents: read`, and the workflow's default is none. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* The pipeline has two jobs, `plan` (stages 1 to 6) and `apply` (stages 7 to 11), and both get `id-token: write` when the contract binds a cloud, because stages 5 and 6 read the target. The workflow's default stays none.
+- `permissions: id-token: write` on the jobs that reach the cloud: the deploy jobs (apply, policy, verify and publish run in them), the enterprise compliance job, and the single job of the basic workflow. The validate, generate, plan and test jobs keep `contents: read`, and the workflow's default is none. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The pipeline has two jobs, `plan` (stages 1 to 6) and `apply` (stages 7 to 11), and both get `id-token: write` when the contract binds a cloud, because stages 5 and 6 read the target. The workflow's default stays none.
 - AWS: `aws-actions/configure-aws-credentials` v6.3.0, pinned by commit SHA, with `AWS_ROLE_ARN` and `AWS_REGION`.
 - GCP: `google-github-actions/auth` v3.0.0, pinned by SHA, with `GCP_PROJECT_NUMBER`, `WIF_POOL`, `WIF_PROVIDER` and `GCP_SA_EMAIL`.
 - Snowflake: workload identity federation. The job asks for an ID token for the audience `snowflakecomputing.com`, writes it to a file with mode 600 under `$RUNNER_TEMP`, and exports `SNOWFLAKE_AUTHENTICATOR`, `SNOWFLAKE_WORKLOAD_IDENTITY_PROVIDER` and `SNOWFLAKE_TOKEN_FILE_PATH`. `SNOWFLAKE_ACCOUNT` is a repository variable.
@@ -331,17 +331,17 @@ jobs:
       shell: bash
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* GitLab CI: each job that reaches the cloud gets `id_tokens`, one per platform (`AWS_OIDC_TOKEN` for `sts.amazonaws.com`, `GCP_OIDC_TOKEN`, `SNOWFLAKE_OIDC_TOKEN`, `DATABRICKS_OIDC_TOKEN` for your Databricks account id, `OPENBAO_OIDC_TOKEN`). Its script writes the AWS, GCP, Snowflake and OpenBao tokens to mode-600 files in a private temporary directory that is removed when the job ends, and points the SDKs at them. Databricks reads its token from `DATABRICKS_OIDC_TOKEN` directly, with `DATABRICKS_AUTH_TYPE=env-oidc`, and needs a `DATABRICKS_ACCOUNT_ID` variable. Databricks uses `DATABRICKS_AUTH_TYPE=env-oidc` and needs a `DATABRICKS_ACCOUNT_ID` variable.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* GitLab CI: each job that reaches the cloud gets `id_tokens`, one per platform (`AWS_OIDC_TOKEN` for `sts.amazonaws.com`, `GCP_OIDC_TOKEN`, `SNOWFLAKE_OIDC_TOKEN`, `DATABRICKS_OIDC_TOKEN` for your Databricks account id, `OPENBAO_OIDC_TOKEN`). Its script writes the AWS, GCP, Snowflake and OpenBao tokens to mode-600 files in a private temporary directory that is removed when the job ends, and points the SDKs at them. Databricks reads its token from `DATABRICKS_OIDC_TOKEN` directly, with `DATABRICKS_AUTH_TYPE=env-oidc`, and needs a `DATABRICKS_ACCOUNT_ID` variable. Databricks uses `DATABRICKS_AUTH_TYPE=env-oidc` and needs a `DATABRICKS_ACCOUNT_ID` variable.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* Jenkins has no native OIDC, so a Jenkinsfile stays on credentials binding. Its header says so and recommends credentials that expire, such as a role session or a short-lived token from your vault, kept in the Jenkins credential store or the agent's environment. Azure DevOps, Bitbucket, CircleCI and Tekton are not wired for OIDC yet: their headers name the system's own mechanism and the variables forge reads once a job holds a token in a file.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* Jenkins has no native OIDC, so a Jenkinsfile stays on credentials binding. Its header says so and recommends credentials that expire, such as a role session or a short-lived token from your vault, kept in the Jenkins credential store or the agent's environment. Azure DevOps, Bitbucket, CircleCI and Tekton are not wired for OIDC yet: their headers name the system's own mechanism and the variables forge reads once a job holds a token in a file.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* `fluid forge` scaffolds the same keyless CI from the project's contract.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* `fluid forge` scaffolds the same keyless CI from the project's contract.
 
 ### The trust you create on the cloud side
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The header of each pipeline lists the non-secret variables to set and the trust to create. Bind every trust to the job's subject, never to a whole organization.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* The header of each pipeline lists the non-secret variables to set and the trust to create. Bind every trust to the job's subject, never to a whole organization.
 
-For GitHub, the subject is immutable: `repo:OWNER@OWNER-ID/REPO@REPO-ID:<context>` is the default for repositories created after 2026-07-15. Older repositories keep `repo:OWNER/REPO:<context>` until they opt in, which makes a renamed or re-created repository unable to inherit the trust. Opt in, then bind to the immutable form. The `<context>` is `environment:<name>` for a job that declares an environment (the deploy jobs do), `pull_request` for a job a pull request runs, and `ref:refs/heads/<branch>` otherwise. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* The `plan` job declares no environment, so its subject is `pull_request` or `ref:refs/heads/<branch>`: the trust must cover that subject too, with a role that can read the target, besides the `environment:<name>` subject of `apply`. The issuer is `https://token.actions.githubusercontent.com`.
+For GitHub, the subject is immutable: `repo:OWNER@OWNER-ID/REPO@REPO-ID:<context>` is the default for repositories created after 2026-07-15. Older repositories keep `repo:OWNER/REPO:<context>` until they opt in, which makes a renamed or re-created repository unable to inherit the trust. Opt in, then bind to the immutable form. The `<context>` is `environment:<name>` for a job that declares an environment (the deploy jobs do), `pull_request` for a job a pull request runs, and `ref:refs/heads/<branch>` otherwise. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The `plan` job declares no environment, so its subject is `pull_request` or `ref:refs/heads/<branch>`: the trust must cover that subject too, with a role that can read the target, besides the `environment:<name>` subject of `apply`. The issuer is `https://token.actions.githubusercontent.com`.
 
 For GitLab, bind to `project_path:GROUP/PROJECT:ref_type:branch:ref:main`, a protected branch or environment. The issuer is your GitLab instance URL.
 
@@ -387,7 +387,7 @@ If a pipeline runs an LLM-driven command, cap spend explicitly:
 
 Cloud applies go through the OpenTofu engine, which runs the `tofu` binary:
 
-- **Version floor.** `tofu` must be 1.6.0 or newer; an older one fails before any state is touched. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is 1.12.0, and the module declares `required_version = ">= 1.12"`. On OpenTofu 1.11, adding retention to a live GCP table plans an in-place update that BigQuery refuses at apply, and the data-loss gate sees no removal. From 1.12 the plan replaces the table, which the gate sees.
+- **Version floor.** `tofu` must be 1.6.0 or newer; an older one fails before any state is touched. *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* The floor is 1.12.0, and the module declares `required_version = ">= 1.12"`. On OpenTofu 1.11, adding retention to a live GCP table plans an in-place update that BigQuery refuses at apply, and the data-loss gate sees no removal. From 1.12 the plan replaces the table, which the gate sees.
 - **Provision on demand.** `fluid apply --ensure-opentofu` downloads a pinned OpenTofu build when `tofu` is missing, with no root or gpg needed, and checks it against the release's `SHA256SUMS` (integrity, not a signature). The generated apply stage passes it. For production, install OpenTofu on the runner image with a cosign- or gpg-verified install instead.
 - **State.** CI wipes the workspace after every run, and a wiped local state re-plans every resource as new. Set `FLUID_STATE_BACKEND=s3://<bucket>` or `gcs://<bucket>` once for the pipeline: each contract and provider then gets its own key. See [Environment variables](./environment-variables.md#apply-state-and-opentofu).
 - **S3 state lock.** *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* With OpenTofu 1.10 or newer, S3 state is locked through a `<key>.tflock` object, and `tofu plan` takes the lock too. Every role in the pipeline that plans or applies, a plan-only job and a drift check (`fluid diff`, `fluid verify --state-drift`) included, needs `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on that object, or `FLUID_TOFU_S3_LOCKFILE=0` in the job's environment (a project `.env` cannot set it). A job that is killed hard can leave the lock behind; `tofu force-unlock <ID>` in the contract's workdir clears it. See [Locking](../concepts/state.md#locking).

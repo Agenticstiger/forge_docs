@@ -44,7 +44,7 @@ The route table sends an event to one of these pages, and the entries below name
 | [`fluid verify-signature`](../cli/verify-signature.md) | The signing events |
 | [Getting started](../getting-started/README.md) | `opentofu_engine_install_failed` |
 | [Typed CLI errors](./typed-cli-errors.md) | The schema-version events and the connectivity events |
-| [`fluid validate`](../cli/validate.md) | *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* The [contract findings](#contract-findings), except `ERR_CONTRACT_SOVEREIGNTY` |
+| [`fluid validate`](../cli/validate.md) | *(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* The [contract findings](#contract-findings), except `ERR_CONTRACT_SOVEREIGNTY` |
 | [Production troubleshooting](./production-troubleshooting.md) | Events not listed above |
 
 ## The catalogued events
@@ -192,7 +192,7 @@ As of 0.18.1 the second suggestion named `azure`, which no provider serves, and 
 
 ## Contract findings
 
-*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* The catalog also has a code for each check `fluid validate` runs on a contract, 38 in all, such as `ERR_CONTRACT_SCHEMA_REQUIRED`, `ERR_CONTRACT_GOVERNANCE` and `ERR_CONTRACT_PLACEHOLDER_EMAIL`. They never print as a failure heading: `fluid validate --format json` gives each finding one in `issues`, with a JSON pointer, a fix and an example. [Finding codes and `issues`](../cli/validate.md#finding-codes-and-issues) lists them.
+*(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* The catalog also has a code for each check `fluid validate` runs on a contract, 38 in all, such as `ERR_CONTRACT_SCHEMA_REQUIRED`, `ERR_CONTRACT_GOVERNANCE` and `ERR_CONTRACT_PLACEHOLDER_EMAIL`. They never print as a failure heading: `fluid validate --format json` gives each finding one in `issues`, with a JSON pointer, a fix and an example. [Finding codes and `issues`](../cli/validate.md#finding-codes-and-issues) lists them.
 
 ## Bundles
 
@@ -264,7 +264,7 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 
 `ERR_OPENTOFU_ENGINE_INSTALL_FAILED`. The documentation link lands on [Getting started](../getting-started/README.md).
 
-- Install OpenTofu &gt;= 1.6.0 and ensure 'tofu' is on PATH. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The catalog text says 1.12.0.
+- Install OpenTofu &gt;= 1.6.0 and ensure 'tofu' is on PATH. *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* The catalog text says 1.12.0.
 - See https://opentofu.org/docs/intro/install/
 
 ### opentofu_init_failed
@@ -370,7 +370,7 @@ The `fluid generate iac` and `fluid apply` runs print the refusal and exit befor
 - For local models: --llm-provider ollama (no key required)
 - For keyless authoring: run forge from your IDE (mcp-sampling) or --llm-provider claude-code
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `mcp-sampling` is removed; use `--llm-provider claude-code` (or `codex`, `cursor`, `kiro`) for keyless authoring.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `mcp-sampling` is removed; use `--llm-provider claude-code` (or `codex`, `cursor`, `kiro`) for keyless authoring.
 
 
 ### copilot_missing_llm_model

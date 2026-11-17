@@ -129,6 +129,6 @@ The exit code is `1` when any check is `FAIL` and `0` otherwise. A `WARN`, such 
 
 ## Notes
 
-- *On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* A Snowflake login by [workload identity federation](../providers/snowflake.md#workload-identity-federation) (`SNOWFLAKE_AUTHENTICATOR=WORKLOAD_IDENTITY`) needs no `SNOWFLAKE_USER`: `fluid auth login` and `fluid auth status` ask for the account only.
+- *(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* A Snowflake login by [workload identity federation](../providers/snowflake.md#workload-identity-federation) (`SNOWFLAKE_AUTHENTICATOR=WORKLOAD_IDENTITY`) needs no `SNOWFLAKE_USER`: `fluid auth login` and `fluid auth status` ask for the account only.
 - To see which infrastructure providers FLUID has loaded, which is a different list from the one `fluid auth list` prints, use [`fluid providers`](./providers.md).
 - For the environment variable and secret-store side of credentials, see [`fluid secrets`](./secrets.md).

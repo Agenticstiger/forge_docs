@@ -1,6 +1,6 @@
 # `fluid import`
 
-Convert existing tooling into FLUID contracts. Two modes: scan an existing dbt / Terraform / SQL directory, or import a foreign tool project (Meltano, Airbyte, dlt, Singer, dbt). *On forge-cli `main`, not yet in a release ([forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939)).* A schema registry subject can seed a contract too.
+Convert existing tooling into FLUID contracts. Two modes: scan an existing dbt / Terraform / SQL directory, or import a foreign tool project (Meltano, Airbyte, dlt, Singer, dbt). *(since 0.31.0, [forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939))* A schema registry subject can seed a contract too.
 
 ## Syntax
 
@@ -61,7 +61,7 @@ The ingestion importers set `mode: full_refresh` and `fluidVersion: 0.7.3`, and 
 
 ### Importing a schema registry subject
 
-*On forge-cli `main`, not yet in a release ([forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939)).* `fluid import schema-registry` reads one subject from a schema registry and writes a consumer contract: a `0.7.7` contract with one build whose `properties.stream` (topic, format, schema and registry) comes from the subject. [Schema registry](../advanced/schema-registry.md) says what the contract does with it.
+*(since 0.31.0, [forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939))* `fluid import schema-registry` reads one subject from a schema registry and writes a consumer contract: a `0.7.7` contract with one build whose `properties.stream` (topic, format, schema and registry) comes from the subject. [Schema registry](../advanced/schema-registry.md) says what the contract does with it.
 
 ```bash
 fluid import schema-registry <subject> --registry confluent --url https://sr.example.com [--version N]
@@ -82,7 +82,7 @@ The registry options are refused with any other tool, and with the directory sca
 
 **What it does.** It reads the subject and sends no credential: a registry that needs one has to be read another way. The egress rules run before any request: a link-local host is always refused, and a public host is read only when the operator lists it in `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` (see [Schema registry](../advanced/schema-registry.md#operator-settings)). A loopback registry needs no entry. The topic is the subject without a `-value` suffix. The contract's registry block names the version that was read, for a latest read too, so it records what it was seeded from. It writes the contract only when `fluid validate` and `fluid plan` would accept it: the contract is validated in process before anything is written, and the columns go through the same parse `fluid plan` uses.
 
-Captured on forge-cli `main` against a Confluent-compatible registry on loopback, for the subject `commerce.orders-value` (Avro, version 3):
+Captured on 0.31.0 against a Confluent-compatible registry on loopback, for the subject `commerce.orders-value` (Avro, version 3):
 
 ```text
 📥 Importing schema-registry configuration from commerce.orders-value…

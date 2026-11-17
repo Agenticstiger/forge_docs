@@ -84,7 +84,7 @@ It demonstrates a provider-agnostic structure. It also has these defects:
 - **The credentials are long-lived and broad.** The header comment shows an `AKIA...` access key and `SNOWFLAKE_ROLE=SYSADMIN`.
 - **`main` deploys to production without a gate.** `ENV` is `prod` on `main`, and `fluid apply --yes` runs with no `input` step before it.
 
-For a pipeline you will run, use `fluid generate ci --system jenkins`. Its Jenkinsfile has no `.env` fallback and no Docker socket mount, takes credentials from the agent or from Jenkins credentials you bind, and defaults `APPLY_MODE` to `dry-run`. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* It also stops after stage 6 on a change request, and asks for an `input` approval (`APPLY_APPROVAL`), then takes a `milestone` and a per-environment `lock`, before stages 7 to 11. See [Jenkins CI/CD](./jenkins-cicd.md#give-the-pipeline-credentials), and [Require approval before apply](./jenkins-cicd.md#require-approval-before-apply) for the gate.
+For a pipeline you will run, use `fluid generate ci --system jenkins`. Its Jenkinsfile has no `.env` fallback and no Docker socket mount, takes credentials from the agent or from Jenkins credentials you bind, and defaults `APPLY_MODE` to `dry-run`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* It also stops after stage 6 on a change request, and asks for an `input` approval (`APPLY_APPROVAL`), then takes a `milestone` and a per-environment `lock`, before stages 7 to 11. See [Jenkins CI/CD](./jenkins-cicd.md#give-the-pipeline-credentials), and [Require approval before apply](./jenkins-cicd.md#require-approval-before-apply) for the gate.
 :::
 
 ```groovy

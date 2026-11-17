@@ -49,13 +49,13 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 | `--provider` | Override the provider from the contract |
 | `--project` | Override the project / account from the contract |
 | `--region` | Override the region / location from the contract |
-| `--tofu` | *On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* Also run `tofu plan` as `fluid apply` would, for the providers that apply through OpenTofu, and bind the saved plan into `plan.json`. `fluid apply plan.json` then applies exactly that plan. See [Saving the OpenTofu plan](#saving-the-opentofu-plan-tofu). |
+| `--tofu` | *(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))* Also run `tofu plan` as `fluid apply` would, for the providers that apply through OpenTofu, and bind the saved plan into `plan.json`. `fluid apply plan.json` then applies exactly that plan. See [Saving the OpenTofu plan](#saving-the-opentofu-plan-tofu). |
 | `--state-backend` | With `--tofu`: the OpenTofu state `fluid apply` will use, as on [`fluid apply`](./apply.md#remote-state). It belongs to `--tofu`. |
 | `--adopt-shared-container` | With `--tofu`: as on apply, confirm taking ownership of a shared pool. Audited. |
 | `--ensure-opentofu` | With `--tofu`: provision a pinned, verified `tofu` if it is missing, as on apply. |
 | `--html` | Generate an HTML visualization with a mermaid-rendered action DAG (colour-coded by mode: blue=amend, red=replace, grey=skipped). Optional path argument; defaults to `plan.html` in the current directory. |
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* With `--tofu`, the saved plan is encrypted when `FLUID_STATE_ENCRYPTION` is set, and `fluid apply` of that plan needs the same setting. See [State and plan encryption](./apply.md#state-and-plan-encryption).
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* With `--tofu`, the saved plan is encrypted when `FLUID_STATE_ENCRYPTION` is set, and `fluid apply` of that plan needs the same setting. See [State and plan encryption](./apply.md#state-and-plan-encryption).
 
 ## Plan binding
 
@@ -105,7 +105,7 @@ A bundle is never re-overlaid: `fluid plan bundle.tgz --env prod` on a bundle bu
 
 ## Saving the OpenTofu plan (`--tofu`)
 
-*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* Without `--tofu`, `fluid plan` never runs `tofu plan`, and `fluid apply` plans and applies in one step. A manual approval in CI then covers forge's abstract `plan.json`, not the OpenTofu diff that actually runs. With `--tofu`, the approval binds the OpenTofu plan:
+*(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))* Without `--tofu`, `fluid plan` never runs `tofu plan`, and `fluid apply` plans and applies in one step. A manual approval in CI then covers forge's abstract `plan.json`, not the OpenTofu diff that actually runs. With `--tofu`, the approval binds the OpenTofu plan:
 
 ```bash
 fluid plan contract.fluid.yaml --env prod --out runtime/plan.json \

@@ -228,7 +228,7 @@ Six container kinds are accepted:
 | `warehouse` | `snowflake_warehouse` — `isolated` gives per-product cost attribution |
 | `cluster` | Confluent environment/cluster — **`shared` only in v1**; the resolver rejects `isolated` (dedicated-cluster provisioning is not yet supported) |
 
-*On forge-cli `main`, not yet in a release ([forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903)).* The `0.7.7` preview schema accepts six more container kinds for the AWS streaming-to-Iceberg lane, parsed like the six above (a `containers` entry wins over `mode`):
+*(since 0.31.0, [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903))* The `0.7.7` preview schema accepts six more container kinds for the AWS streaming-to-Iceberg lane, parsed like the six above (a `containers` entry wins over `mode`):
 
 | Kind | Resource | Who reads it today |
 | --- | --- | --- |
@@ -271,7 +271,7 @@ Detection is deliberately conservative: over-flagging asks a human to look, unde
 
 ## Operational requirements
 
-- **`tofu ≥ 1.6.0` on `PATH`.** *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is 1.12.0. `require_tofu_version()` catches the silent `terraform`-on-`PATH`-as-`tofu` mixup at apply time.
+- **`tofu ≥ 1.6.0` on `PATH`.** *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* The floor is 1.12.0. `require_tofu_version()` catches the silent `terraform`-on-`PATH`-as-`tofu` mixup at apply time.
 - **Subprocess timeout:** default `1800` seconds per `tofu` invocation. Override via `FLUID_TOFU_TIMEOUT_SECONDS=<seconds>`. *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* A call that runs past it is interrupted first, so OpenTofu releases its state lock, and killed only if it is still running 30 seconds later.
 - **S3 state lock.** *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* With OpenTofu 1.10 or newer, `tofu init` locks S3 state through a `<key>.tflock` object; the module `generate iac` writes does not change. Every role that plans or applies needs `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on it, or `FLUID_TOFU_S3_LOCKFILE=0`. See [Locking](../concepts/state.md#locking).
 

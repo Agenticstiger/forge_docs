@@ -183,7 +183,7 @@ same number. Through the MCP `query` tool, the measure above compiles to
 
 ### Relationships and validity windows need the 0.7.7 preview
 
-*On forge-cli `main`, not yet in a release ([forge-cli #894](https://github.com/Agenticstiger/forge-cli/pull/894)).*
+*(since 0.31.0, [forge-cli #894](https://github.com/Agenticstiger/forge-cli/pull/894))*
 
 Two fields are in the **0.7.7 preview** schema only. `relationships` names a
 foreign key from one expose to another expose of the same contract. A
@@ -348,7 +348,7 @@ Validation Warnings:
 
 ### Names dbt MetricFlow holds once
 
-*On forge-cli `main`, not yet in a release ([forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906)).*
+*(since 0.31.0, [forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906))*
 
 `fluid validate` compares the names of entities and dimensions the way the
 [dbt export](#dbt-metricflow) writes them: every character that is not a
@@ -517,7 +517,7 @@ then dimensions, then measures) and drops the other, and `fluid validate`
 warns (see [Names dbt MetricFlow holds once](#names-dbt-metricflow-holds-once)).
 A contract with no `semantics` block produces no `semantic_models.yml` at all.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906)).* A collection that is not a list, such as
+*(since 0.31.0, [forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906))* A collection that is not a list, such as
 `entities: 5` in a contract nobody validated, is read as empty, with a
 warning; the generator used to stop with a `TypeError`.
 

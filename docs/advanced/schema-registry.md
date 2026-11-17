@@ -5,7 +5,7 @@ description: Check a consumed Kafka topic against its schema registry at plan an
 
 # Schema registry (preview)
 
-*On forge-cli `main`, not yet in a release ([forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913), [forge-cli #932](https://github.com/Agenticstiger/forge-cli/pull/932), [forge-cli #938](https://github.com/Agenticstiger/forge-cli/pull/938), [forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939)).*
+*(since 0.31.0, [forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913), [forge-cli #932](https://github.com/Agenticstiger/forge-cli/pull/932), [forge-cli #938](https://github.com/Agenticstiger/forge-cli/pull/938), [forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939))*
 
 A Kafka topic's records have a schema, and a registry holds it. The contract can name that registry in two places, and forge-cli does one thing for each:
 
@@ -71,7 +71,7 @@ On a non-Kafka binding, `binding.properties.registry` is a validate warning. The
 
 ## A produced topic is registered through OpenTofu
 
-A Kafka topic the product produces is an expose with `format: kafka_topic` that declares its registry in `binding.properties.registry`, and its schema is the expose's `contract.schema`. Something has to register the subject, so `fluid validate` refuses a contract where nothing can: a Glue subject needs an expose bound to `platform: aws` in the same contract, and a Confluent subject needs the topic itself bound as `platform: confluent` with `format: kafka_topic`. A topic bound as `platform: kafka` can take a Glue subject, not a Confluent one. This contract validates, and `fluid generate iac --provider aws` writes the module (checked on forge-cli `main`):
+A Kafka topic the product produces is an expose with `format: kafka_topic` that declares its registry in `binding.properties.registry`, and its schema is the expose's `contract.schema`. Something has to register the subject, so `fluid validate` refuses a contract where nothing can: a Glue subject needs an expose bound to `platform: aws` in the same contract, and a Confluent subject needs the topic itself bound as `platform: confluent` with `format: kafka_topic`. A topic bound as `platform: kafka` can take a Glue subject, not a Confluent one. This contract validates, and `fluid generate iac --provider aws` writes the module (checked on 0.31.0):
 
 ```yaml
 fluidVersion: "0.7.7"
@@ -126,7 +126,7 @@ exposes:
         - {name: amount, type: "decimal(18,2)"}
 ```
 
-`fluid generate iac --provider aws` writes an `aws_glue_schema` named `commerce.orders-enriched-value`, with `data_format = "AVRO"` and the compatibility from the contract (`BACKWARD_ALL` by default). Checked on forge-cli `main`: the schema definition is canonical JSON, with sorted keys and no whitespace, so the module and the plan digest are stable, and a re-plan after the apply shows no changes.
+`fluid generate iac --provider aws` writes an `aws_glue_schema` named `commerce.orders-enriched-value`, with `data_format = "AVRO"` and the compatibility from the contract (`BACKWARD_ALL` by default). Checked on 0.31.0: the schema definition is canonical JSON, with sorted keys and no whitespace, so the module and the plan digest are stable, and a re-plan after the apply shows no changes.
 
 | | AWS Glue Schema Registry | Confluent |
 |---|---|---|

@@ -29,7 +29,7 @@ Fluid Forge uses one contract format across local and provider-backed execution 
 > **ODCS / ODPS are spec exporters, not providers.** As of `v0.10.0` the open-standards exports (ODCS, ODPS, ODPS-Bitol) are surfaced by [`fluid exporters`](/forge_docs/cli/exporters.html) — they serialize a contract to a spec and do **not** deploy infrastructure, so they no longer appear in the `fluid providers` roster.
 
 ::: tip Runtime requirement for cloud apply
-Since `v0.10.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* Install `tofu ≥ 1.12.0`. `databricks` does the same since `0.26.0`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
+Since `v0.10.0`, `fluid apply` against `aws` / `gcp` / `snowflake` auto-compiles the contract to OpenTofu and delegates to the `tofu` binary — install `tofu ≥ 1.6.0` on `PATH`. *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* Install `tofu ≥ 1.12.0`. `databricks` does the same since `0.26.0`. `local` keeps its native DuckDB apply, no `tofu` needed. See [`fluid generate iac`](/forge_docs/cli/generate-iac.html).
 :::
 
 The CLI surface today is asymmetric for the two spec exporters — `fluid odcs` exposes `export` / `import` / `validate` / `info`, while `fluid odps-bitol` exposes only `export` / `validate` / `info`. The unified `fluid odps` command covers both specs and adds an `import` subcommand for Bitol — see [`fluid odps`](../cli/odps.md) and [`fluid odcs`](../cli/odcs.md).

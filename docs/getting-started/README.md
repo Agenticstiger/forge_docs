@@ -47,7 +47,7 @@ The `local` extra installs DuckDB (`duckdb>=1.5.0`), pandas and numpy, which the
 | `aws` | S3, Glue, Athena | `boto3` |
 | `snowflake` | Snowflake | `snowflake-connector-python`, `dbt-snowflake` |
 | `litellm` (alias `ai`) | *(from 0.27.0)* The AI backend for `fluid forge` with an API-key provider, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup` and the copilot | `litellm` |
-| `mcp` | *(from 0.27.0)* The MCP server SDK for `fluid mcp serve`, MCP output ports, `fluid scaffold-ide` and `mcp-sampling` (which runs inside `fluid mcp serve`). *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--llm-provider mcp-sampling` is removed. | `mcp` |
+| `mcp` | *(from 0.27.0)* The MCP server SDK for `fluid mcp serve`, MCP output ports, `fluid scaffold-ide` and `mcp-sampling` (which runs inside `fluid mcp serve`). *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--llm-provider mcp-sampling` is removed. | `mcp` |
 | `lineage` | *(from 0.27.0)* Emitting OpenLineage events when `OPENLINEAGE_URL` is set | `openlineage-python` |
 | `standard` | *(from 0.27.0)* `litellm` and `mcp` together: the AI and MCP packages a 0.27.0 base install has | `litellm`, `mcp` |
 
@@ -58,7 +58,7 @@ pip install "data-product-forge[local,gcp]"           # several extras at once
 pip install "data-product-forge[local]==0.31.0"       # an exact version, for CI
 ```
 
-A cloud `fluid apply` runs OpenTofu, so it also needs `tofu` 1.6.0 or newer on your `PATH`, or `fluid apply --ensure-opentofu`, which downloads a pinned build from the OpenTofu release and checks it against that release's `SHA256SUMS` (integrity, not a signature). *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The minimum is 1.12.0, and the pinned build is 1.13.9. For production CI, install OpenTofu with a cosign- or gpg-verified install instead, and keep `tofu` on the runner image. The local path in this tutorial does not use OpenTofu.
+A cloud `fluid apply` runs OpenTofu, so it also needs `tofu` 1.6.0 or newer on your `PATH`, or `fluid apply --ensure-opentofu`, which downloads a pinned build from the OpenTofu release and checks it against that release's `SHA256SUMS` (integrity, not a signature). *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* The minimum is 1.12.0, and the pinned build is 1.13.9. For production CI, install OpenTofu with a cosign- or gpg-verified install instead, and keep `tofu` on the runner image. The local path in this tutorial does not use OpenTofu.
 
 Coming from an older release? [Upgrading](../upgrading.md) has a checklist for each version you cross.
 
@@ -84,7 +84,7 @@ Created fluid.workspace.yaml — workspace my-first-product
 ...
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init` no longer scaffolds team memory, so this line and `.fluid/team-memory.yaml` in the tree below are 0.29.0 output.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `fluid init` no longer scaffolds team memory, so this line and `.fluid/team-memory.yaml` in the tree below are 0.29.0 output.
 
 `fluid init` writes into two directories. The one you ran it in becomes the [workspace](../concepts/workspaces.md) root; `my-first-product/` is the product:
 
@@ -389,7 +389,7 @@ fluid forge
 fluid forge --domain finance
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: `fluid forge --domain`. Use `fluid forge --context "<what the product is for>"`, or name the domain in the prompt.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed: `fluid forge --domain`. Use `fluid forge --context "<what the product is for>"`, or name the domain in the prompt.
 
 A contract it drafts with two or more builds or exposes, or with a `sovereignty` or `accessPolicy` block, can come out as a root file plus a `fragments/` directory; `validate`, `plan` and `apply` resolve the fragments for you ([Contract fragments](../concepts/fragments.md)). See [AI forge and data-model journeys](../walkthrough/ai-forge-data-model.md).
 
@@ -430,7 +430,7 @@ Install the `local` extra: `pip install "data-product-forge[local]"`.
 fluid doctor
 ```
 
-`fluid doctor` prints a summary of its checks, the readiness of the configured LLM provider for `fluid forge`, and where Forge keeps its memory store. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Forge copilot memory is removed.
+`fluid doctor` prints a summary of its checks, the readiness of the configured LLM provider for `fluid forge`, and where Forge keeps its memory store. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Forge copilot memory is removed.
 
 ---
 

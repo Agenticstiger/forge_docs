@@ -2,9 +2,9 @@
 
 Author a data product contract with an AI copilot, an offline guided interview, or an empty skeleton. By default forge writes `contract.fluid.yaml` and `.fluid/forge-receipt.json`; a scaffold (`--scaffold`), a CI pipeline (`--ci`) and engine artifacts add files.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* AI mode runs on the four FLUID Agent Skills instead of an embedded copilot: your coding agent, or one LLM call, writes the contract, and forge validates it. The copilot's interview, prompt profiles, memory, agent loop, resume and domain agents are gone. See [AI mode on forge-cli main](#ai-mode-on-forge-cli-main).
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* AI mode runs on the four FLUID Agent Skills instead of an embedded copilot: your coding agent, or one LLM call, writes the contract, and forge validates it. The copilot's interview, prompt profiles, memory, agent loop, resume and domain agents are gone. See [AI mode in 0.31.0](#ai-mode-in-0-31-0).
 
-AI forge with an API-key provider needs the `litellm` extra (alias `ai`): `pip install 'data-product-forge[litellm]'`. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* Without it, an explicit `--llm-provider` that names an API-key provider (`openai`, `anthropic`, `gemini`, `ollama`), on `fluid forge`, on `fluid forge data-model` or with `--agent-loop`, prints that line and exits 1 with `[ERR_COPILOT_LITELLM_UNAVAILABLE]`, before the interview reads any context or memory. `fluid forge data-model` with no `--llm-provider`, `--llm-model` or `--llm-endpoint` runs offline and needs no extra (`--llm-model` alone names no provider. *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* The run takes one from [Which provider a run uses](../advanced/llm-providers.md#which-provider-a-run-uses), the provider `fluid ai setup` saved included, and passes over a saved coding agent. Through 0.28.0 the command ignored the saved provider and, with no other signal, used a local Ollama that answered, else `gemini`, which needs a Gemini key. *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* With nothing found, it now stops with `copilot_no_llm_provider`.). The forge message names two ways to author without it: `--llm-provider claude-code` (your Claude Code login) and `--template starter`; the `--agent-loop` message names only `--template starter`, because the agent CLIs lack tool use. `codex`, `cursor` and `kiro` also work without litellm, but they reuse their own CLI login or key. `--blank` and the other templates need no AI. `--llm-provider mcp-sampling` works only inside `fluid mcp serve`, which needs the `mcp` extra. Bare interactive `fluid forge` with no provider uses Claude Code when it is installed, and otherwise prints the hint and offers guided mode. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--agent-loop` and `--llm-provider mcp-sampling` are removed.
+AI forge with an API-key provider needs the `litellm` extra (alias `ai`): `pip install 'data-product-forge[litellm]'`. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* Without it, an explicit `--llm-provider` that names an API-key provider (`openai`, `anthropic`, `gemini`, `ollama`), on `fluid forge`, on `fluid forge data-model` or with `--agent-loop`, prints that line and exits 1 with `[ERR_COPILOT_LITELLM_UNAVAILABLE]`, before the interview reads any context or memory. `fluid forge data-model` with no `--llm-provider`, `--llm-model` or `--llm-endpoint` runs offline and needs no extra (`--llm-model` alone names no provider. *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* The run takes one from [Which provider a run uses](../advanced/llm-providers.md#which-provider-a-run-uses), the provider `fluid ai setup` saved included, and passes over a saved coding agent. Through 0.28.0 the command ignored the saved provider and, with no other signal, used a local Ollama that answered, else `gemini`, which needs a Gemini key. *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* With nothing found, it now stops with `copilot_no_llm_provider`.). The forge message names two ways to author without it: `--llm-provider claude-code` (your Claude Code login) and `--template starter`; the `--agent-loop` message names only `--template starter`, because the agent CLIs lack tool use. `codex`, `cursor` and `kiro` also work without litellm, but they reuse their own CLI login or key. `--blank` and the other templates need no AI. `--llm-provider mcp-sampling` works only inside `fluid mcp serve`, which needs the `mcp` extra. Bare interactive `fluid forge` with no provider uses Claude Code when it is installed, and otherwise prints the hint and offers guided mode. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--agent-loop` and `--llm-provider mcp-sampling` are removed.
 
 ## Syntax
 
@@ -38,7 +38,7 @@ fluid forge --fragments --ci github_actions
 fluid forge --resume
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--domain`, `--tiered`, `--fragments` and `--resume` are removed; see [Removed flags](#removed-flags). A non-interactive AI run takes the product to build in `--context`:
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--domain`, `--tiered`, `--fragments` and `--resume` are removed; see [Removed flags](#removed-flags). A non-interactive AI run takes the product to build in `--context`:
 
 ```bash
 fluid forge --llm-provider claude-code --non-interactive --context "orders from the shop API, refreshed daily"
@@ -47,9 +47,9 @@ fluid forge --llm-provider ollama --llm-model gemma4 --non-interactive --context
 
 For a guided walkthrough of the forge journeys, see [AI Forge And Data-Model Journeys](../walkthrough/ai-forge-data-model.md).
 
-## AI mode on forge-cli main
+## AI mode in 0.31.0
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).*
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))*
 
 AI mode runs on the four FLUID Agent Skills that ship with forge-cli, the same skills [`fluid scaffold-ide`](./scaffold-ide.md) installs for a coding agent. The embedded copilot is gone, with its interview, slash commands, streaming preview, prompt profiles and overlays, agent loop, memory, resume, judge, domain agents and tiered routing.
 
@@ -78,7 +78,7 @@ Why the change: on forge-cli's agent-skills eval, a coding agent with these skil
 
 ### Removed flags
 
-Each of these fails with `unrecognized arguments` (exit 2) on `main`:
+Each of these fails with `unrecognized arguments` (exit 2) in 0.31.0:
 
 | Removed | Use instead |
 | --- | --- |
@@ -91,7 +91,7 @@ Each of these fails with `unrecognized arguments` (exit 2) on `main`:
 | `--discover`, `--no-discover`, `--discovery-path`, `--show-work` | Nothing. A coding agent reads the workspace itself. |
 | `--no-generate`, `--also-emit`, `--fragments`, `--no-fragments`, `--apply-enrichment` | Run [`fluid generate transformation`](./generate.md), [`fluid export`](./export.md) or [`fluid split`](./split.md) after forge. |
 
-`--llm-provider mcp-sampling` is removed too, and so are `fluid memory`, `fluid mission`, `fluid stats --judge` and `fluid init --agent`. See [Upgrading](../upgrading.md#not-in-a-release-yet).
+`--llm-provider mcp-sampling` is removed too, and so are `fluid memory`, `fluid mission`, `fluid stats --judge` and `fluid init --agent`. See [Upgrading](../upgrading.md#changes-in-0-31-0).
 
 ## Key options
 
@@ -101,23 +101,23 @@ Each of these fails with `unrecognized arguments` (exit 2) on `main`:
 | --- | --- |
 | `--target-dir`, `-d DIR` | Target directory for project creation. |
 | `--provider`, `-p NAME` | Infrastructure provider. Registered in the 0.18.1 test install: `aws`, `datamesh_manager`, `gcp`, `local`, `redshift`, `snowflake`. With `gcp`, an error line asks for the global `--project`; set it, or `FLUID_PROJECT`, to avoid it. |
-| `--domain NAME` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Domain expertise agent. Built in: `ai_ready`, `education`, `energy`, `finance`, `government`, `healthcare`, `insurance`, `logistics`, `manufacturing`, `media`, `pharma`, `retail`, `telco`. A custom name loads `.fluid/agents/<name>.yaml`; see [Custom domain agents](./agents.md#custom-domain-agents). |
+| `--domain NAME` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Domain expertise agent. Built in: `ai_ready`, `education`, `energy`, `finance`, `government`, `healthcare`, `insurance`, `logistics`, `manufacturing`, `media`, `pharma`, `retail`, `telco`. A custom name loads `.fluid/agents/<name>.yaml`; see [Custom domain agents](./agents.md#custom-domain-agents). |
 | `--data-product-type CODE` | `SDP`, `ADP` or `CDP`, or `Bronze`, `Silver` or `Gold`. When omitted, the copilot infers it from the project goal. |
 | `--transform-engine NAME` | Override the transformation engine (`dbt`, `sql`, `spark`, `dataform`, `dataflow`, `glue`) for ADP and CDP products. SDP products pick an acquisition engine from the capability catalog. |
 | `--blank` | An empty contract, with no model call. |
 | `--no-llm` | Use the heuristic-only path; never call a model. |
 | `--offline` | A fully local guided interview: no model, no mode picker, no welcome scan, no remote schema fetch. Also set by `FLUID_FORGE_OFFLINE=1`. Pair with `--non-interactive` for a prompt-free run. |
 | `--scaffold NAME`, `--template NAME` | Write the full ForgeEngine scaffold from a code template (`etl_pipeline`, `analytics`, `ml_pipeline`, `streaming`, `starter`). Without it, forge writes the contract and its receipt rather than a scaffold. `--template` is an alias of `--scaffold`. |
-| `--agent-loop` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; use a coding agent. Use the multi-turn agent loop instead of a single prompt. The model must support tool use. See [Forge tools](../advanced/forge-tools.md). |
-| `--no-generate` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: AI mode writes no engine artifacts; run `fluid generate transformation` after forge. Skip generating engine artifacts (a dbt project, SQL scripts). |
-| `--apply-enrichment` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Write the post-synthesis enrichment artifacts (dbt tests, freshness, physical layout) back into the contract. Shows a diff and asks first; `--yes` skips the question. Off by default. |
-| `--also-emit LIST` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; run `fluid export` after forge. Also write other standards after the contract: any of `odcs`, `odps`, `opds`, comma-separated. Defaults to `odcs` for CDP products and nothing otherwise. |
+| `--agent-loop` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed; use a coding agent. Use the multi-turn agent loop instead of a single prompt. The model must support tool use. See [Forge tools](../advanced/forge-tools.md). |
+| `--no-generate` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed: AI mode writes no engine artifacts; run `fluid generate transformation` after forge. Skip generating engine artifacts (a dbt project, SQL scripts). |
+| `--apply-enrichment` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Write the post-synthesis enrichment artifacts (dbt tests, freshness, physical layout) back into the contract. Shows a diff and asks first; `--yes` skips the question. Off by default. |
+| `--also-emit LIST` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed; run `fluid export` after forge. Also write other standards after the contract: any of `odcs`, `odps`, `opds`, comma-separated. Defaults to `odcs` for CDP products and nothing otherwise. |
 | `--dry-run` | Preview without creating files. |
 | `--non-interactive` | Use defaults without prompting. |
-| `--yes`, `-y` | Skip the pre-write confirmation. The preview panel still renders. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* There is no preview panel; `--yes` skips AI mode's `Keep this contract at <path>? [Y/n]` question. |
-| `--context VALUE` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The product to build, as text or a file path. A run with no terminal needs it. In 0.29.0: Extra JSON context, or a path to a context file. |
-| `--show-work` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Stream the agent's reasoning and tool calls. They are also saved under `.fluid/agents/<run-id>/`. |
-| `--watch` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Regenerate the contract when a source file in the discovery path changes. Regeneration is non-interactive and offline. Tune with `FLUID_FORGE_WATCH_INTERVAL` and `FLUID_FORGE_WATCH_DEBOUNCE` (seconds). |
+| `--yes`, `-y` | Skip the pre-write confirmation. The preview panel still renders. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* There is no preview panel; `--yes` skips AI mode's `Keep this contract at <path>? [Y/n]` question. |
+| `--context VALUE` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The product to build, as text or a file path. A run with no terminal needs it. In 0.29.0: Extra JSON context, or a path to a context file. |
+| `--show-work` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Stream the agent's reasoning and tool calls. They are also saved under `.fluid/agents/<run-id>/`. |
+| `--watch` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Regenerate the contract when a source file in the discovery path changes. Regeneration is non-interactive and offline. Tune with `FLUID_FORGE_WATCH_INTERVAL` and `FLUID_FORGE_WATCH_DEBOUNCE` (seconds). |
 | `--agent` | Headless preset for agentic IDEs: non-interactive, JSON-Lines progress events on stdout. See [Headless agent mode](#headless-agent-mode). |
 | `--emit-plan` | With `--agent`, emit a deterministic `forge.plan` checklist event instead of authoring the contract. Implies `--agent`. |
 
@@ -125,22 +125,22 @@ Each of these fails with `unrecognized arguments` (exit 2) on `main`:
 
 | Option | Description |
 | --- | --- |
-| `--fragments` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; run `fluid split` after forge. Write the contract as a root file plus fragments under `fragments/`. |
-| `--no-fragments` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: forge writes one flat file. Write one flat file. |
+| `--fragments` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed; run `fluid split` after forge. Write the contract as a root file plus fragments under `fragments/`. |
+| `--no-fragments` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed: forge writes one flat file. Write one flat file. |
 
-Both apply on the default AI-copilot path only. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Both are removed. See [Single file or fragments?](#single-file-or-fragments) and [Projects `fluid forge` writes](../concepts/fragments.md#projects-fluid-forge-writes).
+Both apply on the default AI-copilot path only. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Both are removed. See [Single file or fragments?](#single-file-or-fragments) and [Projects `fluid forge` writes](../concepts/fragments.md#projects-fluid-forge-writes).
 
 ### AI config
 
 | Option | Description |
 | --- | --- |
-| `--llm-provider NAME` | `openai`, `anthropic`, `claude`, `gemini` or `ollama`; or a keyless provider: `mcp-sampling` (the calling IDE's model) or `claude-code`, `codex`, `cursor`, `kiro` (a local agent CLI). Providers installed through the `fluid_build.llm_providers` entry point are also accepted. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `mcp-sampling` is removed. |
+| `--llm-provider NAME` | `openai`, `anthropic`, `claude`, `gemini` or `ollama`; or a keyless provider: `mcp-sampling` (the calling IDE's model) or `claude-code`, `codex`, `cursor`, `kiro` (a local agent CLI). Providers installed through the `fluid_build.llm_providers` entry point are also accepted. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `mcp-sampling` is removed. |
 | `--llm-model NAME` | Model identifier. |
 | `--llm-endpoint URL` | Exact HTTP endpoint for the selected provider. It does not choose the provider. *(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* The routing model's calls use it too, unless `--llm-routing-endpoint` names another. *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* For Ollama it is read like `OLLAMA_HOST`, so `gpu-box` means `http://gpu-box:11434`, and forge's model pick, its model check and each `--tiered` stage use it too; see [One address for every Ollama read](../advanced/llm-providers.md#one-address-for-every-ollama-read). |
-| `--forge-agent-mode MODE` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `agentic` is the default, and `envelope` makes one call through the agent, with no tools. In 0.29.0: For the local agent CLIs: `envelope` (default; the agent returns the contract as JSON on stdout) or `agentic` (the agent writes `contract.fluid.yaml` into the workspace). |
-| `--llm-routing-model NAME` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed from `fluid forge`; `fluid forge data-model` keeps it. A fast, cheap model for interview clarification and AI self-evaluation. |
-| `--llm-routing-endpoint URL` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed from `fluid forge`; `fluid forge data-model` keeps it. Endpoint override for the routing model. |
-| `--tiered` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed from `fluid forge`; `fluid forge data-model` keeps it. Use the provider's deep and fast model tiers. See [LLM Providers](../advanced/llm-providers.md). |
+| `--forge-agent-mode MODE` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `agentic` is the default, and `envelope` makes one call through the agent, with no tools. In 0.29.0: For the local agent CLIs: `envelope` (default; the agent returns the contract as JSON on stdout) or `agentic` (the agent writes `contract.fluid.yaml` into the workspace). |
+| `--llm-routing-model NAME` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed from `fluid forge`; `fluid forge data-model` keeps it. A fast, cheap model for interview clarification and AI self-evaluation. |
+| `--llm-routing-endpoint URL` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed from `fluid forge`; `fluid forge data-model` keeps it. Endpoint override for the routing model. |
+| `--tiered` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed from `fluid forge`; `fluid forge data-model` keeps it. Use the provider's deep and fast model tiers. See [LLM Providers](../advanced/llm-providers.md). |
 | `--require-llm` | Fail if the model cannot run, instead of falling back to a non-AI path. |
 | `--deterministic` | Temperature 0, cache off, tiering off, audit metadata on. For byte-stable runs. |
 | `--no-cache` | Bypass the LLM response cache. |
@@ -152,7 +152,7 @@ Show the model plan per provider with [`fluid ai models`](./ai.md), and check co
 
 ### Prompt profiles and overlays
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Prompt profiles and overlays are removed, with `FLUID_PROMPT_PROFILE`, `FLUID_PROMPT_OVERLAYS`, `FLUID_OVERLAY_STRICT` and `FLUID_OVERLAY_PUBLIC_KEYS`.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Prompt profiles and overlays are removed, with `FLUID_PROMPT_PROFILE`, `FLUID_PROMPT_OVERLAYS`, `FLUID_OVERLAY_STRICT` and `FLUID_OVERLAY_PUBLIC_KEYS`.
 
 | Option | Description |
 | --- | --- |
@@ -176,7 +176,7 @@ An unknown profile fails with `unknown prompt profile` and lists the available n
 
 ### Discovery and memory
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Discovery and copilot memory are removed. `--no-memory` is still accepted and ignored; the other flags here fail with `unrecognized arguments`.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Discovery and copilot memory are removed. `--no-memory` is still accepted and ignored; the other flags here fail with `unrecognized arguments`.
 
 | Option | Description |
 | --- | --- |
@@ -198,11 +198,11 @@ An unknown profile fails with `unknown prompt profile` and lists the available n
 | `--from-product-list FILE` | Read upstream ids or paths from a file, one per line. |
 | `--from-workspace PATH` | Search another workspace path for upstream contracts; repeatable. |
 | `--refine [PATH]` | Load a contract and ask what to change. See [`--refine`](#refine-—-load-a-contract-and-tweak). |
-| `--seed-from PATH` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; see [Removed flags](#removed-flags). Seed from an ODCS or Bitol ODPS contract. See [Seeding](#seeding-from-an-existing-odcs-or-bitol-odps-contract). |
+| `--seed-from PATH` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed; see [Removed flags](#removed-flags). Seed from an ODCS or Bitol ODPS contract. See [Seeding](#seeding-from-an-existing-odcs-or-bitol-odps-contract). |
 
 ### Resume
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Resume is removed, with every flag in this table.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Resume is removed, with every flag in this table.
 
 | Option | Description |
 | --- | --- |
@@ -217,12 +217,12 @@ An unknown profile fails with `unknown prompt profile` and lists the available n
 | Option | Description |
 | --- | --- |
 | `--ci PROVIDER` | Generate a CI pipeline after forging: `github_actions`, `gitlab_ci`, `azure_devops`, `jenkins`, `bitbucket`, `circleci` (also spelled `circle_ci`), `tekton`, `none` or `ask`. |
-| `--ci-complexity LEVEL` | 0.30.1: `basic`, `standard` (default), `advanced` or `enterprise`. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Removed: forge asks for the CI provider only, and a command that passes the flag fails argument parsing. To add the scan, compliance and SBOM jobs the higher tiers carried, run `fluid generate ci --add security --add compliance --add sbom` ([generate](./generate.md#fluid-generate-ci)). |
+| `--ci-complexity LEVEL` | 0.30.1: `basic`, `standard` (default), `advanced` or `enterprise`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Removed: forge asks for the CI provider only, and a command that passes the flag fails argument parsing. To add the scan, compliance and SBOM jobs the higher tiers carried, run `fluid generate ci --add security --add compliance --add sbom` ([generate](./generate.md#fluid-generate-ci)). |
 | `--no-ci` | Same as `--ci none`. |
 
 ## Single file or fragments?
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Forge no longer splits a contract: every path writes one flat `contract.fluid.yaml`, and `--fragments` and `--no-fragments` are removed. Run [`fluid split`](./split.md) after forge to get fragments.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Forge no longer splits a contract: every path writes one flat `contract.fluid.yaml`, and `--fragments` and `--no-fragments` are removed. Run [`fluid split`](./split.md) after forge to get fragments.
 
 A fragment-layout contract is a root file whose `builds`, `exposes`, `sovereignty` and `accessPolicy` entries are `$ref` pointers into `fragments/`. `validate`, `plan` and `apply` resolve the references themselves, so you run them on the root. Forge's own closing hint says so: `FLUID auto-bundles fragments when you run validate, plan, or apply`. See [Contract references (`$ref`)](../concepts/contract-refs.md) for the resolution rules, and [`fluid split`](./split.md) and [`fluid bundle`](./bundle.md) for converting between the layouts.
 
@@ -253,7 +253,7 @@ If the product federates, note that `fluid contract digest` and the federation c
 
 ## Resume, fork and time-travel
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Resume, fork and time-travel are removed. An AI-mode run keeps its receipt, and a draft when it fails, in `.fluid/agents/<run-id>/`, but nothing resumes it.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Resume, fork and time-travel are removed. An AI-mode run keeps its receipt, and a draft when it fails, in `.fluid/agents/<run-id>/`, but nothing resumes it.
 
 An AI-copilot run writes its stages to `.fluid/agents/<run-id>/`, so a paused or interrupted run can be resumed from there. (`fluid forge --blank` created no `.fluid/agents/` directory in the 0.18.1 test, so it has nothing to resume.)
 
@@ -288,13 +288,13 @@ o/
 └── contract.fluid.yaml
 ```
 
-`ci-state.json` records the provider, complexity and inputs that produced the committed files, so a later run can tell when they drift. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* On `main` the example is `fluid forge --blank --ci github_actions --non-interactive --yes --target-dir o` with no `--ci-complexity`, forge does not write `.env.ci.example`, and `ci-state.json` records the provider and the add-ons (`add_ons`, empty here). A `ci-state.json` that an earlier forge wrote, with a complexity in it, still loads. The pipeline is the one [`fluid generate ci`](./generate.md#fluid-generate-ci) writes, and forge names any file the old tiers left on GitHub Actions (`fluid-standard.yml` and its siblings) for you to delete. Forge decides whether to scaffold CI in this order, and stops at the first rule that answers:
+`ci-state.json` records the provider, complexity and inputs that produced the committed files, so a later run can tell when they drift. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* In 0.31.0 the example is `fluid forge --blank --ci github_actions --non-interactive --yes --target-dir o` with no `--ci-complexity`, forge does not write `.env.ci.example`, and `ci-state.json` records the provider and the add-ons (`add_ons`, empty here). A `ci-state.json` that an earlier forge wrote, with a complexity in it, still loads. The pipeline is the one [`fluid generate ci`](./generate.md#fluid-generate-ci) writes, and forge names any file the old tiers left on GitHub Actions (`fluid-standard.yml` and its siblings) for you to delete. Forge decides whether to scaffold CI in this order, and stops at the first rule that answers:
 
 1. `FLUID_FORGE_AUTO_CI` set to `0`, `false`, `no` or `off` disables it.
 2. `--no-ci`.
 3. `--ci PROVIDER`.
 4. The provider recorded in `.fluid/ci-state.json`.
-5. The provider saved in copilot memory. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Copilot memory is removed, so this step finds nothing.
+5. The provider saved in copilot memory. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Copilot memory is removed, so this step finds nothing.
 6. An interactive menu.
 7. Nothing, when none of the above applies and there is no terminal.
 
@@ -304,7 +304,7 @@ For finer control over what the pipeline contains, use `fluid generate ci` ([gen
 
 The model-first path is `fluid forge data-model`. It writes a Fluid contract, a `.model.json` logical sidecar, and a human-readable Mermaid + Markdown model document.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid forge data-model` is unchanged by the copilot's removal: every subcommand and flag below stays, and so does the engine that runs them. Command Center's `from-intent` path, with `--deterministic` or `--llm-provider`, works as before.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `fluid forge data-model` is unchanged by the copilot's removal: every subcommand and flag below stays, and so does the engine that runs them. Command Center's `from-intent` path, with `--deterministic` or `--llm-provider`, works as before.
 
 ```bash
 fluid forge data-model from-intent intent.yaml -o customer_orders.fluid.yaml
@@ -352,7 +352,7 @@ For hosted provider smoke tests, export a provider key in your shell and use `--
 
 ## Seeding from an existing ODCS or Bitol ODPS contract
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--seed-from` and `--seed-allow-remote` are removed. [`fluid odps import`](./odps.md) reads the same inputs and writes a FLUID contract (`fluid odps import <path> -o contract.fluid.yaml`); then run `fluid forge --refine` on it.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--seed-from` and `--seed-allow-remote` are removed. [`fluid odps import`](./odps.md) reads the same inputs and writes a FLUID contract (`fluid odps import <path> -o contract.fluid.yaml`); then run `fluid forge --refine` on it.
 
 ::: tip Available in 0.8.3 (experimental — pre-processor)
 `--seed-from` accepts an ODCS contract, a Bitol ODPS product, or a directory bundle as a **structural seed** for the copilot. The schema / quality / qos from the seed are treated as ground truth; the LLM fills in builds, execution, and governance.
@@ -412,7 +412,7 @@ The same flow is exposed via the MCP `forge_from_source` tool, so
 Claude Code / Cursor agents can drive a catalog forge from inside
 the editor.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed, and `fluid forge data-model from-source` is unchanged. An agent reads a catalog with the MCP catalog tools in [`fluid mcp`](./mcp.md). *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* They are one tool, [`source_catalog`](../advanced/mcp.md#source-catalog).
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `forge_from_source` is removed, and `fluid forge data-model from-source` is unchanged. An agent reads a catalog with the MCP catalog tools in [`fluid mcp`](./mcp.md). *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* They are one tool, [`source_catalog`](../advanced/mcp.md#source-catalog).
 
 ## Mode picker, refine, compose
 
@@ -433,7 +433,7 @@ What kind of run is this?
 
 The picker pre-highlights based on a parallel welcome scan that runs in <50 ms. Skip with `FLUID_FORGE_NO_PICKER=1`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The picker and the welcome scan are kept. Its AI choice runs [AI mode on forge-cli main](#ai-mode-on-forge-cli-main), not the interview.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The picker and the welcome scan are kept. Its AI choice runs [AI mode in 0.31.0](#ai-mode-in-0-31-0), not the interview.
 
 ### `--from-product` — composition
 
@@ -454,13 +454,13 @@ fluid forge --refine ./products/orders.fluid.yaml
 
 Loads the contract, asks "what to change?", feeds the contract verbatim to the LLM as the seed. One question, no full interview.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--refine` hands the contract and your change to the coding agent or the model. The contract changes only when the result validates, and a declined or failed result leaves it as it was.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--refine` hands the contract and your change to the coding agent or the model. The contract changes only when the result validates, and a declined or failed result leaves it as it was.
 
 Before it asks to write the result, the preview compares the regenerated contract with the one it loaded, using the comparison [`fluid diff --baseline`](./diff.md#contract-version-diff) runs, and lists the changes under `BREAKING`, `NON-BREAKING` and `INFO`. Through 0.26.0 the preview printed `No changes vs the existing contract.` for a dropped column or a changed type in a 0.7.x contract, and for a name that the contract declares twice (measured). *(since 0.27.0, [forge-cli #789](https://github.com/Agenticstiger/forge-cli/pull/789), [#802](https://github.com/Agenticstiger/forge-cli/pull/802))* The preview then lists each of them as breaking.
 
 ### Slash commands inside the interview
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The interview and its slash commands are removed. With a coding agent, the agent asks its own questions.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The interview and its slash commands are removed. With a coding agent, the agent asks its own questions.
 
 | Command | Effect |
 |---|---|
@@ -473,7 +473,7 @@ Before it asks to write the result, the preview compares the regenerated contrac
 
 ### Pre-write preview panel
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The panel is removed with the copilot paths that rendered it. AI mode's one-call path asks `Keep this contract at <path>? [Y/n]` instead, and `--yes` or `FLUID_FORGE_NO_PREVIEW=1` skips that question.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The panel is removed with the copilot paths that rendered it. AI mode's one-call path asks `Keep this contract at <path>? [Y/n]` instead, and `--yes` or `FLUID_FORGE_NO_PREVIEW=1` skips that question.
 
 Before any file is written, Forge renders a panel showing files, cost, and run-id so users see exactly what they're about to commit to. `--yes` skips the confirmation prompt but the panel still renders. Suppress with `FLUID_FORGE_NO_PREVIEW=1`.
 
@@ -492,7 +492,7 @@ fluid forge --agent --emit-plan
 - With no mode flag and no AI flag, it writes the blank contract (`--blank`), so it can never drop into the interactive mode picker.
 - Any of `--llm-provider`, `--llm-model`, `--llm-endpoint` or `--context` selects AI mode instead. Forge's AI authors the contract without asking anything. The contract it writes is reported in a `forge.contract_written` event. A failed generation ends with a non-zero `exit_code` in `forge.done` and a non-zero exit status. With nothing configured, the provider is picked as in [When nothing is configured](../advanced/llm-providers.md#when-nothing-is-configured). *(since 0.29.0, [forge-cli #850](https://github.com/Agenticstiger/forge-cli/pull/850))* Through 0.28.0 these flags were ignored: the run wrote the TODO placeholder contract and reported `exit_code` `0`. *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* The event, and forge's receipt, cover a contract written to any `--target-dir`: one outside the directory you run forge in, one more than two levels below it, or one given with a literal `~`. A contract outside the current directory is reported by its absolute path.
 - `--emit-plan` makes the run emit a single deterministic `forge.plan` event — the per-product-type (SDP / ADP / CDP) field checklist for the agent to fill in — instead of authoring the contract itself.
-- *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* With an AI flag, `--agent` runs [AI mode on forge-cli main](#ai-mode-on-forge-cli-main) with no terminal: Claude Code is driven headless with the skills, and the other providers make one LLM call.
+- *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* With an AI flag, `--agent` runs [AI mode in 0.31.0](#ai-mode-in-0-31-0) with no terminal: Claude Code is driven headless with the skills, and the other providers make one LLM call.
 
 For example, to have a signed-in Claude Code author from an intent file:
 
@@ -507,12 +507,12 @@ This is the CLI half of the agentic-IDE flow. Set the editor side up with [`flui
 ## Notes
 
 - The current promoted syntax is `fluid forge`, not `fluid forge --mode copilot`.
-- Use `--domain` for built-in domain guidance instead of the older `--mode agent` flow shown in some legacy docs. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--domain` is removed.
-- Discovery and memory guides live in the advanced docs: [discovery](/forge_docs/advanced/forge-copilot-discovery) and [memory](/forge_docs/advanced/forge-copilot-memory). *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Both features are removed.
+- Use `--domain` for built-in domain guidance instead of the older `--mode agent` flow shown in some legacy docs. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--domain` is removed.
+- Discovery and memory guides live in the advanced docs: [discovery](/forge_docs/advanced/forge-copilot-discovery) and [memory](/forge_docs/advanced/forge-copilot-memory). *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Both features are removed.
 
 ## Industry skills
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--domain` is removed, and nothing reads `.fluid/skills.yaml` any more: `fluid skills` still installs a pack, but AI mode uses the FLUID Agent Skills instead.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--domain` is removed, and nothing reads `.fluid/skills.yaml` any more: `fluid skills` still installs a pack, but AI mode uses the FLUID Agent Skills instead.
 
 `--domain` gives the copilot a role such as finance or retail. For deeper vocabulary, typical products and regulatory constraints, install an industry skills pack with [`fluid skills`](./skills.md). The copilot reads the pack from `.fluid/skills.yaml` in the project.
 

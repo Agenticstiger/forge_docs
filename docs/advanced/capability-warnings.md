@@ -25,7 +25,7 @@ if you need the multi-turn agent loop on Ollama.
 capability_warnings_count=2 provider=ollama model=gemma2:9b
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop these catalog notes mention is removed; the notes still read as shown. *On forge-cli `main`, not yet in a release ([forge-cli #889](https://github.com/Agenticstiger/forge-cli/pull/889)).* The notes no longer mention it: the gemma2 note ends "Use gemma3+ if you need tool calling on Ollama."
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The agent loop these catalog notes mention is removed; the notes still read as shown. *(since 0.31.0, [forge-cli #889](https://github.com/Agenticstiger/forge-cli/pull/889))* The notes no longer mention it: the gemma2 note ends "Use gemma3+ if you need tool calling on Ollama."
 
 The first lines are user-facing warnings, printed through the standard CLI console, which also applies the secret-redaction filter, so they are safe to share in bug reports. The `capability_warnings_count=...` line is a structured log line.
 
@@ -36,7 +36,7 @@ The first lines are user-facing warnings, printed through the standard CLI conso
 The "what is required" set depends on the usage profile of the run. The catalog defines two:
 
 - **`staged_pipeline`**: each stage is one LLM call, so it requires `structured_output` only. This is the profile `fluid forge data-model` passes.
-- **`agent_loop`**: *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The agent loop is removed, so this profile has no caller on main. The multi-turn tool-driven loop requires `tool_use` and `structured_output`. As of 0.18.1, no CLI command passes this profile, so the catalog's `tool_use` column matters only through the catalog's notes and through the Python API. *On forge-cli `main`, not yet in a release ([forge-cli #889](https://github.com/Agenticstiger/forge-cli/pull/889)).* The profile is removed: `agent_loop`, like any unknown profile name, gets the staged-pipeline set (`structured_output`).
+- **`agent_loop`**: *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The agent loop is removed, so this profile has no caller in 0.31.0. The multi-turn tool-driven loop requires `tool_use` and `structured_output`. As of 0.18.1, no CLI command passes this profile, so the catalog's `tool_use` column matters only through the catalog's notes and through the Python API. *(since 0.31.0, [forge-cli #889](https://github.com/Agenticstiger/forge-cli/pull/889))* The profile is removed: `agent_loop`, like any unknown profile name, gets the staged-pipeline set (`structured_output`).
 
 Concretely, on `fluid forge data-model`:
 
@@ -53,7 +53,7 @@ If the model is not in the catalog, you get a "not in the capability catalog" wa
 Even when a pair passes the requirements check, the catalog may attach a note, which is printed as a warning. Examples:
 
 - `claude-opus-4-7`: "Temperature is deprecated on Opus 4.7 — providers drop it automatically."
-- `gemma4`: "gemma4 is the project's default Ollama model. Tool-use accuracy is acceptable for the staged pipeline; the multi-turn agent loop may need more iterations to converge than on hosted providers." *On forge-cli `main`, not yet in a release ([forge-cli #889](https://github.com/Agenticstiger/forge-cli/pull/889)).* The note ends at "acceptable for the staged pipeline."
+- `gemma4`: "gemma4 is the project's default Ollama model. Tool-use accuracy is acceptable for the staged pipeline; the multi-turn agent loop may need more iterations to converge than on hosted providers." *(since 0.31.0, [forge-cli #889](https://github.com/Agenticstiger/forge-cli/pull/889))* The note ends at "acceptable for the staged pipeline."
 - Ollama `llama3.1`: "Tool-use accuracy on Ollama-served llama3.1 is lower than on hosted Anthropic / OpenAI / Gemini models. Expect more tool-call validation errors."
 
 Notes are informational and do not block the run.
@@ -131,7 +131,7 @@ Ollama is a runtime, not a model — capabilities depend on the model loaded. Th
 | `deepseek` | yes | no | yes | |
 | `phi` | no | no | yes | Phi-family models are too small for reliable tool calling. Use them for completion-style prompts only. |
 
-*On forge-cli `main`, not yet in a release ([forge-cli #889](https://github.com/Agenticstiger/forge-cli/pull/889)).* The gemma4, gemma2 and gemma (1.x) notes no longer mention the agent loop. The gemma4 note ends at "acceptable for the staged pipeline", the gemma2 note says "Use gemma3+ if you need tool calling on Ollama." and the gemma (1.x) note says "Use gemma3+ if you need it."
+*(since 0.31.0, [forge-cli #889](https://github.com/Agenticstiger/forge-cli/pull/889))* The gemma4, gemma2 and gemma (1.x) notes no longer mention the agent loop. The gemma4 note ends at "acceptable for the staged pipeline", the gemma2 note says "Use gemma3+ if you need tool calling on Ollama." and the gemma (1.x) note says "Use gemma3+ if you need it."
 
 ::: tip Context windows
 The offline fallback table `fluid_build.copilot.agents.token_budget.DEFAULT_CONTEXT_WINDOWS` covers Ollama-served models only: `llama3.1`, `llama3.2`, `llama3.3`, `qwen3`, `gemma4`, `gemma3` and `deepseek-r1` at 128K, `qwen3-coder` at 256K, `mistral` and `mixtral` at 32,768, and 32,000 for anything else. For cloud models the window comes from LiteLLM's model catalog. Override it per session with `capability_matrix["context_window"]` if you configured a custom context window on your local server.

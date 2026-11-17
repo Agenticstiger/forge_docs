@@ -53,7 +53,7 @@ Each error carries a stable `kind` tag, a distinct event CI can match:
 | `bundle-merkle-mismatch` | The merkle root recomputed from the bundle's bytes disagrees with the root declared in its `MANIFEST.json` | Rebuild the bundle; treat it as possible tampering |
 | `binding-mode-missing`, `binding-mode-invalid`, `binding-mode-mismatch` | The plan's `bindingMode` is absent, is neither `bound` nor `raw`, or contradicts the presence of `bundleDigest` (for example `bundleDigest` stripped to dodge the bundle check) | Regenerate through `fluid plan`: the plan came from an older CLI or was edited |
 
-*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* A plan made with `fluid plan --tofu` adds five more, each the event `apply_plan_digest_<kind>` with `-` written as `_`:
+*(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))* A plan made with `fluid plan --tofu` adds five more, each the event `apply_plan_digest_<kind>` with `-` written as `_`:
 
 | `kind` | Diagnosis | Fix |
 |---|---|---|
@@ -243,7 +243,7 @@ The organization comes from `organization_id`, else `FLUID_CC_ORG_ID`; with neit
 
 | Symptom | Diagnosis | Fix |
 |---|---|---|
-| "tofu X.Y.Z is older than the required minimum 1.6.0" | The runner has an older `tofu`, or only `terraform`, on `PATH`. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The message names 1.12.0 as the minimum | Upgrade from opentofu.org, or let the CLI provision a pinned, SHA-256-verified build: `fluid apply --ensure-opentofu` |
+| "tofu X.Y.Z is older than the required minimum 1.6.0" | The runner has an older `tofu`, or only `terraform`, on `PATH`. *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* The message names 1.12.0 as the minimum | Upgrade from opentofu.org, or let the CLI provision a pinned, SHA-256-verified build: `fluid apply --ensure-opentofu` |
 | `` `tofu apply` exceeded the 1800s wall-clock limit `` (exit code 124) | A large first apply, or a hung provider call, hit the per-subprocess timeout. *(since 0.27.0, [forge-cli #787](https://github.com/Agenticstiger/forge-cli/pull/787))* `tofu` is interrupted first, so it releases its state lock, and killed only if it is still running 30 seconds later | Raise `FLUID_TOFU_TIMEOUT_SECONDS`; if it recurs on a small change set, look at provider-side throttling |
 | `opentofu_init_failed` | `tofu init` failed: provider credentials, network access or the state backend | Check credentials and network, then retry |
 | `opentofu_apply_failed` | *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* `tofu apply` failed. The error names the first diagnostic, its resource address and the provider's detail. Through 0.26.0 it printed the raw tail of `tofu`'s `-json` stream | Fix the cause the error names and re-run `fluid apply`: OpenTofu records state as it goes, so it normally continues. `tofu state list` in the workdir the suggestion names shows what exists. `--debug` logs the raw tail. See [A failed OpenTofu apply](../cli/apply.md#a-failed-opentofu-apply) |
@@ -275,7 +275,7 @@ Update the key at the source `fluid ai status` reports, the provider environment
 | `No LLM provider configured. Run 'fluid ai setup' or set an API key env var.` | Nothing selects a provider ([Which provider a run uses](./llm-providers.md#which-provider-a-run-uses)). A run without a terminal, or with `--non-interactive`, also found no coding-agent CLI on `PATH`, or a setting such as `--llm-model` or `--llm-endpoint`, which selects no provider, kept it from looking for an agent. Keys in the OS keyring for more than one provider give this message too. See [When nothing is configured](./llm-providers.md#when-nothing-is-configured). |
 | `No LLM provider is selected: OPENAI_API_KEY, ANTHROPIC_API_KEY are all set, so none of them is chosen. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | More than one provider's key is set in the environment. `OLLAMA_HOST` counts as Ollama's. |
 | `No LLM provider is selected: FLUID_LLM_API_KEY does not say which provider the key is for. Pick one with --llm-provider or FLUID_LLM_PROVIDER.` | `FLUID_LLM_API_KEY` is set, but nothing selects a provider. |
-| `No LLM provider is selected: 'fluid ai setup' saved claude-code, and an agent is not used when the run states an endpoint or a model, or runs the agent loop. Name a provider with --llm-provider.` | *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* `fluid ai setup` saved a coding agent or `mcp-sampling`, and the run states an endpoint or a model or runs the agent loop, so forge passes the agent over. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--agent-loop` and `mcp-sampling` are removed from `fluid forge`. |
+| `No LLM provider is selected: 'fluid ai setup' saved claude-code, and an agent is not used when the run states an endpoint or a model, or runs the agent loop. Name a provider with --llm-provider.` | *(since 0.29.0, [forge-cli #854](https://github.com/Agenticstiger/forge-cli/pull/854))* `fluid ai setup` saved a coding agent or `mcp-sampling`, and the run states an endpoint or a model or runs the agent loop, so forge passes the agent over. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--agent-loop` and `mcp-sampling` are removed from `fluid forge`. |
 
 The suggestions under it are the same in each case:
 
@@ -314,8 +314,8 @@ The suggestions under it are the same in each case:
 
 | Feature | Package | Extra |
 |---|---|---|
-| `fluid forge` with an API-key provider, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup`, the `fluid init` hand-off to AI, `--agent-loop` (*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--agent-loop` is removed) | `litellm` | `litellm`, its alias `ai`, or `standard` |
-| `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide`, `mcp-sampling` (*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `mcp-sampling` is removed) (it runs inside `fluid mcp serve`) | `mcp` | `mcp`, or `standard` |
+| `fluid forge` with an API-key provider, `fluid forge data-model` with an API-key provider (`--llm-provider openai|anthropic|gemini|ollama`), `fluid ai setup`, the `fluid init` hand-off to AI, `--agent-loop` (*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--agent-loop` is removed) | `litellm` | `litellm`, its alias `ai`, or `standard` |
+| `fluid mcp serve`, `fluid mcp output-port serve`, `fluid scaffold-ide`, `mcp-sampling` (*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `mcp-sampling` is removed) (it runs inside `fluid mcp serve`) | `mcp` | `mcp`, or `standard` |
 | Lineage events when `OPENLINEAGE_URL` is set | `openlineage-python` | `lineage` |
 
 The `litellm`, `mcp` and `lineage` rows above describe a base install. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))*

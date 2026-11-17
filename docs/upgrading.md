@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.30.1, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.31.0, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -123,11 +123,10 @@ when they apply.
 | `0.27.x` | [Changes in 0.28.0](#changes-in-0-28-0) |
 | `0.28.x` | [Changes in 0.29.0](#changes-in-0-29-0) |
 | `0.29.x` | [Changes in 0.30.0](#changes-in-0-30-0) |
-| `0.30.0` | [Changes in 0.30.1](#changes-in-0-30-1) |
+| `0.30.0` | [Changes in 0.30.1](#changes-in-0-30-1) and [Changes in 0.31.0](#changes-in-0-31-0) |
+| `0.30.1` | [Changes in 0.31.0](#changes-in-0-31-0) |
 | Anything before `0.24.0`, if you read forge's ODCS or ODPS output | [Read this first if you consume the exported artifacts](#read-this-first-if-you-consume-the-exported-artifacts) (`0.23.0` and `0.24.0`) |
 | Anything before `0.23.0`, and any DuckDB upgrade | [DuckDB 1.x to 2.x](#duckdb-1-x-to-2-x) (`0.22.0` and `0.23.0`) |
-
-What is not in any release yet is under [Not in a release yet](#not-in-a-release-yet).
 
 ## Read this first if you consume the exported artifacts
 
@@ -1124,9 +1123,11 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 |---|---|---|
 | `fluid validate --strict` no longer fails a dbt-built Databricks product that describes its tables. `0.30.0` warned on every Databricks expose a dbt build writes when the contract has a table or column description, because dbt's `CREATE OR REPLACE` sets the comments and `fluid apply` sets none. `--strict` turned that warning into an error, so stage 2 of the generated pipelines (`VALIDATE_STRICT` defaults to true) failed for every such product. The message is now a note with the same text | Upgrade to `0.30.1`, not `0.30.0` | `fluid validate --strict` passes. The note is under "Validation Notes:", `--format json` lists it under `notes`, and a bundle reports it as an `info` issue |
 
-## Not in a release yet
+## Changes in 0.31.0
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).*
+These changes are in 0.31.0. Several remove a command, flag, tool or variable: read them before you upgrade a pipeline.
+
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))*
 
 - **`fluid mcp output-port serve --transport http` speaks MCP Streamable HTTP at `/mcp`. The HTTP+SSE endpoints `/sse` and `/messages/` are gone.** The MCP specification deprecated HTTP+SSE in its 2025-03-26 revision. Point each client at `http://<host>:<port>/mcp` and set its transport to Streamable HTTP, `--transport http` in `claude mcp add` for example. A client still set up for SSE fails: `/sse` answers 404 once a request passes auth, and at `/mcp` its `GET` gets 400 (`Missing session ID`). Behind the shipped proxy templates the URL becomes `https://<your domain>/mcp`, and their settings for streamed responses stay as they are.
 - **An MCP server without auth no longer listens beyond loopback.** A `--host` other than `127.0.0.0/8`, `::1` or `localhost` now stops at startup, with exit 2 and the fix, when auth is off: the default `shared-token` mode with no `FLUID_MCP_AUTH_TOKEN`, `jwt` without its three settings, or `FLUID_MCP_AUTH_MODE=none`. Up to 0.30.1 the output port warned and served. Off loopback, a shared token must also be at least 32 characters: `openssl rand -hex 32` makes one.
@@ -1134,47 +1135,47 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **A browser request from a page not served from this machine gets 403**, with or without auth: an `Origin` that is not `http` or `https` on a loopback host, `Origin: null` included. With auth off, the `Origin` must also be `127.0.0.1`, `localhost` or `[::1]` (or the bound address) with a port. Clients that are not browsers send no `Origin` header and are not affected.
 - **`fluid mcp serve` gains `--transport http`**, which serves the authoring tools the same way, by default at `http://127.0.0.1:8766/mcp`. stdio stays the default. See [Serve over HTTP](./cli/mcp.md#serve-over-http).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).*
+*(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))*
 
 - **`fluid validate --strict` fails on placeholder emails, starter-template values and TODO markers, on an SDP build that joins, and on an SDP that consumes a product whose type the workspace cannot read.** Each is a new warning, so `fluid validate` without `--strict` still passes. A CI job that runs `--strict`, stage 2 of a generated pipeline among them, now fails on a contract that still has an owner email at `example.com` or `company.com`, a `TODO`, or the values of an unedited template: a contract scaffolded from a template (`fluid init --quickstart`, `fluid init --template`, `fluid forge --template`) has a placeholder owner email until you edit it. Replace each value with the real one, or delete an optional key such as `metadata.owner.email`. See [Placeholders and starter values](./cli/validate.md#placeholders-and-starter-values) and [What an SDP does not do](./cli/validate.md#what-an-sdp-does-not-do).
 - **`fluid validate --format json` adds `issues`, with a code, a JSON pointer, a fix and an example for each finding.** It is there only when there is a finding, and `errors`, `warnings` and `notes` are unchanged. A bundle's `CONTRACT-RULE` findings gain `rule`, `pointer`, `fix`, `example` and `docs_url`. See [Finding codes and `issues`](./cli/validate.md#finding-codes-and-issues).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).*
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))*
 
-- **`fluid forge` AI mode runs on the four FLUID Agent Skills, and the embedded copilot is removed.** With a coding agent and a terminal, forge opens the agent in the workspace with the skills loaded; with no terminal, it drives Claude Code headless, and Codex, Cursor and Kiro take the one-call path. Without a coding agent, it makes one LLM call with the skills' text and sends `fluid validate --offline` errors back, for at most 3 attempts. AI mode no longer overwrites a contract: use `--refine` to change one. A run with no terminal needs `--context`, and `--forge-agent-mode` defaults to `agentic`. See [AI mode on forge-cli main](./cli/forge.md#ai-mode-on-forge-cli-main).
+- **`fluid forge` AI mode runs on the four FLUID Agent Skills, and the embedded copilot is removed.** With a coding agent and a terminal, forge opens the agent in the workspace with the skills loaded; with no terminal, it drives Claude Code headless, and Codex, Cursor and Kiro take the one-call path. Without a coding agent, it makes one LLM call with the skills' text and sends `fluid validate --offline` errors back, for at most 3 attempts. AI mode no longer overwrites a contract: use `--refine` to change one. A run with no terminal needs `--context`, and `--forge-agent-mode` defaults to `agentic`. See [AI mode in 0.31.0](./cli/forge.md#ai-mode-in-0-31-0).
 - **`fluid memory`, `fluid mission`, `fluid stats --judge`, `fluid init --agent`, `fluid init --show-work` and 30 `fluid forge` flags are removed.** A command that still passes one fails with exit 2. Take it out: [Removed flags](./cli/forge.md#removed-flags) lists each forge flag with what to use instead. `fluid forge --no-memory` is still accepted and ignored.
 - **`fluid mcp serve` loses five tools.** `forge_run`, `forge_from_source`, `score_contract_quality`, `enrich_contract_suggestions` and `search_semantic_memory` are removed, and so is `--llm-provider mcp-sampling`. Take them out of `--allow-tools` and `--deny-tools` lists and agent instructions. See [Authoring tools](./advanced/mcp.md#authoring-tools).
 - **The store's `postgres` and `vector` backends and the `[vector]` extra are removed.** `FLUID_STORE_BACKEND=postgres` or `vector` logs a warning and uses the file store, and `fluid doctor` asks you to unset it. Drop `[vector]` from install specs.
 - **Variables only the copilot read are ignored**, among them `FLUID_PROMPT_PROFILE`, `FLUID_PROMPT_OVERLAYS`, `FLUID_AGENT_WEB_TOOLS`, `FLUID_FORGE_AUTO_RESUME`, `FLUID_INTERVIEW_LEGACY` and `FLUID_LLM_FALLBACK_CHAIN`. [Environment variables](./advanced/environment-variables.md) marks each one.
 - **`fluid forge data-model` is unchanged.** Every subcommand and flag stays, `--tiered` and the routing-model flags included, and so does `fluid stats --json`. Command Center's `from-intent` path, with `--deterministic` or `--llm-provider`, runs on them as before.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).*
+*(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))*
 
 - **`fluid mcp serve` reads source catalogs with one tool, `source_catalog`, and serves 7 tools.** `list_source_adapters`, `list_source_tables`, `inspect_source_table`, `list_source_lineage` and `list_source_glossary` are now `source_catalog` with `kind` set to `adapters`, `tables`, `table`, `lineage` or `glossary`. The other arguments keep their names, and no alias keeps the old tool names: rename the calls in agent instructions and scripts. Every result names its `kind`, and a `table` or `lineage` result now sits under it, as in `{"kind": "table", "table": {...}}`. A result is `concise` unless the call asks for `"response_format": "detailed"`, which returns every field, as the five tools did. See [`source_catalog`](./advanced/mcp.md#source-catalog).
 - **An unknown tool name in `--allow-tools` or `--deny-tools` stops `fluid mcp serve` with exit 2.** A name that is not a tool now fails at startup: a typo, one of the five tools, or a tool that [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881) removed. In 0.30.1 those tools were still served, and a typo was ignored. Replace the five names with `source_catalog`. An IDE config that an older `fluid scaffold-ide` wrote lists the five old tools under `autoApprove`, so the client does not auto-approve `source_catalog`: add it to the list by hand, or run `fluid scaffold-ide --force`, which writes the scaffold's files again over any edits. See [Access controls](./cli/mcp.md#access-controls).
 - **A result estimated at more than 6,000 tokens comes back as a resource.** The call returns a short envelope and a `resource_link` to `fluid://artifacts/<id>`, which the client reads with `resources/read`. Over stdio the envelope also names a file holding the same JSON. A client that reads only a result's text sees the envelope where it used to see the result. `FLUID_MCP_INLINE_TOKEN_LIMIT=0` keeps every result inline. See [Large results](./advanced/mcp.md#large-results).
 - **A catalog listing with a scope now works through an MCP client.** On MCP SDK 2.x, `list_source_tables` (now `source_catalog` with `kind` set to `tables`) and a scoped `list_source_glossary` failed with `Error executing tool` for an ordinary scope such as `{"database": "DB", "schema": "SALES"}`: the server sent the scope's unset `tables` back as `null`. Unset fields are now left out.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887)).*
+*(since 0.31.0, [forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887))*
 
 - **An unknown tool name in `--allow-tools` or `--deny-tools` stops `fluid mcp output-port serve` with exit 2.** The check runs before either transport binds, as it does for `fluid mcp serve`. In 0.30.1 a mistyped name was accepted: a deny list denied nothing and the tool stayed callable, and a mistyped allow list served fewer tools without a word. The tools are `describe`, `query`, `query_sql` and `sample`, and matching is exact and case-sensitive. Fix the name in the launcher script or IDE config that starts the gateway. See [`serve` flags](./cli/mcp.md#serve-flags).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #888](https://github.com/Agenticstiger/forge-cli/pull/888)).*
+*(since 0.31.0, [forge-cli #888](https://github.com/Agenticstiger/forge-cli/pull/888))*
 
 - **`FLUID_TELEMETRY`, `DO_NOT_TRACK` and `telemetry.enabled` in `~/.fluid/config.yaml` do nothing.** The UX telemetry and its consent are removed, and nothing emits the `forge.invocation` span fields. `fluid doctor --env` no longer lists the two variables or prints the telemetry line, and `fluid doctor --env --json` is `{"env": [...]}` without the `telemetry` key. A script that reads that key gets nothing: stop reading it.
 - **`FLUID_COPILOT_AGENT_LOOP` no longer stops forge from picking a saved or detected coding agent.** The variable does nothing, like `FLUID_COPILOT_FORCE_INTERVIEW`, `FLUID_COPILOT_JUDGE`, `FLUID_COPILOT_SELF_EVAL` and `FLUID_COPILOT_SEMANTIC_MEMORY`, which nothing reads either. Drop all of them from env files and CI settings.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).*
+*(since 0.31.0, [forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891))*
 
 - **A contract that pins `sovereignty.jurisdiction` starts `fluid mcp output-port serve --transport http` only with JWT auth that maps a claim to `jurisdiction`.** In 0.30.1 it also started under `shared-token`, under `jwt` without its issuer, audience or JWKS URL, and under a `FLUID_MCP_JWT_CLAIM_MAPPING` that maps the claim away, then denied every call as `missing-caller-jurisdiction`. Each now exits 2 before it listens and says why. Such a gateway answered no call, so nothing that worked stops working: switch it to `FLUID_MCP_AUTH_MODE=jwt`, or set `sovereignty.crossBorderTransfer: true` if the data may leave. See [Caller-jurisdiction enforcement](./advanced/mcp.md#caller-jurisdiction-enforcement-since-0-15-0).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906)).*
+*(since 0.31.0, [forge-cli #906](https://github.com/Agenticstiger/forge-cli/pull/906))*
 
 - **`fluid validate --strict` fails on two new warnings about dbt MetricFlow names**: a dimension with the name of an entity or another dimension of its expose, and a name that is a dimension of one expose and an entity of another, which `dbt parse` rejects whenever the project declares a metric. Rename one of the two. See [Names dbt MetricFlow holds once](./concepts/semantic-layer.md#names-dbt-metricflow-holds-once).
 - **A contract that `fluid forge data-model` writes with one expose per dataset gives each relationship's foreign entity to its `from` expose only.** Every expose used to get the foreign entity of every relationship, most of them on a column the expose does not have, and `fluid generate transformation` exported them to dbt. Forge the contract again, then generate its dbt project again.
 - **`fluid generate transformation` reads a `semantics` collection that is not a list as empty, with a warning**, where it stopped with a `TypeError`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).*
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))*
 
 - **BREAKING: `tofu` runs with an environment allowlist, not a copy of your environment.** `fluid apply`, `fluid plan --tofu`, `fluid diff`, `fluid verify --state-drift` and `fluid generate iac --validate` pass `tofu` the process basics, proxies and CA bundles, OpenTofu's settings by name plus `TF_TOKEN_*`, `TOFU_CLI_PATH` and `GITHUB_OUTPUT`, the credential families of the plugin (`AWS_`, `GOOGLE_`, `SNOWFLAKE_`, `DATABRICKS_` and the others), and the cloud of the state backend and of the encryption key. `TF_CLI_ARGS*`, `TF_VAR_*`, `TF_ENCRYPTION`, `TF_INPUT` and `TF_REATTACH_PROVIDERS` no longer pass, and neither do model keys such as `GOOGLE_API_KEY` or `AZURE_OPENAI_API_KEY`. A job that set one of them to change what `tofu` does stops doing so: a `tofu_env_dropped` warning names the variables. An IaC plugin that lives outside forge declares what its provider reads in `credential_env_vars` and `credential_env_prefixes`. See [What `tofu` gets from the environment](./cli/apply.md#what-tofu-gets-from-the-environment).
 - **BREAKING: `PipelineConfig.oidc_provider` and `generate_pipeline_template(oidc_provider=)` are replaced by `cloud_auth`.** No CLI flag ever set them, so their OIDC steps never reached a generated pipeline, and the Azure login step went with them. Code that calls the library passes `cloud_auth`, a tuple of `aws`, `gcp`, `snowflake`, `databricks` and `openbao`, which `fluid generate ci` fills from the contract. See [Keyless cloud login](./advanced/operating-in-ci.md#keyless-cloud-login).
@@ -1182,40 +1183,40 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **New, opt-in: `FLUID_STATE_ENCRYPTION` encrypts the OpenTofu state and saved plan.** Nothing changes until you set it, and it needs OpenTofu 1.13 or newer. See [State and plan encryption](./cli/apply.md#state-and-plan-encryption).
 - **New: generated GitHub Actions and GitLab pipelines log in to the cloud with OIDC**, and Snowflake accepts workload identity federation. Regenerate a committed pipeline with `fluid generate ci` and create the cloud-side trust its header lists. See [Keyless cloud login](./advanced/operating-in-ci.md#keyless-cloud-login) and [Workload identity federation](./providers/snowflake.md#workload-identity-federation).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925), [forge-cli #946](https://github.com/Agenticstiger/forge-cli/pull/946), [forge-cli #949](https://github.com/Agenticstiger/forge-cli/pull/949)).*
+*(since 0.31.0, [forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925), [forge-cli #946](https://github.com/Agenticstiger/forge-cli/pull/946), [forge-cli #949](https://github.com/Agenticstiger/forge-cli/pull/949))*
 
 - **`fluid profile` is a new command.** It reads one expose's records where they live and writes a FLUX profile document of output-checked aggregates, which a Simulation pins by digest. It reads every value and forms every statistic with `flux-stats`, the registry FLUX's fidelity check uses. Nothing that exists changes. The `[profile]` extra adds DuckDB and flux-stats (`>=0.6.0,<0.7`) from PyPI; `fluid profile` says what to install when flux-stats is missing. See [`fluid profile`](./cli/profile.md).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #951](https://github.com/Agenticstiger/forge-cli/pull/951)).*
+*(since 0.31.0, [forge-cli #951](https://github.com/Agenticstiger/forge-cli/pull/951))*
 
 - **`fluid profile` writes FLUX's `mean/1` statistic for each number column**, so a run checked against the profile can pass `fluxsim verify` and `fluxsim ship`. A profile you wrote before keeps its digest. Written again, it carries `mean/1` and gets a new digest, so pin the new one. `--fractional-bits` sets the grid, 16 by default, and it must equal the fidelity block's `encoding.fractionalBits`. See [The `mean/1` statistic](./cli/profile.md#the-mean-1-statistic).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911)).*
+*(since 0.31.0, [forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911))*
 
 - **0.7.7 (preview) contracts can state rules about valid data, and `fluid validate` checks them.** `exposes[].contract.invariants[]` holds checks, derived columns and dependencies, written in FLUID SQL/1. Columns gain `identifierFormat`, `placeholders` and `sharedAttribute`, and relationships gain `sharedColumns`. Every field is optional. A 0.7.7 contract that uses none of them gets no new errors, though it may get notes, which `--strict` never counts. See [Rules about valid data](./concepts/data-rules.md).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917)).*
+*(since 0.31.0, [forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917))*
 
-- **`fluid ship` runs the 11-stage pipeline in place of the four-stage macro.** It bundles, validates, generates and validates artifacts, checks drift, plans, applies the reviewed `runtime/plan.json` against `runtime/bundle.tgz`, applies policy and verifies; `--publish` and `--schedule-sync` add stages 10 and 11. A script that runs `fluid ship` now also runs `diff`, `policy-apply` and `verify`, so a drifted target or a failed verify stops it. See [The 11-stage runner on forge-cli main](./cli/ship.md#the-11-stage-runner-on-forge-cli-main).
+- **`fluid ship` runs the 11-stage pipeline in place of the four-stage macro.** It bundles, validates, generates and validates artifacts, checks drift, plans, applies the reviewed `runtime/plan.json` against `runtime/bundle.tgz`, applies policy and verifies; `--publish` and `--schedule-sync` add stages 10 and 11. A script that runs `fluid ship` now also runs `diff`, `policy-apply` and `verify`, so a drifted target or a failed verify stops it. See [The 11-stage runner in 0.31.0](./cli/ship.md#the-11-stage-runner-in-0-31-0).
 - **`validate` and `validate-artifacts` run with `--strict` by default.** A contract with a warning, a placeholder owner email among them, now stops at stage 2. `--no-strict` drops it.
 - **`--skip-plan` is removed and exits 2; `--skip-bundle` is accepted and ignored.** Use `--stage` or `--until` to run part of the pipeline.
 - **The exit status is ship's own**: 0 passed, 1 a stage failed, 2 ship refused its arguments, 3 a stage failed after apply changed something, 130 interrupted. Through 0.30.1 ship exited with the failing stage's code, which is now in `runtime/ship-report.json`.
 - **Ship refuses before anything is written**, with exit 2: an environment name a stage would refuse (it must start with a letter, at most 64 characters), a contract that is missing, symlinked or under a system path, and an unknown stage.
 - **A contract outside the current directory runs in its own directory**, so `runtime/` and `dist/` land beside it.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #928](https://github.com/Agenticstiger/forge-cli/pull/928)).*
+*(since 0.31.0, [forge-cli #928](https://github.com/Agenticstiger/forge-cli/pull/928))*
 
 - **The templates and scaffolds write no stand-in owner email.** The templates bundled for `fluid init` carry none, and `fluid init`, `fluid market --instantiate`, `fluid forge --template`, `fluid product-new` and `fluid import` leave `metadata.owner.email` out rather than write one (`--owner-email` gives one to `fluid init --blueprint` and `--discover`). `fluid init --template csv-basics` and the `fluid market` blueprints' default no longer write the starter team `data-team`. A contract you scaffolded before keeps its placeholder: replace it with the team's real address, or delete it, before `fluid validate --strict`, `fluid ship` or a generated pipeline's stage 2.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #929](https://github.com/Agenticstiger/forge-cli/pull/929)).*
+*(since 0.31.0, [forge-cli #929](https://github.com/Agenticstiger/forge-cli/pull/929))*
 
 - **`fluid ship` reads the generated pipelines' switches and stage knobs.** A `RUN_STAGE_<N>_<NAME>=false` in the environment switches that stage off, `--stage` included, and `VALIDATE_STRICT`, `VERIFY_STRICT`, `GENERATE_EMIT`, `DIFF_EXIT_ON_DRIFT`, `DIFF_LAST_APPLIED`, `PLAN_HTML` and `POLICY_APPLY_MODE` reach their stage. A job that exports one of them for another tool now changes what ship runs: unset it in that step (for a knob, its flag also beats the variable). After a dry-run apply, stage 8 checks the bindings only when stage 7 is in the pipeline; without it, stage 8 enforces them. See [Stage switches and knobs](./cli/ship.md#stage-switches-and-knobs).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #941](https://github.com/Agenticstiger/forge-cli/pull/941)).*
+*(since 0.31.0, [forge-cli #941](https://github.com/Agenticstiger/forge-cli/pull/941))*
 
 - **`fluid scaffold-ci` and `fluid generate-pipeline` are removed.** Both exit 2 as unknown commands. Run `fluid generate ci --system <system>` instead (`github`, `gitlab`, `jenkins`, `azure`, `bitbucket`, `circleci` or `tekton`). A script or CI job that calls either one needs the change; `fluid forge --ci <provider>` still writes CI files.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).*
+*(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))*
 
 - **`fluid generate ci --complexity` exits 2.** One pipeline shape replaces the four tiers. Drop the flag from scripts and add what the advanced and enterprise tiers carried with `--add security`, `--add compliance` and `--add sbom` (repeatable). See [`fluid generate ci`](./cli/generate.md#fluid-generate-ci).
 - **GitHub Actions: the file is `.github/workflows/fluid-pipeline.yml`.** It replaces `fluid-basic.yml`, `fluid-standard.yml`, `fluid-advanced.yml` and `fluid-enterprise.yml`. The old tier files and the old `security.yml` and `compliance.yml` still run until you delete them. `fluid generate ci` and `fluid forge` name each one they find and do not delete it.
@@ -1226,7 +1227,7 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **New: `--default-branch BRANCH` names the branch whose pushes apply.** The default is the remote's default branch (`origin/HEAD`), else `main`; GitLab CI reads its own `$CI_DEFAULT_BRANCH`. A pull request or merge request against it, or a manual run on another branch, runs stages 1 to 6 only.
 - **`fluid ship` stage 11 writes `runtime/schedule-sync-report.json` when it runs.** See [Stage switches and knobs](./cli/ship.md#stage-switches-and-knobs).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #897](https://github.com/Agenticstiger/forge-cli/pull/897), [forge-cli #900](https://github.com/Agenticstiger/forge-cli/pull/900), [forge-cli #907](https://github.com/Agenticstiger/forge-cli/pull/907)).*
+*(since 0.31.0, [forge-cli #897](https://github.com/Agenticstiger/forge-cli/pull/897), [forge-cli #900](https://github.com/Agenticstiger/forge-cli/pull/900), [forge-cli #907](https://github.com/Agenticstiger/forge-cli/pull/907))*
 
 - **BREAKING: three kinds of AWS contract that used to be accepted are refused.** Run `fluid validate` on each AWS contract before you upgrade, because the same checks run at `fluid generate iac` and `fluid apply`.
   - A row filter or a column restriction whose principal also holds a grant that could undo it. `row-filter-unenforceable` or `column-restriction-unenforceable` names the grant. The causes: `SELECT` or `ALL` in `permissionsWithGrantOption` for a filtered role, a read grant to `IAM_ALLOWED_PRINCIPALS`, to the filtered role's account or `:root` ARN, or to an organization, two filters on one role, and a second grant for the same role in another spelling beside a column limit. Principals are compared by IAM identity: the path is dropped and the name is read in lower case. See [Who a grant, a row filter and a column restriction name](./providers/aws.md#who-a-grant-a-row-filter-and-a-column-restriction-name).
@@ -1234,38 +1235,38 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
   - `governance.lakeFormation.admins` is refused in every contract, and `tagDefinitions` unless the contract declares `packaging.containers.lfTagVocabulary: isolated`. Move the admins to your platform's bootstrap state. A product's state used to own the account's Lake Formation settings, and destroying the product left the account with no Lake Formation admin. A product whose state already holds `aws_lakeformation_data_lake_settings` needs care: with `admins` removed, the next apply plans to destroy that resource, which empties the account's admin list. The [data-loss gate](./cli/apply.md#opentofu-data-loss-gate) stops it, because the type is not one of the access grants it exempts. Put the admins in your platform's state first, and then release the resource from the product's state with `tofu -chdir=.fluid/iac/aws/<safe-id> state rm <address>`, as [Packaging modes](./cli/apply.md#packaging-modes) shows for another resource, rather than passing `--allow-data-loss`. See [Account-wide Lake Formation objects](./providers/aws.md#account-wide-lake-formation-objects).
   - Every data cells filter now writes `excluded_column_names`, so a filter that only restricts rows applies on real AWS, where it failed with `Provider produced inconsistent result after apply`. A masked view is built only for a grant that reads, so the later `<table>_masked_N` names of a contract that had a `DESCRIBE`-only grant renumber, and the next apply changes them in state.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).*
+*(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))*
 
 - **New, opt-in: `fluid plan --tofu` saves the OpenTofu plan, and `fluid apply plan.json` runs exactly that plan.** Nothing changes until a pipeline passes `--tofu`. A pipeline that does needs a remote state both jobs share, protected plan artifacts, and a plan role that can write the state and its lock. See [Saving the OpenTofu plan](./cli/plan.md#saving-the-opentofu-plan-tofu) and [The OpenTofu plan is what gets approved](./advanced/operating-in-ci.md#the-opentofu-plan-is-what-gets-approved).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).*
+*(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))*
 
 - **The OpenTofu floor is 1.12.0, and `--ensure-opentofu` installs 1.13.9.** A runner with `tofu` 1.6 to 1.11 stops with `tofu X.Y.Z is older than the required minimum 1.12.0`. Upgrade the runner image, or run `fluid apply --ensure-opentofu`, which now replaces an older `tofu`. On 1.11, adding retention to a live GCP table plans an in-place update that BigQuery refuses. The generated module declares `required_version = ">= 1.12"`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901)).*
+*(since 0.31.0, [forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901))*
 
 - **`--state-backend s3://<bucket>/<key>?region=<region>` names the state bucket's region.** Only that exact tail is read as a region, so no existing key changes. After a state move to the provider key, the summary prints the commands that remove the old state object and its lock; forge never deletes state. See [Remote state](./cli/apply.md#remote-state).
 - **The Snowflake provider pin moves from `~> 2.0` to `~> 2.23`.** 2.23 adds the `token_file_path` field. The next `tofu init` takes a provider of 2.23 or newer.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #915](https://github.com/Agenticstiger/forge-cli/pull/915)).*
+*(since 0.31.0, [forge-cli #915](https://github.com/Agenticstiger/forge-cli/pull/915))*
 
 - **A new Glue Iceberg table gets its first metadata from Glue, and an existing table is never replaced.** A table that an earlier release created has no metadata, so Athena still refuses it until you replace it. See [Iceberg tables in Glue](./providers/aws.md#iceberg-tables-in-glue) for the check and the two ways to replace one that is empty.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #910](https://github.com/Agenticstiger/forge-cli/pull/910), [forge-cli #921](https://github.com/Agenticstiger/forge-cli/pull/921)).*
+*(since 0.31.0, [forge-cli #910](https://github.com/Agenticstiger/forge-cli/pull/910), [forge-cli #921](https://github.com/Agenticstiger/forge-cli/pull/921))*
 
 - **The ODCS export mirrors `dq.rules` thresholds.** A FLUID threshold is the share of rows that pass, and ODCS `nullValues`, `duplicateValues` and `invalidValues` count rows that fail. Through 0.30.1 the threshold was copied across, so `threshold: 1.0` with `>=` came out as "at least one null". A full share is `mustBe: 0`, a partial completeness share is the null share as a percentage, `valid_values` is `mustBe: 0`, and a partial uniqueness share is not exported. A rule now lands on the columns it checks. Re-export every contract and re-publish the ones a catalog or a quality engine reads. See [Quality rules in the export](./cli/odcs.md#quality-rules-in-the-export).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #908](https://github.com/Agenticstiger/forge-cli/pull/908), [forge-cli #914](https://github.com/Agenticstiger/forge-cli/pull/914), [forge-cli #916](https://github.com/Agenticstiger/forge-cli/pull/916), [forge-cli #920](https://github.com/Agenticstiger/forge-cli/pull/920)).*
+*(since 0.31.0, [forge-cli #908](https://github.com/Agenticstiger/forge-cli/pull/908), [forge-cli #914](https://github.com/Agenticstiger/forge-cli/pull/914), [forge-cli #916](https://github.com/Agenticstiger/forge-cli/pull/916), [forge-cli #920](https://github.com/Agenticstiger/forge-cli/pull/920))*
 
 - **Both Data Mesh Manager publish paths send lineage Entropy draws, retire stale contracts and send the archetype.** Publish again to get the product-to-product and source-system edges, the archetype, and the retirement of contracts no port names any more. Retired contracts are never deleted.
 - **A product with an upper-case letter in its id is published under a lower-case id by both paths.** The registrar used the id as written. After the first publish the old product stays in Entropy until you delete it there.
 - **`fluid publish --target datamesh-manager` refuses plain http to a non-local host** unless `DMM_ALLOW_INSECURE_HTTP=true`, and warns about settings it does not use. See [`fluid datamesh-manager`](./cli/datamesh-manager.md#odps-lineage-and-access-agreements).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).*
+*(since 0.31.0, [forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923))*
 
 - **One renderer writes every Airflow DAG a contract's `orchestration` section describes.** A DAG id drops `.` and `-` for AWS too, a bare-word schedule such as `daily` is the Airflow keyword for AWS (00:00, where it ran at 02:00), a task with no operator fails closed for every provider, and a value that did not resolve is refused, where it used to render `my-project` or `UNKNOWN_DB`. Regenerate and review each committed DAG. `fluid generate-airflow` is an alias of `fluid generate schedule --scheduler airflow`, and must run from the project directory for a contract with scheduled builds. See [`fluid generate-airflow`](./cli/generate-airflow.md#what-it-writes).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902), [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903), [forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #932](https://github.com/Agenticstiger/forge-cli/pull/932), [forge-cli #936](https://github.com/Agenticstiger/forge-cli/pull/936), [forge-cli #938](https://github.com/Agenticstiger/forge-cli/pull/938), [forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939), [forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950)).*
+*(since 0.31.0, [forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902), [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903), [forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #913](https://github.com/Agenticstiger/forge-cli/pull/913), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #932](https://github.com/Agenticstiger/forge-cli/pull/932), [forge-cli #936](https://github.com/Agenticstiger/forge-cli/pull/936), [forge-cli #938](https://github.com/Agenticstiger/forge-cli/pull/938), [forge-cli #939](https://github.com/Agenticstiger/forge-cli/pull/939), [forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950))*
 
 - **New, opt-in, 0.7.7 preview: Spark to Iceberg on AWS and the schema registry.** `fluid apply` starts a Spark build's run and keeps a streaming one running; a scheduled one runs through `fluid apply --mode amend-and-build --build-id <id>`, as every scheduled build does. There is no `fluid spark` command. A contract that uses none of the new fields is unaffected. `fluid plan` checks a consumed topic against its registry, and `fluid generate iac` registers a produced one, only where the contract names a registry. See [Spark to Iceberg on AWS](./advanced/spark-iceberg-aws.md), [Scheduled Spark builds](./advanced/airflow.md#scheduled-spark-builds), [Schema registry](./advanced/schema-registry.md) and [`fluid import schema-registry`](./cli/import.md#importing-a-schema-registry-subject).
 - **A running Glue Avro stream restarts once** on the release that adds the pinned jars to its config hash. Plan and apply need the same `FLUID_SPARK_GLUE_JARS_URL`.

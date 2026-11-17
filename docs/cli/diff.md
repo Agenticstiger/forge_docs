@@ -149,7 +149,7 @@ It needs the state the apply used:
 
 While the one-time move to the per-provider state key is pending after an upgrade, `diff` reads the old key and leaves it where it is. When there is no state to read, the pass reports `not_checked` with the reason, as in the output above, and the live checks are the only answer. `--no-state-drift` skips the pass. A pass that ran ends with a line about what a state read cannot see, such as what the build writes into the containers and the shared containers the contract only references; the live readers cover those where forge has one.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* With `FLUID_STATE_ENCRYPTION` set, the refresh reads the encrypted state with the same key as the apply, and a refusal (a plaintext state, a wrong key) is reported with its fix. See [State and plan encryption](./apply.md#state-and-plan-encryption).
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* With `FLUID_STATE_ENCRYPTION` set, the refresh reads the encrypted state with the same key as the apply, and a refusal (a plaintext state, a wrong key) is reported with its fix. See [State and plan encryption](./apply.md#state-and-plan-encryption).
 
 ### A saved report (`--state`)
 

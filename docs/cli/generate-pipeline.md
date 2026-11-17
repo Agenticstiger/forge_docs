@@ -1,7 +1,7 @@
 # `fluid generate-pipeline`
 
-::: danger Removed on forge-cli main
-*On forge-cli `main`, not yet in a release ([forge-cli #941](https://github.com/Agenticstiger/forge-cli/pull/941)).* `fluid generate-pipeline` is removed: it exits 2 as an unknown command. Use [`fluid generate ci --system <system>`](./generate.md#fluid-generate-ci). This page describes 0.30.1 and earlier.
+::: danger Removed in 0.31.0
+*(since 0.31.0, [forge-cli #941](https://github.com/Agenticstiger/forge-cli/pull/941))* `fluid generate-pipeline` is removed: it exits 2 as an unknown command. Use [`fluid generate ci --system <system>`](./generate.md#fluid-generate-ci). This page describes 0.30.1 and earlier.
 :::
 
 Generate a CI/CD pipeline configuration tailored to a chosen provider, complexity level, and environment list.
@@ -24,7 +24,7 @@ fluid generate ci --system jenkins --out Jenkinsfile
 fluid generate ci --system gitlab --complexity enterprise
 ```
 
-The last line is 0.30.1. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* `--complexity` exits 2 on `main`. The same extra jobs come from `--add`:
+The last line is 0.30.1. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* `--complexity` exits 2 in 0.31.0. The same extra jobs come from `--add`:
 
 ```bash
 fluid generate ci --system gitlab --add security --add compliance --add sbom

@@ -56,7 +56,7 @@ selects the catalog adapter; `--credential-id` points at a row in
 
 ### 2. MCP: `forge_from_source`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The `forge_from_source` MCP tool is removed; to build a contract from a catalog, use `fluid forge data-model from-source`. `fluid mcp serve` still reads catalogs. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* It does so with one tool, `source_catalog`, in place of `list_source_adapters`, `list_source_tables`, `inspect_source_table`, `list_source_glossary` and `list_source_lineage`; see [`source_catalog`](../../advanced/mcp.md#source-catalog).
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The `forge_from_source` MCP tool is removed; to build a contract from a catalog, use `fluid forge data-model from-source`. `fluid mcp serve` still reads catalogs. *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* It does so with one tool, `source_catalog`, in place of `list_source_adapters`, `list_source_tables`, `inspect_source_table`, `list_source_glossary` and `list_source_lineage`; see [`source_catalog`](../../advanced/mcp.md#source-catalog).
 
 ```jsonc
 // .mcp.json (Claude Code, Cursor, any MCP client)
@@ -76,7 +76,7 @@ Then tell the agent:
 > `snowflake-prod`. Save the contract to `biz_lab.fluid.yaml`.
 
 The agent calls the MCP `forge_from_source` tool; same pipeline,
-same output. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed: the agent reads the catalog over MCP, or runs `fluid forge data-model from-source`.
+same output. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `forge_from_source` is removed: the agent reads the catalog over MCP, or runs `fluid forge data-model from-source`.
 
 ## Setup wizard: `fluid ai setup --source CATALOG --name NAME`
 
@@ -109,7 +109,7 @@ secret-service); only non-sensitive fields land on disk.
    escalating "list tables" into "dump customer PII."
 3. **Audited.** Every catalog tool call writes an audit event via
    `~/.fluid/store/audit/`. Credentials are scrubbed before write.
-   Use `fluid memory show audit` to query. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid memory` is removed; read the audit files in that directory instead.
+   Use `fluid memory show audit` to query. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `fluid memory` is removed; read the audit files in that directory instead.
 
 ## Auto-detection: `fluid ai status` lists what you have
 
@@ -125,7 +125,7 @@ When you run `fluid forge` without `--source`, AI mode's interview
 auto-suggests the configured source — same UX as `fluid ai setup`
 auto-discovering provider env vars.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The AI mode interview is removed. A coding agent now runs forge's AI mode with the FLUID skills, and asks its own follow-up questions.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The AI mode interview is removed. A coding agent now runs forge's AI mode with the FLUID skills, and asks its own follow-up questions.
 
 ## Error model
 
