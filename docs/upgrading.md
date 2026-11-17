@@ -1182,9 +1182,9 @@ See [Sovereignty gate](./cli/plan.md#sovereignty-gate-since-0-15-0).
 - **New, opt-in: `FLUID_STATE_ENCRYPTION` encrypts the OpenTofu state and saved plan.** Nothing changes until you set it, and it needs OpenTofu 1.13 or newer. See [State and plan encryption](./cli/apply.md#state-and-plan-encryption).
 - **New: generated GitHub Actions and GitLab pipelines log in to the cloud with OIDC**, and Snowflake accepts workload identity federation. Regenerate a committed pipeline with `fluid generate ci` and create the cloud-side trust its header lists. See [Keyless cloud login](./advanced/operating-in-ci.md#keyless-cloud-login) and [Workload identity federation](./providers/snowflake.md#workload-identity-federation).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909)).*
+*On forge-cli `main`, not yet in a release ([forge-cli #909](https://github.com/Agenticstiger/forge-cli/pull/909), [forge-cli #925](https://github.com/Agenticstiger/forge-cli/pull/925)).*
 
-- **`fluid profile` is a new command, and it does not profile yet.** It reads one expose's records where they live and writes a FLUX profile document of output-checked aggregates, which a Simulation pins by digest. It forms every statistic with `flux-stats`, which is not published yet, so for now it stops before it reads anything. Nothing that exists changes. The `[profile]` extra adds DuckDB. See [`fluid profile`](./cli/profile.md).
+- **`fluid profile` is a new command.** It reads one expose's records where they live and writes a FLUX profile document of output-checked aggregates, which a Simulation pins by digest. It reads every value and forms every statistic with `flux-stats`, the registry FLUX's fidelity check uses. Nothing that exists changes. The `[profile]` extra adds DuckDB and flux-stats. Until flux-stats is on PyPI, `main` installs it from the flux-engine repository by git, so a release that includes `fluid profile` waits for the flux-stats release. See [`fluid profile`](./cli/profile.md).
 
 *On forge-cli `main`, not yet in a release ([forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911)).*
 
