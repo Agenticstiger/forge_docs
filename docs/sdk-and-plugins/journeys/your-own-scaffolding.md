@@ -176,7 +176,7 @@ keywords = [
 
 dependencies = [
     "pydantic>=2.0",
-    "data-product-forge==0.29.0",
+    "data-product-forge==0.31.0",
 ]
 
 [project.optional-dependencies]

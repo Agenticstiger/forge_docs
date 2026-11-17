@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.29.0                                                              │
+│ Version: 0.31.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.29.0"
+pip install "data-product-forge[local]==0.31.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.29.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.31.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
