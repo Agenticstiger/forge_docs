@@ -323,7 +323,7 @@ A column in a `fluidVersion: "0.7.7"` contract can declare what it holds: `eleme
 {"description": "", "fields": [{"description": "", "mode": "REQUIRED", "name": "sku", "type": "STRING"}, {"description": "", "mode": "NULLABLE", "name": "qty", "type": "INT64"}], "mode": "REPEATED", "name": "items", "type": "RECORD"}
 ```
 
-The Glue emitter reads the same declarations through the same parser, so a declaration is accepted or refused alike on both clouds.
+The Glue emitter reads the shape of a declaration through the same parser, so a malformed shape, such as a map key that is not a required string, is refused on both clouds. The limits below are BigQuery's own: Glue accepts an array of arrays, for example.
 
 **What BigQuery holds differently.** Three cases are written, but BigQuery cannot keep what the contract says, so `fluid validate` warns and `--strict` fails:
 
@@ -339,7 +339,7 @@ The Glue emitter reads the same declarations through the same parser, so a decla
 expose 'orders': column 'scores' is declared 'array', where scores may be NULL, which BigQuery stores as an empty array; and an element of scores may be NULL, which BigQuery cannot hold in an array; it is written as 'REPEATED INT64'. Set required: true on scores if it is never NULL. Set required: true on scores.element if no element is NULL.
 ```
 
-**What is refused**, naming the field: an array of arrays, a leaf type BigQuery cannot hold, and a column restriction on a RECORD column (BigQuery puts policy tags on leaf fields only). A bare `array`, `struct` or `map` is still refused; its fix now says to declare the shape (`element`, `fields`, or `key` and `value`), or to declare `json` or `string`.
+**What is refused**, naming the field: an array of arrays, a map whose `key` is not a required string, a struct nested more than 15 levels deep, a leaf type BigQuery cannot hold, and a column restriction on a RECORD column (BigQuery puts policy tags on leaf fields only). A bare `array`, `struct` or `map` is still refused; its fix now says to declare the shape (`element`, `fields`, or `key` and `value`), or to declare `json` or `string`.
 
 `fluid verify` compares a nested column with the type and mode `fluid apply` wrote, and `fluid diff` reads a map as it reads an array and every spelling of a struct (`struct`, `record`, `row`) as the RECORD BigQuery reports.
 

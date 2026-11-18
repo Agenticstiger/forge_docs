@@ -198,7 +198,7 @@ Ship removes the earlier `dist/artifacts/MANIFEST.json` before stage 3 runs. A f
 ```text
 stage 3 generate-artifacts: required artifact missing: schedule: stage 3 wrote no schedule file (orchestration.engine is none, or it is unset and no build has a schedule trigger)
 ERROR: stage 3 generate-artifacts failed (exit 1)
-Ship aborted at stage 3 generate-artifacts (it exited 0, but --require-artifacts was not met). After the fix, run the same command again; to go on from that stage with this bundle, use --stage 3-4.
+Ship aborted at stage 3 generate-artifacts (it exited 0, but --require-artifacts was not met). After the fix, run the same command again; to go on from that stage with this bundle, use --stage 3-9.
 ```
 
 A run that cannot meet the requirement is refused with exit `2` before stage 1, and `--explain` shows why:
@@ -233,7 +233,7 @@ releases/orders-1/
 └── reports/          ship-report.json, ship-junit.xml, and each stage's report
 ```
 
-A run that fails, or is interrupted, publishes nothing. Its reports stay in `runtime/` and in the staging directory, and `ship-report.json` names the stage that stopped it. `DIR` does not exist after a failed run. A release run first removes the stage reports in `runtime/`, so only this run's are published. A release run reads only local files: it opens no network connection of its own.
+A run that fails, or is interrupted, publishes nothing. Its reports stay in `runtime/` and in the staging directory, and `ship-report.json` names the stage that stopped it. `DIR` does not exist after a failed run. A release run first removes the stage reports in `runtime/`, so only this run's are published. The release directory holds the bundle but not its `.provenance.json` file; the bundle's `MANIFEST.json` and the release's `identity` do not need it. A release run reads only local files: it opens no network connection of its own.
 
 **Rules.** `DIR` must not exist, and stages 1 to 4 must run in the invocation. Otherwise ship refuses with exit `2`, and `--explain` says why:
 

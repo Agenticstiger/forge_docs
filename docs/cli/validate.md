@@ -557,7 +557,7 @@ A minor version only adds fields. `fluid_build.diagnostics.DiagnosticReport.from
 fluid validate contract.fluid.yaml --format sarif > validate.sarif
 ```
 
-`--format sarif` writes a SARIF 2.1.0 log, the format GitHub code scanning and other review tools read. It has one rule for each finding code, `%SRCROOT%`-relative locations, the related place as a related location, and a fingerprint (`partialFingerprints`) that does not move when the finding's line does. A contract that cannot be loaded still gets a log, with that failure in it (`ERR_CONTRACT_LOAD_FAILED`).
+`--format sarif` writes a SARIF 2.1.0 log, the format GitHub code scanning and other review tools read. It has one rule for each finding code, locations relative to the directory you run validate in (`%SRCROOT%`; run it from the repository root for code scanning), the related place as a related location, and a fingerprint (`partialFingerprints`) that does not move when the finding's line does. A contract that cannot be loaded still gets a log, with that failure in it (`ERR_CONTRACT_LOAD_FAILED`).
 
 ```text
 {"ruleId": "ERR_CONTRACT_SCHEMA_NO_VARIANT", "level": "error",
@@ -572,7 +572,7 @@ fluid validate contract.fluid.yaml --format sarif > validate.sarif
 
 The exit code is the one validate always had: `1` when the contract has an error, so the log and the gate come from one run.
 
-**Limits.** A workspace or bundle run refuses both flags with `diagnostics_scope_unsupported` (exit `1`): validate each contract file on its own. `--format sarif` also refuses `--list-versions` and `--show-schema`, whose text would end the log.
+**Limits.** A bundle, or a run with no contract argument inside a workspace, refuses both flags with `diagnostics_scope_unsupported` (exit `1`): validate each contract file on its own. `--format sarif` also refuses `--list-versions` and `--show-schema`, whose text would end the log.
 
 ## Finding codes and `issues`
 

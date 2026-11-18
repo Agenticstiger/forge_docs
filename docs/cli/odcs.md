@@ -144,7 +144,7 @@ This is the rule written for `gross_from_net`, a derived column, on a Snowflake 
     value: true
 ```
 
-The same contract bound to BigQuery quotes names with backticks and casts to `FLOAT64`, where Snowflake casts to `DOUBLE`.
+The same contract bound to BigQuery quotes names with backticks and casts to `BIGNUMERIC(38, 2)`, where Snowflake casts to `NUMBER(38, 2)`. A percent rule divides as `FLOAT64` on BigQuery and `DOUBLE` on Snowflake.
 
 **What has no exact SQL becomes a text rule.** A declaration on a platform with no dialect (a Redshift table, for example), a link to an expose whose binding names no table to quote, a link to another platform, and a declaration `fluid validate` refuses each become a `text` rule that says why, and the export logs a warning. Nothing is dropped or approximated.
 
@@ -154,7 +154,7 @@ gross is ROUND(net * (1 + tax_rate), 2). Not executable here: its binding is aws
 
 **Round trip.** Every generated rule carries `customProperties` `{property: fluidGenerated, value: true}`. The declarations also ride in `fluidExtras`, and an import that restores them from there drops the marked rules. So FLUID to ODCS to FLUID loses no declaration, a generated rule never comes back as a hand-written one, and a re-export is unchanged. With `ODCS_FLUID_EXTRAS=false` there is nothing to restore from, so the generated rules stay in an import as ordinary rules, and the text rules are the only record of what the export could not write as SQL.
 
-**Placeholders.** A placeholder value is exempt from the `invalidValues` rules the export already wrote: the placeholders join an enum's `validValues` and extend a regex rule's pattern, and an enum on a column that declares placeholder prefixes becomes a `sql` rule. The `invoice_id` pattern above, `^((INV[0-9]{5})|XXXXX|TBD_.*)$`, is an identifier format `INV` plus five digits, with the placeholders `XXXXX` and the prefix `TBD_`.
+**Placeholders.** A placeholder value is exempt from the `invalidValues` rules the export already wrote: the placeholders join an enum's `validValues` and extend a regex rule's pattern, and an enum on a column that declares placeholder prefixes becomes a `sql` rule. For example, a column with the identifier format `INV` plus five digits, the placeholder `XXXXX` and the placeholder prefix `TBD_` gets the pattern `^((INV[0-9]{5})|XXXXX|TBD_.*)$`.
 
 ## Notes
 
