@@ -1303,6 +1303,20 @@ These changes are in 0.32.0. Two change what a contract or a generated file look
 
 - **`fluid profile --bundle DIR` answers a Simulation's fidelity block.** The profile then carries the statistic each declared property is compared with, grouped means, histograms, supports and quantiles among them, so the engine scores every property but a correlation. Without `--bundle`, a profile holds what it held before. The `[profile]` extra needs flux-stats 0.6.2 or newer, which `pip install -U 'data-product-forge[profile]'` brings. See [Answering a fidelity block](./cli/profile.md#answering-a-fidelity-block-bundle).
 
+## Not in a release yet
+
+*On forge-cli `main`, not yet in a release ([forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965), [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967)).*
+
+- **`fluid profile --bundle` writes `C` for every withheld group and cell of a histogram or a quantile.** In 0.32.0 each kept the code of the check that withheld it, `A` for a small count, and a code that names the check tells a reader a range. Now `C` marks them all, whatever withheld them. The summary still counts each by its check, and a new line counts the histogram cells withheld inside groups that were published. Every other statistic keeps the code of its check. A profile you wrote before is unchanged and still reads. Profile again to get these checks, and pin the new digest. See [What leaves: the output checks](./cli/profile.md#what-leaves-the-output-checks).
+- **A quantile is published only when at least 10 records lie below its value and at least 10 lie above it.** In 0.32.0 a quantile was published when 10 records held its value, so its ranks could show that fewer than 10 records lie below it or above it. No record below or above counts as a zero, which `acro-default` withholds, so a quantile at the smallest or the largest value of its records is withheld. A column's `quantiles` metric is checked as before. See [The checks on each group](./cli/profile.md#the-checks-on-each-group).
+- **A quantile is published only as its column's one histogram or quantile.** A block that declares a median and a histogram of one column now gets the histogram and no median, and a block that declares two quantiles of one column gets neither. To keep a quantile, declare no other histogram or quantile on its column.
+- **A group withheld for its size withholds its siblings in a grouped histogram or quantile.** When a group of a `groupBy` holds fewer than 10 records with a value in a column, every group of that column's histograms and quantiles by that `groupBy` is withheld too, as the groups of a grouped mean and a grouped support already were. The summary counts a sibling that passed its own checks as `D`.
+- **The checks still leave one gap.** A reader can still subtract one histogram's published counts from another's, or from a level histogram's group size, and read a withheld cell, a zero included, to within the rounding. forge-cli plans to close that with FLUX's `check_edge_counts`, which a flux-stats release has to carry first, and to ship it before its next release. That would change what a bundle profile publishes again.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #978](https://github.com/Agenticstiger/forge-cli/pull/978)).*
+
+- **`fluid profile --help` and the profile page say what a published `min` or `max` leaves readable.** A published `min` shows that no record lies below it, and a published `max` that none lies above it. No check withholds a `min` or a `max` for that. A quantile whose value is the smallest or the largest of its records shows the same, and under `acro-default` it is withheld for that. Nothing the profiler writes changes. See [The checks on each group](./cli/profile.md#the-checks-on-each-group).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
