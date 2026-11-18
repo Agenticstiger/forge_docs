@@ -113,7 +113,6 @@ Before 0.26.0 the command never got this far: the CLI refused `databricks` as an
 | OIDC Availability | In CI only: whether OIDC tokens are available to exchange for short-lived credentials. `WARN` when none are, with a pointer to workload identity federation. |
 | OS Keyring | Whether the `keyring` library is importable, so secrets can live in the operating system's keyring. |
 | `.env` Permissions, `.env.local` Permissions | For each file in the current directory: `FAIL` when it is readable by group or others. |
-| Encryption Key Perms | `FAIL` when `~/.fluid/.key` has any mode other than `0600`. |
 | Long-Lived Credential | In CI only: `WARN` for each of `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `GOOGLE_APPLICATION_CREDENTIALS` and `SNOWFLAKE_PASSWORD` that is set, with the short-lived alternative. |
 | `<provider>` Auth | `PASS` with the credential type, `WARN` when expired, `INFO` when not signed in. |
 | `<provider>` Scope Guidance | A note on least-privilege scopes, for the providers that have one. |
@@ -123,7 +122,7 @@ The options:
 | Option | Description |
 | --- | --- |
 | `PROVIDER` | Audit one provider. Without it, audit them all. |
-| `--fix` | Fix what can be fixed: set the mode of `.env`, `.env.local` and `~/.fluid/.key` to `0600`. Nothing else is changed. |
+| `--fix` | Fix what can be fixed: set the mode of `.env` and `.env.local` to `0600`. Nothing else is changed. *(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* The `~/.fluid/.key` check and fix are removed with the Fernet credential store. |
 
 The exit code is `1` when any check is `FAIL` and `0` otherwise. A `WARN`, such as a long-lived key in CI, does not fail the run.
 

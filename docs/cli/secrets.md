@@ -1,6 +1,10 @@
 # `fluid secrets`
 
-Manage secrets used by acquisition pipelines — Postgres passwords, Snowflake key-pair paths, Airbyte API tokens, etc. Lives under its own umbrella so it doesn't collide with `fluid auth` (cloud-provider auth) or `fluid ai setup` (LLM credentials).
+Two things live here: the `secretRef` references a contract uses to name a secret, with the command that checks them (`fluid secrets check`) and the operator's policy that decides which of them may resolve; and the keychain commands (`login`, `verify`, `rotate`) that store a named secret in the OS keychain. It sits under its own umbrella so it doesn't collide with `fluid auth` (cloud-provider auth) or `fluid ai setup` (LLM credentials).
+
+::: tip Arrived from a secret error?
+Start with the section that matches the message: [What is refused](#what-is-refused) for `is not a valid secret reference`, [The operator's policy](#the-operator-s-policy) for `is not enabled`, `outside the prefixes`, `may not fetch secret values` or `would send ... to host`, [Vault and OpenBao](#vault-and-openbao) for `no store token was found` or a store that cannot be reached, and [The run-secrets file](#the-run-secrets-file) for `was not handed to this run` or `the run-secrets file ... cannot be used`.
+:::
 
 ::: tip Available in 0.8.3
 `fluid secrets` ships with the source-aligned acquisition stack in `0.8.3` (schema `0.7.3`). Earlier releases don't include it.
@@ -217,13 +221,17 @@ builds:
     source:
       kind: postgres
       connection:
-        host: "{{ env.PGHOST }}"
+        host: db.example.com
         database: orders
         user: ingest
         secretRef: env://PGPASSWORD
       mode: full_refresh
       streams: [public.orders]
 ```
+
+A remote host needs the operator's say-so, so this contract passes the default policy only when the operator sets `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST=PGPASSWORD@db.example.com` (see [the allowlist](#fluid-acquisition-secret-ref-allowlist)). A loopback host such as `localhost` needs no entry.
+
+A `{{ env.NAME }}` placeholder in `host` is judged twice, and differently. `fluid validate` and `fluid secrets check` read the host as written, so `{{ env.PGHOST }}` is refused unless the allowlist holds an entry with that exact text, such as `PGPASSWORD@{{ env.PGHOST }}`. `fluid apply` renders the placeholder before the build runs and judges the rendered host: with `PGHOST=db.example.com` it needs `PGPASSWORD@db.example.com`, and the placeholder entry matches nothing there. A contract with a placeholder host therefore needs both entries, so write the literal host where you can.
 
 A literal `password` in the same `connection` block wins over `secretRef`, and then the reference is never read. A contract that [`fluid init --discover`](./init.md) wrote, which carries the URI's password in `connection.password`, needs that line deleted when you add the `secretRef`. A password typed into a command-line URI also lands in shell history and in `ps` output; keep it out of the URI where you can.
 
@@ -240,7 +248,7 @@ A literal `password` in the same `connection` block wins over `secretRef`, and t
 
 A pack is a Python package that registers a resolver in the `fluid_build.secret_resolvers` entry-point group, named after its scheme. A pack's scheme can be any lower-case name, for example `op://`; core checks only the generic grammar for it and leaves the locator to the pack. Packs are found, allowed and blocked like every other plugin (`FLUID_PLUGINS_ALLOWLIST`, `FLUID_PLUGINS_BLOCKLIST`), and [`fluid plugins`](./plugins.md) lists them. A pack cannot replace `env`, `file`, `vault` or `aws-sm`. Installing a pack does not turn its scheme on: the operator lists it in [`FLUID_SECRET_SCHEMES`](#fluid-secret-schemes).
 
-A contract that names `gcp-sm://` or `azure-kv://` where no pack is installed gets a warning from `fluid validate` and `fluid secrets check`, not an error, because the machine that lints may not be the machine that applies. The machine that applies needs the pack.
+`gcp-sm://` and `azure-kv://` are off on the default policy, so a contract that names one is refused with `the gcp-sm:// scheme is not enabled`, and `fluid validate` and `fluid secrets check` add a warning that no resolver is installed. Once the operator lists the scheme in `FLUID_SECRET_SCHEMES`, only that warning is left, and it is a warning and not an error because the machine that lints may not be the machine that applies. At `fluid apply` the checks run in the same order: `not enabled` first, then, for an enabled scheme with no pack, the `no resolver for ... is installed` error. The machine that applies needs the pack.
 
 `{{ env.VAR }}` is a different mechanism: it substitutes an environment variable into a string field of the contract. When `fluid apply` or `fluid publish` resolves a contract, a placeholder whose name looks like a credential (`..._PASSWORD`, `..._TOKEN`, `..._SECRET`, `..._API_KEY`) is left unresolved, so use `secretRef` for credentials. No `${SECRET:...}` placeholder exists.
 
@@ -403,9 +411,9 @@ The address, namespace and CA bundle each have a `BAO_` and a `VAULT_` name. for
 | Address | `BAO_ADDR`, `VAULT_ADDR` | Required. `scheme://host[:port]` only: no path, query or credentials. |
 | Namespace | `BAO_NAMESPACE`, `VAULT_NAMESPACE` | Sent as `X-Vault-Namespace`. |
 | CA bundle | `BAO_CACERT`, `VAULT_CACERT` | A PEM file that signed the store's certificate. |
-| Token | `BAO_TOKEN`, `VAULT_TOKEN` | See the order below. |
+| Token | `BAO_TOKEN`, `VAULT_TOKEN` | See the order below. Not operator-only: see the note under the table. |
 
-The address, the namespace, the CA bundle and every `FLUID_VAULT_` variable are operator-only: a project `.env` cannot set them.
+The address, the namespace, the CA bundle and every `FLUID_VAULT_` variable are operator-only: a project `.env` cannot set them. `BAO_TOKEN` and `VAULT_TOKEN` are not on that list, because a token is a credential and a project's `.env` may carry credentials. A command that loads the project's `.env`, such as `fluid apply`, exports a token from it, unless the variable is already set in your real environment, even to an empty value, or in a `FLUID_SECRETS_FILE` you exported. Keep the token in your shell or your CI secret store, and set `FLUID_VAULT_JWT_ROLE` or hand the run a wrapped token, which a `.env` cannot override.
 
 ### Which token is used
 
@@ -414,7 +422,7 @@ forge uses the first of these that applies:
 1. `FLUID_VAULT_WRAPPED_TOKEN`: a response-wrapped token that a runner hands to one run.
 2. `FLUID_VAULT_JWT_ROLE`: a JWT login, for CI.
 3. `BAO_TOKEN`, else `VAULT_TOKEN`.
-4. The token helper file, `~/.vault-token`, which `bao login` and `vault login` write. It has to be a regular file (not a link) that you own. forge reads that default helper only, and does not read `BAO_TOKEN_PATH`.
+4. The token helper file, `~/.vault-token`, which `bao login` and `vault login` write. It has to be a regular file (not a link), and on Linux and macOS one that you own. forge reads that default helper only, and does not read `BAO_TOKEN_PATH`.
 
 So `FLUID_VAULT_JWT_ROLE` beats a `BAO_TOKEN` that is also set. A run with none of them stops with `no store token was found`, and says to sign in, set `BAO_TOKEN` or `VAULT_TOKEN`, set `FLUID_VAULT_JWT_ROLE` in CI, or have a runner hand over `FLUID_VAULT_WRAPPED_TOKEN`.
 
@@ -467,9 +475,9 @@ The file is a JSON object of reference to value:
 
 Keys are canonical references, and a key is read like any reference: `aws://x` and `aws-sm://x` are one key, and two spellings with different values are refused. A value is a non-empty string. forge checks the file before it reads it, and refuses a file that is:
 
-- not a regular file (a link is refused);
-- owned by another user;
-- readable by group or others: the mode has to be `0600` or stricter;
+- not a regular file (on Linux and macOS a link is refused);
+- owned by another user (checked on Linux and macOS);
+- readable by group or others: the mode has to be `0600` or stricter (checked on Linux and macOS);
 - larger than 1 MiB;
 - not UTF-8 JSON, or not a JSON object, or holding a key that is not a reference or a value that is not a non-empty string.
 
@@ -511,7 +519,7 @@ A reference the file does not list is reported as `missing: not listed in the ru
 
 ## `fluid doctor`
 
-`fluid doctor` prints a Secrets table, and `fluid doctor --json` carries the same facts under `secrets`: the enabled schemes, the prefixes, the stages that fetch and the stages that never do, the number of destination entries, the run-secrets file, the credential store, the Vault or OpenBao store (address, auth method, reachability, token TTL) and the installed packs. See [`fluid doctor`](./doctor.md). It never prints a value, never unwraps a wrapped token and never makes a JWT login.
+`fluid doctor` prints a Secrets table, and `fluid doctor --json` carries the same facts under `secrets`: the enabled schemes, the prefixes, the stages that fetch and the stages that never do, the number of destination entries, the run-secrets file, the credential store, the Vault or OpenBao store (address, auth method, reachability, token TTL) and the installed packs. See [Secrets in `fluid doctor`](./doctor.md#secrets). It never prints a value, never unwraps a wrapped token and never makes a JWT login.
 
 ```json
 {
@@ -542,6 +550,6 @@ A reference the file does not list is reported as `missing: not listed in the ru
 - [What a project's `.env` may set](../advanced/project-dotenv-trust.md): why the operator's policy comes only from the real environment
 - [Environment variables](../advanced/environment-variables.md#secret-references): every variable on this page, in one table
 - [Operating in CI](../advanced/operating-in-ci.md): the OpenBao login in a generated pipeline
-- [`fluid doctor`](./doctor.md): the Secrets report
+- [Secrets in `fluid doctor`](./doctor.md#secrets): the Secrets report
 - [Credential Resolver](/forge_docs/advanced/credential-resolver.html): how the CLI stores and reads catalog credentials
 - [Typed CLI Errors](/forge_docs/advanced/typed-cli-errors.html): `SecretResolutionError`

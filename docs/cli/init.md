@@ -196,7 +196,7 @@ connection:
   secretRef: env://PGPASSWORD
 ```
 
-The build resolves the `secretRef` when it runs. Delete the `password:` line first, because when both are present the literal `password` wins and the `secretRef` is ignored. A `{{ env.PGPASSWORD }}` placeholder is also resolved when the build runs, but `fluid apply` and `fluid publish` leave a placeholder whose name looks like a credential unresolved, so use `secretRef` for passwords. A literal `${VAR}` stays a literal string. Importers behave differently: [`fluid import`](./import.md) redacts secrets for the tools that carry them.
+The build resolves the `secretRef` when it runs. *(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* `db.example.com` is a remote host, so `fluid validate` refuses this block on the default policy until the operator sets `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST=PGPASSWORD@db.example.com`; see [the allowlist](./secrets.md#fluid-acquisition-secret-ref-allowlist). Delete the `password:` line first, because when both are present the literal `password` wins and the `secretRef` is ignored. A `{{ env.PGPASSWORD }}` placeholder is also resolved when the build runs, but `fluid apply` and `fluid publish` leave a placeholder whose name looks like a credential unresolved, so use `secretRef` for passwords. A literal `${VAR}` stays a literal string. Importers behave differently: [`fluid import`](./import.md) redacts secrets for the tools that carry them.
 :::
 
 ### Run a discovered contract
