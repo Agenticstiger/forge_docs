@@ -84,7 +84,7 @@ flag_oracle_ok:
                      # `fluid generate-custom-scaffold --help` prints the
                      # top-level usage. The pages document the name that runs.
   # Surface removed in 0.31.0 (forge-cli #881, the embedded copilot). These pages
-  # still describe it under a removal banner, so the pinned 0.31.0 parser no longer
+  # still describe it under a removal banner, so the pinned parser no longer
   # knows the fences. Each entry is scoped to the removed flag or command; drop it
   # when the page is rewritten for the removal.
   - docs/cli/scaffold-ci.md
@@ -107,10 +107,6 @@ flag_oracle_ok:
   - docs/cli/forge.md::--resume
   - docs/cli/forge.md::--fork
   - docs/cli/forge.md::--seed-from
-  # On forge-cli main (forge-cli #959), not in
-  # the pinned release: `fluid profile --bundle`. Drop it at the pin bump that
-  # carries the flag.
-  - docs/cli/profile.md::--bundle
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and
