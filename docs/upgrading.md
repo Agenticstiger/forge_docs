@@ -1285,9 +1285,11 @@ These changes are in 0.31.0. Several remove a command, flag, tool or variable: r
 - **The credential chain asks a secret store only when `FLUID_CREDENTIAL_STORE` names one.** Setting `GCP_PROJECT` or `AWS_REGION` no longer sends credential lookups to a cloud secret manager. To keep reading provider credentials from a store, set `FLUID_CREDENTIAL_STORE=vault://<mount>/<prefix>` or `aws-sm://<prefix>`, and store each credential at `<prefix>/<provider>#<key>`. See [Provider credentials from a store](./cli/secrets.md#provider-credentials-from-a-store).
 - **New: `fluid secrets check`, the run-secrets file and the Vault JWT login.** `fluid secrets check <contract>` lints references and, with `--resolve`, proves they exist without reading a value. `FLUID_RUN_SECRETS_FILE` hands a run exactly the secrets it may use. `FLUID_VAULT_JWT_ROLE` logs a CI job in to OpenBao or Vault. Nothing changes until you use them. See [`fluid secrets check`](./cli/secrets.md#fluid-secrets-check), [The run-secrets file](./cli/secrets.md#the-run-secrets-file) and [JWT login for CI](./cli/secrets.md#jwt-login-for-ci).
 
-## Not in a release yet
+## Changes in 0.32.0
 
-*On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).*
+These changes are in 0.32.0.
+
+*(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))*
 
 - **`fluid profile --bundle DIR` answers a Simulation's fidelity block.** The profile then carries the statistic each declared property is compared with, grouped means, histograms, supports and quantiles among them, so the engine scores every property but a correlation. Without `--bundle`, a profile holds what it held before. The `[profile]` extra needs flux-stats 0.6.2 or newer, which `pip install -U 'data-product-forge[profile]'` brings. See [Answering a fidelity block](./cli/profile.md#answering-a-fidelity-block-bundle).
 
