@@ -326,9 +326,30 @@ Read by `fluid mcp output-port`; see [MCP](./mcp.md). *(since 0.31.0, [forge-cli
 | `FLUID_STORE_DSN` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Main no longer reads it. Connection string of the `postgres` backend. Required for it. |
 | `FLUID_STORE_VECTOR_BACKING` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Main no longer reads it. Backing store of the `vector` backend: `file` (default), `sqlite` or `postgres`. |
 | `FLUID_SECRETS_INMEMORY` | `1` keeps `fluid secrets` values in memory instead of the OS keychain. Tests only. |
-| `FLUID_ENCRYPTION_KEY`, `FLUID_ENCRYPTION_PASSPHRASE` | Fernet key, or a passphrase it is derived from, for the encrypted credential store. |
+| `FLUID_ENCRYPTION_KEY`, `FLUID_ENCRYPTION_PASSPHRASE` | *(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* Removed. The Fernet credential file store (`~/.fluid/credentials.enc`) is gone, and nothing reads these. Keep a credential in the keyring, a secret store or the environment. Fernet key, or a passphrase it is derived from, for the encrypted credential store. |
 | `FLUID_ALLOW_PLAINTEXT_AI_SECRETS` | Legacy plaintext fallback for AI provider secrets. *(since 0.29.0, [forge-cli #852](https://github.com/Agenticstiger/forge-cli/pull/852))* It also lets `fluid ai setup` save a `user:password@` in an address, such as an Ollama host, to `~/.fluid/ai_config.json`; without it the address is saved without them. |
 | `FLUID_ALLOW_PLAINTEXT_SOURCE_SECRETS` | Legacy plaintext secrets in `sources.yaml`; the file must also be mode 600. |
+
+## Secret references
+
+*(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* The operator's policy for `secretRef` values, the Vault and OpenBao settings, and the two handoffs. Every name here is operator-only: a project's `.env` cannot set it, and the real environment, your CI job or a `FLUID_SECRETS_FILE` you export can. [`fluid secrets`](../cli/secrets.md) explains each one.
+
+| Variable | Effect |
+|---|---|
+| `FLUID_SECRET_SCHEMES` | Comma-separated schemes that may resolve. Default `env,file,vault,aws-sm`. A pack's scheme resolves only when listed. See [`FLUID_SECRET_SCHEMES`](../cli/secrets.md#fluid-secret-schemes). |
+| `FLUID_SECRET_PREFIXES` | Comma-separated `<scheme>://<locator-prefix>` entries a contract's references must sit under. Default: `file` under `/run/secrets/`, no limit for the other schemes. See [`FLUID_SECRET_PREFIXES`](../cli/secrets.md#fluid-secret-prefixes). |
+| `FLUID_SECRET_STAGES` | Comma-separated stages that may fetch a value a contract names. Default `apply`. `validate`, `plan`, `bundle` and `diff` never fetch, whatever is listed. See [`FLUID_SECRET_STAGES`](../cli/secrets.md#fluid-secret-stages). |
+| `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | The hosts a value may be sent to, for every scheme: `NAME` or `NAME@host` for `env://NAME`, `<reference>@<host>` or `<reference>@*`, and `<prefix>*@<host>`. Default empty: only a loopback host. See [the allowlist](../cli/secrets.md#fluid-acquisition-secret-ref-allowlist). |
+| `FLUID_RUN_SECRETS_FILE` | Path of a mode `0600` JSON file of `{"<reference>": "<value>"}` that a runner wrote. While it is set, references resolve from it and no store is asked, and a reference it does not list is refused. See [the run-secrets file](../cli/secrets.md#the-run-secrets-file). |
+| `FLUID_CREDENTIAL_STORE` | A store the provider credential chain asks after the OS keyring: `vault://<mount>/<prefix>` or `aws-sm://<prefix>`. Each credential is read from `<prefix>/<provider>#<key>`. Unset means no store is asked. See [Provider credentials from a store](../cli/secrets.md#provider-credentials-from-a-store). |
+| `BAO_ADDR`, `VAULT_ADDR` | Address of the OpenBao or Vault store. `BAO_ADDR` wins when both are set. `https`, or `http` to a loopback address only. See [Vault and OpenBao](../cli/secrets.md#vault-and-openbao). |
+| `BAO_TOKEN`, `VAULT_TOKEN` | The store token. `BAO_TOKEN` wins when both are set. It is used after `FLUID_VAULT_WRAPPED_TOKEN` and `FLUID_VAULT_JWT_ROLE`, and before `~/.vault-token`. See [Which token is used](../cli/secrets.md#which-token-is-used). |
+| `BAO_NAMESPACE`, `VAULT_NAMESPACE` | The store's namespace, sent as `X-Vault-Namespace`. `BAO_NAMESPACE` wins when both are set. |
+| `BAO_CACERT`, `VAULT_CACERT` | A PEM CA bundle that verifies the store's certificate. `BAO_CACERT` wins when both are set. TLS verification is never switched off. |
+| `FLUID_VAULT_JWT_ROLE` | The role of a JWT login, for CI. Setting it selects that login over `BAO_TOKEN`. See [JWT login for CI](../cli/secrets.md#jwt-login-for-ci). |
+| `FLUID_VAULT_JWT`, `FLUID_VAULT_JWT_FILE` | The JWT for that login, inline or in a file of at most 64 KiB. The inline value wins. |
+| `FLUID_VAULT_JWT_MOUNT` | The JWT auth mount. Default `jwt`. |
+| `FLUID_VAULT_WRAPPED_TOKEN` | A response-wrapped token that a runner hands to one run. It is unwrapped once and wins over every other token source. See [A response-wrapped token](../cli/secrets.md#a-response-wrapped-token). |
 
 ## Marketplace
 
