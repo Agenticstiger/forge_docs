@@ -133,7 +133,7 @@ The shape depends on which surface you asked for:
 | --- | --- |
 | `fluid doctor --scope <s> --json` | `{"scope", "ok", "results": [...]}`, one result per check. |
 | `fluid doctor --env --json` | `{"env": [...], "telemetry": {...}}`. *(since 0.31.0, [forge-cli #888](https://github.com/Agenticstiger/forge-cli/pull/888))* `{"env": [...]}`, with no `telemetry` key. |
-| `fluid doctor --json` (no `--scope`, no `--env`) | The memory-store section, `{"store_backend": {...}}`. *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* It also carries `copilot_ready` and `action_needed`; see [`--strict`](#strict). Per-check results need `--scope`. |
+| `fluid doctor --json` (no `--scope`, no `--env`) | The memory-store section, `{"store_backend": {...}}`. *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* It also carries `copilot_ready` and `action_needed`; see [`--strict`](#strict). *(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* It also carries `secrets`; see [Secrets](#secrets). Per-check results need `--scope`. |
 
 A scoped result looks like this:
 
@@ -228,6 +228,12 @@ The `pipeline` and `catalog` scopes check modules that ship inside `data-product
 ```bash
 pip install --force-reinstall data-product-forge
 ```
+
+## Secrets
+
+*(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* `fluid doctor` prints a Secrets table. It shows the schemes that may resolve, the stages that may fetch a value, the locator prefixes, the number of destination allowlist entries and, when they are set, the run-secrets file with its reference count, the credential store, and the Vault or OpenBao address with its auth method and status. A last row says whether `boto3` is installed for `aws-sm://`.
+
+`fluid doctor --json` carries the same facts under `secrets`: `schemes_enabled`, `prefixes`, `stages_that_resolve`, `stages_that_never_resolve`, `destination_entries`, `run_secrets_file`, `credential_store`, `vault` (address, auth method, reachability, token TTL), `aws_sm` and `packs`. The report never prints a value, never unwraps a wrapped token and never makes a JWT login. [`fluid secrets`](./secrets.md#fluid-doctor) explains each setting.
 
 ## Notes
 

@@ -61,13 +61,15 @@ Worker requirements:
   every name matching
 
     FLUID_* AWS_* GOOGLE_* GCP_* GCLOUD_* CLOUDSDK_* AZURE_* ARM_*
-    SNOWFLAKE_* DATABRICKS_* PG* POSTGRES_* REDSHIFT_* ATHENA_* VAULT_*
+    SNOWFLAKE_* DATABRICKS_* PG* POSTGRES_* REDSHIFT_* ATHENA_* VAULT_* BAO_*
     DBT_* DLT_* DATAHUB_* DMM_* ODCS_* ODPS_* TF_* OPENLINEAGE_* OTEL_*
 
   the variables the contract reads (CONTRACT_ENV_NAMES), and any names
   listed, space separated, in FLUID_DAG_ENV_PASSTHROUGH. fluid starts with
   nothing else, and never with a variable whose name starts AIRFLOW.
 ```
+
+*(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* `BAO_*` joins `VAULT_*` among the prefixes, so the OpenBao address, token, namespace and CA variables reach a `vault://` reference's lookup. A 0.30.1 DAG passes only `VAULT_*`.
 
 In practice:
 

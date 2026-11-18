@@ -51,7 +51,7 @@ What it may not set is any variable that
 - **widens a sandbox or a confinement root** — `FLUID_DUCKDB_ALLOWED_DIRS`, `FLUID_REF_ROOT`,
   `FLUID_UPSTREAM_CONTRACTS`, `FLUID_WORKSPACE_ROOT`, `FLUID_LOCAL_DUCKDB_PATH`;
 - **moves where the CLI reads trusted configuration, or writes state, audit and logs** —
-  `FLUID_SECRETS_FILE`, `FLUID_ENCRYPTION_KEY`, `FLUID_HOME`, `FLUID_CONFIG`,
+  `FLUID_SECRETS_FILE`, `FLUID_HOME`, `FLUID_CONFIG`,
   `FLUID_STATE_BACKEND`, `FLUID_AUDIT_ROOT`, `FLUID_LOG_FILE`, and the directories those
   resolve against: `HOME`, `USERPROFILE`, the XDG variables, `APPDATA`, `LOCALAPPDATA`,
   `ProgramData`, `TMPDIR` / `TEMP` / `TMP`;
@@ -83,7 +83,10 @@ reference against a remote host, and `TESTCONTAINERS_HOST_OVERRIDE`, which rewri
 contract-declared loopback host to a reachable one, joined the list in `0.23.0`
 ([forge-cli #751](https://github.com/Agenticstiger/forge-cli/pull/751)). Both decide where a
 credential may be sent, so neither may come from a file beside the contract.
+*(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* Since 0.31.0 the allowlist covers a `secretRef` of any scheme, not only `env://`.
 :::
+
+*(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* The secret-reference settings are operator-only too: the `FLUID_SECRET_*` and `FLUID_VAULT_*` variables, `BAO_ADDR` and `VAULT_ADDR`, the namespace variables (`BAO_NAMESPACE`, `VAULT_NAMESPACE`), the CA variables (`BAO_CACERT`, `VAULT_CACERT`), `FLUID_RUN_SECRETS_FILE` and `FLUID_CREDENTIAL_STORE`. `BAO_TOKEN` and `VAULT_TOKEN` are not on the list, because a token is a credential and a project file may carry one. See [`fluid secrets`](../cli/secrets.md#the-operator-s-policy). `FLUID_ENCRYPTION_KEY` is no longer protected, because nothing reads it.
 
 ::: tip One more since `0.27.0`
 `FLUID_TOFU_S3_LOCKFILE`, which turns S3 state locking off with `=0`, joins the list

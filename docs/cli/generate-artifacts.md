@@ -162,7 +162,7 @@ fails `fluid generate schedule` with exit 2, and `fluid generate artifacts` with
 The DAG file holds ids, the contract path, the env name and the names of the variables the contract reads, and no secret values. fluid starts through `env -i` with:
 
 - `PATH HOME USER LOGNAME LANG LANGUAGE LC_ALL LC_CTYPE TZ TMPDIR`, the CA bundle and proxy variables, and `GLUE_ROLE_ARN S3_STAGING_DIR S3_DATA_DIR GOOG_SERVICE_ACCOUNT_NAME TESTCONTAINERS_HOST_OVERRIDE`.
-- Any variable whose name starts with `FLUID_`, `AWS_`, `GOOGLE_`, `GCP_`, `GCLOUD_`, `CLOUDSDK_`, `AZURE_`, `ARM_`, `SNOWFLAKE_`, `DATABRICKS_`, `PG`, `POSTGRES_`, `REDSHIFT_`, `ATHENA_`, `VAULT_`, `DBT_`, `DLT_`, `DATAHUB_`, `DMM_`, `ODCS_`, `ODPS_`, `TF_`, `OPENLINEAGE_` or `OTEL_`.
+- Any variable whose name starts with `FLUID_`, `AWS_`, `GOOGLE_`, `GCP_`, `GCLOUD_`, `CLOUDSDK_`, `AZURE_`, `ARM_`, `SNOWFLAKE_`, `DATABRICKS_`, `PG`, `POSTGRES_`, `REDSHIFT_`, `ATHENA_`, `VAULT_`, `BAO_` *(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))*, `DBT_`, `DLT_`, `DATAHUB_`, `DMM_`, `ODCS_`, `ODPS_`, `TF_`, `OPENLINEAGE_` or `OTEL_`.
 - The variables the contract names through `{{ env.NAME }}`, `${NAME}` or `secretRef: env://NAME`.
 - The names listed in `FLUID_DAG_ENV_PASSTHROUGH`.
 

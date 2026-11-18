@@ -575,6 +575,8 @@ The source password, and any other property whose value is a credential, is not 
 | `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | `NAME@host` | the variable `NAME` to be sent to `host` |
 | `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | `host` | a hostname the worker will resolve itself |
 
+*(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* The table shows the `NAME@host` entry that a `catalogAuth` variable needs. For an acquisition source's `secretRef`, the variable takes more forms and covers every scheme: see [the allowlist](../cli/secrets.md#fluid-acquisition-secret-ref-allowlist).
+
 For each host the credential reaches, the run needs:
 
 - **`https://`.** A loopback host included. `http://` fails `fluid validate`, and nothing lists it away.

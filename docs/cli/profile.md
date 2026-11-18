@@ -49,7 +49,7 @@ fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE]
 | `--table` | The table of a database `--source`, as `name` or `schema.name`. Refused for a file. |
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory. |
 | `--fractional-bits` | The grid [`mean/1`](#the-mean-1-statistic) is formed on, in steps of 2^-N: 0 to 128, default 16. Set it to the fidelity block's `encoding.fractionalBits`. |
-| `--bundle` | *On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).* A FLUX bundle directory: the profile answers the fidelity block its one Simulation declares for the expose, on the block's grid, and a different `--fractional-bits` is refused. See [Answering a fidelity block](#answering-a-fidelity-block-bundle). |
+| `--bundle` | *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* A FLUX bundle directory: the profile answers the fidelity block its one Simulation declares for the expose, on the block's grid, and a different `--fractional-bits` is refused. See [Answering a fidelity block](#answering-a-fidelity-block-bundle). |
 | `--env` | An environment overlay to apply to the contract first. |
 
 Install the extra, which adds DuckDB and flux-stats:
@@ -131,11 +131,11 @@ Fidelity statistics: mean/1 of 'amount', on fractionalBits 16 (the fidelity bloc
 
 `mean/1` is written without a `groupBy`, and for number columns only. A timestamp or category column gets no statistic: a mean of timestamps would publish a sum that no metric publishes. `fluid profile` writes no other statistic yet: no histogram, `quantile/1`, `support/1` or `correlation/1`, and no `mean/1` with a `groupBy`. The engine refuses a property that reads one with `FLX-5037`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).* [`--bundle`](#answering-a-fidelity-block-bundle) writes the statistic each property of a fidelity block declares, a grouped `mean/1`, the histograms, `support/1` and `quantile/1` among them, and still no `correlation/1`.
+*(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* [`--bundle`](#answering-a-fidelity-block-bundle) writes the statistic each property of a fidelity block declares, a grouped `mean/1`, the histograms, `support/1` and `quantile/1` among them, and still no `correlation/1`.
 
 ## Answering a fidelity block: `--bundle`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).*
+*(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))*
 
 With `--bundle DIR`, the profile answers the fidelity block of a FLUX Simulation, so the engine can score every property the block declares but a correlation, not only an ungrouped mean. `DIR` is a FLUX bundle directory, the kind `fluxsim init` writes. Exactly one document in its `*.flux.yml` or `*.flux.yaml` files, which may hold several `---` documents, must be the Simulation, and `fluid profile` reads that Simulation's block for the expose:
 
@@ -271,6 +271,6 @@ A FLUX Simulation turns the profile into synthetic rows. [From your data to a sy
 
 The engine checks a run against the profile it pins, from flux-sim-engine 0.6.0. It compares each fidelity property with a statistic the profile carries for it, such as `mean/1` or a histogram. `fluid profile` writes [`mean/1`](#the-mean-1-statistic), so the engine scores a `mean` property over a number column against the profile. With the guide's data and Simulation on flux-sim-engine 0.6.0, the `mean` property lands within its 10% margin, `fluxsim verify` passes and `fluxsim ship --profile` packs the run. A fidelity block whose properties are all such means, each without a `groupBy`, ships the same way when the profile published each of them. Any other property is still refused with `FLX-5037`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).* With [`--bundle`](#answering-a-fidelity-block-bundle), the profile answers every property of the block but a correlation, so flux-sim-engine 0.6.2 scores each of them against it, and a property whose groups the checks withheld scores as censored.
+*(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* With [`--bundle`](#answering-a-fidelity-block-bundle), the profile answers every property of the block but a correlation, so flux-sim-engine 0.6.2 scores each of them against it, and a property whose groups the checks withheld scores as censored.
 
 The rest of the FLUX documentation is at [agenticstiger.github.io/flux](https://agenticstiger.github.io/flux/).
