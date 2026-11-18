@@ -200,8 +200,8 @@ A bundle is built for one `--env`; see [Environments](../cli/bundle.md#environme
 
 *On `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).* A bundle packs the dbt project of each dbt build, and `fluid plan` records its files as `dbtProjects`. `fluid apply` compares the checkout with them before anything runs, and the dbt runner compares again just before dbt starts; a changed, added or removed file is refused with `apply_plan_digest_bundle_mismatch`. See [The dbt project](../cli/apply.md#the-dbt-project). For a pipeline this means:
 
-- **The apply job needs the checkout.** The dbt files are read from it, not from the artifact. The plan records the absolute path of the source contract, so plan and apply must run in the same checkout path, or the apply is refused for a checkout it cannot find.
-- **Generate dbt tests before the bundle.** Run `fluid generate dbt-tests` first and write its output into the project, then `fluid bundle`. Tests generated after stage 1 are not in the bundle, so the apply is refused for the files that appeared.
+- **The apply job needs the checkout.** The dbt files are read from it, not from the artifact. The plan records the absolute path of the source contract, and `fluid apply` compares the project at that path, whatever checkout it runs from. Run plan and apply in the same checkout path: when the recorded path is gone, the apply is refused for a checkout it cannot find.
+- **Generate dbt tests before the bundle.** Run `fluid generate dbt-tests` first, with `-o` naming a file inside the project (without it, the file lands in the current directory), then `fluid bundle`. Tests generated after stage 1 are not in the bundle, so the apply is refused for the files that appeared.
 - **Install packages in the apply job.** Installed packages are not bound. Run `dbt deps` from `package-lock.yml` in the job that applies: `fluid apply` neither installs nor checks `dbt_packages/`.
 - **Plan from the bundle.** A plan made from a contract file binds no dbt project.
 

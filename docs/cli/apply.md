@@ -284,15 +284,15 @@ CLI command error
   error: plan.json was made from the packet sha256:b92783ba770db2b65e7934cb7a56330c7760fb2fb203afe877bf9026c491543f but /work/orders/runtime/epoch.tgz is sha256:5f27836b44eb2046e8d4ceb7142d0beb841e4df4ac6c7e6c6dbbe42c45a55055. It holds the same contract (bundleDigest matches) in other bytes, e.g. rebuilt with another --env or SOURCE_DATE_EPOCH. Apply the packet the plan was made from, or re-run ``fluid plan`` on this one.
 ```
 
-Apply the bundle the plan was made from, or run `fluid plan` on the one you mean to apply. A plan that carries no `packetDigest` is refused with `apply_plan_digest_packet_missing`, as one made by `fluid plan` 0.32.0 or earlier is. A plan made from a contract file has no bundle, so it has no packet check. See [The packet digest](./bundle.md#the-packet-digest).
+Apply the bundle the plan was made from, or run `fluid plan` on the one you mean to apply. A plan made by `fluid plan` 0.32.0 or earlier carries no `packetDigest` and is refused with `apply_plan_digest_packet_missing`. A plan edited by hand, `packetDigest` included, is refused as `plan-tamper`. A plan made from a contract file has no bundle, so it has no packet check. See [The packet digest](./bundle.md#the-packet-digest).
 
 ### The dbt project
 
 *On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).*
 A dbt build reads its models from the checkout when it runs, so a model edited after `fluid plan` would run unreviewed. A bundle now packs the dbt project of each dbt build (see [The dbt project of a dbt build](./bundle.md#the-dbt-project-of-a-dbt-build)), `fluid plan <bundle>` lists each project's files in `plan.json` as `dbtProjects`, and the checks run in this order:
 
-1. Before anything runs, it reads the project the way the dbt runner will and compares it with the bundle's copy. A changed, added or removed file fails with `apply_plan_digest_bundle_mismatch`, and the message names the files.
-2. The same error comes for a dbt build the bundle packs no project for. A bundle made by 0.32.0 or earlier packs none, so a contract with a dbt build needs `fluid bundle` and `fluid plan` run again.
+1. Before anything runs, `fluid apply` refuses a dbt build the bundle packs no project for, with `apply_plan_digest_bundle_mismatch`. A bundle made by 0.32.0 or earlier packs none, so a contract with a dbt build needs `fluid bundle` and `fluid plan` run again.
+2. Then it reads each project the way the dbt runner will and compares it with the bundle's copy. A changed, added or removed file fails with the same error, and the message names the files.
 3. The dbt runner compares the directory again, just before dbt starts, and refuses with the same event if a file changed while the apply was provisioning.
 
 ```console
@@ -310,7 +310,7 @@ What the check does not cover:
 - `--no-verify-plan-binding` skips it and logs a `WARNING`, as it skips the digests.
 - Installed packages are not bound. dbt reads whatever `packages-install-path` holds, and `fluid apply` neither installs nor checks it. Run `dbt deps` from `package-lock.yml` in the job that applies.
 - A plan made from a contract file binds no dbt project. A build whose `repository` is a Git URL is not packed, because its ref pins it.
-- Plan and apply must run in the same checkout path. The plan records the absolute path of the source contract, and `fluid apply` compares the project it finds there. In another path, or once the old one is gone, it refuses with the same event and says the checkout cannot be found. A bundle copied without its [provenance file](./bundle.md#the-provenance-file) is refused the same way.
+- Plan and apply must run in the same checkout path. The plan records the absolute path of the source contract, and `fluid apply` compares the project at that path, whatever checkout you run it from. If the path is gone, it refuses with the same event and says the checkout cannot be found. *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* A bundle copied without its [provenance file](./bundle.md#the-provenance-file) is refused the same way.
 
 *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* After these gates the contract the plan embeds is validated against its schema, and a plan that embeds none is refused with `apply_plan_missing_contract`. See [Contract validation](#contract-validation).
 

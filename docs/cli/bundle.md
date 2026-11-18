@@ -246,16 +246,18 @@ Unicode change:
 **What is never packed.**
 
 - `profiles.yml` and `profiles.yaml`, in any directory it reads, whatever the case.
-- The directories dbt writes into: `target/`, `logs/` and `dbt_packages/` by
-  default, or the ones `target-path`, `log-path` and `packages-install-path`
-  name. They sit outside every path key, so they are not read.
+- The directories dbt writes into: `target/`, `logs/`, `dbt_packages/` and
+  `dbt_modules/` by default, or the ones `target-path`, `log-path`,
+  `packages-install-path` and `modules-path` name. They sit outside every path
+  key, so they are not read. One nested inside a directory dbt reads is refused,
+  as the table below says.
 - A file whose name starts with `.`, `#` or `~` (`.DS_Store`, an editor's
   `#orders.sql#`): dbt never reads such a name. `.dbtignore` in the project
   root is the one exception.
 
 **What `fluid bundle` refuses.** A project it cannot bind as one tree fails
-the whole command with `❌ Bundle tgz build failed: build '<id>': ...` and
-exit `1`.
+the whole command with `❌ Bundle tgz build failed: ...` and exit `1`. Most
+refusals name the build: `build '<id>': ...`.
 
 | Cause | What to do |
 |---|---|
@@ -269,6 +271,7 @@ exit `1`.
 | A file over 64 MiB. | Load data that size as a table, not a dbt seed. |
 | More than 128 MiB of dbt files, all builds together. | The same. |
 | More than 10,000 entries in the bundle, files and directories counted. | Trim the project. |
+| A file path too long for the bundle's tar format. | Shorten the build id, or the project's file and directory names. |
 
 A hidden directory with a model in it, for example:
 
@@ -313,13 +316,20 @@ made from a contract file binds no dbt project, because there is no bundle to
 take it from.
 
 Run [`fluid generate dbt-tests`](./generate.md#fluid-generate-dbt-tests) before
-`fluid bundle`, so the tests it writes into the project are packed and bound
-with the models.
+`fluid bundle`, with `-o` naming a file inside the project (it writes
+`./schema.yml` in the current directory by default), so the tests are packed
+and bound with the models:
 
-`fluid validate <bundle>` reports one `info` finding per packed project:
+```bash
+fluid generate dbt-tests contract.fluid.yaml -o dbt/models/schema.yml
+fluid bundle contract.fluid.yaml --format tgz --out runtime/bundle.tgz
+```
+
+`fluid validate <bundle>` reports one `info` finding per packed project, which
+`--verbose` prints:
 
 ```console
-$ fluid validate runtime/bundle.tgz
+$ fluid validate runtime/bundle.tgz --verbose
 ✅ Bundle pass: /work/orders/runtime/bundle.tgz
    digest: sha256:c8e0d69396d694546601d6dfd9cc0be1b87ee6d5609b24a33092706005d78eed
    issues: 1 total (0 error, 0 warning, 1 info)
@@ -367,8 +377,10 @@ The `source` block is outside the digest, so the digest names the resolved
 contract alone: the same contract bundled into two directories keeps one
 digest. The same holds for the manifest's integrity check: it recomputes the
 digest from the files, so it does not cover `source`, and later stages read
-`source.env` to refuse a mismatched `--env`. Only a cosign signature
-(`--sign`) over the whole tgz covers it. You can recompute the digest from an extracted bundle:
+`source.env` to refuse a mismatched `--env`. A cosign signature
+(`--sign`) over the whole tgz covers it. *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* So does the
+`packetDigest` that a plan records: see [The packet digest](#the-packet-digest).
+You can recompute the digest from an extracted bundle:
 
 ```bash
 mkdir bundle && tar -xzf runtime/bundle.tgz -C bundle && cd bundle
@@ -418,7 +430,8 @@ bundle.
 
 Without a usable file, `fluid plan` and `fluid apply` log
 `source_contract_unresolved` and anchor relative paths at the bundle's own
-directory. Copy the bundle together with its provenance file, or expect that.
+directory. Copy the bundle together with its provenance file, to a place where
+the recorded relative path still reaches the contract, or expect that.
 For a bundle that packs a dbt project it is stricter: the checkout to compare
 against cannot be found, and `fluid apply` refuses with
 `apply_plan_digest_bundle_mismatch`, saying the bundle does not record a source
@@ -435,8 +448,8 @@ contract.
 | Packet digest | `packet:` | Every byte of the `.tgz` file: the manifest (the `--env` it records and its overlay warnings) and the headers. |
 
 Two archives can share a bundle digest and differ in the packet digest: one
-bundled with `--env prod` and one without, or with another
-`SOURCE_DATE_EPOCH`. `fluid plan <bundle>` records the packet digest, and
+bundled with `--env prod` and one without, when the overlay changes nothing in
+the contract, or with another `SOURCE_DATE_EPOCH`. `fluid plan <bundle>` records the packet digest, and
 `fluid apply` refuses a bundle with other bytes; see
 [`fluid apply`](./apply.md#plan-binding).
 
@@ -621,7 +634,7 @@ same checkout bundled to two `--out` depths gave two archives with one digest.
 | `no dbt_project.yml at ...` in a bundle build *(on `main`, [forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972))* | The build's `repository` names no dbt project, or one outside the contract's workspace. | Check the project out beside the contract, or point `repository` at it. |
 | `apply_plan_digest_bundle_mismatch` naming dbt files *(on `main`, [forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972))* | A dbt file in the checkout differs from the bundle's copy, or the bundle packs no project for a dbt build (it was made before `main`). | Run `fluid bundle` and `fluid plan` again, or restore the files. See [`fluid apply`](./apply.md#plan-binding). |
 | `apply_plan_digest_packet_mismatch` or `apply_plan_digest_packet_missing` *(on `main`, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))* | The bundle file has other bytes than the plan was made from, or the plan records none (an older `fluid plan` made it). | Run `fluid plan` on the bundle you apply. See [`fluid apply`](./apply.md#plan-binding). |
-| `source_contract_unresolved` in plan or apply, or a dbt bundle refused as recording no source contract *(on `main`, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))* | The bundle was copied without its `.provenance.json`, or the file names another packet. | Copy `<bundle>.provenance.json` with the bundle, or bundle again where you apply. See [The provenance file](#the-provenance-file). |
+| `source_contract_unresolved` in plan or apply, or a dbt bundle refused as recording no source contract *(on `main`, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))* | The bundle was copied without its `.provenance.json`, the file names another packet, or the bundle and its file moved to a place where the recorded relative path no longer reaches the contract. | Copy `<bundle>.provenance.json` with the bundle, keep the relative path to the contract, or bundle again where you apply. See [The provenance file](#the-provenance-file). |
 
 ## See also
 
@@ -637,7 +650,6 @@ except [Default output location](#default-output-location), which was
 produced with 0.26.0. The examples under
 [The dbt project of a dbt build](#the-dbt-project-of-a-dbt-build),
 [The provenance file](#the-provenance-file) and
-[The packet digest](#the-packet-digest) ran on forge-cli `main` (version
-`0.32.1.dev1`), on a small `orders` contract with one dbt build. Long temporary
+[The packet digest](#the-packet-digest) ran on forge-cli `main`, on a small `orders` contract with one dbt build. Long temporary
 paths are shortened to `/work`, and long lines are re-wrapped.
 :::
