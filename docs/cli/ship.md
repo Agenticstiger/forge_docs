@@ -233,7 +233,7 @@ releases/orders-1/
 └── reports/          ship-report.json, ship-junit.xml, and each stage's report
 ```
 
-A run that fails, or is interrupted, publishes nothing. Its reports stay in `runtime/` and in the staging directory, and `ship-report.json` names the stage that stopped it. `DIR` does not exist after a failed run. A release run first removes the stage reports in `runtime/`, so only this run's are published. The release directory holds the bundle but not its `.provenance.json` file; the bundle's `MANIFEST.json` and the release's `identity` do not need it. A release run reads only local files: it opens no network connection of its own.
+A run that fails, or is interrupted, publishes nothing. Its reports stay in `runtime/` and in the staging directory, and `ship-report.json` names the stage that stopped it. `DIR` does not exist after a failed run. A release run first removes the stage reports in `runtime/`, so only this run's are published. The release directory holds the bundle but does not copy the bundle's `.provenance.json` file (see [The provenance file](./bundle.md#the-provenance-file)); the release's `identity` does not need it. A release run reads only local files: it opens no network connection of its own.
 
 **Rules.** `DIR` must not exist, and stages 1 to 4 must run in the invocation. Otherwise ship refuses with exit `2`, and `--explain` says why:
 
