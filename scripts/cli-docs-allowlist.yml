@@ -107,6 +107,10 @@ flag_oracle_ok:
   - docs/cli/forge.md::--resume
   - docs/cli/forge.md::--fork
   - docs/cli/forge.md::--seed-from
+  # On forge-cli's feat/fluid-profile-bundle branch (forge-cli #959), not in
+  # the pinned release: `fluid profile --bundle`. Drop it at the pin bump that
+  # carries the flag.
+  - docs/cli/profile.md::--bundle
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

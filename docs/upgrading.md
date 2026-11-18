@@ -1271,6 +1271,12 @@ These changes are in 0.31.0. Several remove a command, flag, tool or variable: r
 - **New, opt-in, 0.7.7 preview: Spark to Iceberg on AWS and the schema registry.** `fluid apply` starts a Spark build's run and keeps a streaming one running; a scheduled one runs through `fluid apply --mode amend-and-build --build-id <id>`, as every scheduled build does. There is no `fluid spark` command. A contract that uses none of the new fields is unaffected. `fluid plan` checks a consumed topic against its registry, and `fluid generate iac` registers a produced one, only where the contract names a registry. See [Spark to Iceberg on AWS](./advanced/spark-iceberg-aws.md), [Scheduled Spark builds](./advanced/airflow.md#scheduled-spark-builds), [Schema registry](./advanced/schema-registry.md) and [`fluid import schema-registry`](./cli/import.md#importing-a-schema-registry-subject).
 - **A running Glue Avro stream restarts once** on the release that adds the pinned jars to its config hash. Plan and apply need the same `FLUID_SPARK_GLUE_JARS_URL`.
 
+## Not in a release yet
+
+*On forge-cli's `feat/fluid-profile-bundle` branch ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)), not yet on `main` or in a release.*
+
+- **`fluid profile --bundle DIR` answers a Simulation's fidelity block.** The profile then carries the statistic each declared property is compared with, grouped means, histograms, supports and quantiles among them, so the engine scores every property but a correlation. Without `--bundle`, a profile holds what it held before. The `[profile]` extra needs flux-stats 0.6.2 or newer, which `pip install -U 'data-product-forge[profile]'` brings. See [Answering a fidelity block](./cli/profile.md#answering-a-fidelity-block-bundle).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
