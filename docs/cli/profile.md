@@ -38,7 +38,7 @@ The profiler is the one part of FLUX that reads records. It runs inside the envi
 ## Syntax
 
 ```bash
-fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE] [--fractional-bits N] [--env ENV]
+fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE] [--fractional-bits N] [--bundle DIR] [--env ENV]
 ```
 
 | Argument | What it does |
@@ -49,6 +49,7 @@ fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE]
 | `--table` | The table of a database `--source`, as `name` or `schema.name`. Refused for a file. |
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory. |
 | `--fractional-bits` | The grid [`mean/1`](#the-mean-1-statistic) is formed on, in steps of 2^-N: 0 to 128, default 16. Set it to the fidelity block's `encoding.fractionalBits`. |
+| `--bundle` | *On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).* A FLUX bundle directory: the profile answers the fidelity block its one Simulation declares for the expose, on the block's grid, and a different `--fractional-bits` is refused. See [Answering a fidelity block](#answering-a-fidelity-block-bundle). |
 | `--env` | An environment overlay to apply to the contract first. |
 
 Install the extra, which adds DuckDB and flux-stats:
@@ -130,6 +131,83 @@ Fidelity statistics: mean/1 of 'amount', on fractionalBits 16 (the fidelity bloc
 
 `mean/1` is written without a `groupBy`, and for number columns only. A timestamp or category column gets no statistic: a mean of timestamps would publish a sum that no metric publishes. `fluid profile` writes no other statistic yet: no histogram, `quantile/1`, `support/1` or `correlation/1`, and no `mean/1` with a `groupBy`. The engine refuses a property that reads one with `FLX-5037`.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).* [`--bundle`](#answering-a-fidelity-block-bundle) writes the statistic each property of a fidelity block declares, a grouped `mean/1`, the histograms, `support/1` and `quantile/1` among them, and still no `correlation/1`.
+
+## Answering a fidelity block: `--bundle`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).*
+
+With `--bundle DIR`, the profile answers the fidelity block of a FLUX Simulation, so the engine can score every property the block declares but a correlation, not only an ungrouped mean. `DIR` is a FLUX bundle directory, the kind `fluxsim init` writes. Exactly one document in its `*.flux.yml` or `*.flux.yaml` files, which may hold several `---` documents, must be the Simulation, and `fluid profile` reads that Simulation's block for the expose:
+
+```yaml
+extensions:
+  com.agentics.flux/1:
+    emits:
+      payment_recovery_moment:
+        fidelity: {encoding: ..., columns: ..., properties: ...}
+```
+
+For each property, the document holds the statistic the engine compares it with:
+
+| Property | What the profile writes, per group |
+|---|---|
+| `mean` | `mean/1`: the number of values, `k`, and their sum on the grid, `Sx` |
+| `marginalHistogram` | `marginalHistogram/1`: a count for each of the property's bins |
+| `levelHistogram` | `levelHistogram/1`: a count for each level the column declares |
+| `support` | `support/1`: the declared levels the records hold |
+| `quantile` | `quantile/1`: the value at the property's `level`, in steps of the grid, with the number of records below it and at or below it, both rounded like every count |
+| `correlation` | nothing: see below |
+
+A property with a `groupBy` gets one group for each level of that column the records hold, and one without gets a single group. The grid is the block's `encoding.fractionalBits`, 16 when the block declares none, and a `--fractional-bits` that differs is refused with `profile_fractional_bits_conflict`. Each number column still gets the [ungrouped `mean/1`](#the-mean-1-statistic), written once when the block declares that same mean.
+
+The block is read the way the FLUX engine reads it, and the fidelity grammar in flux-stats parses it, so a profile and a check read the same declarations. Before any record is read, `fluid profile` refuses a block the engine would refuse (`profile_bundle_block_refused`, with the engine's code), and a property over a column the profile does not read, or reads in another domain than the property does (`profile_bundle_column_not_profiled`, `profile_bundle_column_domain`). A record value outside the block's declared range for its column is refused with `profile_bundle_record_refused`, and so is a level outside the declared support where a level histogram or a `groupBy` reads the column; nothing is written, and the refusal names the row, never the value. A `support` lists the levels the records hold, as the engine reads them. A bundle that gives no block is refused before any record is read, with `profile_bundle_not_a_directory`, `profile_bundle_no_simulation`, `profile_bundle_many_simulations`, `profile_bundle_no_block` or `profile_bundle_unreadable`. `profile_bundle_unreadable` also refuses a block that holds more than 100,000 values once its YAML aliases are written out, nests deeper than 64 levels, or holds a number of more than 1,000 digits written out, and a bundle whose YAML merge keys (`<<`) copy more than 100,000 pairs.
+
+`--bundle` needs flux-stats 0.6.2 or newer, the first release that holds the fidelity grammar, and on `main` the `[profile]` extra asks for `>=0.6.2,<0.7`. With an older flux-stats, `--bundle` stops before it reads anything:
+
+```text
+❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
+  detail: --bundle reads the fidelity block with flux-stats, and the installed flux-stats lacks flux_stats.fidelity. It needs flux-stats>=0.6.2,<0.7
+  read: nothing: no record was read
+  next: pip install 'data-product-forge[profile]'
+```
+
+### The checks on each group
+
+Each group is checked before it is written, by the [output checks](#what-leaves-the-output-checks) the rest of the document passes:
+
+- A group's `k` is a count of records: it is withheld under 10 records and rounded to a multiple of 5.
+- Each group of a grouped mean passes the checks an ungrouped [`mean/1`](#the-mean-1-statistic) passes.
+- A histogram's cells are counts, each checked and rounded on its own. A group whose every cell is withheld is withheld whole.
+- A support names its members, so each member must be held by at least 10 records, or the group is withheld.
+- A quantile's value must be held by at least 10 records, and the rounded counts must still show it is the quantile, or the group is withheld. Few values of a continuous column, such as amounts in cents, are held by 10 records, so expect its quantiles to be withheld.
+- When one group of a grouped mean or support is withheld, every other group of it is withheld too, under `D` (secondary suppression). The document publishes the column's `count` and `sum`, so subtracting the published groups from them would give the withheld one back. The records a null `groupBy` value leaves out of every group count as one more group here, checked and never written.
+
+What the checks leave readable, on purpose: a grouped statistic lists every group the records form, published or withheld. Each key is a level the bundle declares, because a record whose `groupBy` value the block does not declare is refused, so a key says only that its level holds at least one record. A withheld histogram cell or quantile group is not suppressed in turn: the rounded counts still bound it, somewhere inside 0 to 9 records.
+
+A `correlation` property is not answered: its moments need the exact number of records, which the checks round. The summary names it, and `fluxsim verify` fails with `FLX-5037`, so a block you check against a profile cannot declare a correlation yet.
+
+### What it prints
+
+The summary names each statistic the profile publishes, and each one it withholds whole or in part, since a run scores a withheld group as censored. A quantile is named with its level and a histogram with its bins, so two of one column stay apart. Here is a payment-recovery bundle of 400 records in four markets, whose block declares a mean of the amount, a mean by market, a histogram of the amount over three bins, a level histogram and a support of the market, and the amount's median:
+
+```bash
+fluid profile bundle/payment-recovery.fluid.yml --source data.csv --bundle bundle
+```
+
+```text
+Profiled exposes[payment_recovery_moment]: 4 columns, 13 values published, 16 withheld.
+Withheld, by CL_CONF_STATUS code: A (small count) 13, D (secondary suppression) 3.
+Fidelity statistics: mean/1 of 'amount'; marginalHistogram/1 of 'amount' over bins 1, 100, 1000, 10000; levelHistogram/1 of 'market', on the fidelity block's fractionalBits 16.
+Withheld whole, so a run that checks them scores them censored: mean/1 of 'amount' by 'market'; quantile/1 of 'amount' at level 0.5; support/1 of 'market'.
+Wrote /data/payment_recovery_moment.profile.json (readable by you alone; read it before you share it).
+Pin it in the FLUX Simulation:
+  profile: {digest: sha256:bd2725b5d5da3ec1311579e6b752f26af26b7b343057102e6dbaedd665792a9c}
+```
+
+One market, DE, holds 3 of the 400 records. Its group of the mean by market is withheld, and so are the other three markets' groups, under `D`. Its cell of the level histogram is withheld, and the other levels publish. Its member of the support is held by fewer than 10 records, so the support is withheld. The histogram's top bin holds no record, and a zero is withheld, while the two others publish. No amount is held by 10 records, so the median is withheld. When some groups of a statistic publish and others do not, a `Partly withheld` line names it with the number of groups published.
+
+Run with flux-sim-engine 0.6.2 against this profile, `fluxsim verify` passes: the three published statistics score within their margins, the three withheld ones score as censored, and `fluxsim ship --profile` packs the run.
+
 ## What leaves: the output checks
 
 Every value is checked before the document is written. The checks are ACRO's defaults (ACRO 1.1.0, from the SACRO project). The document names them as the rule `acro-default`:
@@ -192,5 +270,7 @@ Each refusal names a stable code, for example `profile_expose_not_found`, `profi
 A FLUX Simulation turns the profile into synthetic rows. [From your data to a synthetic copy](https://agenticstiger.github.io/flux/guide/from-your-data.html) follows the whole path: a contract from a data file, this profile, a Simulation written from the profile's numbers, then rows from the FLUX engine. The engine does not generate rows from a profile yet, so you write the Simulation's declarations from the values the profile published.
 
 The engine checks a run against the profile it pins, from flux-sim-engine 0.6.0. It compares each fidelity property with a statistic the profile carries for it, such as `mean/1` or a histogram. `fluid profile` writes [`mean/1`](#the-mean-1-statistic), so the engine scores a `mean` property over a number column against the profile. With the guide's data and Simulation on flux-sim-engine 0.6.0, the `mean` property lands within its 10% margin, `fluxsim verify` passes and `fluxsim ship --profile` packs the run. A fidelity block whose properties are all such means, each without a `groupBy`, ships the same way when the profile published each of them. Any other property is still refused with `FLX-5037`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959)).* With [`--bundle`](#answering-a-fidelity-block-bundle), the profile answers every property of the block but a correlation, so flux-sim-engine 0.6.2 scores each of them against it, and a property whose groups the checks withheld scores as censored.
 
 The rest of the FLUX documentation is at [agenticstiger.github.io/flux](https://agenticstiger.github.io/flux/).
