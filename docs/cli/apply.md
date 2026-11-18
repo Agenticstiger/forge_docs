@@ -250,7 +250,9 @@ When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` 
 | Gate | Refusal | What it compares |
 | --- | --- | --- |
 | Digests | `apply_plan_digest_plan_tamper` | `planDigest` in `plan.json` against a re-computed digest of the plan body. |
-| | `apply_plan_digest_bundle_mismatch` | `bundleDigest` in `plan.json` against the MANIFEST SHA-256 of the tgz bundle the plan was built from. |
+| | `apply_plan_digest_bundle_mismatch` | `bundleDigest` in `plan.json` against the MANIFEST SHA-256 of the tgz bundle the plan was built from. *On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)),* it also names the dbt files that differ between the checkout and the bundle's copy; see [The dbt project](#the-dbt-project). |
+| | `apply_plan_digest_packet_mismatch` | *On `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* `packetDigest` in `plan.json` against the sha256 of the bundle file: the same contract in other bytes (rebuilt with another `--env`, or another `SOURCE_DATE_EPOCH`). |
+| | `apply_plan_digest_packet_missing` | *On `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* A plan bound to a bundle that records no `packetDigest`, because `fluid plan` 0.32.0 or earlier made it. Run `fluid plan` on the bundle again. |
 | | `apply_plan_digest_bundle_missing` | A plan that carries a `bundleDigest` but has no locatable bundle. It fails closed instead of skipping the check. |
 | Mode | `apply_plan_mode_mismatch` | The `mode` recorded in `plan.json` against `--mode`. A plan made without `--mode` and `amend` count as the same. |
 | Saved OpenTofu plan | `apply_plan_digest_tofu_plan_invalid`, `_missing`, `_mismatch`, `_target`, `_stale` | *(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))* The `opentofuPlan` record of a plan made with `fluid plan --tofu`. See [Applying a saved OpenTofu plan](#applying-a-saved-opentofu-plan). |
@@ -265,6 +267,50 @@ This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryp
 ```
 
 Pass the bundle with `--bundle <path-to.tgz>`: the tgz this `plan.json` was generated against. When omitted, `apply` auto-discovers a single sibling `.tgz` / `.tar.gz` next to the `plan.json`. If several are present it logs a warning and leaves the bundle unresolved, so pass `--bundle` to disambiguate. A `plan.json` made from a raw contract has an empty `bundleDigest`, so only `planDigest` is verified; see [`fluid plan`](./plan.md#plan-binding).
+
+### The packet
+
+*On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).*
+`fluid plan <bundle>` records `packetDigest` in `plan.json`: the sha256 of the bundle file, not the merkle digest in `bundleDigest`. It is part of the plan body, so editing it is a `plan-tamper`. `fluid apply` hashes the bundle file it is given and refuses other bytes. A bundle rebuilt from the same checkout with another `SOURCE_DATE_EPOCH` still has the `bundleDigest` the plan holds, and the packet check is what refuses it:
+
+```console
+$ SOURCE_DATE_EPOCH=1700000000 fluid bundle contract.fluid.yaml --format tgz --out runtime/epoch.tgz
+...
+$ fluid apply runtime/plan.json --bundle runtime/epoch.tgz --dry-run --yes
+Loading pre-generated execution plan
+CLI command error
+❌ apply_plan_digest_packet_mismatch  [ERR_APPLY_PLAN_DIGEST_PACKET_MISMATCH]
+  kind: packet-mismatch
+  error: plan.json was made from the packet sha256:b92783ba770db2b65e7934cb7a56330c7760fb2fb203afe877bf9026c491543f but /work/orders/runtime/epoch.tgz is sha256:5f27836b44eb2046e8d4ceb7142d0beb841e4df4ac6c7e6c6dbbe42c45a55055. It holds the same contract (bundleDigest matches) in other bytes, e.g. rebuilt with another --env or SOURCE_DATE_EPOCH. Apply the packet the plan was made from, or re-run ``fluid plan`` on this one.
+```
+
+Apply the bundle the plan was made from, or run `fluid plan` on the one you mean to apply. A plan made by `fluid plan` 0.32.0 or earlier carries no `packetDigest` and is refused with `apply_plan_digest_packet_missing`. A plan edited by hand, `packetDigest` included, is refused as `plan-tamper`. A plan made from a contract file has no bundle, so it has no packet check. See [The packet digest](./bundle.md#the-packet-digest).
+
+### The dbt project
+
+*On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).*
+A dbt build reads its models from the checkout when it runs, so a model edited after `fluid plan` would run unreviewed. A bundle now packs the dbt project of each dbt build (see [The dbt project of a dbt build](./bundle.md#the-dbt-project-of-a-dbt-build)), `fluid plan <bundle>` lists each project's files in `plan.json` as `dbtProjects`, and the checks run in this order:
+
+1. Before anything runs, `fluid apply` refuses a dbt build the bundle packs no project for, with `apply_plan_digest_bundle_mismatch`. A bundle made by 0.32.0 or earlier packs none, so a contract with a dbt build needs `fluid bundle` and `fluid plan` run again.
+2. Then it reads each project the way the dbt runner will and compares it with the bundle's copy. A changed, added or removed file fails with the same error, and the message names the files.
+3. The dbt runner compares the directory again, just before dbt starts, and refuses with the same event if a file changed while the apply was provisioning.
+
+```console
+$ fluid apply runtime/plan.json --dry-run --yes
+...
+❌ apply_plan_digest_bundle_mismatch  [ERR_APPLY_PLAN_DIGEST_BUNDLE_MISMATCH]
+  kind: bundle-mismatch
+  error: the dbt project of build 'transform' at /work/orders/dbt differs from the copy /work/orders/runtime/bundle.tgz packs: changed models/orders.sql; added models/extra.sql. Re-run ``fluid bundle`` and ``fluid plan`` to bind the files as they are now, or restore them.
+```
+
+`--dry-run` does not skip the check. `fluid apply <bundle.tgz>`, without a plan, runs the same comparison. In 0.32.0 and earlier none of this ran, and a changed model applied as it was in the checkout.
+
+What the check does not cover:
+
+- `--no-verify-plan-binding` skips it and logs a `WARNING`, as it skips the digests.
+- Installed packages are not bound. dbt reads whatever `packages-install-path` holds, and `fluid apply` neither installs nor checks it. Run `dbt deps` from `package-lock.yml` in the job that applies.
+- A plan made from a contract file binds no dbt project. A build whose `repository` is a Git URL is not packed, because its ref pins it.
+- Plan and apply must run in the same checkout path. The plan records the absolute path of the source contract, and `fluid apply` compares the project at that path, whatever checkout you run it from. If the path is gone, it refuses with the same event and says the checkout cannot be found. *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* A bundle copied without its [provenance file](./bundle.md#the-provenance-file) is refused the same way.
 
 *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* After these gates the contract the plan embeds is validated against its schema, and a plan that embeds none is refused with `apply_plan_missing_contract`. See [Contract validation](#contract-validation).
 
@@ -329,7 +375,7 @@ Each of the first five carries a stable `kind` tag in the error (`tofu-plan-inva
 | Option | Description |
 | --- | --- |
 | `--allow-data-loss` | Required to run `replace` / `replace-and-build`, and to apply an OpenTofu plan that destroys data-bearing resources. |
-| `--no-verify-plan-binding` | **Emergency escape hatch.** Skip the `bundleDigest` / `planDigest` verification that stage 7 normally enforces on a saved plan. Logged at `WARNING` so audit trails catch it. Use only during documented DR procedures. |
+| `--no-verify-plan-binding` | **Emergency escape hatch.** Skip the `bundleDigest` / `planDigest` verification that stage 7 normally enforces on a saved plan. Logged at `WARNING` so audit trails catch it. *On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972), [#985](https://github.com/Agenticstiger/forge-cli/pull/985)),* it also skips the packet check and the check of the bundle's [dbt projects](#the-dbt-project). Use only during documented DR procedures. |
 | `--no-verify-federation` | Skip the federated-`consumes[]` upstream-digest check. Logged at `WARNING`. Unlike plan binding, this check only warns (`apply_consumes_drift`, exit code unchanged), so the flag silences a warning and does not remove a refusal. The digest a downstream product pins comes from [`fluid contract digest`](./contract.md#fluid-contract-digest), which covers only the upstream's root file for a fragment-layout product. `upstreamWorkspace` and `upstreamDigest` exist only in schema 0.7.6; see [preview fields](../reference/preview-fields.md#federated-upstreams). See [Federated upstream check](#federated-upstream-check), [Federated upstreams](../concepts/federation.md) and [Consume one contract from another](../recipes/consumes-contract-to-contract.md). |
 | `--adopt-shared-container` | *(since 0.13.0)* Confirm taking **ownership** of a container this contract previously referenced as a shared pool (`packaging` `shared` → `isolated`). Emits a structured `packaging_adoption_override` audit event; the data-loss gate still applies. See [Packaging modes](#packaging-modes). |
 
@@ -720,6 +766,7 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | Event | Raised when |
 | --- | --- |
 | `apply_plan_digest_plan_tamper`, `apply_plan_digest_bundle_mismatch`, `apply_plan_digest_bundle_missing` | A saved plan fails its digest checks. See [Plan binding](#plan-binding). |
+| `apply_plan_digest_packet_mismatch`, `apply_plan_digest_packet_missing` | *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* The bundle file has other bytes than the plan was made from, or the plan records none. See [The packet](#the-packet). |
 | `apply_plan_mode_mismatch` | `--mode` differs from the mode the plan was made for. |
 | `apply_contract_invalid` | *(since 0.20.0, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* The contract, or the contract a `plan.json` embeds, is not valid against its schema. Raised on both engines and in every mode. See [Contract validation](#contract-validation). |
 | `contract_version_unsupported` | *(since 0.20.0, [forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714))* The contract's `fluidVersion` is below 0.7. Raised on both engines and in every mode. |

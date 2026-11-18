@@ -635,6 +635,7 @@ What it checks:
 - **The files in the bundle.** The resolved contract against the JSON Schema, SQL fragments with a SQL parser, and OpenAPI fragments with an OpenAPI validator. When the SQL parser or the OpenAPI validator is not installed, those fragments are reported as an info (an error under `--strict`) instead of being checked.
 - **The contract rules.** The resolved contract goes through the same rules a contract file does: sovereignty, agent policy, binding prerequisites, packaging, semantics, composition and plugin validators. Each finding is reported with code `CONTRACT-RULE`. *(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* So are the [placeholder and starter-value checks](#placeholders-and-starter-values) and the [SDP checks](#what-an-sdp-does-not-do), and each `CONTRACT-RULE` finding also carries its `ERR_*` code as `rule`, with `pointer`, `fix`, `example` and `docs_url`, as in [`issues`](#finding-codes-and-issues).
 - **The environment.** `--env` must match the environment the bundle was built for.
+- **The dbt projects.** *On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).* One finding per project the bundle packs under `sources/dbt/<build id>/`. It is an `info`, `DBT-PROJECT-BOUND`, that says how many files the bundle binds and that `fluid validate` does not parse dbt's Jinja SQL, so run `dbt parse` on the project in CI. A project that no dbt build of the bundled contract runs (`DBT-PROJECT-ORPHAN`), or that has no `dbt_project.yml` (`DBT-PROJECT-INCOMPLETE`), is a warning, because `fluid apply` refuses both. See [The dbt project of a dbt build](./bundle.md#the-dbt-project-of-a-dbt-build).
 - **The overlay warnings.** *(since 0.22.0, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* An overlay patch that `fluid bundle --env` merged onto another entry is recorded in the manifest and reported as a warning, `OVERLAY-WARNING`, so `--strict` fails on it. A bundle is never re-overlaid, so the record is how validate sees it.
 
 A bundle is never re-overlaid, so a mismatched `--env` is an error, `BUNDLE-ENV-MISMATCH`, and exits `1`:
@@ -701,6 +702,7 @@ Codes you will meet in a report:
 | --- | --- |
 | `MANIFEST-TAMPER` | A file's hash does not match the manifest. |
 | `BUNDLE-ENV-MISMATCH` | `--env` differs from the environment the bundle was built for. |
+| `DBT-PROJECT-BOUND`, `DBT-PROJECT-ORPHAN`, `DBT-PROJECT-INCOMPLETE` | *On `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).* One finding per packed dbt project: an `info` for a bound one, a warning for one that no dbt build runs or that lacks `dbt_project.yml`. |
 | `OVERLAY-WARNING` | `fluid bundle --env` recorded an overlay patch that landed on another entry (a warning; `--strict` fails on it). |
 | `CONTRACT-RULE` | A contract rule failed or warned on the resolved contract. |
 | `CONTRACT-LOAD` | The resolved contract inside the bundle could not be loaded. |

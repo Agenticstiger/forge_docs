@@ -63,13 +63,14 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 
 - `bundleDigest` — SHA-256 of the tgz bundle the plan was derived from (matches `MANIFEST.json`'s merkle root). An empty string when planning from a raw YAML contract.
 - `planDigest` — SHA-256 of the plan's action list itself (internal consistency check).
+- `packetDigest` — *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* SHA-256 of the bundle file's bytes, for a plan made from a bundle. `bundleDigest` names the resolved contract and the files it packs; `packetDigest` names the exact archive, so the plan applies only with the bytes it was made from. It sits under `planDigest`. See [The packet digest](./bundle.md#the-packet-digest).
 
 `fluid apply` re-verifies both before executing any DDL. Helpers live in `fluid_build/forge/core/plan_digest.py`:
 
 - `compute_plan_digest(plan)` — canonical JSON → SHA-256
 - `inject_digests(plan, bundle_digest)` — adds both fields
 - `verify_plan_binding(plan_path, bundle_path)` — re-computes and compares; raises `PlanBindingError` on mismatch
-- `PlanBindingError.kind` is a stable string (`"bundle-mismatch"`, `"plan-tamper"` or `"bundle-missing"`). `fluid apply` surfaces it as the event `apply_plan_digest_<kind>` with `-` written as `_` — CI log parsers can key off it.
+- `PlanBindingError.kind` is a stable string (`"bundle-mismatch"`, `"plan-tamper"` or `"bundle-missing"`; *on `main`,* also `"packet-mismatch"` and `"packet-missing"`). `fluid apply` surfaces it as the event `apply_plan_digest_<kind>` with `-` written as `_` — CI log parsers can key off it.
 
 The `--no-verify-plan-binding` flag on `apply` is the DR escape hatch for bypassing this check; see [`fluid apply`](./apply.md#safety-gates).
 
@@ -100,6 +101,35 @@ Besides the digests, `plan.json` carries what `apply` needs to refuse a plan tha
 | `contract_metadata.env` | `--env` was given, or the plan was made from a bundle that records an env. | In a build mode (`amend-and-build`, `replace-and-build`), `apply` without `--env` runs the builds in that env, and a different `--env` is refused with `plan_env_mismatch`. See [`fluid apply`](./apply.md#the-plan-s-environment). |
 | `contract_metadata.source_contract` | The plan was made from a bundle. | Names the source contract file the bundle was built from. |
 | `contract` | Always. | Apply runs the embedded contract, which already has the overlay applied. *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* It validates it against its schema first, on both engines, and refuses a plan with no embedded contract with `apply_plan_missing_contract`. See [Contract validation](./apply.md#contract-validation). |
+
+*On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972) and [#985](https://github.com/Agenticstiger/forge-cli/pull/985)).*
+A plan made from a bundle records two more fields. This is a trimmed excerpt of `fluid plan runtime/bundle.tgz --out runtime/plan.json` on the bundle from [The dbt project of a dbt build](./bundle.md#the-dbt-project-of-a-dbt-build):
+
+```json
+{
+  "bindingMode": "bound",
+  "bundleDigest": "sha256:c8e0d69396d694546601d6dfd9cc0be1b87ee6d5609b24a33092706005d78eed",
+  "packetDigest": "sha256:b92783ba770db2b65e7934cb7a56330c7760fb2fb203afe877bf9026c491543f",
+  "planDigest": "sha256:cfeb855c2f97cd571e8e1db9239ad3ae3b09b6c0a92cbec4f8899870d0c51c65",
+  "dbtProjects": {
+    "transform": {
+      "digest": "sha256:e73871e51224311be6a6eee84689d8412dbfc0a6a0992331a5cb83c7d033e35e",
+      "files": {
+        "dbt_project.yml": "sha256:8d5d99087d75f8c1147d4e7195c15278e9b5f1d5fa8ba14dc46887b17c0af0b0",
+        "models/orders.sql": "sha256:4e65c7c3c4bc6e8c6604aad92341c4f8a0dfb3a8c3c7ef8c4e741996140d1ee1"
+      }
+    }
+  },
+  "...": "contract, contract_metadata, actions"
+}
+```
+
+| Field | Written when | What `apply` does with it |
+| --- | --- | --- |
+| `packetDigest` | The plan was made from a bundle. | Compares it with the sha256 of the bundle file it is given. Other bytes are refused with `apply_plan_digest_packet_mismatch`; a bound plan without one, with `apply_plan_digest_packet_missing`. See [`fluid apply`](./apply.md#the-packet). |
+| `dbtProjects` | The bundle packs the dbt project of a dbt build. | Keyed by build id: the sha256 of each project file, by path inside the project, and their merkle `digest`. `fluid apply` compares the checkout's dbt files with it before anything runs. A changed, added or removed file is refused with `apply_plan_digest_bundle_mismatch`. See [`fluid apply`](./apply.md#the-dbt-project). |
+
+Both are under `planDigest`, so editing either is a plan tamper. `fluid plan` prints one line per bound project (`dbt project bound: transform (2 files, sha256:e738...)`). A plan made from a contract file, not a bundle, has `bindingMode: "raw"` and neither field: it binds no dbt project, because there is no bundle to take the files from.
 
 A bundle is never re-overlaid: `fluid plan bundle.tgz --env prod` on a bundle built for `dev` is refused with `bundle_env_mismatch`. Plan the bundle without `--env`, or rebuild it with `fluid bundle <contract> --env prod --format tgz`.
 

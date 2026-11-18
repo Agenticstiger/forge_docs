@@ -97,9 +97,9 @@ Stage 1 writes `runtime/bundle.tgz` for one environment. Stages 2, 3, 5, 6, 7 an
 
 | # | Stage | Command in the generated Jenkinsfile | What it gates |
 |---|---|---|---|
-| 1 | Bundle | `fluid bundle "$CONTRACT" --env "$FLUID_ENV" --format tgz --out runtime/bundle.tgz` | Deterministic tgz with `MANIFEST.json`, per-file SHA-256 and a merkle root |
+| 1 | Bundle | `fluid bundle "$CONTRACT" --env "$FLUID_ENV" --format tgz --out runtime/bundle.tgz` | Deterministic tgz with `MANIFEST.json`, per-file SHA-256 and a merkle root. *On `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)),* it also packs the dbt project of each dbt build, so run `fluid generate dbt-tests` first |
 | 2 | Validate | `fluid validate runtime/bundle.tgz --env "$FLUID_ENV" --report runtime/validate-report.json --strict` | The bundled contract against its schema (`--strict` is the `VALIDATE_STRICT` parameter) |
-| 3 | Generate artifacts | `fluid generate artifacts runtime/bundle.tgz --env "$FLUID_ENV" --contract-path "$CONTRACT" --out dist/artifacts/ --emit ...` | ODCS, ODPS-Bitol, schedule and policy artifacts under `dist/artifacts/` |
+| 3 | Generate artifacts | `fluid generate artifacts runtime/bundle.tgz --env "$FLUID_ENV" --contract-path "$CONTRACT" --out dist/artifacts/ --emit ...` | ODCS, ODPS-Bitol, schedule and policy artifacts under `dist/artifacts/`. *On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)),* each Spark build's `job.json` too |
 | 4 | Validate artifacts | `fluid validate-artifacts dist/artifacts/ --manifest dist/artifacts/MANIFEST.json --report runtime/validate-artifacts-report.json` | Generated artifacts match their manifest. Skipped when `dist/artifacts/MANIFEST.json` does not exist |
 | 5 | Diff (drift gate) | `fluid diff runtime/bundle.tgz --env "$FLUID_ENV" --out runtime/diff-report.json --exit-on-drift` | The bundled contract against the live target. Exit 0 when there is no drift, 1 on drift, 2 when a target could not be read. [`--diff-last-applied`](#fluid-generate-ci-options) keeps a contract change you have not applied from reading as drift; see [`fluid diff`](../cli/diff.md) |
 | 6 | Plan | `fluid plan runtime/bundle.tgz --env "$FLUID_ENV" --mode "$APPLY_MODE" --out runtime/plan.json --check-sovereignty` | `plan.json` with `bundleDigest` and `planDigest`; a strict sovereignty violation fails here, before any cloud is touched (see [sovereignty enforcement modes](./governance.md#sovereignty-enforcement-modes-since-0-15-0)) |
@@ -195,6 +195,15 @@ A bundle is built for one `--env`; see [Environments](../cli/bundle.md#environme
 - **`planDigest`**: digest over the plan body itself
 
 `fluid apply` re-verifies both before any DDL. A mismatch raises `PlanBindingError` with a stable `kind` tag (`bundle-mismatch`, `plan-tamper`, ...) that CI log parsers can match; the full list is in [Production troubleshooting](./production-troubleshooting.md#plan-binding-rejections).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* A plan made from a bundle also records **`packetDigest`**, the sha256 of the bundle file. `bundleDigest` names the resolved contract and its files; the packet names the exact bytes, so a bundle rebuilt from the same checkout with another `SOURCE_DATE_EPOCH` is refused with `apply_plan_digest_packet_mismatch`. The apply job must receive the bundle the plan job made, as an artifact. In 0.32.0 and earlier the plan did not record it.
+
+*On `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).* A bundle packs the dbt project of each dbt build, and `fluid plan` records its files as `dbtProjects`. `fluid apply` compares the checkout with them before anything runs, and the dbt runner compares again just before dbt starts; a changed, added or removed file is refused with `apply_plan_digest_bundle_mismatch`. See [The dbt project](../cli/apply.md#the-dbt-project). For a pipeline this means:
+
+- **The apply job needs the checkout.** The dbt files are read from it, not from the artifact. The plan records the absolute path of the source contract, and `fluid apply` compares the project at that path, whatever checkout it runs from. Run plan and apply in the same checkout path: when the recorded path is gone, the apply is refused for a checkout it cannot find.
+- **Generate dbt tests before the bundle.** Run `fluid generate dbt-tests` first, with `-o` naming a file inside the project (without it, the file lands in the current directory), then `fluid bundle`. Tests generated after stage 1 are not in the bundle, so the apply is refused for the files that appeared.
+- **Install packages in the apply job.** Installed packages are not bound. Run `dbt deps` from `package-lock.yml` in the job that applies: `fluid apply` neither installs nor checks `dbt_packages/`.
+- **Plan from the bundle.** A plan made from a contract file binds no dbt project.
 
 Passing `--bundle <path>` to apply pins which tgz the plan is verified against; when omitted, a sibling `.tgz` is auto-discovered. The binding verifies a tgz bundle's `MANIFEST.json`, so use `--format tgz` for the bundle in CI.
 
