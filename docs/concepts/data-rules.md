@@ -437,12 +437,12 @@ The declarations travel with the contract. What reads them in this version:
 | Consumer | What it does |
 | --- | --- |
 | `fluid validate` | Runs the lint above. |
-| ODCS export | Carries the declarations through `fluidExtras`, so FLUID to ODCS and back to FLUID loses none. See [ODCS](../cli/odcs.md). |
+| ODCS export | Carries the declarations through `fluidExtras`, so FLUID to ODCS and back to FLUID loses none. *On forge-cli `main`, not yet in a release ([forge-cli #970](https://github.com/Agenticstiger/forge-cli/pull/970)):* it also writes each one as an executable quality rule. See [ODCS](../cli/odcs.md#declared-invariants-as-quality-rules). |
 | dbt bridge | Output is unchanged. |
 | MCP `describe` | Returns the invariants, formats, placeholders and shared attributes. See [`fluid mcp`](../cli/mcp.md). |
 | Contract digest | Covers every field here, so changing a rule changes the digest. |
 
-Two consumers come later: executable ODCS quality rules rendered from the invariants, and a dbt test (`fluid_rule`) for each one. Until they land, an invariant is declared and validated, but dbt does not yet run it against warehouse data.
+One consumer comes later: a dbt test (`fluid_rule`) for each invariant. Until it lands, an invariant is declared and validated, but dbt does not yet run it against warehouse data. The ODCS export on forge-cli `main` renders the invariants as executable quality rules, so a quality engine that reads ODCS can run them.
 
 ## The conformance vectors
 

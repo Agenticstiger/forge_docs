@@ -279,12 +279,76 @@ One refusal names the expose, every column it cannot hold with its declared type
 
 The BigQuery emitter no longer falls back to the ODCS table for these types. A contract with an `array` or `struct` column that validated before now fails with `column-type`; declare the column `json`, which BigQuery stores as its JSON type, or `string`.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #968](https://github.com/Agenticstiger/forge-cli/pull/968)): a 0.7.7 column that declares its shape is no longer refused. See [Nested columns](#nested-columns).*
+
+#### Nested columns
+
+*On forge-cli `main`, not yet in a release ([forge-cli #968](https://github.com/Agenticstiger/forge-cli/pull/968)).*
+
+A column in a `fluidVersion: "0.7.7"` contract can declare what it holds: `element` for an array, `fields` for a struct, `key` and `value` for a map. The BigQuery emitter writes each as BigQuery stores it:
+
+| You declare | BigQuery gets |
+|---|---|
+| An array with an `element` | A REPEATED column of the element's type |
+| A struct with `fields` | A RECORD with those fields, nested up to 15 levels |
+| An array whose `element` is a struct | A REPEATED RECORD |
+| A map with a `key` and a `value` | A REPEATED RECORD with a `key` field and a `value` field |
+
+```yaml
+- name: tags
+  type: array
+  required: true
+  element: {type: string, required: true}
+- name: address
+  type: struct
+  fields:
+    - {name: street, type: string}
+    - {name: zip, type: string, required: true}
+- name: items
+  type: array
+  required: true
+  element:
+    type: struct
+    required: true
+    fields:
+      - {name: sku, type: string, required: true}
+      - {name: qty, type: integer}
+```
+
+`fluid generate iac` writes these as the table's `schema` (one field per line here; the module holds it as one JSON string):
+
+```text
+{"description": "", "mode": "REPEATED", "name": "tags", "type": "STRING"}
+{"description": "", "fields": [{"description": "", "mode": "NULLABLE", "name": "street", "type": "STRING"}, {"description": "", "mode": "REQUIRED", "name": "zip", "type": "STRING"}], "mode": "NULLABLE", "name": "address", "type": "RECORD"}
+{"description": "", "fields": [{"description": "", "mode": "REQUIRED", "name": "sku", "type": "STRING"}, {"description": "", "mode": "NULLABLE", "name": "qty", "type": "INT64"}], "mode": "REPEATED", "name": "items", "type": "RECORD"}
+```
+
+The Glue emitter reads the same declarations through the same parser, so a declaration is accepted or refused alike on both clouds.
+
+**What BigQuery holds differently.** Three cases are written, but BigQuery cannot keep what the contract says, so `fluid validate` warns and `--strict` fails:
+
+| Declaration | What differs |
+|---|---|
+| A nullable array | BigQuery stores a NULL array as an empty one. |
+| A nullable `element` | A BigQuery array holds no NULL element. |
+| A map | A map is held as an array of key and value records, and BigQuery does not keep its keys unique. A map's `key` must be a required string. |
+
+`required: true` on the array and on its `element` holds the first two exactly. To hold a map exactly, declare an array of structs with a required `key` field and a `value` field instead. The warning names the column and what to set:
+
+```text
+expose 'orders': column 'scores' is declared 'array', where scores may be NULL, which BigQuery stores as an empty array; and an element of scores may be NULL, which BigQuery cannot hold in an array; it is written as 'REPEATED INT64'. Set required: true on scores if it is never NULL. Set required: true on scores.element if no element is NULL.
+```
+
+**What is refused**, naming the field: an array of arrays, a leaf type BigQuery cannot hold, and a column restriction on a RECORD column (BigQuery puts policy tags on leaf fields only). A bare `array`, `struct` or `map` is still refused; its fix now says to declare the shape (`element`, `fields`, or `key` and `value`), or to declare `json` or `string`.
+
+`fluid verify` compares a nested column with the type and mode `fluid apply` wrote, and `fluid diff` reads a map as it reads an array and every spelling of a struct (`struct`, `record`, `row`) as the RECORD BigQuery reports.
+
 ### Not emitted
 
 These are not produced by the 0.18.1 GCP module. A contract key for them is either absent from the schema or accepted and ignored:
 
 - VPC Service Controls.
-- Partitioning, clustering, table expiration, materialized or authorized views from `binding.properties` (`partitioning`, `clustering`, `materialized`, `authorized`). `binding.properties` passes validation and the module ignores these keys. Partitioning comes only from [retention](#retention-0-7-6).
+- Partitioning, clustering, table expiration, materialized or authorized views from `binding.properties` (`partitioning`, `clustering`, `materialized`, `authorized`). `binding.properties` passes validation and the module ignores these keys. Partitioning comes only from [retention](#retention-0-7-6). *On forge-cli `main`, not yet in a release ([forge-cli #973](https://github.com/Agenticstiger/forge-cli/pull/973)): `binding.location.partitionBy` and `binding.properties.cluster_by` are read; see [Partitioning and clustering](#partitioning-and-clustering).*
 - Service accounts, routines, external tables and Cloud Run services.
 
 BigQuery row-level security and data-policy masking are not in this list, because 0.19.0 added both. A contract's [row filters](#row-filters) become BigQuery row access policies, and a column restriction with `access: mask` becomes a BigQuery data policy; see [Data Masking](#data-masking).
@@ -761,6 +825,47 @@ exposes:
 The table gets `time_partitioning: {type: DAY, field: scored_at, expiration_ms: 7776000000}`, so each daily partition is deleted 90 days after its date. Without `partitionBy` it is partitioned by ingestion time and a row lives at least `retention` after it landed. With `partitionBy`, retention counts from the column's date: a backfill of rows older than `retention` lands in expired partitions and is deleted at once (`fluid apply` logs `bigquery_retention_event_time`). Retention does not set a table-level expiration.
 
 BigQuery cannot partition an existing table. The first apply that adds `expire: true` to a live table plans the table's replacement, which `fluid apply` refuses without `--allow-data-loss`; the next build lands the data again. Changing `retention` later is an in-place update. `partitionBy` must be a list; a scalar fails validation.
+
+### Partitioning and clustering
+
+*On forge-cli `main`, not yet in a release ([forge-cli #973](https://github.com/Agenticstiger/forge-cli/pull/973)).*
+
+A BigQuery table is partitioned and clustered as its binding declares. Through 0.32.0 `binding.location.partitionBy` was read only together with [retention](#retention-0-7-6), and `binding.properties.cluster_by` (which Snowflake honours) was read by nobody on BigQuery. Both were dropped without a word, and `fluid validate --strict` passed.
+
+```yaml
+binding:
+  platform: gcp
+  format: bigquery_table
+  location:
+    project: acme
+    dataset: demo
+    table: orders
+    partitionBy: [placed_at]      # one DATE, TIMESTAMP or DATETIME column
+  properties:
+    cluster_by: [customer_id]     # a list, or one column as a string
+```
+
+`fluid generate iac` writes, for that binding:
+
+```json
+"time_partitioning": {"field": "placed_at", "type": "DAY"},
+"clustering": ["customer_id"]
+```
+
+- **`partitionBy`** names one DATE, TIMESTAMP or DATETIME column, and the table is partitioned by day on it, with or without retention. Retention adds only the partitions' expiry: `expiration_ms` appears in `time_partitioning` when the expose also sets `lifecycle.expire`.
+- **`cluster_by`** becomes the table's `clustering`, in the declared order: at most four top-level, non-repeated columns of a type BigQuery clusters by (BIGNUMERIC, BOOL, DATE, DATETIME, GEOGRAPHY, INT64, NUMERIC, STRING or TIMESTAMP), each named once. The provider changes clustering in place.
+
+**What is refused.** Before, a layout BigQuery could not honour was ignored. `fluid validate`, `fluid generate iac` and `fluid apply` now refuse it, naming the field:
+
+- A `partitionBy` with more than one column, or one that is not a DATE, TIMESTAMP or DATETIME column of the expose's schema.
+- A `cluster_by` that names more than four columns, a column the schema does not declare, or a column BigQuery cannot cluster by (a repeated column or a RECORD).
+- Either key on a BigQuery view, which stores no rows to partition or cluster.
+
+```text
+exposes[orders].binding.location.partitionBy is ['placed_at', 'id']; a BigQuery table is partitioned by at most one column. Name one DATE, TIMESTAMP or DATETIME column, and cluster by the others (binding.properties.cluster_by).
+```
+
+**A live table.** BigQuery cannot partition an existing table. A live table whose contract already declared `partitionBy` without retention now plans a replacement, which `fluid apply` refuses without `--allow-data-loss`. Adding retention later on the same column is an in-place change.
 
 ### Encryption at rest (CMEK, 0.7.6)
 

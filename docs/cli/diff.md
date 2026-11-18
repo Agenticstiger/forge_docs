@@ -7,6 +7,7 @@ Stage 5 of the 11-stage pipeline. Detect drift between the contract and what is 
 ```bash
 fluid diff CONTRACT [--env ENV] [--exit-on-drift] [--last-applied PLAN] [--out PATH]
 fluid diff CONTRACT --baseline OLD_CONTRACT [--fail-on-breaking] [--format FORMAT]
+fluid diff CONTRACT --baseline OLD_CONTRACT --impact [--plan PLAN_JSON] [--format FORMAT]
 ```
 
 `CONTRACT` is a contract file or a bundle (`.tgz`) written by [`fluid bundle`](./bundle.md). The generated Jenkins pipeline's stage 5 diffs the bundle stage 1 wrote.
@@ -208,6 +209,8 @@ Version-diff mode (`--baseline`) needs no provider at all — it is a pure struc
 | `--baseline` | none | Compare against an older revision of the contract: switches `diff` into version-diff mode. |
 | `--fail-on-breaking` | off | In version-diff mode, exit `1` when a breaking change is found. |
 | `--format` | `text` | Version-diff output format: `text`, `json` or `markdown`. |
+| `--impact` | off | *On forge-cli `main`, not yet in a release ([forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981)).* With `--baseline`, add the [impact report](#impact-report-for-a-pull-request). Refused without `--baseline`. |
+| `--plan PLAN_JSON` | none | *On forge-cli `main`, not yet in a release ([forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981)).* The OpenTofu plan the change would run: the `plan.json` of `fluid plan --tofu`, or the output of `tofu show -json`. Implies `--impact`. |
 
 Every path argument (`CONTRACT`, `--baseline`, `--state`, `--last-applied`, `--out`) is checked before it is read or written: a relative path containing `..` is refused with `ERR_PATH_TRAVERSAL_DETECTED`.
 
@@ -491,6 +494,81 @@ fluid diff contract.fluid.yaml --baseline /tmp/base/contract.fluid.yaml --fail-o
 ```
 
 `fluid bundle <contract> --out base.yaml`, run in the old checkout, gives a flat baseline file the same way. Each side's `$ref` targets must stay inside that side's own directory tree; see [Composing a contract with `$ref`](../concepts/contract-refs.md).
+
+## Impact report for a pull request
+
+*On forge-cli `main`, not yet in a release ([forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981)).*
+
+The version diff says what changed in the contract. `--impact` adds what the change reaches, so a reviewer of the pull request sees it next to the changelog:
+
+```bash
+fluid diff contract.fluid.yaml --baseline /tmp/base/contract.fluid.yaml --impact --format markdown
+fluid diff contract.fluid.yaml --baseline /tmp/base/contract.fluid.yaml --plan plan.tofu.json --format markdown
+```
+
+`--plan` implies `--impact`. Without `--baseline`, both are refused with `diff_modes_mutually_exclusive`. Without the flags, the version diff is unchanged.
+
+The report has three parts. This is the markdown for a change that removes a required column from `orders`, adds a read grant for a whole domain, and moves the partition column, with a plan that replaces the table:
+
+```text
+## Impact
+
+### Consumer interface
+
+**Status:** breaking
+
+- breaking: `exposes[0].contract.schema.amount`: `column 'amount' removed from expose 'orders'`
+- Consumers (1; `readers outside the workspace, or in files not named contract.fluid.yaml, are not listed`):
+  - `finance.revenue` (`workspace`, reads `orders`): breaks on `exposes[0].contract.schema.amount`
+
+### Governance and target
+
+**Status:** changed
+
+- Grant added: `domain:finance` `read` **broad**: every account of a domain
+- Partitioning of `orders`: `location.partitionBy` `["order_date"]` to `["order_id"]`; provider impact replacement: `the plan: replace google_bigquery_table.orders`
+
+### Resource impact
+
+**Status:** known (1 replace, 1 no-op)
+
+- replace: `google_bigquery_table.orders` (`replace_because_cannot_update`); replaced for `time_partitioning.0.field`
+```
+
+**Consumer interface.** Each change a reader of the product sees, and the workspace products whose `consumes[]` read this one, with the changes that break them. The consumers come from a scan of the [workspace](./workspace.md): every `contract.fluid.yaml` or `contract.fluid.json` below the nearest `fluid.workspace.yaml`. A reader outside the workspace, or in a file of another name, is not seen, and the report says so in its `reason`.
+
+**Governance and target.** What decides who can read the data and where it lives:
+
+- Access grants added or removed. A grant is marked **broad** when its principal is a domain or a public principal, when it grants admin or manage, or when it covers every expose rather than one.
+- Each expose's platform, format and `location` changes, other than `partitionBy`.
+- Partitioning: `location.partitionBy` and an Iceberg `partitionSpec`.
+- The policy and input changes the changelog found: agent policy, sovereignty, PII and sensitivity, and `consumes`.
+
+**Resource impact.** Read from `--plan`, resource by resource: create, update, replace, delete, read or no-op. A replacement carries its reason and the paths that force it. No value from the plan is copied into the report.
+
+**What the report cannot see reads `unknown`, with the reason, and never "no impact".**
+
+| Situation | The report says |
+|---|---|
+| No `fluid.workspace.yaml` above the contract | Consumers are `unknown`: products that read this one are not searched |
+| A workspace, and no contract in it reads this product | `none_in_workspace`, with the reason |
+| No `--plan` | Resource impact is `unknown`: pass `--plan` with the output of `fluid plan --tofu` |
+| A plan that does not say what the provider replaces | `unknown`, with the reason |
+
+A partition change counts as a replacement only when the plan replaces that expose's table. A plan that replaces nothing there reads "in place", and a plan that does not name the table leaves it unknown.
+
+**Formats.** `--format markdown` and `--format text` add an Impact section. `--format json`, and the file `--out` writes, add an `impact` block with `version: "1.0"` and the keys `consumer_interface`, `governance_and_target` and `resource_impact`:
+
+```json
+"impact": {
+  "version": "1.0",
+  "consumer_interface": {"status": "breaking", "changes": [...], "readers": {"status": "known", "items": [...]}},
+  "governance_and_target": {"status": "changed", "grants": {"added": [...], "removed": []}, "partitioning": [...], ...},
+  "resource_impact": {"status": "known", "plan": {"counts": {"replace": 1, "no-op": 1, ...}, "resources": [...]}}
+}
+```
+
+`--fail-on-breaking` works as before: `--impact` does not change what gates the run.
 
 ## Notes
 

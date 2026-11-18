@@ -107,6 +107,13 @@ flag_oracle_ok:
   - docs/cli/forge.md::--resume
   - docs/cli/forge.md::--fork
   - docs/cli/forge.md::--seed-from
+  # On forge-cli main, not in the pinned 0.32.0. Each entry is scoped to the one
+  # flag; drop it when the pin moves to the release that carries the pull request.
+  - docs/cli/validate.md::--diagnostics   # forge-cli #969
+  - docs/cli/ship.md::--require-artifacts  # forge-cli #971
+  - docs/cli/ship.md::--release-dir        # forge-cli #980
+  - docs/cli/diff.md::--impact             # forge-cli #981
+  - docs/cli/diff.md::--plan               # forge-cli #981
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

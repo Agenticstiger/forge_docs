@@ -1343,6 +1343,24 @@ These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 unti
 
 - **A Spark job's role can look up the directories it is granted.** On 0.32.0 and earlier, a stream on AWS failed within minutes of starting, because S3 refused the lookup of its checkpoint directory with a 403. The role forge creates, and the policy for an EMR on EC2 cluster, now read each granted directory's own key and list it by its exact name. Run `fluid apply` to update the policy. A role you name with `executionRoleArn` is yours, and needs the same two permissions. See [What the job's role may do in S3](./advanced/spark-iceberg-aws.md#what-the-job-s-role-may-do-in-s3).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #973](https://github.com/Agenticstiger/forge-cli/pull/973), [forge-cli #968](https://github.com/Agenticstiger/forge-cli/pull/968)).*
+
+- **A BigQuery table is partitioned and clustered as its binding declares, and a layout BigQuery cannot honour is refused.** `binding.location.partitionBy` and `binding.properties.cluster_by` were dropped without a word, and `fluid validate --strict` passed. Run `fluid validate` on each BigQuery contract before you upgrade. A `partitionBy` with more than one column or a non-time column, a `cluster_by` with more than four columns or a column BigQuery cannot cluster by, and either key on a view now fail, naming the field. BigQuery cannot partition an existing table, so a live table whose contract already declared `partitionBy` without retention plans a replacement, which `fluid apply` refuses without `--allow-data-loss`. See [Partitioning and clustering](./providers/gcp.md#partitioning-and-clustering).
+- **New: a 0.7.7 column that declares its `element`, `fields`, or `key` and `value` is written to BigQuery as REPEATED and RECORD fields.** A nullable array, a nullable element and a map are written but warn, so `--strict` fails on them. Nothing changes for a contract that declares no nested column. See [Nested columns](./providers/gcp.md#nested-columns).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971), [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980)).*
+
+- **`fluid ship` generates artifacts for a reference-only contract, and its report changes shape.** Stage 3 used to skip a contract with a `hybrid-reference`, `reference` or `external-reference` build, and the run exited 0 with no `MANIFEST.json`. It now runs, and stage 4 fails where it used to skip when stage 3 was to write `dist/artifacts/` and did not. In `ship-report.json`, `"schema"` is `fluid-ship-report/2`, a stage's `skipped` status is now `skipped-by-policy`, `unsupported` or `not-run`, and an interrupted stage is `unknown`, and `skip_reason` and `failure_reason` are one `reason`. A script that reads the report should read the new statuses; a version 1 record still merges. See [Reports](./cli/ship.md#reports).
+- **New, opt-in: `fluid ship --require-artifacts KEYS` and `--release-dir DIR`.** The first fails the run unless stage 3 writes what it promised. The second publishes a run's bundle, artifacts, plan and reports as a release directory once every stage it ran passed. Nothing changes until you pass them. See [Requiring artifacts](./cli/ship.md#requiring-artifacts) and [Publishing a release](./cli/ship.md#publishing-a-release).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #970](https://github.com/Agenticstiger/forge-cli/pull/970)).*
+
+- **The ODCS export of a 0.7.7 contract writes its declared invariants as executable quality rules.** A contract with `invariants`, `identifierFormat`, `placeholders` or `sharedColumns` now has more `quality` entries per schema object, each marked `fluidGenerated`. Re-export and re-publish a contract a catalog or a quality engine reads. A contract that declares none of them exports as before. See [Declared invariants as quality rules](./cli/odcs.md#declared-invariants-as-quality-rules).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969), [forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981)).*
+
+- **New, opt-in: `fluid validate --diagnostics` and `--format sarif`, and `fluid diff --baseline --impact` with `--plan`.** The first puts each finding at the file, line and column that wrote it, and writes a SARIF 2.1.0 log for code scanning. The second adds an impact report to the version diff for a pull request. Without the flags, the output of both commands is unchanged. See [Findings at the line that wrote them](./cli/validate.md#findings-at-the-line-that-wrote-them) and [Impact report for a pull request](./cli/diff.md#impact-report-for-a-pull-request).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
