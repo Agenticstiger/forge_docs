@@ -223,7 +223,7 @@ cannot quietly use another one.
 | Artifact | Where the env is recorded | What a mismatch does |
 |---|---|---|
 | `plan.json` from `fluid plan --env <env>` | `contract_metadata.env` | `fluid apply plan.json` without `--env` uses it. When the apply runs a build, a different `--env` is refused with `ERR_PLAN_ENV_MISMATCH`. |
-| A bundle from `fluid bundle --env <env> --format tgz` | `MANIFEST.json` `source.env` and `source.overlay` | A bundle is never re-overlaid. `--env` naming another env is refused with `ERR_BUNDLE_ENV_MISMATCH`. |
+| A bundle from `fluid bundle --env <env> --format tgz` | `MANIFEST.json` `source.env`. `source.overlay` too in 0.32.0 and earlier; *on forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)),* it is in the [provenance file](../cli/bundle.md#the-provenance-file) | A bundle is never re-overlaid. `--env` naming another env is refused with `ERR_BUNDLE_ENV_MISMATCH`. |
 | Airflow DAGs from `fluid generate artifacts --env <env>` | directory `<product-id>__<env>/`, dag id `<product>__<env>__<build>` | The aws and gcp DAGs of one product no longer replace each other. |
 | A Command Center publish | `metadata.fluid_env` | One catalogue product per contract id; the last publish wins (see below). |
 

@@ -41,7 +41,7 @@ dist/artifacts/
 └── policy/bindings.json                              # compiled IAM / GRANT bindings
 ```
 
-A contract that gets a schedule artifact adds `schedule/<product-id>[__<env>]/<build-id>_dag.py`, described in [Scheduled builds](#scheduled-builds).
+A contract that gets a schedule artifact adds `schedule/<product-id>[__<env>]/<build-id>_dag.py`, described in [Scheduled builds](#scheduled-builds). *On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)).* A contract with a forge Spark build adds `spark/<build-id>/job.json`, described in [Spark job configs](#spark-job-configs).
 
 ## Syntax
 
@@ -57,7 +57,7 @@ fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--manifest PATH] [
 | --- | --- |
 | `CONTRACT` | Bundle (`.tgz`) or contract YAML file (positional, required). |
 | `--out PATH` | Output directory. Default `dist/artifacts/`. |
-| `--emit KEYS` | Comma-separated emit keys. Default: `odps-bitol,odcs,opds,schedule,policies`. See the [emit set](#emit-set). `dbt` is not an emit key; dbt projects come from [`fluid generate transformation`](./generate.md#fluid-generate-transformation). |
+| `--emit KEYS` | Comma-separated emit keys. Default: `odps-bitol,odcs,opds,schedule,policies`. *On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)).* The default also holds `spark`. See the [emit set](#emit-set). `dbt` is not an emit key; dbt projects come from [`fluid generate transformation`](./generate.md#fluid-generate-transformation). |
 | `--manifest PATH` | Where to write `MANIFEST.json`. Default `<out>/MANIFEST.json`. Stage 4 re-verifies it. |
 | `--env ENV` | The environment the artifacts are for. A bundle must have been built for it (`fluid bundle --env ENV`); a bundle built for another env is refused, because a bundle is not re-overlaid. A contract file gets the overlay applied, as `fluid bundle --env ENV` would. The value is also the `--env` every scheduled DAG passes to `fluid apply`. Default for the DAGs: `$FLUID_ENV`; if that is unset too, the DAGs carry no `--env`. `--env ''` means no `--env`. |
 | `--contract-path PATH` | The contract's path relative to the project directory. Scheduled DAGs append it to `$FLUID_PROJECT_DIR` on the Airflow worker. Default: the input's path relative to the current directory for a contract file, and `contract.fluid.yaml` (with a warning) for a bundle, which records no location. |
@@ -70,6 +70,7 @@ fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--manifest PATH] [
 | `odps-bitol` | ODPS-Bitol v1.0.0 product file under `odps-bitol/`, with an ODCS file per exposed port beside it | Schema vendored from `bitol-io/open-data-product-standard`. |
 | `opds` | OPDS v4.1 (LF/ODPI) product file under `opds/` (`<product-id>.opds.json`) | `odps` is accepted as a deprecated alias of `opds` and warns. |
 | `schedule` | Airflow DAG files under `schedule/` | Emitted when `orchestration.engine` is set, or when a build declares a schedule trigger. See [Scheduled builds](#scheduled-builds). |
+| `spark` | `spark/<build-id>/job.json` for each forge Spark build | *On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)).* The runner config `fluid apply` uploads. A contract without a Spark build writes nothing. See [Spark job configs](#spark-job-configs). |
 | `policies` | `policy/bindings.json`, the compiled IAM / GRANT bindings | *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* A crash inside the policy compiler fails the stage with `policy_compiler_crashed` (exit 1). See [`fluid policy compile`](./policy-compile.md#errors). |
 
 `builds[].pattern` (for example `hybrid-reference`) decides how the transformation runs and gates no emit key: a reference-only contract gets the same set as any other.
@@ -114,13 +115,13 @@ dist/artifacts/schedule/<product-id>__aws/ingest_subscriptions_dag.py
 The `schedule` key writes DAGs when either holds:
 
 - `orchestration.engine` is set to anything except `none`.
-- No `orchestration.engine` is set, and a build declares `execution.trigger.schedule` (or `cron`) with trigger `type: schedule` or no type. The engine then defaults to Airflow. The file does nothing until `schedule-sync` delivers it, and stage 11 names the scheduler (`airflow`, `mwaa`, `composer` and `astronomer` run Airflow DAGs), so the default decides the file format only.
+- No `orchestration.engine` is set, and a build declares `execution.trigger.schedule` (or `cron`) with trigger `type: schedule` or no type. *On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* A `dataset` or `schedule_and_dataset` trigger counts too. The engine then defaults to Airflow. The file does nothing until `schedule-sync` delivers it, and stage 11 names the scheduler (`airflow`, `mwaa`, `composer` and `astronomer` run Airflow DAGs), so the default decides the file format only.
 
-Each such build gets its own DAG that runs `fluid apply`, unless the contract hand-declares `orchestration.tasks`, which keep their declared operators. A build is left out when its own `execution.orchestration.engine` is `none` or not Airflow, or when its trigger is `event`, `dataset`, `schedule_and_dataset` or `timetable`, which a plain cron DAG cannot express. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build, or one that runs outside forge-cli, gets no DAG and no task at all (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)).
+Each such build gets its own DAG that runs `fluid apply`, unless the contract hand-declares `orchestration.tasks`, which keep their declared operators. *On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* Builds that `builds[].dependencies` link share one DAG, with a task for each build. A build is left out when its own `execution.orchestration.engine` is `none` or not Airflow, or when its trigger is `event`, `manual` or `timetable`, which a DAG on a cron or on datasets cannot express. A `dataset` or `schedule_and_dataset` build gets a DAG: see [Build graphs and dataset triggers](../advanced/airflow.md#build-graphs-and-dataset-triggers). In 0.32.0 and earlier, those two were left out too, and a contract with no `orchestration.engine` whose only trigger was `dataset` logged `generate_artifacts_skip_schedule_no_engine` and wrote no DAG. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build, or one that runs outside forge-cli, gets no DAG and no task at all (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)).
 
 ### Layout and naming
 
-- File: `schedule/<product-id>[__<env>]/<build-id>_dag.py`. One directory per product and env, so a sync to a shared DAG root deletes only that product's files (see the [DAG layout](./schedule-sync.md#dag-layout) on the `schedule-sync` page). The `__<env>` suffix is present when an env is set, from `--env` or `$FLUID_ENV`.
+- File: `schedule/<product-id>[__<env>]/<build-id>_dag.py`. *On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* For builds that `builds[].dependencies` link, `<build-id>` is the build that carries the trigger. One directory per product and env, so a sync to a shared DAG root deletes only that product's files (see the [DAG layout](./schedule-sync.md#dag-layout) on the `schedule-sync` page). The `__<env>` suffix is present when an env is set, from `--env` or `$FLUID_ENV`.
 - DAG id: `<product>__<env>__<build>` with an env, `<product>__<build>` without.
 - The DAG is hashed into `MANIFEST.json`, and a rerun of stage 3 replaces it.
 - Upgrading from 0.16.7 or earlier: those versions wrote `schedule/<product-id>/` with DAG id `<product>__<build>`. The first [`fluid schedule-sync`](./schedule-sync.md) after the upgrade has to retire the old DAG of each env, or the old and the new DAG both run and both apply the same product against the same state.
@@ -138,6 +139,8 @@ fluid apply "$FLUID_PROJECT_DIR/<contract path>" --env <env> \
 ```
 
 That is the apply stage 7 runs, so a cloud target keeps one OpenTofu state whether the run came from CI or from the scheduler, provided the worker has the same `FLUID_STATE_BACKEND`. `--env` is left out when the DAG was generated without an env.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* A DAG for linked builds has one such task for each build, named by the build id, and each runs `fluid apply ... --build-id <build id>`. See [Build graphs and dataset triggers](../advanced/airflow.md#build-graphs-and-dataset-triggers).
 
 The DAG sets `max_active_runs=1` (two applies of one build do not overlap) and `catchup=False` (a paused DAG does not replay missed runs). A fluid exit code of 99 fails the task instead of skipping it. The task uses the `airflow.sdk` DAG and `schedule=` of Airflow 3, with imports that fall back to Airflow 2.6 and later.
 
@@ -167,6 +170,79 @@ The DAG file holds ids, the contract path, the env name and the names of the var
 - The names listed in `FLUID_DAG_ENV_PASSTHROUGH`.
 
 A name starting `AIRFLOW` does not pass, even when the contract or `FLUID_DAG_ENV_PASSTHROUGH` names it, so the Airflow worker's own configuration (`AIRFLOW__*`, `AIRFLOW_CONN_*`, the Fernet key) does not reach the apply. `VIRTUAL_ENV` is not passed either: on a worker it names Airflow's environment, and fluid's Python runner would run builds with that interpreter. A dbt project's own `env_var()` calls, or dlt's `SOURCES__*` and `DESTINATION__*` settings, are not on the list: name them in `FLUID_DAG_ENV_PASSTHROUGH`.
+
+## Spark job configs
+
+*On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)).* A forge [Spark build](../advanced/spark-iceberg-aws.md) (`engine: spark` with `parameters.spark`, in a 0.7.7 contract) runs from a `job.json`: the runner config that forge compiles from the contract. The `spark` emit key writes it for each Spark build to `spark/<build id>/job.json`, so the artifacts `MANIFEST.json` holds the hash of the config that gets deployed. A contract with no Spark build writes nothing under `spark/`.
+
+```bash
+fluid generate artifacts contract.fluid.yaml --out dist/artifacts/
+```
+
+On the contract from [Spark to Iceberg on AWS](../advanced/spark-iceberg-aws.md#declaring-the-build), run on forge-cli `main`:
+
+```text
+generate_artifacts_spark_apply_time_values
+✅ Artifacts written to dist/artifacts
+   MANIFEST digest:
+sha256:...
+   files: 6
+```
+
+```text
+dist/artifacts/
+├── MANIFEST.json
+├── odcs/product.odcs.orders.yaml
+├── odps-bitol/commerce.orders-stream.odps.yaml
+├── odps-bitol/commerce.orders-stream.orders.odcs.yaml
+├── opds/commerce.orders-stream.opds.json
+├── policy/bindings.json
+└── spark/ingest-orders/job.json
+```
+
+`job.json`, trimmed:
+
+```json
+{
+  "build": "ingest-orders",
+  "checkpoint": "s3://commerce-lake/_checkpoints/commerce.orders-stream/ingest-orders/",
+  "configVersion": 1,
+  "mode": "streaming",
+  "product": "commerce.orders-stream",
+  "sink": {
+    "catalog": "fluid",
+    "region": "eu-west-1",
+    "table": "commerce.orders",
+    "type": "glue",
+    "warehouse": "s3://commerce-lake/iceberg/commerce/orders/"
+  },
+  "source": {
+    "auth": "msk-iam",
+    "bootstrapServers": "${fluid_msk_bootstrap_brokers}",
+    "kind": "kafka",
+    "topic": "commerce.orders",
+    ...
+  },
+  ...
+}
+```
+
+What the file is, and what it is not:
+
+- **It is the deployed config.** [`fluid generate iac`](./generate-iac.md) writes the same text into the `aws_s3_object` that uploads `_fluid/spark/<product>/<build>/job.json`. On this contract the only difference from that object is the broker list, which OpenTofu fills in. The file is the same whether `generate artifacts` reads the contract file or a bundle made from it. With a contract file, `--env` applies that overlay first; a bundle is already bound to its environment.
+- **Two values stay placeholders**, because only `tofu apply` knows them: `<account>` in the warehouse and checkpoint of an output that names no bucket (the account's shared `<account>-fluid-data` bucket), and `${fluid_msk_bootstrap_brokers}` for a source named by its MSK cluster ARN. The run logs `generate_artifacts_spark_apply_time_values` for each build that holds one.
+- **What the upload refuses is refused here.** Two builds whose ids differ only in case or in `-` and `_` would write one file, and a config that holds `${` is an unresolved interpolation that the Spark runner refuses. Either stops the stage with `generate_artifacts_failed` and `emit_key: spark`, as does a build the Spark compiler refuses. The first looks like this:
+
+  ```text
+  ❌ generate_artifacts_failed  [ERR_GENERATE_ARTIFACTS_FAILED]
+    error: Spark builds 'ingest-orders' and 'ingest_orders' would write one job.json (ids that differ only in case or in '-' and '_' name one file); give each its own id
+    emit_key: spark
+  ```
+
+- **The operator's upload rules are not applied.** The settings that limit contract SQL and the hosts a job may name stay with `fluid apply`; `fluid validate` reports them. A `job.json` written here can still be refused at apply.
+- **A rerun clears only files of this shape.** Whatever `--emit` says, a run first removes the `<out>/spark/<dir>/job.json` files already there, and then the directories that leave empty. It removes no other file under `<out>/spark/`.
+
+Stage 4 checks each file: [`fluid validate-artifacts`](./validate-artifacts.md) reads it as a JSON object with an integer `configVersion`, a `build` that names its directory, and `product`, `mode` and `sink`.
 
 ## Fragment layouts
 

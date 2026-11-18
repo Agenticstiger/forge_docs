@@ -123,7 +123,7 @@ Bucket names are global: write a bucket you own in place of `commerce-lake`.
 | `runtime` | Required: `emr-serverless`, `emr-ec2`, `emr-eks` or `glue`. |
 | `mode` | `streaming` or `batch`. It defaults to `streaming` when the build declares `properties.stream`, and to `batch` otherwise. |
 | `applicationId` | EMR Serverless only: an existing application. |
-| `clusterId` | EMR on EC2 only: an existing cluster. A transient cluster is refused for now. |
+| `clusterId` | EMR on EC2 only: an existing cluster. A transient cluster is refused for now. A cluster that runs on Spot needs the layout in [Running EMR on EC2 on Spot](#running-emr-on-ec2-on-spot). |
 | `virtualClusterId` | EMR on EKS only, and required there: an existing virtual cluster. |
 | `glueVersion` | Glue only. Default `5.0`. |
 | `releaseLabel` | The EMR release, on the EMR runtimes. Default `emr-7.12.0`. |
@@ -192,6 +192,64 @@ Per runtime:
 | `glue` | An `aws_glue_job` (`gluestreaming` or `glueetl`), Glue 5.0 by default, with `--datalake-formats iceberg`, the runner as its script, `--config` pointing at `job.json`, continuous logs to its group, and a `NETWORK` connection in one of the MSK cluster's subnets. | `glue.amazonaws.com`, for this build's own Glue job. |
 | `emr-eks` | Nothing: the virtual cluster is existing. | The IRSA statement that `aws emr-containers update-role-trust-policy` writes. The virtual cluster and its EKS cluster are read at plan time. |
 | `emr-ec2` | No role: a step runs as the cluster's instance profile, so forge emits the job's policy as a managed `aws_iam_policy` for the cluster's owner to attach. | None. |
+
+### What the job's role may do in S3
+
+*On forge-cli `main`, not yet in a release ([forge-cli #983](https://github.com/Agenticstiger/forge-cli/pull/983)).* The role forge creates for a Spark build, and the policy it emits for an EMR on EC2 cluster's owner to attach, get S3 access to these prefixes of the output's bucket:
+
+| Prefix | Access |
+|---|---|
+| The output's `binding.location.path` | Read, write and delete |
+| The checkpoint: `_checkpoints/<product>/<build>/`, or the one the contract declares | Read, write and delete |
+| On Glue, `tmp/` under the build's artifacts prefix | Read, write and delete |
+| The build's artifacts, `_fluid/spark/<product>/<build>/` | Read |
+
+For each prefix the role holds three kinds of permission:
+
+- **The objects under it.** `s3:GetObject` on `<prefix>/*`, and for a prefix that is written also `s3:PutObject`, `s3:DeleteObject` and `s3:AbortMultipartUpload`.
+- **A listing of the directory.** `s3:ListBucket` on the bucket, limited by an `s3:prefix` condition to the directory's exact name (the prefix without its trailing slash) and to `<prefix>/*`. The exact name matches that directory alone: a sibling such as `<build>-x` does not match.
+- **A read of the directory's own key.** `s3:GetObject` on `<prefix>` with no trailing slash. That key holds no data.
+
+It also has `s3:GetBucketLocation` on the bucket.
+
+The last two are what Hadoop's file system asks for first. To look up a directory it reads the directory's own key, then `<dir>/`, then lists it, and Spark does this on its checkpoint. Without the directory's own key and its exact-name listing, S3 refuses the first call with a 403 and a stream fails on its own checkpoint. With 0.32.0 and earlier, whose role has `<prefix>/*` and the listing under it only, a stream's attempts failed within minutes with an `AccessDeniedException` on `getFileStatus` of the checkpoint directory (`S3Exception: Forbidden (403)`).
+
+The statements from `fluid generate iac` on the contract above, run on forge-cli `main`. These two are the ones that differ from 0.32.0, where the `s3:prefix` condition lists the three `<prefix>/*` values only and there is no `Directory` statement:
+
+```json
+{
+  "actions": ["s3:ListBucket"],
+  "condition": [
+    {
+      "test": "StringLike",
+      "values": [
+        "iceberg/commerce/orders",
+        "_checkpoints/commerce.orders-stream/ingest-orders",
+        "_fluid/spark/commerce.orders-stream/ingest-orders",
+        "iceberg/commerce/orders/*",
+        "_checkpoints/commerce.orders-stream/ingest-orders/*",
+        "_fluid/spark/commerce.orders-stream/ingest-orders/*"
+      ],
+      "variable": "s3:prefix"
+    }
+  ],
+  "effect": "Allow",
+  "resources": ["arn:aws:s3:::commerce-lake"],
+  "sid": "List2"
+}
+{
+  "actions": ["s3:GetObject"],
+  "effect": "Allow",
+  "resources": [
+    "arn:aws:s3:::commerce-lake/iceberg/commerce/orders",
+    "arn:aws:s3:::commerce-lake/_checkpoints/commerce.orders-stream/ingest-orders",
+    "arn:aws:s3:::commerce-lake/_fluid/spark/commerce.orders-stream/ingest-orders"
+  ],
+  "sid": "Directory4"
+}
+```
+
+A role you name with `executionRoleArn` is yours: forge adds nothing to it. If a stream on such a role fails with that 403, give the role the same two permissions for the checkpoint directory.
 
 ### Roles and who lists what
 
@@ -269,6 +327,88 @@ The role that runs `fluid apply`, or the scheduler's execution role (the MWAA ro
 | `emr-eks` | `emr-containers:StartJobRun`, `DescribeJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-containers.amazonaws.com` |
 
 Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a stronger one.
+
+## Running EMR on EC2 on Spot
+
+A stream on EMR on EC2 runs as one step of a cluster you already run (`clusterId`). forge creates no cluster, so the layout below is a checklist for the cluster's owner, and none of it goes in the contract. Its aim is that a Spot interruption costs time and not records.
+
+What forge does with the cluster decides what the layout must protect:
+
+- **The driver is the step's own process.** forge starts the stream with `spark-submit --deploy-mode client`, so that cancelling the step stops the job. AWS's Spark step guide says client mode launches the driver on the cluster's primary instance.
+- **The checkpoint is in S3, not on the cluster.** It defaults to `s3://<bucket>/_checkpoints/<product>/<build>/`, so losing nodes loses no offsets.
+- **A step that ends `FAILED` or `INTERRUPTED` counts as failed, and `fluid apply` does not start it again with the same config.** It names the run and its state and starts nothing, because the same config would fail the same way (see [Starting and reconciling runs](#starting-and-reconciling-runs)). To bring the stream back, change the build. After a lost cluster, launch a replacement with forge's policy attached to its instance-profile role, and set `clusterId` to it, with its `emr-ec2:<clusterId>` entry in `FLUID_SPARK_TARGET_ALLOWLIST`: the target is part of the config hash, so `fluid apply` starts the stream on the same checkpoint.
+
+The checklist:
+
+1. **On-Demand primary and core nodes.** The driver runs on the primary node, and the cluster ends when the primary is lost. AWS advises Spot for the primary only where sudden termination is acceptable, and for core nodes only where losing part of the HDFS data is tolerable. Task nodes hold no HDFS data, so Spot belongs there.
+2. **Spot task fleets, with `price-capacity-optimized` allocation and diverse instance types.** Use instance fleets, and set the task fleet's Spot `AllocationStrategy` to `price-capacity-optimized`: AWS recommends it, and it is the default from EMR 6.10.0. List several instance types of the same size from different families and generations: when EC2 reclaims a Spot instance, EMR tries to replace it with any type on the list. Offer subnets in several Availability Zones too. EMR picks the zone with capacity when it creates the cluster, and the cluster's instances then run in that one zone.
+3. **YARN application masters pinned to On-Demand (EMR 7.2.0 and later).** In the cluster's `yarn-site` classification, set `yarn.node-labels.enabled` to `true` and `yarn.node-labels.am.default-node-label-expression` to `ON_DEMAND`. AWS warns that an application master on a Spot node can mean "immediate shutdown of the entire YARN application". Set it when you create the cluster: EMR does not add node labels when you reconfigure a running one. Settings that start with `spark.yarn.` are refused in `sparkConf` even when the operator lists them, so this belongs to the cluster and not to the contract.
+4. **A minimum On-Demand executor baseline for streams.** Size the On-Demand capacity (the core nodes, and any On-Demand part of a task fleet) for the executors the stream needs to keep committing batches when every Spot node is gone, and tell Spark that number in `sparkConf`: `spark.dynamicAllocation.minExecutors` with dynamic allocation, or `spark.executor.instances` without it. Both are allowed without an operator entry. When Spot nodes are reclaimed, YARN can place a replacement executor only on the nodes that remain. Where YARN puts executors while Spot nodes exist depends on the cluster's node labels, so look at where they ran in the interruption test (item 6).
+5. **Kafka retention at least as long as the longest downtime you tolerate.** A restarted stream resumes from the offsets in its checkpoint, so the topic must still hold them. Count the whole outage: detecting the loss, replacing the cluster, starting the step, and catching up. Set the topic's `retention.ms` (Kafka's default is 7 days) to at least that, and leave `retention.bytes` unset (`-1`) or size it for the same window, because a topic discards a segment at whichever limit it reaches first. forge's runner leaves Spark's Kafka option `failOnDataLoss` at its default, `true`, so a stream whose checkpointed offsets have aged out fails and does not skip records.
+6. **Spark decommissioning only after a measured interruption test.** Leave Spark's own decommissioning off until a test shows that it helps.
+   - **What is already there.** EC2 sends a Spot interruption notice two minutes before it reclaims an instance, on a best-effort basis. EMR on EC2 has its own decommissioning for Spark, built on YARN's: Spark stops using a node that YARN is decommissioning (`spark.blacklist.decommissioning.enabled`, `true` by default), and a Spot node decommissions within `spark.decommissioning.timeout.threshold`, 20 seconds by default (EMR 5.11.0 and later).
+   - **What is separate.** Spark's own `spark.decommission.enabled` (`false` by default since Spark 3.1.0) and its `spark.storage.decommission.*` settings. A contract may set them only when the operator lists them in `FLUID_SPARK_CONF_ALLOWLIST`.
+   - **The test.** Interrupt the Spot task instances on purpose while the stream runs, with AWS Fault Injection Service: its action `aws:ec2:send-spot-instance-interruptions` sends the notice to the Spot instances an experiment targets, and `durationBeforeInterruption` sets the wait before the interruption, from 2 to 15 minutes. Run it with decommissioning off, then on.
+   - **What to record**, for the same load each time: the executors lost, the tasks and stages retried, the longest batch, whether the query kept running, how far behind Kafka it fell and how long it took to catch up, and whether the table holds the rows of a run with no interruption. Keep the setting only if the numbers improve.
+
+Once per account, before the first cluster that uses Spot: a Spot request made through the API or the CLI needs the service-linked role `AWSServiceRoleForEC2Spot` to exist, and EC2 creates it itself only on a first Spot request from the console. Create it with `aws iam create-service-linked-role --aws-service-name spot.amazonaws.com`. A cluster launched without it can come up with an empty Spot fleet: look in CloudTrail for `ServiceLinkedRoleCreationNotPermitted`.
+
+A cluster that follows items 1 to 3, as the parameters of the EMR `RunJobFlow` call (checked against the EMR API model in botocore, not run against an account). The instance types, sizes and counts are examples:
+
+```json
+{
+  "ReleaseLabel": "emr-7.12.0",
+  "Instances": {
+    "KeepJobFlowAliveWhenNoSteps": true,
+    "Ec2SubnetIds": ["subnet-0aaa1111", "subnet-0bbb2222", "subnet-0ccc3333"],
+    "InstanceFleets": [
+      {
+        "Name": "primary",
+        "InstanceFleetType": "MASTER",
+        "TargetOnDemandCapacity": 1,
+        "InstanceTypeConfigs": [{"InstanceType": "m5.xlarge"}]
+      },
+      {
+        "Name": "core",
+        "InstanceFleetType": "CORE",
+        "TargetOnDemandCapacity": 4,
+        "InstanceTypeConfigs": [{"InstanceType": "r5.2xlarge"}]
+      },
+      {
+        "Name": "task-spot",
+        "InstanceFleetType": "TASK",
+        "TargetSpotCapacity": 8,
+        "InstanceTypeConfigs": [
+          {"InstanceType": "r5.2xlarge"},
+          {"InstanceType": "r5a.2xlarge"},
+          {"InstanceType": "r5d.2xlarge"},
+          {"InstanceType": "r5n.2xlarge"},
+          {"InstanceType": "r6i.2xlarge"},
+          {"InstanceType": "r6a.2xlarge"}
+        ],
+        "LaunchSpecifications": {
+          "SpotSpecification": {
+            "AllocationStrategy": "price-capacity-optimized",
+            "TimeoutDurationMinutes": 30,
+            "TimeoutAction": "TERMINATE_CLUSTER"
+          }
+        }
+      }
+    ]
+  },
+  "Configurations": [
+    {
+      "Classification": "yarn-site",
+      "Properties": {
+        "yarn.node-labels.enabled": "true",
+        "yarn.node-labels.am.default-node-label-expression": "ON_DEMAND"
+      }
+    }
+  ]
+}
+```
+
+`TimeoutDurationMinutes` and `TimeoutAction` are required with a Spot specification. They apply while the cluster is created: `TERMINATE_CLUSTER` fails the launch when EMR cannot provision the Spot capacity in time, and `SWITCH_TO_ON_DEMAND` buys the rest On-Demand instead. The call also needs `Name`, `Applications` (Spark), `JobFlowRole` and `ServiceRole`, left out here.
 
 ## Network and packages
 

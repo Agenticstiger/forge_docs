@@ -180,7 +180,7 @@ Each stage option takes the flag, then the variable the Jenkins pipeline already
 | Stage | Option | Variable | Default | Description |
 |---|---|---|---|---|
 | 2, 4 | `--strict`, `--no-strict` | `VALIDATE_STRICT` | on, unless the variable is `false` | `--strict` for `validate` and `validate-artifacts`. |
-| 3 | `--emit <list>` | `GENERATE_EMIT` | every emitter | `generate artifacts --emit`, comma-separated: `odps-bitol`, `odcs`, `opds`, `schedule`, `policies`. `--explain` assumes only the outputs it names, so stage 8 shows as skipped without `policies`. |
+| 3 | `--emit <list>` | `GENERATE_EMIT` | every emitter | `generate artifacts --emit`, comma-separated: `odps-bitol`, `odcs`, `opds`, `schedule`, `policies`. *On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)).* `spark` is a sixth key, and `GENERATE_EMIT` in a generated Jenkinsfile lists it. `--explain` assumes only the outputs it names, so stage 8 shows as skipped without `policies`. |
 | 5 | `--exit-on-drift`, `--no-exit-on-drift` | `DIFF_EXIT_ON_DRIFT` | on, unless the variable is `false` | Whether drift fails stage 5 or is only reported. |
 | 5 | `--last-applied <plan>` | `DIFF_LAST_APPLIED` | | `diff --last-applied`: compares with the plan the last apply ran, so a change the contract makes is pending, not drift. A missing file is a first run, compared with the contract alone. |
 | 6 | `--plan-html`, `--no-plan-html` | `PLAN_HTML` | off, unless the variable is `true` | Also writes `runtime/plan.html`. |

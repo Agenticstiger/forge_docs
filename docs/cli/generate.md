@@ -278,13 +278,13 @@ Key options:
 - `contract`
 - `--output`, `-o` — output directory (default `./dags`, `./pipelines` or `./flows`, by scheduler)
 - `--scheduler` — `airflow`, `dagster` or `prefect`
-- `--overwrite`
+- `--overwrite` — write into an existing output directory. For a `fluid apply` DAG it also removes stale DAG files, as the build-graph list below says.
 - `--env` — environment overlay. For a `fluid apply` DAG it is also the `--env` each scheduled run passes to `fluid apply`.
 - `--contract-path PATH` — the contract's path relative to `$FLUID_PROJECT_DIR` on the Airflow worker, for a `fluid apply` DAG. Default: the `contract` argument relative to the current directory.
 - `--dag-id ID`, `--schedule SCHEDULE` — *(since 0.31.0, [forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923))* Override the DAG id and the schedule (a cron expression or an Airflow keyword) of the one DAG rendered from an `orchestration` section. The contract id stays in the DAG's header and tags. A DAG that comes from a scheduled build takes both from its trigger, so these options are refused there, with `generate_schedule_override_not_supported` and exit 2.
 - `--list`, `--verbose`
 
-Builds that declare `execution.trigger.schedule` (or `cron`) and no explicit `orchestration.tasks` get Airflow DAGs, with Airflow as the default engine. Each DAG runs its build through `fluid apply --mode amend-and-build`:
+Builds that declare `execution.trigger.schedule` (or `cron`) and no explicit `orchestration.tasks` get Airflow DAGs, with Airflow as the default engine. Each DAG task runs its build through `fluid apply --mode amend-and-build`:
 
 ```bash
 fluid generate schedule sched.fluid.yaml --env aws -o dags_out
@@ -297,6 +297,17 @@ Generated 1 files (airflow scheduler):
 ```
 
 The DAG's contents, its worker requirements and the environment it passes to fluid are on the [`generate artifacts`](./generate-artifacts.md#scheduled-builds) page. The DAG id carries the env: `<product>__<env>__<build>`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* `generate schedule` also renders the build graph:
+
+- Builds that `builds[].dependencies` link run in one DAG, one `fluid apply --build-id` task per build, each after the builds it names. A dependency's `condition` (`success`, `completion`, `always`) becomes the task's trigger rule (`all_success`, `all_done`, `always`).
+- A build with `trigger.type: dataset` gets a DAG that runs when the datasets in `trigger.datasets` are updated (all of them, or any one with `datasetsOperator: any`). `schedule_and_dataset` runs on its cron and on those updates. A dataset is an Airflow asset URI, or `{productId, exposeId}` of an expose of the contract.
+- Each task declares the exposes its build writes as `outlets`, so another DAG's dataset trigger can start on them.
+- A cycle, a dependency on the build itself or on no build, and the other graph errors stop generation with `generate_schedule_invalid_schedule` and exit 2.
+- A contract whose only builds are streams that `fluid apply` keeps running prints `No build needs a DAG` and writes no files. In 0.32.0 and earlier it printed `No scheduler engine specified` when the contract set no engine.
+- With `--overwrite`, DAG files an earlier run wrote into `-o` for the same product and env that the contract no longer makes are removed.
+
+The [Airflow integration](../advanced/airflow.md#build-graphs-and-dataset-triggers) has a worked example, the asset URI of each platform and the errors.
 
 `generate schedule` writes the DAG file straight into `-o`, with no per-product directory. [`fluid schedule-sync`](./schedule-sync.md) with its default `--delete-scope product` refuses a directory that is not one directory per product, so write to `-o <dags-dir>/<product-id>/`; see [What gets deleted](./schedule-sync.md#what-gets-deleted). A DAG id that changed in 0.17.0 needs the one-time retirement of the old DAG described under [Upgrading from 0.16.7 and earlier](./schedule-sync.md#upgrading-from-0-16-7-and-earlier).
 
