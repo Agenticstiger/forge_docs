@@ -278,7 +278,7 @@ Key options:
 - `contract`
 - `--output`, `-o` — output directory (default `./dags`, `./pipelines` or `./flows`, by scheduler)
 - `--scheduler` — `airflow`, `dagster` or `prefect`
-- `--overwrite` — write into an existing output directory. For a `fluid apply` DAG it also removes stale DAG files, as the build-graph list below says.
+- `--overwrite` — overwrite an existing output directory. *On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* For a `fluid apply` DAG it also removes stale DAG files, as the build-graph list below says.
 - `--env` — environment overlay. For a `fluid apply` DAG it is also the `--env` each scheduled run passes to `fluid apply`.
 - `--contract-path PATH` — the contract's path relative to `$FLUID_PROJECT_DIR` on the Airflow worker, for a `fluid apply` DAG. Default: the `contract` argument relative to the current directory.
 - `--dag-id ID`, `--schedule SCHEDULE` — *(since 0.31.0, [forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923))* Override the DAG id and the schedule (a cron expression or an Airflow keyword) of the one DAG rendered from an `orchestration` section. The contract id stays in the DAG's header and tags. A DAG that comes from a scheduled build takes both from its trigger, so these options are refused there, with `generate_schedule_override_not_supported` and exit 2.

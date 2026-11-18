@@ -1,6 +1,6 @@
 # Airflow Integration
 
-Generate Apache Airflow DAGs from a contract. `fluid generate schedule` writes one DAG for each build that carries a trigger, and one DAG for builds that `builds[].dependencies` link; each task of a DAG executes `fluid apply` for one build on the Airflow worker. The older `fluid generate-airflow` command is deprecated and is described [below](#fluid-generate-airflow-deprecated).
+Generate Apache Airflow DAGs from a contract. `fluid generate schedule` writes one DAG per scheduled build; each run of the DAG executes `fluid apply` for that build on the Airflow worker. *On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* Builds that `builds[].dependencies` link run in one DAG, one task for each build, and a build can run on a dataset trigger: see [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers). The older `fluid generate-airflow` command is deprecated and is described [below](#fluid-generate-airflow-deprecated).
 
 ## Quick start
 
@@ -30,9 +30,9 @@ Generated 1 files (airflow scheduler):
 Tip: To regenerate after editing the contract: fluid generate schedule
 ```
 
-`fluid generate schedule` renders these DAGs when the contract's `orchestration.engine` is `airflow` and the contract declares no explicit `orchestration.tasks`. A contract with no `orchestration.engine` at all but a build with a cron or dataset trigger defaults to Airflow.
+`fluid generate schedule` renders these DAGs when the contract's `orchestration.engine` is `airflow` and the contract declares no explicit `orchestration.tasks`. A contract with no `orchestration.engine` at all but a build with a cron trigger defaults to Airflow.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* A build with a `dataset` or `schedule_and_dataset` trigger gets a DAG, and builds that `builds[].dependencies` link run in one DAG. [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers) covers both. A build with a trigger of type `event`, `manual` or `timetable` still gets no DAG, because a DAG on a cron or on datasets would silently drop what those types mean. In 0.32.0 and earlier, `dataset` and `schedule_and_dataset` were left out too, and a contract with no `orchestration.engine` whose only trigger was `dataset` stopped with `No scheduler engine specified`. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build gets no DAG either: its platform keeps it running (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)). `--env` is the overlay for the generation and the `--env` every scheduled run passes to `fluid apply`; leave it out for a contract with no overlays.
+*On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* A build with a `dataset` or `schedule_and_dataset` trigger gets a DAG too, and a contract with no `orchestration.engine` and such a build defaults to Airflow. Builds that `builds[].dependencies` link run in one DAG. [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers) covers both. A build with a trigger of type `event`, `manual` or `timetable` still gets no DAG, because a DAG on a cron or on datasets would silently drop what those types mean. In 0.32.0 and earlier, `dataset` and `schedule_and_dataset` were left out too, and a contract with no `orchestration.engine` whose only trigger was `dataset` stopped with `No scheduler engine specified`. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build gets no DAG either: its platform keeps it running (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)). `--env` is the overlay for the generation and the `--env` every scheduled run passes to `fluid apply`; leave it out for a contract with no overlays.
 
 ## What the DAG does
 
@@ -82,7 +82,7 @@ In practice:
 
 ## Build graphs and dataset triggers
 
-*On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* Builds that `builds[].dependencies` link run in one DAG, one `fluid apply --build-id` task per build, each after the builds it names. A build with a `dataset` or `schedule_and_dataset` trigger gets a DAG that runs when the datasets it names are updated. Every task declares the exposes its build writes, so one product's DAG can start another's.
+*On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)); this whole section describes it.* Builds that `builds[].dependencies` link run in one DAG, one `fluid apply --build-id` task per build, each after the builds it names. A build with a `dataset` or `schedule_and_dataset` trigger gets a DAG that runs when the datasets it names are updated. A task declares, as `outlets`, the assets of the exposes its build writes (see [Outlets](#outlets) for the exposes that name none), so one product's DAG can start another's.
 
 ### Example: ingest, transform, publish, then a second product
 
@@ -216,9 +216,9 @@ When the `publish` task succeeds, Airflow marks `s3://acme-lake/gold/orders_dail
 
 ### How linked builds share a DAG
 
-- **One DAG per linked group.** Builds that depend on each other, in either direction, run in one DAG. A build that nothing links keeps its own DAG.
+- **One DAG per linked group.** Builds that depend on each other, in either direction, run in one DAG. A build that nothing links and that carries a trigger keeps its own DAG.
 - **One trigger per DAG.** The DAG runs on the one trigger its builds declare, whichever build declares it. A build with no trigger of its own (or `trigger.type: dependency`) runs in the DAG of the builds it depends on. Builds of one group may repeat the same trigger.
-- **Names.** The DAG id is `<product id>__<build id>`, or `<product id>__<env>__<build id>` with `--env`, and the file is `<build id>_dag.py`. Both are named after the build that carries the trigger, and `BUILD_ID` in the file holds that build. In the file name, a character of the build id other than a letter, digit or `_` becomes `_`.
+- **Names.** The DAG id is `<product id>__<build id>`, or `<product id>__<env>__<build id>` with `--env`, and the file is `<build id>_dag.py`. Both are named after the build that carries the trigger (the first of them in `builds[]` when several builds of the group repeat it), and `BUILD_ID` in the file holds that build. In the file name, a character of the build id other than a letter, digit or `_` becomes `_`.
 - **Task ids.** Each task's `task_id` is its build id, and its `FLUID_DAG_BUILD_ID` is the same value, so the task runs `fluid apply --build-id <build id>`. A DAG with one task keeps the task id `fluid_apply`.
 - **Per task.** A task takes its `retries` from its own build's `execution.retries.maxAttempts`, and has its own execution timeout: three hours, plus the run's wait for a Spark build.
 
@@ -249,7 +249,7 @@ A contract whose only builds are such streams gets `No build needs a DAG` from `
 
 `trigger.datasets` lists the datasets. `datasetsOperator` is `all` (the default: every dataset has been updated since the DAG's last run) or `any` (one of them). `dataset` takes no cron. `schedule_and_dataset` needs one that recurs, so `@once` is refused. A dataset is one of:
 
-- **An asset URI**, as a string. It is checked as Airflow checks it and written in the form Airflow stores: a lower-case scheme and no trailing slash. A URI with user info, a query, a fragment, a space or a `{{ ... }}` or `${...}` placeholder is refused.
+- **An asset URI**, as a string. It is checked as Airflow checks it and written in the form Airflow stores: a lower-case scheme and no trailing slash after a path (a bare `s3://bucket` keeps its slash). A URI with user info, a query, a fragment, a space or a `{{ ... }}` or `${...}` placeholder is refused.
 - **`{productId, exposeId}`** of an expose of this contract. The generator turns it into that expose's asset URI (see [Outlets](#outlets)). The `productId` must be this contract's id. For another product's expose, write the URI.
 
 An `any` trigger on a cron renders like this (trimmed):
@@ -278,11 +278,11 @@ An expose is named by the URI that Airflow's own providers use for the same stor
 | `databricks` with `location.host` | `databricks://<host>/<database>/<schema>/<table>` |
 | `postgres`, `pgvector` | `postgres://<host>:<port>/<database>/<schema>/<table>` (port 5432 when none is given) |
 | `kafka`, `confluent` | `kafka://<first bootstrap server>/<topic>` |
-| `local` with an absolute `location.path` | `file:///<path>` |
+| `local` with an absolute `location.path` | `file://` and the path: `/data/out/x.parquet` gives `file:///data/out/x.parquet` |
 
 An expose gets no outlet when its URI cannot be fixed at generation: a relative `local` path (the project directory is somewhere else on each worker), a value filled in on the worker (`{{ env.X }}`, `${X}`), a missing location field, or a platform not in the table. The task is generated without it.
 
-A one-build DAG you generated before gains the `Asset` import and an `outlets=` list for the exposes its build writes. Nothing else changes:
+A one-build DAG you generated before gains the `Asset` import and an `outlets=` list when its build writes an expose that has an asset URI, and nothing else. When none of them has one, the file does not change. A DAG that gains them:
 
 ```python
 try:  # Airflow 3
@@ -321,7 +321,7 @@ Both came from forge-cli `main`, the first with `publish` made a dependency of `
 
 ### Regenerating
 
-With `--overwrite`, `fluid generate schedule` also removes the DAG files an earlier run wrote into the output directory for the same product and env that the contract no longer makes. A build that now runs as a task of another build's DAG would otherwise run twice. Regenerating the example over three one-build DAGs from 0.32.0 prints (from forge-cli `main`):
+With `--overwrite`, `fluid generate schedule` also removes the DAG files an earlier run wrote into the output directory for the same product and env that the contract no longer makes. A build that now runs as a task of another build's DAG would otherwise run twice. Regenerating over the three one-build DAGs that 0.32.0 wrote when each build had a cron trigger of its own prints (from forge-cli `main`):
 
 ```text
 Removed dags/sales.orders_daily/publish_dag.py: an earlier run wrote it for this product and env, and the contract no longer makes that DAG.
@@ -424,9 +424,9 @@ The build phase of that apply starts one run on EMR Serverless, Glue, EMR on EC2
 
 - **Timeouts.** `execution.runtime.timeout`, an ISO-8601 duration such as `PT2H`, is how long the run may take; six hours when unset. The task's timeout is the three hours every apply DAG gets plus that wait. A value that is not a duration of at least one second is refused before `tofu apply` changes anything (`apply_spark_invalid`).
 - **Retries** come from `execution.retries.maxAttempts`, as for every scheduled build.
-- **A streaming build gets no DAG**, unless its `properties.stream.trigger` is `availableNow: true`. A stream runs continuously, and `fluid apply` keeps it running. A build is a stream when `parameters.spark.mode` says so, or when it declares `properties.stream` and sets no mode. A build that depends on a stream does not wait for it; see [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers).
+- **A streaming build gets no DAG**, unless its `properties.stream.trigger` is `availableNow: true`. A stream runs continuously, and `fluid apply` keeps it running. A build is a stream when `parameters.spark.mode` says so, or when it declares `properties.stream` and sets no mode. *On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* A build that depends on a stream does not wait for it; see [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers).
 - **The worker runs the whole apply**, `tofu` included, so it needs the apply's permissions and the state backend, as for any scheduled build, plus `fluid` with boto3 (`data-product-forge[aws]` in MWAA's `requirements.txt`). The scheduler policy forge emits for a Spark product covers the run only. The operator settings (`FLUID_SPARK_*`) and the run's AWS actions are the ones [Spark to Iceberg on AWS](./spark-iceberg-aws.md#the-caller-s-permissions) lists.
-- A build that is not Spark gets the standard DAG, as before. A contract of dbt and Spark builds gets a DAG for each scheduled build, or one DAG for builds that `builds[].dependencies` link (see [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers)).
+- A build that is not Spark gets the standard DAG, as before. A contract of dbt and Spark builds gets a DAG for each scheduled build. *On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* Builds that `builds[].dependencies` link share one DAG instead (see [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers)).
 
 ## Cloud Composer deployment
 

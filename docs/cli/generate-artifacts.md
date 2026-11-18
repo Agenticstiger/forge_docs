@@ -69,7 +69,7 @@ fluid generate artifacts CONTRACT [--out PATH] [--emit KEYS] [--manifest PATH] [
 | `odcs` | ODCS v3.1.0 files under `odcs/`, one per exposed port | Schema vendored from `bitol-io/open-data-contract-standard`. |
 | `odps-bitol` | ODPS-Bitol v1.0.0 product file under `odps-bitol/`, with an ODCS file per exposed port beside it | Schema vendored from `bitol-io/open-data-product-standard`. |
 | `opds` | OPDS v4.1 (LF/ODPI) product file under `opds/` (`<product-id>.opds.json`) | `odps` is accepted as a deprecated alias of `opds` and warns. |
-| `schedule` | Airflow DAG files under `schedule/` | Emitted when `orchestration.engine` is set, or when a build declares a schedule trigger. See [Scheduled builds](#scheduled-builds). |
+| `schedule` | Airflow DAG files under `schedule/` | Emitted when `orchestration.engine` is set, or when a build declares a schedule trigger. *On forge-cli `main`, not yet in a release ([forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)).* A `dataset` or `schedule_and_dataset` trigger counts too. See [Scheduled builds](#scheduled-builds). |
 | `spark` | `spark/<build-id>/job.json` for each forge Spark build | *On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)).* The runner config `fluid apply` uploads. A contract without a Spark build writes nothing. See [Spark job configs](#spark-job-configs). |
 | `policies` | `policy/bindings.json`, the compiled IAM / GRANT bindings | *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* A crash inside the policy compiler fails the stage with `policy_compiler_crashed` (exit 1). See [`fluid policy compile`](./policy-compile.md#errors). |
 
@@ -182,6 +182,7 @@ fluid generate artifacts contract.fluid.yaml --out dist/artifacts/
 On the contract from [Spark to Iceberg on AWS](../advanced/spark-iceberg-aws.md#declaring-the-build), run on forge-cli `main`:
 
 ```text
+...
 generate_artifacts_spark_apply_time_values
 ✅ Artifacts written to dist/artifacts
    MANIFEST digest:
@@ -207,6 +208,7 @@ dist/artifacts/
   "build": "ingest-orders",
   "checkpoint": "s3://commerce-lake/_checkpoints/commerce.orders-stream/ingest-orders/",
   "configVersion": 1,
+  ...
   "mode": "streaming",
   "product": "commerce.orders-stream",
   "sink": {
@@ -219,7 +221,9 @@ dist/artifacts/
   "source": {
     "auth": "msk-iam",
     "bootstrapServers": "${fluid_msk_bootstrap_brokers}",
+    ...
     "kind": "kafka",
+    ...
     "topic": "commerce.orders",
     ...
   },
