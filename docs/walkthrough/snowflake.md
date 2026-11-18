@@ -72,7 +72,7 @@ fluid validate contract.fluid.yaml
 fluid plan contract.fluid.yaml --out runtime/plan.json
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--discovery-path` is removed; drop it. A coding agent reads the workspace itself.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--discovery-path` is removed; drop it. A coding agent reads the workspace itself.
 
 ### What Copilot Contributes
 

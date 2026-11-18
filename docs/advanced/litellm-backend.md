@@ -27,7 +27,7 @@ fluid forge: error: argument --llm-provider: invalid choice: 'bedrock' (choose f
 
 ## Quickstart
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `--domain` is removed from `fluid forge`; leave it out of the first command below. `mcp-sampling` is also removed from the `--llm-provider` choices shown above.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `--domain` is removed from `fluid forge`; leave it out of the first command below. `mcp-sampling` is also removed from the `--llm-provider` choices shown above.
 
 ```bash
 fluid forge --domain retail                                    # uses the configured default

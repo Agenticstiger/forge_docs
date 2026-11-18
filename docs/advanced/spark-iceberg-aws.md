@@ -5,7 +5,7 @@ description: Declare a Kafka stream, or batch SQL over catalog tables, in the co
 
 # Spark to Iceberg on AWS (preview)
 
-*On forge-cli `main`, not yet in a release ([forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902), [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903), [forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919), [forge-cli #924](https://github.com/Agenticstiger/forge-cli/pull/924), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #934](https://github.com/Agenticstiger/forge-cli/pull/934), [forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950)).*
+*(since 0.31.0, [forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902), [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903), [forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919), [forge-cli #924](https://github.com/Agenticstiger/forge-cli/pull/924), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #934](https://github.com/Agenticstiger/forge-cli/pull/934), [forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950))*
 
 A build with `engine: spark` and `parameters.spark` (under `builds[].properties`) lands records in an Iceberg table that the Glue catalog holds:
 
@@ -28,7 +28,7 @@ The lane is opt-in: the contract declares `fluidVersion: "0.7.7"`, the preview s
 
 ## Declaring the build
 
-This contract reads a topic from MSK and hashes one column. Checked on forge-cli `main`: with the operator settings below, `fluid validate` passes with no warning and `fluid generate iac` writes the module.
+This contract reads a topic from MSK and hashes one column. Checked on 0.31.0: with the operator settings below, `fluid validate` passes with no warning and `fluid generate iac` writes the module.
 
 ```yaml
 fluidVersion: "0.7.7"
@@ -175,7 +175,7 @@ A mapped column can set `maskAtIngest: hash`. The column is the HMAC-SHA256 of i
 
 ## What forge provisions
 
-`fluid generate iac` and `fluid apply` add these to the module for each Spark build (checked on forge-cli `main`):
+`fluid generate iac` and `fluid apply` add these to the module for each Spark build (checked on 0.31.0):
 
 | Resource | Details |
 |---|---|
@@ -282,11 +282,11 @@ A streaming run resolves its pinned packages when it starts:
 
 Iceberg is on the EMR runtimes already, at `/usr/share/aws/iceberg/lib/iceberg-spark3-runtime.jar`, and Glue gets it from `--datalake-formats iceberg`. **The cluster needs outbound HTTPS** to Maven Central, and to Confluent's repository for Avro: the subnets of the EMR Serverless application and the subnet of the Glue `NETWORK` connection. forge creates no NAT gateway.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919)).* An operator without that egress sets `FLUID_SPARK_MAVEN_REPOSITORY` to one https mirror (CodeArtifact or Artifactory, with Maven Central and Confluent's repository behind it). It replaces Confluent's repository in `spark.jars.repositories`. Spark 3.5 still tries Maven Central and spark-packages first, so without egress those attempts fail, which can be slow, and the resolver then falls through to the mirror. The variable is read from the real environment only. A URL with a user or a password, a query, a comma, a link-local or metadata host, or plain http is refused, and the message names the rule and never the URL. A mirror that needs a credential is not supported: use one that the job's role reaches with IAM. A contract's `sparkConf` cannot replace it. Glue resolves no packages, so the mirror does not apply there.
+*(since 0.31.0, [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919))* An operator without that egress sets `FLUID_SPARK_MAVEN_REPOSITORY` to one https mirror (CodeArtifact or Artifactory, with Maven Central and Confluent's repository behind it). It replaces Confluent's repository in `spark.jars.repositories`. Spark 3.5 still tries Maven Central and spark-packages first, so without egress those attempts fail, which can be slow, and the resolver then falls through to the mirror. The variable is read from the real environment only. A URL with a user or a password, a query, a comma, a link-local or metadata host, or plain http is refused, and the message names the rule and never the URL. A mirror that needs a credential is not supported: use one that the job's role reaches with IAM. A contract's `sparkConf` cannot replace it. Glue resolves no packages, so the mirror does not apply there.
 
 ### Avro on Glue
 
-*On forge-cli `main`, not yet in a release ([forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927)).* Glue 5.0 ships Spark, the Kafka connector, `kafka-clients`, the MSK IAM library, `spark-avro` and Iceberg, but not ABRiS, and the Confluent registry client it holds is inside a Hudi bundle. So a Glue build that decodes Confluent Avro loads seven jars that forge pins by sha256: ABRiS 6.4.0 for Scala 2.12, `za.co.absa.commons` 1.0.0, and the Confluent 6.2.1 clients ABRiS is built against (`kafka-avro-serializer`, `kafka-schema-serializer`, `kafka-schema-registry-client`, `common-config`, `common-utils`). The Confluent clients are from 2021: the pins protect integrity, not against known CVEs, so re-pin when ABRiS moves. A JSON build, an MSK IAM build and an EMR build add no jars.
+*(since 0.31.0, [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927))* Glue 5.0 ships Spark, the Kafka connector, `kafka-clients`, the MSK IAM library, `spark-avro` and Iceberg, but not ABRiS, and the Confluent registry client it holds is inside a Hudi bundle. So a Glue build that decodes Confluent Avro loads seven jars that forge pins by sha256: ABRiS 6.4.0 for Scala 2.12, `za.co.absa.commons` 1.0.0, and the Confluent 6.2.1 clients ABRiS is built against (`kafka-avro-serializer`, `kafka-schema-serializer`, `kafka-schema-registry-client`, `common-config`, `common-utils`). The Confluent clients are from 2021: the pins protect integrity, not against known CVEs, so re-pin when ABRiS moves. A JSON build, an MSK IAM build and an EMR build add no jars.
 
 The operator keeps the jars in an S3 prefix and tells forge where:
 
@@ -312,7 +312,7 @@ The setting is protected: a project `.env` cannot set it, and the contract never
 
 ## Lake Formation writes
 
-*On forge-cli `main`, not yet in a release ([forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918)).* A contract that sets `registerLocation: true` on the output's binding and has a forge Spark job write the table gets a different registration. Lake Formation's service-linked role has no `s3:PutObject`, and EMR 7.12 writes Iceberg with the credentials Lake Formation vends. So forge registers the location with a role of the product's instead:
+*(since 0.31.0, [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918))* A contract that sets `registerLocation: true` on the output's binding and has a forge Spark job write the table gets a different registration. Lake Formation's service-linked role has no `s3:PutObject`, and EMR 7.12 writes Iceberg with the credentials Lake Formation vends. So forge registers the location with a role of the product's instead:
 
 - The role trusts `lakeformation.amazonaws.com`, reads and writes the registered prefix, and has KMS through S3. `aws_lakeformation_resource` gets `use_service_linked_role = false`.
 - Each writer's role is granted `ALTER`, `DESCRIBE`, `INSERT` and `SELECT` on the table, and `DELETE` for a batch overwrite. It is not granted `DATA_LOCATION_ACCESS`, because the table exists.

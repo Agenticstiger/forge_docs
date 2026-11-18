@@ -13,6 +13,9 @@ undocumented_ok:
                      # deprecation warning pointing at the canonical
                      # `fluid generate standard --format odps-v4.1`. The
                      # export-odps.md page covers the surface (docs_only_ok below).
+  - genie            # `fluid genie` (forge-cli #870, in 0.30.0) has no page yet: the
+                     # Databricks Genie space is documented only in the Databricks
+                     # pages. Add docs/cli/genie.md and drop this entry.
   - viz-plan         # hidden (argparse.SUPPRESS) — deprecated, use `plan --html`
 
 # Doc pages with no matching CLI subcommand (e.g. conceptual / index pages).
@@ -21,6 +24,15 @@ undocumented_ok:
 # entry ending in `/` allowlists that whole subtree.
 docs_only_ok:
   - README           # CLI Reference index page
+  - scaffold-ci      # `fluid scaffold-ci` is removed in 0.31.0 (forge-cli #941); the page
+                     # stays as the record of the removal, like memory below.
+  - generate-pipeline  # `fluid generate-pipeline` is removed in 0.31.0 (forge-cli #941);
+                     # same reason as scaffold-ci above.
+  - memory           # `fluid memory` is removed in 0.31.0 (forge-cli #881). The page
+                     # stays as the record of the removal until the pages that link
+                     # to it are rewritten; its fenced commands no longer parse.
+  - mission          # `fluid mission` is removed in 0.31.0 (forge-cli #881); same
+                     # reason as memory above.
   - catalogs/        # one page per catalog target (BigQuery, Glue, Unity, ...),
                      # not per CLI command; the commands behind them are
                      # `fluid publish` / `fluid market`. Whole subtree.
@@ -43,9 +55,6 @@ docs_only_ok:
                     # odps-v4.1`; only the deprecated `export-opds` alias still
                     # registers (undocumented_ok above). Page kept as the
                     # migration reference for the historical surface.
-  - profile         # `fluid profile` is on forge-cli `main` (forge-cli #909) but in no
-                    # release, so not in the pinned CLI. Drop this entry at the pin bump
-                    # that carries it.
 
 # Fenced `fluid ...` invocations the flag oracle must not report.
 # Two forms:
@@ -74,61 +83,30 @@ flag_oracle_ok:
                      # prints the command's options and
                      # `fluid generate-custom-scaffold --help` prints the
                      # top-level usage. The pages document the name that runs.
-  - docs/cli/profile.md::fluid profile
-                     # `fluid profile` is on forge-cli `main` (forge-cli #909) but in no
-                     # release, so the pinned CLI lacks it and the oracle cannot know its
-                     # flags. Drop this entry at the pin bump that carries it.
-  - docs/cli/plan.md::--tofu
-                     # Newer than the pin: forge-cli #898 (on main, in no release yet)
-                     # added `fluid plan --tofu`; 0.29.0 and 0.30.1 register no --tofu.
-                     # Remove this entry when cli-version.json moves to the release that
-                     # carries #898.
-  - docs/cli/plan.md::--state-backend
-                     # Newer than the pin: forge-cli #898 (on main, in no release yet)
-                     # made `fluid plan --tofu` take --state-backend; the pinned `fluid
-                     # plan` registers none. The same page's `fluid apply` examples
-                     # are covered by this entry too. Remove it with the --tofu entry.
-  - docs/advanced/operating-in-ci.md::--tofu
-                     # Newer than the pin: forge-cli #898, as in the plan.md entry above.
-                     # Scoped to the proof-gate walkthrough's `fluid plan --tofu` call.
-  - docs/advanced/operating-in-ci.md::--state-backend
-                     # Newer than the pin: forge-cli #898 (`fluid plan --state-backend`),
-                     # as above. Remove it with the --tofu entry.
-  - docs/cli/import.md::fluid import schema-registry
-                     # Newer than the pin: forge-cli #939 (on main, in no release yet)
-                     # added the `schema-registry` tool to `fluid import`, with
-                     # --registry, --url, --registry-name and --version; the pinned
-                     # `fluid import` registers none of them. Remove this entry when
-                     # cli-version.json moves to the release that carries #939.
-  - docs/cli/plan.md::--no-check-sovereignty
-                     # Newer than the pin: forge-cli 0.30.0 (#868) made
-                     # --check-sovereignty a BooleanOptionalAction, and the
-                     # pinned 0.29.0 parser registers only --check-sovereignty.
-                     # Remove this entry when cli-version.json moves to 0.30.0.
-  - docs/cli/mcp.md::fluid mcp serve --transport
-                     # Newer than the pin: forge-cli #879 (on main, in no
-                     # release yet) added --transport, --host and --port to
-                     # `fluid mcp serve`; 0.29.0 and 0.30.1 register none of
-                     # them. Scoped to the `fluid mcp serve --transport ...`
-                     # invocations in the "Serve over HTTP" section. Remove this
-                     # entry when cli-version.json moves to the release that
-                     # carries #879.
-  - docs/cli/ship.md::fluid ship
-                     # Newer than the pin: forge-cli #917 (on main, in no
-                     # release yet) made `fluid ship` the 11-stage runner, with
-                     # --stage, --until, --skip-stage, --explain, --apply-mode and
-                     # the other flags its "11-stage runner on forge-cli main"
-                     # section shows; 0.29.0 and 0.30.1 register none of them.
-                     # Remove this entry when cli-version.json moves to the
-                     # release that carries #917.
-  - docs/cli/generate-pipeline.md::--add
-                     # Newer than the pin: forge-cli #942 (on main, in no
-                     # release yet) replaced `fluid generate ci --complexity`
-                     # with --add security|compliance|sbom; 0.29.0 and 0.30.1
-                     # register no --add. Scoped to the main-form example next to
-                     # the 0.30.1 `--complexity enterprise` line. Remove this
-                     # entry when cli-version.json moves to the release that
-                     # carries #942.
+  # Surface removed in 0.31.0 (forge-cli #881, the embedded copilot). These pages
+  # still describe it under a removal banner, so the pinned 0.31.0 parser no longer
+  # knows the fences. Each entry is scoped to the removed flag or command; drop it
+  # when the page is rewritten for the removal.
+  - docs/cli/scaffold-ci.md
+  - docs/cli/generate-pipeline.md
+  - docs/cli/forge.md::--ci-complexity
+  - docs/cli/memory.md
+  - docs/cli/mission.md
+  - docs/advanced/forge-copilot-memory.md::fluid memory
+  - docs/advanced/forge-copilot-memory.md::fluid forge --show-memory
+  - docs/advanced/forge-copilot-memory.md::fluid forge --reset-memory
+  - docs/advanced/v1.5-architecture.md::fluid memory
+  - docs/cli/stats.md::--judge
+  - docs/**::fluid forge --domain
+  - docs/**::fluid forge --provider gcp --domain
+  - README.md::fluid forge --domain
+  - docs/**::--discovery-path
+  - docs/**::--no-discover
+  - docs/**::fluid forge --save-memory
+  - docs/**::fluid forge --llm-provider gemini --tiered
+  - docs/cli/forge.md::--resume
+  - docs/cli/forge.md::--fork
+  - docs/cli/forge.md::--seed-from
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

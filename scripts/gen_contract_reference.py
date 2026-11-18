@@ -62,8 +62,8 @@ KNOWN_KEYWORDS = {
     "$comment", "$defs", "$id", "$ref", "$schema", "additionalProperties",
     "allOf", "anyOf", "const", "default", "dependentRequired", "description",
     "enum", "errorMessage", "examples", "format", "if", "items", "maximum",
-    "minItems", "minLength", "minProperties", "minimum", "not", "oneOf", "pattern",
-    "properties", "propertyNames", "required", "then", "title", "type", "uniqueItems",
+    "maxItems", "maxLength", "minItems", "minLength", "minProperties", "minimum", "not", "oneOf", "pattern",
+    "properties", "propertyNames", "required", "then", "else", "title", "type", "uniqueItems", "writeOnly",
 }
 # Keywords whose value is data or a name->schema map, not a schema to audit.
 DATA_KEYWORDS = {"examples", "enum", "const", "default", "dependentRequired", "required"}
@@ -181,6 +181,11 @@ def html_code(text: str) -> str:
     esc = (
         text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         .replace("{", "&#123;").replace("}", "&#125;").replace("|", "&#124;")
+        # markdown still runs on the text between inline tags: a bare `*`, `_`,
+        # `\` or bracket in a pattern becomes emphasis, an escape or a link and
+        # leaves an unclosed element for Vue to reject.
+        .replace("\\", "&#92;").replace("*", "&#42;").replace("_", "&#95;")
+        .replace("`", "&#96;").replace("[", "&#91;").replace("]", "&#93;")
     )
     return f"<code>{esc}</code>"
 
@@ -358,14 +363,20 @@ class Walker:
             lines.append(f"format {code(eff['format'])}")
         if "minLength" in eff:
             lines.append(f"min length {eff['minLength']}")
+        if "maxLength" in eff:
+            lines.append(f"max length {eff['maxLength']}")
         if "minimum" in eff:
             lines.append(f"min {eff['minimum']}")
         if "maximum" in eff:
             lines.append(f"max {eff['maximum']}")
         if "minItems" in eff:
             lines.append(f"min items {eff['minItems']}")
+        if "maxItems" in eff:
+            lines.append(f"max items {eff['maxItems']}")
         if eff.get("uniqueItems"):
             lines.append("unique items")
+        if eff.get("writeOnly"):
+            lines.append("write-only")
         if "minProperties" in eff:
             # The object counterpart of minItems. 0.7.6 uses it on a column's
             # quality rule, where every key is optional and an empty `{}` would
@@ -375,6 +386,16 @@ class Walker:
             neg = self.resolve(eff["not"])
             if set(neg) == {"pattern"}:
                 lines.append(_pattern_line("must not match", neg["pattern"]))
+            elif set(neg) == {"minimum", "maximum"}:
+                lines.append(f"must not be {neg['minimum']} to {neg['maximum']}")
+            elif set(neg) == {"required"}:
+                lines.append("must not set " + ", ".join(code(k) for k in neg["required"]))
+            elif set(neg) == {"anyOf"} and all(
+                isinstance(a, dict) and set(a) == {"required"} for a in neg["anyOf"]
+            ):
+                # 0.7.7: none of several alternatives may be present.
+                keys = ["/".join(code(k) for k in a["required"]) for a in neg["anyOf"]]
+                lines.append("must set none of " + ", ".join(keys))
             else:
                 die(f"unsupported `not` schema: {neg!r}")
         items = eff.get("items")
@@ -388,7 +409,12 @@ class Walker:
                 f"if {code(dep_key)} is set, {', '.join(code(v) for v in dep_vals)} "
                 f"{'is' if len(dep_vals) == 1 else 'are'} required"
             )
-        if with_alts:
+        forms = self.form_line(eff) if with_alts else None
+        if forms:
+            if eff.get("required"):
+                lines.append(", ".join(code(k) for k in eff["required"]) + (" is" if len(eff["required"]) == 1 else " are") + " required")
+            lines.append(forms)
+        elif with_alts:
             alts = self.alts(eff)
             only_required = [a for a in alts if set(a) == {"required"}]
             if only_required:
@@ -414,6 +440,38 @@ class Walker:
                 else:
                     lines.extend((f"{t}: " if t else "") + ", ".join(ls) for t, ls in typed)
         return lines
+
+    def form_line(self, eff: dict[str, Any]) -> str | None:
+        """One line for a oneOf of forms, each a `required` set plus a `not` list.
+
+        0.7.7 `invariant`: `check`, `derive` with `expr`, `derive` with
+        `aggregate`, or `dependency`. Without this the generic alts code keeps
+        only the `not` halves and drops the keys each form needs.
+        """
+        branches = [self.resolve(b) for b in eff.get("oneOf", [])]
+        if len(branches) < 2 or "anyOf" in eff:
+            return None
+        forms: list[tuple[list[str], list[str]]] = []
+        for b in branches:
+            neg = self.resolve(b["not"]) if "not" in b else {}
+            if set(b) - {"required", "not", "description"} or not b.get("required"):
+                return None
+            if neg and not (
+                set(neg) == {"anyOf"}
+                and all(isinstance(a, dict) and set(a) == {"required"} for a in neg["anyOf"])
+            ):
+                return None
+            banned = [k for a in neg.get("anyOf", []) for k in a["required"]]
+            forms.append((list(b["required"]), banned))
+        every = {k for req, _ in forms for k in req}
+        parts: list[str] = []
+        for req, banned in forms:
+            text = " with ".join(code(k) for k in req)
+            extra = [k for k in banned if k not in every]
+            if extra:
+                text += " (no " + ", ".join(code(k) for k in extra) + ")"
+            parts.append(text)
+        return "exactly one form: " + "; ".join(parts[:-1]) + "; or " + parts[-1]
 
     def describe_schema(self, node: Any) -> str:
         """Short prose for a constraint-only schema (used for `then` overlays)."""
@@ -449,9 +507,13 @@ class Walker:
                 parts.append(f"{code(key)} is set")
         if "not" in eff:
             neg = self.resolve(eff["not"])
-            if set(neg) != {"required"}:
+            if set(neg) == {"required"}:
+                parts.extend(f"{code(k)} is not set" for k in neg["required"])
+            elif set(neg) == {"properties"} or set(neg) == {"properties", "required"}:
+                # 0.7.7: `if: {not: {properties: {runtime: {const: ...}}}}`.
+                parts.append(f"not ({self.describe_if(neg)})")
+            else:
                 die(f"unsupported `if` not-clause: {neg!r}")
-            parts.extend(f"{code(k)} is not set" for k in neg["required"])
         if "anyOf" in eff:
             parts.append(" or ".join(self.describe_if(a) for a in eff["anyOf"]))
         if not parts:
@@ -581,13 +643,32 @@ class Walker:
         self, path: str, entry: dict[str, Any], row: Row, when: str | None, prefix: str
     ) -> None:
         if "if" not in entry:
-            die(f"allOf entry without `if` at {path}: {entry!r}")
+            # An unconditional constraint (0.7.7: "set one of two keys"): a note
+            # on the row, with its description when it has one.
+            if set(entry) - {"anyOf", "oneOf", "required", "not", "description"}:
+                die(f"allOf entry without `if` at {path}: {entry!r}")
+            lead = f"{prefix}" if prefix else ""
+            notes = list(self.constraint_lines(entry, with_alts=True))
+            if entry.get("description"):
+                notes.append(entry["description"])
+            for line in notes:
+                row.notes.append(lead + line)
+            return
         cond = self.describe_if(entry["if"])
         then = self.resolve(entry.get("then", {}))
         plain = f"When {cond}: "
         first = f"{prefix}when {cond}: " if prefix else plain
         first = first[0].upper() + first[1:]
         self.overlay(path, then, cond, row, when, first, plain)
+        if "else" in entry:
+            # 0.7.7 adds `else` (sparkParameters: glue vs EMR runtime): the
+            # same overlay, under the negated condition.
+            neg = f"not ({cond})"
+            els = self.resolve(entry["else"])
+            eplain = f"When {neg}: "
+            efirst = f"{prefix}when {neg}: " if prefix else eplain
+            efirst = efirst[0].upper() + efirst[1:]
+            self.overlay(path, els, neg, row, when, efirst, eplain)
 
     def overlay(
         self,
@@ -675,6 +756,17 @@ def _enum_line(values: list[Any]) -> str:
 
 
 def _pattern_line(lead: str, pattern: str) -> str:
+    if "://(" in pattern:
+        # A short code span holding `scheme://(` is read as a link by lychee
+        # (and by any URL scanner), and it is not one. Render it as a raw
+        # <code> element split by a <wbr> after the colon: the scanner decodes
+        # entities, but it does not join text across an element. The reader
+        # sees the same text.
+        shown = html_code(pattern).replace("://", ":<wbr>//")
+        inline = f"{lead} {shown}"
+        if len(inline) <= FOLD_CHARS + 40:
+            return inline
+        return f"{lead} <details><summary>a {len(pattern)}-character pattern</summary>{shown}</details>"
     inline = f"{lead} {code(pattern)}"
     if len(inline) <= FOLD_CHARS:
         return inline

@@ -55,7 +55,7 @@ fluid odcs validate contract.odcs.yaml
 
 ## Quality rules in the export
 
-*On forge-cli `main`, not yet in a release ([forge-cli #910](https://github.com/Agenticstiger/forge-cli/pull/910)).* A FLUID `dq.rules` threshold is the share of rows that **pass**. ODCS `nullValues`, `duplicateValues` and `invalidValues` count the rows that **fail**. Up to 0.30.1 the exporter copied the threshold across, so `threshold: 1.0` with `operator: ">="` came out as "at least one null". Every ODCS export is affected, among them the contracts [`fluid publish --target datamesh-manager`](./publish.md) sends. The export now mirrors the share:
+*(since 0.31.0, [forge-cli #910](https://github.com/Agenticstiger/forge-cli/pull/910))* A FLUID `dq.rules` threshold is the share of rows that **pass**. ODCS `nullValues`, `duplicateValues` and `invalidValues` count the rows that **fail**. Up to 0.30.1 the exporter copied the threshold across, so `threshold: 1.0` with `operator: ">="` came out as "at least one null". Every ODCS export is affected, among them the contracts [`fluid publish --target datamesh-manager`](./publish.md) sends. The export now mirrors the share:
 
 | `dq.rules` rule | Exported as |
 | --- | --- |
@@ -68,14 +68,14 @@ fluid odcs validate contract.odcs.yaml
 
 A threshold with no `operator` reads as `>=`, as `fluid test` reads it. A threshold that is not a number from 0 to 1 is not exported. The SodaCL exporter already worked this way.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #921](https://github.com/Agenticstiger/forge-cli/pull/921)).* **A rule lands on the columns it checks.** Up to 0.30.1 a completeness rule on `"a, b"`, or with no selector, was exported as an object-level `nullValues` check that named no column. Now:
+*(since 0.31.0, [forge-cli #921](https://github.com/Agenticstiger/forge-cli/pull/921))* **A rule lands on the columns it checks.** Up to 0.30.1 a completeness rule on `"a, b"`, or with no selector, was exported as an object-level `nullValues` check that named no column. Now:
 
 - `completeness` and `valid_values` give one check for each listed column, matched in any case;
 - `uniqueness` gives one check, for one column;
 - a rule that selects no column, or a column the schema does not declare, or (for `uniqueness`) several columns, is **not exported**. The export logs a warning that names the rule and the reason, and the rule is still carried verbatim under `customProperties.fluidExtras`.
 - A document that was exported before and imported again no longer doubles the rule.
 
-Seen on forge-cli `main`, for a contract with `completeness` rules on `order_id` (threshold 1.0), on `email` (`>= 0.95`, severity `warn`) and on the selector `"order_id, email"`, a `uniqueness` rule at `>= 0.99`, and a rule on a column the schema lacks. The `email` property gets:
+Seen on 0.31.0, for a contract with `completeness` rules on `order_id` (threshold 1.0), on `email` (`>= 0.95`, severity `warn`) and on the selector `"order_id, email"`, a `uniqueness` rule at `>= 0.99`, and a rule on a column the schema lacks. The `email` property gets:
 
 ```yaml
 - id: email_mostly

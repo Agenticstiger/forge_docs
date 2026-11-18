@@ -102,7 +102,7 @@ fluid forge
 fluid forge --domain finance
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: `fluid forge --domain`. Use `fluid forge --context "<what the product is for>"`, or name the domain in the prompt.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed: `fluid forge --domain`. Use `fluid forge --context "<what the product is for>"`, or name the domain in the prompt.
 
 ### Same contract, different targets
 
@@ -149,7 +149,7 @@ fluid market --search "customer analytics"
 
 ## Versioning in the docs
 
-- Current CLI release baseline: `0.29.0`
+- Current CLI release baseline: `0.31.0`
 - Current scaffolded contract examples: `fluidVersion: 0.7.5`
 
 That split is intentional. The CLI release and the contract schema version move on related but different timelines.

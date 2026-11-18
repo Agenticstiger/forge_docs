@@ -1,7 +1,7 @@
 # `fluid scaffold-ci`
 
-::: danger Removed on forge-cli main
-*On forge-cli `main`, not yet in a release ([forge-cli #941](https://github.com/Agenticstiger/forge-cli/pull/941)).* `fluid scaffold-ci` is removed: it exits 2 as an unknown command. Use [`fluid generate ci --system <system>`](./generate.md#fluid-generate-ci). This page describes 0.30.1 and earlier.
+::: danger Removed in 0.31.0
+*(since 0.31.0, [forge-cli #941](https://github.com/Agenticstiger/forge-cli/pull/941))* `fluid scaffold-ci` is removed: it exits 2 as an unknown command. Use [`fluid generate ci --system <system>`](./generate.md#fluid-generate-ci). This page describes 0.30.1 and earlier.
 :::
 
 Generate a single-file CI pipeline for GitLab, GitHub Actions, or Jenkins that wires together the FLUID validate / generate / plan / test / apply / publish steps.
@@ -45,7 +45,7 @@ The generated file installs `data-product-forge` from PyPI (`pip install --quiet
 | publish | On `main` with `DMM_API_URL` set: `fluid publish $CONTRACT --catalog $CATALOG`. |
 
 ::: warning Pin the version in a pipeline that holds credentials
-An unpinned `pip install data-product-forge` takes whatever release is latest when the job runs, and the same job holds the credentials the apply stage uses. After generating, edit the install line to pin the version you tested, for example `pip install --quiet "data-product-forge==0.29.0"`, and move the pin deliberately when you upgrade. [`fluid generate ci`](./generate.md#fluid-generate-ci) pins the install to the version that generated the file.
+An unpinned `pip install data-product-forge` takes whatever release is latest when the job runs, and the same job holds the credentials the apply stage uses. After generating, edit the install line to pin the version you tested, for example `pip install --quiet "data-product-forge==0.31.0"`, and move the pin deliberately when you upgrade. [`fluid generate ci`](./generate.md#fluid-generate-ci) pins the install to the version that generated the file.
 :::
 
 The settings are `CONTRACT` (the path you passed), `PROVIDER` (default `default`), `BUILD_ID` (default empty; set it to a `builds[].id` to run that build), `CATALOG` (default `datamesh-manager`), `AIRFLOW_DAGS_DEST` and `DMM_API_URL`. GitLab reads them as CI/CD variables, GitHub Actions as `env`, repository `vars` and `secrets`, Jenkins from the `environment` block.

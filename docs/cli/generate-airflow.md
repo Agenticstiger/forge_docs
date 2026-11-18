@@ -20,8 +20,8 @@ fluid generate-airflow CONTRACT
 | `--dag-id` | Override the DAG id of the DAG rendered from an `orchestration` section |
 | `--schedule` | Override its schedule: a cron expression or an Airflow keyword |
 | `--env` | Apply an environment overlay |
-| `--contract-path` | *On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).* The contract's path relative to `$FLUID_PROJECT_DIR` on the Airflow worker, as for [`fluid generate schedule`](./generate.md#fluid-generate-schedule) |
-| `--allow-unmapped` | *On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).* Render a task whose action the provider cannot map as a log-only task, instead of refusing. `FLUID_AIRFLOW_ALLOW_UNMAPPED=1` does the same |
+| `--contract-path` | *(since 0.31.0, [forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923))* The contract's path relative to `$FLUID_PROJECT_DIR` on the Airflow worker, as for [`fluid generate schedule`](./generate.md#fluid-generate-schedule) |
+| `--allow-unmapped` | *(since 0.31.0, [forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923))* Render a task whose action the provider cannot map as a log-only task, instead of refusing. `FLUID_AIRFLOW_ALLOW_UNMAPPED=1` does the same |
 | `--verbose`, `-v` | Verbose output |
 
 ## Examples
@@ -34,13 +34,13 @@ fluid generate-airflow contract.fluid.yaml --schedule "0 2 * * *"
 
 ## What it writes
 
-*On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).* `fluid generate-airflow` is an alias of `fluid generate schedule --scheduler airflow`, and the two write the same DAG. Before, six separate generators wrote DAGs, and the same contract gave different files by the command that wrote it. Now `fluid export --engine airflow`, `fluid generate schedule` and `fluid generate-airflow` all render a contract's `orchestration` section through one renderer, and give the same DAG for the same contract and provider settings.
+*(since 0.31.0, [forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923))* `fluid generate-airflow` is an alias of `fluid generate schedule --scheduler airflow`, and the two write the same DAG. Before, six separate generators wrote DAGs, and the same contract gave different files by the command that wrote it. Now `fluid export --engine airflow`, `fluid generate schedule` and `fluid generate-airflow` all render a contract's `orchestration` section through one renderer, and give the same DAG for the same contract and provider settings.
 
 - **A contract with an `orchestration` section** gets one DAG, for AWS, GCP and Snowflake alike. `--dag-id` and `--schedule` override its id and schedule.
 - **A contract with builds and no `orchestration` section** gets the DAGs of its builds' triggers. It no longer gets a DAG of `echo` placeholders. These are the DAGs that run `fluid apply`, described under [What the DAG does](../advanced/airflow.md#what-the-dag-does), and the command must run from the project directory (`generate_schedule_contract_outside_project`, exit 2, for a contract outside it). `--dag-id` and `--schedule` are refused there, with `generate_schedule_override_not_supported`: a scheduled build takes both from its trigger.
 - **A contract whose `orchestration` section has no `provider_action` task** is refused, not rendered as an empty DAG.
 
-Seen on forge-cli `main`, for a contract with one scheduled build:
+Seen on 0.31.0, for a contract with one scheduled build:
 
 ```text
 Generated 1 files (airflow scheduler):

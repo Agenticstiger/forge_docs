@@ -5,7 +5,7 @@ description: Declare in the contract what valid data looks like (derived columns
 
 # Rules about valid data
 
-*On forge-cli `main`, not yet in a release ([forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911)).*
+*(since 0.31.0, [forge-cli #911](https://github.com/Agenticstiger/forge-cli/pull/911))*
 
 The fields on this page need `fluidVersion: 0.7.7`. That schema is an opt-in preview: a contract that does not declare it stays on 0.7.6. A 0.7.6 contract that uses one of these fields fails `fluid validate`, and the message tells you to declare 0.7.7. Every field is optional, so a contract without them validates, exports and digests exactly as before.
 
@@ -366,7 +366,7 @@ The entry is short for a `derive` invariant with `expr: "account.status"` and `w
 
 **Notes** never fail validation, and `--strict` does not count them. They are: same-named columns on the two ends of a relationship that nothing relates, a division or float arithmetic (exact here and approximate in engines), a column with both a format and a regex rule, and a `contract.quality[]` expression that could become an invariant.
 
-These outputs are from the CLI on forge-cli `main`, run as `fluid validate contract.fluid.yaml --offline`. The first three start from a small contract with one `invoices` expose and one change, as stated. The overlap and note outputs come from small contracts of their own.
+These outputs are from the CLI on 0.31.0, run as `fluid validate contract.fluid.yaml --offline`. The first three start from a small contract with one `invoices` expose and one change, as stated. The overlap and note outputs come from small contracts of their own.
 
 An accepted contract. Its one `invoices` expose declares `gross_from_net`, `due_after_issue` and `group_name_by_id`, and nothing is flagged:
 

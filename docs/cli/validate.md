@@ -51,7 +51,7 @@ fluid validate --fragment expose fragments/exposes/orders.yaml  # one fragment o
 
 For a single contract, `--format json` prints `valid`, `schema_version`, `errors`, `warnings` and `validation_time`. A [fragment run](#validating-one-fragment) adds a `fragment` field after `valid`, naming the kind (`"fragment": "expose"`); the JSON of a whole-contract run has no such field. For a `.tgz` bundle it prints the same report `--report` writes (`bundleDigest`, `input`, `strict`, `status`, `summary`, `issues`).
 
-*(since 0.30.1, [forge-cli #876](https://github.com/Agenticstiger/forge-cli/pull/876))* A run with a note, a finding that does not fail the run even under `--strict`, also prints `notes`, after `warnings`. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* A contract run with any finding also prints `issues`, before `validation_time`: each finding again, with a stable `ERR_*` code, a JSON pointer, a fix and an example. [Finding codes and `issues`](#finding-codes-and-issues) explains each code, and is where the `docs_url` of most of them leads.
+*(since 0.30.1, [forge-cli #876](https://github.com/Agenticstiger/forge-cli/pull/876))* A run with a note, a finding that does not fail the run even under `--strict`, also prints `notes`, after `warnings`. *(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* A contract run with any finding also prints `issues`, before `validation_time`: each finding again, with a stable `ERR_*` code, a JSON pointer, a fix and an example. [Finding codes and `issues`](#finding-codes-and-issues) explains each code, and is where the `docs_url` of most of them leads.
 
 ## Exit codes
 
@@ -439,7 +439,7 @@ Write the value with `|-` or `>-`, which drops the final line break, or as a pla
 
 ## Placeholders and starter values
 
-*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).*
+*(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))*
 
 After its other contract rules, `fluid validate` looks for values the schema accepts but a finished contract does not ship: an address nobody reads, a value an unedited template leaves, and a marker for work not done yet. Each one is a warning, so `fluid validate` passes and `--strict` fails, as on any warning. Here, on a contract `fluid forge --template starter` wrote and nobody has edited yet:
 
@@ -480,13 +480,13 @@ What the checks leave alone:
 
 The fix for a placeholder email is the owning team's real address, or no address: `metadata.owner.email` is optional. The CLI cannot tell a made-up address from a real one, so it flags only the shapes that reach nobody, and an invented address that looks real still passes. An agent should take the address from the request, and leave the key out when the request gives none.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #928](https://github.com/Agenticstiger/forge-cli/pull/928)).* The templates bundled for `fluid init` and the forge-cli repository's examples carry no stand-in owner email, so they pass `--strict` as shipped (five legacy-shape examples that fail plain `fluid validate` aside). The scaffolds (`fluid init`, `fluid market --instantiate`, `fluid forge --template`, `fluid product-new` and the `fluid import` workflows) leave the email out rather than write a stand-in; `--owner-email` gives one to `fluid init --blueprint` and `--discover`. Through 0.30.1, a contract scaffolded from a template (`fluid init --quickstart`, `fluid init --template`, `fluid forge --template`) keeps the template's placeholder owner email until you replace it, and `fluid init --template csv-basics` writes the `data-team` owner team.
+*(since 0.31.0, [forge-cli #928](https://github.com/Agenticstiger/forge-cli/pull/928))* The templates bundled for `fluid init` and the forge-cli repository's examples carry no stand-in owner email, so they pass `--strict` as shipped (five legacy-shape examples that fail plain `fluid validate` aside). The scaffolds (`fluid init`, `fluid market --instantiate`, `fluid forge --template`, `fluid product-new` and the `fluid import` workflows) leave the email out rather than write a stand-in; `--owner-email` gives one to `fluid init --blueprint` and `--discover`. Through 0.30.1, a contract scaffolded from a template (`fluid init --quickstart`, `fluid init --template`, `fluid forge --template`) keeps the template's placeholder owner email until you replace it, and `fluid init --template csv-basics` writes the `data-team` owner team.
 
 The starter's own values still warn on purpose, as the values to replace: the `data-team` owner team that the forge templates write, and the starter template's description, SQL and table name. Until you replace them the contract fails `--strict`, and so does stage 2 of a [generated CI pipeline](../advanced/operating-in-ci.md#the-jenkins-pipeline-stages-1-11), which runs `fluid validate` on the bundle with `--strict` (on Jenkins while the `VALIDATE_STRICT` parameter is on, its default).
 
 ## What an SDP does not do
 
-*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).*
+*(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))*
 
 An SDP (source-aligned, Bronze) reads one source as it is: it combines nothing and consumes no other data product. Two warnings follow from that classification alone, whichever field declares it, `metadata.productType: SDP` or `metadata.layer: Bronze`:
 
@@ -507,7 +507,7 @@ An upstream whose product type the workspace can read is judged by the compositi
 
 ## Finding codes and `issues`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).*
+*(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))*
 
 `errors`, `warnings` and `notes` give each finding as a sentence. With `--format json`, a run with at least one finding also prints `issues`: every error, then every warning, then every note, each with a code, a place and a fix, so a script or an agent can act on a finding without parsing its sentence. The three lists keep the same strings, and a contract with no finding prints the document it always printed, with no `issues` key. The text output does not show the codes.
 
@@ -633,7 +633,7 @@ What it checks:
 
 - **The manifest.** The recorded hash of each file must match the bundle. A mismatch is a single `MANIFEST-TAMPER` error, and nothing else is checked.
 - **The files in the bundle.** The resolved contract against the JSON Schema, SQL fragments with a SQL parser, and OpenAPI fragments with an OpenAPI validator. When the SQL parser or the OpenAPI validator is not installed, those fragments are reported as an info (an error under `--strict`) instead of being checked.
-- **The contract rules.** The resolved contract goes through the same rules a contract file does: sovereignty, agent policy, binding prerequisites, packaging, semantics, composition and plugin validators. Each finding is reported with code `CONTRACT-RULE`. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* So are the [placeholder and starter-value checks](#placeholders-and-starter-values) and the [SDP checks](#what-an-sdp-does-not-do), and each `CONTRACT-RULE` finding also carries its `ERR_*` code as `rule`, with `pointer`, `fix`, `example` and `docs_url`, as in [`issues`](#finding-codes-and-issues).
+- **The contract rules.** The resolved contract goes through the same rules a contract file does: sovereignty, agent policy, binding prerequisites, packaging, semantics, composition and plugin validators. Each finding is reported with code `CONTRACT-RULE`. *(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* So are the [placeholder and starter-value checks](#placeholders-and-starter-values) and the [SDP checks](#what-an-sdp-does-not-do), and each `CONTRACT-RULE` finding also carries its `ERR_*` code as `rule`, with `pointer`, `fix`, `example` and `docs_url`, as in [`issues`](#finding-codes-and-issues).
 - **The environment.** `--env` must match the environment the bundle was built for.
 - **The overlay warnings.** *(since 0.22.0, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* An overlay patch that `fluid bundle --env` merged onto another entry is recorded in the manifest and reported as a warning, `OVERLAY-WARNING`, so `--strict` fails on it. A bundle is never re-overlaid, so the record is how validate sees it.
 
@@ -676,7 +676,7 @@ fluid validate runtime/bundle.tgz --env prod --strict
 
 *(since 0.22.0, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* Without `--strict` the same bundle passes and still lists the warning: a bundle that passes lists its warnings, not only their count. `--quiet`, which printed nothing for a bundle, prints each error as `ERROR: <finding>`, a recorded overlay warning as `WARNING: <finding>`, and under `--strict` each warning as `ERROR (--strict): <finding>`.
 
-`--report PATH` writes the full structured report as JSON, on pass and on fail, so a CI job can upload it as an artifact. The report has `bundleDigest`, `input`, `strict`, `status`, `summary` and `issues[]`; each issue carries `file`, `validator`, `severity`, `message` and a `code`. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* A `CONTRACT-RULE` issue also carries `rule`, `pointer`, `fix`, `example` and `docs_url`:
+`--report PATH` writes the full structured report as JSON, on pass and on fail, so a CI job can upload it as an artifact. The report has `bundleDigest`, `input`, `strict`, `status`, `summary` and `issues[]`; each issue carries `file`, `validator`, `severity`, `message` and a `code`. *(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* A `CONTRACT-RULE` issue also carries `rule`, `pointer`, `fix`, `example` and `docs_url`:
 
 ```json
 {

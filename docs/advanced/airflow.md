@@ -124,7 +124,7 @@ An `aws` contract that keeps `orchestration.schedule` with `orchestration.engine
 
 ## `fluid generate-airflow` (deprecated)
 
-*On forge-cli `main`, not yet in a release ([forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923)).* `fluid generate-airflow` is an alias of `fluid generate schedule --scheduler airflow`, and one renderer writes both. What changed is on [its page](../cli/generate-airflow.md#what-it-writes). The notes below describe 0.30.1 and earlier.
+*(since 0.31.0, [forge-cli #923](https://github.com/Agenticstiger/forge-cli/pull/923))* `fluid generate-airflow` is an alias of `fluid generate schedule --scheduler airflow`, and one renderer writes both. What changed is on [its page](../cli/generate-airflow.md#what-it-writes). The notes below describe 0.30.1 and earlier.
 
 `fluid generate-airflow` still runs, and prints a warning that points at its replacement:
 
@@ -158,7 +158,7 @@ For a walkthrough that builds a pipeline from a contract, see the [Declarative A
 
 ## Scheduled Spark builds
 
-*On forge-cli `main`, not yet in a release ([forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950)).* A build of `engine: spark` (its `parameters.spark` lives under `builds[].properties`) whose run ends on its own, a batch job or a stream with `trigger.availableNow`, gets the standard `fluid apply` DAG, like every scheduled build. Its one task, `fluid_apply`, runs:
+*(since 0.31.0, [forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950))* A build of `engine: spark` (its `parameters.spark` lives under `builds[].properties`) whose run ends on its own, a batch job or a stream with `trigger.availableNow`, gets the standard `fluid apply` DAG, like every scheduled build. Its one task, `fluid_apply`, runs:
 
 ```text
 fluid apply <contract> --mode amend-and-build --build-id <id> --yes

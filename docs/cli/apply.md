@@ -253,7 +253,7 @@ When you pass a saved plan (`runtime/plan.json`) instead of a contract, `apply` 
 | | `apply_plan_digest_bundle_mismatch` | `bundleDigest` in `plan.json` against the MANIFEST SHA-256 of the tgz bundle the plan was built from. |
 | | `apply_plan_digest_bundle_missing` | A plan that carries a `bundleDigest` but has no locatable bundle. It fails closed instead of skipping the check. |
 | Mode | `apply_plan_mode_mismatch` | The `mode` recorded in `plan.json` against `--mode`. A plan made without `--mode` and `amend` count as the same. |
-| Saved OpenTofu plan | `apply_plan_digest_tofu_plan_invalid`, `_missing`, `_mismatch`, `_target`, `_stale` | *On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* The `opentofuPlan` record of a plan made with `fluid plan --tofu`. See [Applying a saved OpenTofu plan](#applying-a-saved-opentofu-plan). |
+| Saved OpenTofu plan | `apply_plan_digest_tofu_plan_invalid`, `_missing`, `_mismatch`, `_target`, `_stale` | *(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))* The `opentofuPlan` record of a plan made with `fluid plan --tofu`. See [Applying a saved OpenTofu plan](#applying-a-saved-opentofu-plan). |
 | Environment | `plan_env_mismatch` | The `contract_metadata.env` recorded in `plan.json` against `--env`. Checked for the build modes (`amend-and-build`, `replace-and-build`). |
 
 This is the Terraform-style "apply consumes exact plan" guarantee, enforced cryptographically. A tampered plan stops here:
@@ -302,7 +302,7 @@ Relative local paths in a contract (`binding.location.path` on the `local` provi
 
 ### Applying a saved OpenTofu plan
 
-*On forge-cli `main`, not yet in a release ([forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898)).* A `plan.json` made with [`fluid plan --tofu`](./plan.md#saving-the-opentofu-plan-tofu) binds a saved OpenTofu plan, `plan.tfplan`, in its `opentofuPlan` record. `fluid apply plan.json` then runs exactly that plan. It does not plan again:
+*(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))* A `plan.json` made with [`fluid plan --tofu`](./plan.md#saving-the-opentofu-plan-tofu) binds a saved OpenTofu plan, `plan.tfplan`, in its `opentofuPlan` record. `fluid apply plan.json` then runs exactly that plan. It does not plan again:
 
 1. It reads `plan.tfplan` from the directory of `plan.json`, once, and checks its sha256 against the record. The bytes that matched are the bytes applied.
 2. Before `tofu init`, it refuses a plan made for another provider or another state than this apply resolves.
@@ -451,7 +451,7 @@ Bucket names are global: use a bucket you own. The bucket name `acme-fluid-state
   state:       remote: s3://acme-fluid-state/fluid/analytics.web.pageviews/aws/terraform.tfstate (from FLUID_STATE_BACKEND)
 ```
 
-`--state-backend` takes `s3://<bucket>/<key>` or `gcs://<bucket>/<prefix>`. Its default is `$FLUID_STATE_BACKEND`, else local state. `--state-backend ""` forces local state when the environment sets the variable. *On forge-cli `main`, not yet in a release ([forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901)).* An S3 spec can end in `?region=<region>`, as in `s3://<bucket>/<key>?region=eu-west-1`. That names the region of the state bucket, which may differ from the region the resources live in, and forge writes it as the backend's `region`. Without it, `tofu` reads `AWS_REGION`. Only that exact tail is read as a region: any other `?` stays part of the key, so an existing key does not change. The `state:` line names the object the run uses and where the spec came from. When an apply or a drift check fails on state or region, [State and region errors](../advanced/production-troubleshooting.md#state-and-region-errors) lists the causes.
+`--state-backend` takes `s3://<bucket>/<key>` or `gcs://<bucket>/<prefix>`. Its default is `$FLUID_STATE_BACKEND`, else local state. `--state-backend ""` forces local state when the environment sets the variable. *(since 0.31.0, [forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901))* An S3 spec can end in `?region=<region>`, as in `s3://<bucket>/<key>?region=eu-west-1`. That names the region of the state bucket, which may differ from the region the resources live in, and forge writes it as the backend's `region`. Without it, `tofu` reads `AWS_REGION`. Only that exact tail is read as a region: any other `?` stays part of the key, so an existing key does not change. The `state:` line names the object the run uses and where the spec came from. When an apply or a drift check fails on state or region, [State and region errors](../advanced/production-troubleshooting.md#state-and-region-errors) lists the causes.
 
 ### Which key a bucket-only spec gets
 
@@ -474,7 +474,7 @@ State that an earlier release wrote at `fluid/<id>/terraform.tfstate` has to fol
 
 - It copies the old object to the new key with OpenTofu's own `tofu init -force-copy` (the migration path `tofu init -migrate-state` uses). It leaves the old object where it was, reads the copy back to check the resources match, and prints a `state move:` line naming both keys and the number of resources it moved.
 - It copies only when the new key holds no state and the old key holds this provider's resources. A state that holds another provider's resources is left alone (`state move: ... not this provider's; left in place`): the first `gcp` apply of a contract whose old key holds the `aws` state starts a new `gcp` state and does not touch the `aws` one.
-- *On forge-cli `main`, not yet in a release ([forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901)).* After a move, the summary ends with the commands that remove the old object, for you to run once you have checked the new state: `aws s3 rm <old s3 uri>` and `aws s3 rm <old s3 uri>.tflock` (the second clears a stale lock object), each with `--region <region>` when the spec names one, or `gcloud storage rm <gs uri of default.tfstate>` for GCS. The URIs are shell-quoted where they need it, and carry no wildcard and no `--recursive`. forge never deletes state: the old object is the only way back until you have checked the new key.
+- *(since 0.31.0, [forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901))* After a move, the summary ends with the commands that remove the old object, for you to run once you have checked the new state: `aws s3 rm <old s3 uri>` and `aws s3 rm <old s3 uri>.tflock` (the second clears a stale lock object), each with `--region <region>` when the spec names one, or `gcloud storage rm <gs uri of default.tfstate>` for GCS. The URIs are shell-quoted where they need it, and carry no wildcard and no `--recursive`. forge never deletes state: the old object is the only way back until you have checked the new key.
 - `--dry-run` never moves state. While a move is pending it plans against the old key, and so do [`fluid diff`](./diff.md) and `fluid verify --state-drift`, which only read.
 
 | Error | Meaning | What to do |
@@ -488,11 +488,11 @@ State that an earlier release wrote at `fluid/<id>/terraform.tfstate` has to fol
 
 ## State and plan encryption
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).*
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))*
 
 The OpenTofu state of an apply holds what the resources hold: connection strings, generated passwords, ids. Encrypting it is opt-in. Set `FLUID_STATE_ENCRYPTION` in the environment of the job to name one OpenTofu key provider, and forge writes a `terraform.encryption` block into the module with `enforced = true` for both the state and the saved plan. `tofu` then refuses to write either one unencrypted.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The variable names a key by reference. There are four forms, and each reaches its key with credentials you already have:
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* The variable names a key by reference. There are four forms, and each reaches its key with credentials you already have:
 
 | `FLUID_STATE_ENCRYPTION` | Key provider | Where the key's credentials come from |
 | --- | --- | --- |
@@ -501,7 +501,7 @@ The OpenTofu state of an apply holds what the resources hold: connection strings
 | `openbao://<transit mount path>/<key name>` | `openbao` | The transit engine of your OpenBao, for example `openbao://transit/fluid`. forge gives `tofu` the store's address (`BAO_ADDR` or `VAULT_ADDR`) and a token: the one forge's vault resolver finds in the environment or the token helper file, a response-wrapped token, or a CI JWT login. A token forge minted is revoked when the run ends. `BAO_NAMESPACE` and the CA bundle go along when set. |
 | `pbkdf2+<secret reference>` | `pbkdf2` | A passphrase the reference names, for example `pbkdf2+env://FLUID_STATE_PASSPHRASE` or `pbkdf2+vault://kv/lab/state#passphrase`. It resolves under your [secret policy](./secrets.md), and OpenTofu needs at least 16 characters. |
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The setting applies to every command that runs `tofu` against the state: `fluid apply`, `fluid plan --tofu`, `fluid diff` and `fluid verify --state-drift`. A saved plan from `fluid plan --tofu` is encrypted too, so `fluid apply` of that plan needs the same `FLUID_STATE_ENCRYPTION`. The `encryption:` line of an apply names the provider and the key, never a value:
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* The setting applies to every command that runs `tofu` against the state: `fluid apply`, `fluid plan --tofu`, `fluid diff` and `fluid verify --state-drift`. A saved plan from `fluid plan --tofu` is encrypted too, so `fluid apply` of that plan needs the same `FLUID_STATE_ENCRYPTION`. The `encryption:` line of an apply names the provider and the key, never a value:
 
 ```text
   encryption:  pbkdf2, passphrase from env://FLUID_STATE_PASSPHRASE
@@ -509,17 +509,17 @@ The OpenTofu state of an apply holds what the resources hold: connection strings
 
 ### Where the key material goes
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* The key itself is never written down. `main.tf.json` holds the key's name and no passphrase, and neither the plan nor the state carries it. forge never sets `TF_ENCRYPTION`, and an `TF_ENCRYPTION` in your environment never reaches `tofu`, because OpenTofu would let it override the module. A pbkdf2 passphrase reaches `tofu` as an ephemeral variable, `TF_VAR_fluid_state_passphrase`, in the environment of that one process: OpenTofu keeps only the variable's name in a saved plan and never puts it in the state.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* The key itself is never written down. `main.tf.json` holds the key's name and no passphrase, and neither the plan nor the state carries it. forge never sets `TF_ENCRYPTION`, and an `TF_ENCRYPTION` in your environment never reaches `tofu`, because OpenTofu would let it override the module. A pbkdf2 passphrase reaches `tofu` as an ephemeral variable, `TF_VAR_fluid_state_passphrase`, in the environment of that one process: OpenTofu keeps only the variable's name in a saved plan and never puts it in the state.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* `FLUID_STATE_ENCRYPTION` is a protected name. A `.env` file in a project cannot set it, because whoever chooses the key chooses who can read the state. Set it in the job's own environment. See [project `.env` trust](../advanced/project-dotenv-trust.md).
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* `FLUID_STATE_ENCRYPTION` is a protected name. A `.env` file in a project cannot set it, because whoever chooses the key chooses who can read the state. Set it in the job's own environment. See [project `.env` trust](../advanced/project-dotenv-trust.md).
 
 ### OpenTofu 1.13 or newer
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* With the setting on, forge refuses a `tofu` older than 1.13. Before 1.13, `tofu init -backend=false`, which forge runs for local state, read an encrypted local state without the encryption configuration and failed. `--ensure-opentofu` installs a pinned build only when no `tofu` is on `PATH`, so upgrade a `tofu` you already have.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* With the setting on, forge refuses a `tofu` older than 1.13. Before 1.13, `tofu init -backend=false`, which forge runs for local state, read an encrypted local state without the encryption configuration and failed. `--ensure-opentofu` installs a pinned build only when no `tofu` is on `PATH`, so upgrade a `tofu` you already have.
 
 ### Errors and fixes
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).*
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))*
 
 | Error | Meaning | What to do |
 | --- | --- | --- |
@@ -532,13 +532,13 @@ The OpenTofu state of an apply holds what the resources hold: connection strings
 
 ### Encrypting a state that already exists
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* Plaintext state is refused once encryption is on, and the `opentofu_state_not_encrypted` error names the fix: run `fluid apply` once with the hidden flag `--migrate-state-encryption`. That run reads the plaintext state through OpenTofu's `unencrypted` fallback and writes it back encrypted. It needs `FLUID_STATE_ENCRYPTION` set and refuses without it. The flag is not in `--help`.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* Plaintext state is refused once encryption is on, and the `opentofu_state_not_encrypted` error names the fix: run `fluid apply` once with the hidden flag `--migrate-state-encryption`. That run reads the plaintext state through OpenTofu's `unencrypted` fallback and writes it back encrypted. It needs `FLUID_STATE_ENCRYPTION` set and refuses without it. The flag is not in `--help`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* OpenTofu forbids a fallback under `enforced`, so the state of that one run is not enforced and a warning (`opentofu_state_encryption_migration`) says so. The plan is still enforced. Later runs need no flag.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* OpenTofu forbids a fallback under `enforced`, so the state of that one run is not enforced and a warning (`opentofu_state_encryption_migration`) says so. The plan is still enforced. Later runs need no flag.
 
 ## What `tofu` gets from the environment
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* Every `tofu` call of a run, from `init` to `apply`, gets an allowlist of your environment, not a copy of it. A model API key, a GitHub token or a Command Center secret in the job's environment never reaches `tofu` or the provider processes it starts.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* Every `tofu` call of a run, from `init` to `apply`, gets an allowlist of your environment, not a copy of it. A model API key, a GitHub token or a Command Center secret in the job's environment never reaches `tofu` or the provider processes it starts.
 
 What passes:
 
@@ -557,9 +557,9 @@ What never passes:
 - `TF_INPUT` and `TF_REATTACH_PROVIDERS`.
 - Model keys that sit inside a cloud's family: `GOOGLE_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `AWS_BEARER_TOKEN_BEDROCK`, `AZURE_API_KEY`, and the `AZURE_OPENAI_` and `AZURE_AI_` families.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* When a `TF_` variable is dropped, forge logs a `tofu_env_dropped` warning that names the variables and never their values. `fluid generate iac --validate` uses the same allowlist.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* When a `TF_` variable is dropped, forge logs a `tofu_env_dropped` warning that names the variables and never their values. `fluid generate iac --validate` uses the same allowlist.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905)).* An IaC plugin that lives outside forge declares what its provider reads: exact names in `credential_env_vars` and whole families in `credential_env_prefixes` (for example `("MYCLOUD_",)`). A plugin that declares no prefixes is warned about once, with `tofu_env_plugin_undeclared`, and gets only its `credential_env_vars` and the basics. A job that relied on a variable the allowlist now drops needs it declared there, or set another way.
+*(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* An IaC plugin that lives outside forge declares what its provider reads: exact names in `credential_env_vars` and whole families in `credential_env_prefixes` (for example `("MYCLOUD_",)`). A plugin that declares no prefixes is warned about once, with `tofu_env_plugin_undeclared`, and gets only its `credential_env_vars` and the basics. A job that relied on a variable the allowlist now drops needs it declared there, or set another way.
 
 ## Reporting to the Command Center (since 0.17.0)
 

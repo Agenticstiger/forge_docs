@@ -40,7 +40,7 @@ Since 0.10.0 the cloud providers do not execute actions one by one. For `aws`, `
 | Provider | How `fluid apply` provisions |
 |---|---|
 | `local` | native: `plan()` returns actions, `apply()` runs them on DuckDB |
-| `aws`, `gcp`, `snowflake`, `confluent` | OpenTofu module, then `tofu` (needs `tofu` 1.6 or later on `PATH`). *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is 1.12. |
+| `aws`, `gcp`, `snowflake`, `confluent` | OpenTofu module, then `tofu` (needs `tofu` 1.6 or later on `PATH`). *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* The floor is 1.12. |
 
 This design gives you:
 

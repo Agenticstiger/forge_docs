@@ -126,7 +126,7 @@ With `--delete-scope destination` on a transport that deletes, the whole-destina
 
 ## The report
 
-*On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* When stage 11 of [`fluid ship`](./ship.md) runs, it passes `--report runtime/schedule-sync-report.json`, so a generated pipeline keeps this report there.
+*(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* When stage 11 of [`fluid ship`](./ship.md) runs, it passes `--report runtime/schedule-sync-report.json`, so a generated pipeline keeps this report there.
 
 `--report PATH` writes a JSON summary with these keys: `command`, `scheduler`, `env`, `dags_dir`, `delete_scope`, `dry_run`, `overall_exit`, `results` and `superseded_scopes`. Each entry of `results` has `argv`, `dry_run`, `duration_s`, `exit_code`, `stdout_tail` and `stderr_tail`. Each entry of `superseded_scopes` names an environment directory that replaced an old one:
 

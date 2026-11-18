@@ -20,7 +20,7 @@ acme-sales/
     └── contract.fluid.yaml    # consumes sales.raw_orders_v1 / orders
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Nothing reads `.fluid/team-memory.yaml` any more, and `fluid init` no longer writes it.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Nothing reads `.fluid/team-memory.yaml` any more, and `fluid init` no longer writes it.
 
 ::: tip Not the `fluid workspace` command
 [`fluid workspace`](../cli/workspace.md) is a separate team-collaboration tool
@@ -187,7 +187,7 @@ readable by the SQL of every contract under it.
 
 ## Team memory
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init` no longer scaffolds `.fluid/team-memory.yaml`, and forge copilot memory is removed.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `fluid init` no longer scaffolds `.fluid/team-memory.yaml`, and forge copilot memory is removed.
 
 `fluid init` also scaffolds `.fluid/team-memory.yaml` at the workspace root:
 naming conventions, defaults and recorded decisions that `fluid forge` treats as

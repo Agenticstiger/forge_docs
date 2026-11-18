@@ -20,7 +20,7 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
   |    FLUID_PIP_INDEX_URL       = 'https://test.pypi.org/simple/'  (TestPyPI)
   |    FLUID_PIP_EXTRA_INDEX_URL = 'https://pypi.org/simple/'   (fallback)
   |    FLUID_ALLOW_PRERELEASE    = true  (pip --pre, alpha/rc releases)
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.29.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.31.0
   |- Jenkins plugins required: workflow-aggregator, git
 ```
 
@@ -28,13 +28,13 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
 pip picks the highest version of a package across every index it is given. With `FLUID_PIP_INDEX_URL` set to TestPyPI and `FLUID_PIP_EXTRA_INDEX_URL` set to PyPI, as the output above suggests, whichever index holds the higher version wins, for `data-product-forge` and for each of its dependencies. Anyone can register a name on TestPyPI, so a pilot build can install a package you did not choose. Run TestPyPI pilots only on an agent that holds no deploy credentials. For private packages, set `FLUID_PIP_INDEX_URL` to one mirror that proxies PyPI and leave `FLUID_PIP_EXTRA_INDEX_URL` empty.
 :::
 
-Commit the `Jenkinsfile` beside the contract. The file is generated once and then belongs to you: after you upgrade the CLI, regenerate it and review the diff to pick up changes. The `CONTRACT` parameter defaults to the path you generated from, and `FLUID_PACKAGE_SPEC` to the CLI version that generated the file with the extras the contract and its overlays need. A contract that has an `overlays/gcp.yaml` binding to BigQuery generates `data-product-forge[gcp,local]==0.29.0`; `--fluid-package-spec` overrides it.
+Commit the `Jenkinsfile` beside the contract. The file is generated once and then belongs to you: after you upgrade the CLI, regenerate it and review the diff to pick up changes. The `CONTRACT` parameter defaults to the path you generated from, and `FLUID_PACKAGE_SPEC` to the CLI version that generated the file with the extras the contract and its overlays need. A contract that has an `overlays/gcp.yaml` binding to BigQuery generates `data-product-forge[gcp,local]==0.31.0`; `--fluid-package-spec` overrides it.
 
 ## Set up Jenkins
 
 | Where | What it needs |
 | --- | --- |
-| Controller | the plugins `workflow-aggregator` (Pipeline) and `git`; `copyartifact` only if you generate with `--diff-last-applied`. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* Also `lockable-resources` and `junit` |
+| Controller | the plugins `workflow-aggregator` (Pipeline) and `git`; `copyartifact` only if you generate with `--diff-last-applied`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Also `lockable-resources` and `junit` |
 | Agent | `python3` with the `venv` module, and `rsync` when the stage-11 destination is a `file://` or `ssh://` path |
 | Workspace cleanup | nothing: the Jenkinsfile removes the workspace with the core `deleteDir()` step, so the `ws-cleanup` plugin is not needed |
 
@@ -112,7 +112,7 @@ The overlay is a file beside the contract, `overlays/<env>.yaml`, that patches t
 
 ### Require approval before apply
 
-*On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* The generated Jenkinsfile now asks. Stages 7 to 11 sit behind an `Approve apply` stage: an `input` step (the `APPLY_APPROVAL` parameter, default `true`, set it to `false` for an unattended job), then a `milestone`, then a `lock` per environment (`fluid-apply-<FLUID_ENV>`), so one build applies to an environment at a time. A change request (pull request build) stops after stage 6 with its reviewed plan archived, and a branch build applies only on the default branch (`main`, or `--default-branch`). Each stage runs `fluid ship "$CONTRACT" --stage N`. A change request build has no applied-plan baseline for stage 5, because its own job never applies. The rest of this section describes 0.30.1.
+*(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The generated Jenkinsfile now asks. Stages 7 to 11 sit behind an `Approve apply` stage: an `input` step (the `APPLY_APPROVAL` parameter, default `true`, set it to `false` for an unattended job), then a `milestone`, then a `lock` per environment (`fluid-apply-<FLUID_ENV>`), so one build applies to an environment at a time. A change request (pull request build) stops after stage 6 with its reviewed plan archived, and a branch build applies only on the default branch (`main`, or `--default-branch`). Each stage runs `fluid ship "$CONTRACT" --stage N`. A change request build has no applied-plan baseline for stage 5, because its own job never applies. The rest of this section describes 0.30.1.
 
 In 0.30.1 the generated Jenkinsfile does not pause for approval. To add a gate, put a Jenkins `input` step before stage 7 and keep the edit in your repository, since regenerating the file removes it:
 

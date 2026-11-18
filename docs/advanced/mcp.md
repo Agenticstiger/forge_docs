@@ -2,7 +2,7 @@
 
 Fluid Forge ships **two** Model Context Protocol servers under `fluid mcp`:
 
-- **`fluid mcp serve`**: the **producer / authoring** server. Exposes the staged forge pipeline as stdio MCP tools so an editor's AI can inspect, validate, and edit contracts. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* It can serve them over MCP Streamable HTTP too.
+- **`fluid mcp serve`**: the **producer / authoring** server. Exposes the staged forge pipeline as stdio MCP tools so an editor's AI can inspect, validate, and edit contracts. *(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* It can serve them over MCP Streamable HTTP too.
 - **`fluid mcp output-port serve`**: the **consumer / data-access** server (the flagship output-port capability). Binds one expose of a published contract and serves a small, governed, read-only surface to AI agents.
 
 The first half of this page covers the authoring server. The second half is a deep dive on the output port's runtime governance — the part that takes reading several files to learn.
@@ -11,7 +11,7 @@ The first half of this page covers the authoring server. The second half is a de
 
 ## Authoring server — `fluid mcp serve`
 
-`fluid mcp serve` exposes the staged forge pipeline as an MCP server for clients such as Claude Code, Cursor, Continue, and VS Code MCP integrations. It is a foreground process, with no daemon and no background service, and by default it speaks stdio to the client that starts it. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* With `--transport http` it serves the same tools over MCP Streamable HTTP instead, for a client or agent harness that connects by URL; see [Serve over HTTP](../cli/mcp.md#serve-over-http). The server is built on the official MCP Python SDK (`FastMCP`), which negotiates the MCP protocol version with the client at `initialize`; see [Supported MCP SDK versions](../cli/mcp.md#supported-mcp-sdk-versions).
+`fluid mcp serve` exposes the staged forge pipeline as an MCP server for clients such as Claude Code, Cursor, Continue, and VS Code MCP integrations. It is a foreground process, with no daemon and no background service, and by default it speaks stdio to the client that starts it. *(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* With `--transport http` it serves the same tools over MCP Streamable HTTP instead, for a client or agent harness that connects by URL; see [Serve over HTTP](../cli/mcp.md#serve-over-http). The server is built on the official MCP Python SDK (`FastMCP`), which negotiates the MCP protocol version with the client at `initialize`; see [Supported MCP SDK versions](../cli/mcp.md#supported-mcp-sdk-versions).
 
 ### Start the server
 
@@ -28,33 +28,33 @@ Every `tools/call` is checked by policy before it runs. The flags that scope it 
 
 The authoring server advertises these tools. With `--read-only`, the tools marked *write* are not advertised:
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The five rows marked removed below are gone. JDBC databases remain available through `fluid forge data-model from-source --uri`. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The five rows that read a source catalog are one tool, [`source_catalog`](#source-catalog), so the server advertises 7 tools, and 4 with `--read-only`.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The five rows marked removed below are gone. JDBC databases remain available through `fluid forge data-model from-source --uri`. *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* The five rows that read a source catalog are one tool, [`source_catalog`](#source-catalog), so the server advertises 7 tools, and 4 with `--read-only`.
 
 | Tool | Mode | What it does |
 | --- | --- | --- |
 | `read_logical_model` | read | Load a `.model.json` sidecar and return the typed logical model |
 | `validate_contract` | read | Validate a Fluid contract or forged model sidecar |
 | `diff_models` | read | Compare two logical model sidecars |
-| `search_semantic_memory` | read | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Search the semantic memory namespace for similar prior models |
-| `score_contract_quality` | read | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Score a contract against the forge quality rubric |
-| `enrich_contract_suggestions` | read | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Suggest contract enrichments (descriptions, semantics, policy) |
+| `search_semantic_memory` | read | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Search the semantic memory namespace for similar prior models |
+| `score_contract_quality` | read | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Score a contract against the forge quality rubric |
+| `enrich_contract_suggestions` | read | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Suggest contract enrichments (descriptions, semantics, policy) |
 | `update_entity` | write | Rename or update one logical model entity |
 | `add_relationship` | write | Add a relationship to a logical sidecar |
 | `regenerate_physical` | write | Regenerate the contract and physical fanout from a logical sidecar |
-| `list_source_adapters` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=adapters`. List available source-catalog adapters |
-| `list_source_tables` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=tables`. Enumerate tables from a configured source catalog |
-| `inspect_source_table` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=table`. Inspect a source table profile and metadata |
-| `list_source_lineage` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=lineage`. Read lineage from a configured source catalog |
-| `list_source_glossary` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Now `source_catalog` with `kind=glossary`. Read glossary terms from a configured source catalog |
-| `source_catalog` | read | *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* Read a source catalog's metadata: its adapters, a scope's tables, one table, a table's lineage, or glossary terms. Metadata only, never table data. See [`source_catalog`](#source-catalog) |
-| `forge_from_source` | write | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; run `fluid forge data-model from-source`. Forge a contract and `.model.json` sidecar from a configured source catalog |
-| `forge_run` | write | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed; the calling agent authors the contract itself, with the FLUID skills. Run a full `fluid forge` in-process — `mode` is `blank`, `diag`, or `ai` |
+| `list_source_adapters` | read | *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* Now `source_catalog` with `kind=adapters`. List available source-catalog adapters |
+| `list_source_tables` | read | *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* Now `source_catalog` with `kind=tables`. Enumerate tables from a configured source catalog |
+| `inspect_source_table` | read | *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* Now `source_catalog` with `kind=table`. Inspect a source table profile and metadata |
+| `list_source_lineage` | read | *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* Now `source_catalog` with `kind=lineage`. Read lineage from a configured source catalog |
+| `list_source_glossary` | read | *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* Now `source_catalog` with `kind=glossary`. Read glossary terms from a configured source catalog |
+| `source_catalog` | read | *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* Read a source catalog's metadata: its adapters, a scope's tables, one table, a table's lineage, or glossary terms. Metadata only, never table data. See [`source_catalog`](#source-catalog) |
+| `forge_from_source` | write | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed; run `fluid forge data-model from-source`. Forge a contract and `.model.json` sidecar from a configured source catalog |
+| `forge_run` | write | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed; the calling agent authors the contract itself, with the FLUID skills. Run a full `fluid forge` in-process — `mode` is `blank`, `diag`, or `ai` |
 
 Every advertised tool includes an MCP `inputSchema`, so clients can provide typed autocomplete and validate arguments before dispatch.
 
 #### `source_catalog`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).*
+*(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))*
 
 `source_catalog` reads a source catalog's metadata, never its data. It replaces the five tools above that read a catalog, and its `kind` argument picks what it reads. The other arguments keep the names they had on those tools.
 
@@ -98,7 +98,7 @@ In 0.24.0 and earlier these tools read the file as written, so `validate_contrac
 
 ### Large results
 
-*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).*
+*(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))*
 
 A tool result estimated at more than `FLUID_MCP_INLINE_TOKEN_LIMIT` tokens (default 6,000) is not sent inline. The call returns a short envelope instead, with an MCP `resource_link` to `fluid://artifacts/<id>`, and the client reads the full result with `resources/read`. This holds for every tool. Claude Code, for comparison, warns above 10,000 tokens of MCP tool output, and by default saves a successful result to a file once it passes 25,000 tokens or 50,000 characters. The estimate is the indented JSON text the call would send, at 4 bytes a token, so 6,000 tokens is about 24 KB. `FLUID_MCP_INLINE_TOKEN_LIMIT=0` sends every result inline.
 
@@ -131,7 +131,7 @@ The server keeps its last 32 offloaded results, up to 64 MB, until it stops. Rea
 
 ### Server instructions
 
-*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).*
+*(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))*
 
 At `initialize` the server sends this `instructions` text, key words first. A client that defers loading tools, such as Claude Code with tool search, starts a session with only the tool names and this text:
 
@@ -141,7 +141,7 @@ FLUID data products: validate a contract (contract.fluid.yaml); read, diff and e
 
 ### LLM sampling
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed with `forge_run`, and so is `--llm-provider mcp-sampling`. An agentic IDE authors with its own model: [`fluid scaffold-ide`](../cli/scaffold-ide.md) installs the FLUID skills, and the tools above stay available to it.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed with `forge_run`, and so is `--llm-provider mcp-sampling`. An agentic IDE authors with its own model: [`fluid scaffold-ide`](../cli/scaffold-ide.md) installs the FLUID skills, and the tools above stay available to it.
 
 The `forge_run` tool's `diag` and `ai` modes need a language model. Rather than configuring a second API key for the server, Forge uses **MCP sampling**: the server sends the model request back through the MCP connection to the client (Claude Code, Cursor, …), and the client fulfils it with the LLM the user already pays for.
 
@@ -189,7 +189,7 @@ fluid ai setup --source snowflake --name snowflake-prod
 
 Then an MCP client can call `forge_from_source` with `source: "snowflake"` and `credentials.credential_id: "snowflake-prod"` without receiving raw secrets.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_from_source` is removed, and the catalog read tools take the same `source` and `credentials.credential_id`. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The catalog read tools are now one tool, `source_catalog`, which needs both for every `kind` but `adapters`.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `forge_from_source` is removed, and the catalog read tools take the same `source` and `credentials.credential_id`. *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* The catalog read tools are now one tool, `source_catalog`, which needs both for every `kind` but `adapters`.
 
 ### Certification
 
@@ -354,7 +354,7 @@ Both messages name the contract's jurisdiction and give the command that fixes i
 
 The startup check looks only at whether an auth mode is configured. `FLUID_MCP_AUTH_MODE=shared-token` passes it, and a shared token carries no jurisdiction, so such a contract then denies every call as `missing-caller-jurisdiction`. Only `jwt` can supply the claim.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).* The startup check asks the auth validator instead. Over HTTP such a contract starts only with `FLUID_MCP_AUTH_MODE=jwt`, its issuer, audience and JWKS URL set, and a claim mapped to `jurisdiction` (the default mapping has one). Every other setup exits 2 before it listens: `shared-token` with or without a token, behind a trusted proxy or not; `jwt` without its issuer, audience or JWKS URL; and a `FLUID_MCP_JWT_CLAIM_MAPPING` that maps the claim away. Each message names the jurisdiction, says why no claim can be verified, and says how to supply one (JWT auth, or mapping the IdP's claim to `jurisdiction`) or to set `sovereignty.crossBorderTransfer: true`.
+*(since 0.31.0, [forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891))* The startup check asks the auth validator instead. Over HTTP such a contract starts only with `FLUID_MCP_AUTH_MODE=jwt`, its issuer, audience and JWKS URL set, and a claim mapped to `jurisdiction` (the default mapping has one). Every other setup exits 2 before it listens: `shared-token` with or without a token, behind a trusted proxy or not; `jwt` without its issuer, audience or JWKS URL; and a `FLUID_MCP_JWT_CLAIM_MAPPING` that maps the claim away. Each message names the jurisdiction, says why no claim can be verified, and says how to supply one (JWT auth, or mapping the IdP's claim to `jurisdiction`) or to set `sovereignty.crossBorderTransfer: true`.
 :::
 
 `jurisdiction` is also one of the [default JWT claim mappings](#authentication-modes), and it is the one default whose absence **closes** the gate rather than widening it: an operator whose IdP calls the claim something else locks themselves out of a jurisdiction-pinned contract until they map it.
@@ -370,12 +370,12 @@ Identity is resolved once at gateway start from `FLUID_MCP_AUTH_MODE`. There are
 | `none` | Operator explicitly opts out. Every request is allowed and the gateway logs a startup warning that it is unauthenticated. The `data_access` audit record has no field that says how the caller authenticated, so unauthenticated traffic cannot be told apart in it. *(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` refuses to start in this mode — see below. | — |
 | *(unconfigured)* | If `shared-token` has no token, or JWT is missing issuer/audience/JWKS, the gateway runs **unauthenticated** and emits a loud startup warning. *(since 0.15.0)* Same exception: a jurisdiction-pinned contract refuses to start instead. | — |
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `fluid mcp serve --transport http` reads the same variables. Over HTTP, `none` and an unconfigured mode serve only on a loopback `--host`: anywhere else the server refuses to start and exits 2, and off loopback a shared token must be at least 32 characters. "Every request is allowed" then means that no credential is checked. A cross-origin browser request still gets 403, and a request whose `Host` is not loopback gets 421, so behind a proxy that forwards its public name every request gets 421. See [The HTTP transport](../cli/mcp.md#the-http-transport).
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* `fluid mcp serve --transport http` reads the same variables. Over HTTP, `none` and an unconfigured mode serve only on a loopback `--host`: anywhere else the server refuses to start and exits 2, and off loopback a shared token must be at least 32 characters. "Every request is allowed" then means that no credential is checked. A cross-origin browser request still gets 403, and a request whose `Host` is not loopback gets 421, so behind a proxy that forwards its public name every request gets 421. See [The HTTP transport](../cli/mcp.md#the-http-transport).
 
 ::: warning Startup refusal for a jurisdiction-pinned contract, new in `0.15.0`
 The two rows above no longer hold for a contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true`. Because the caller-jurisdiction gate admits only claims the auth middleware verified, an unauthenticated gateway would deny **every** call — so `fluid mcp output-port serve` writes a refusal to stderr and **returns exit code 2** before binding, for `--transport stdio` (any auth mode: a pipe carries no headers) and for `--transport http` with `FLUID_MCP_AUTH_MODE` unset or `none`. See [Caller-jurisdiction enforcement](#caller-jurisdiction-enforcement-since-0-15-0).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).* The `shared-token` row does not hold for such a contract either: it refuses to start with a token too, because a shared token carries no jurisdiction. So does `jwt` when no claim maps to `jurisdiction`.
+*(since 0.31.0, [forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891))* The `shared-token` row does not hold for such a contract either: it refuses to start with a token too, because a shared token carries no jurisdiction. So does `jwt` when no claim maps to `jurisdiction`.
 :::
 
 Only a verified JWT binds identity. With `shared-token`, the gateway knows that the caller held the shared secret and nothing else: once the token is enforced, any `model`, `useCase` or tenant attribute the client declares for itself is dropped. A contract with an `allowedModels` or `deniedModels` gate then denies every call as `missing-model-identity`, and one with `allowedUseCases` as `missing-use-case-with-allowlist`. Use `jwt` when the gates must see who is calling.
@@ -390,7 +390,7 @@ A proxy in front of the gateway can require client certificates, which keeps hos
 - They never supply `model`, `use_case`, `tenant_id` or `jurisdiction`. Those come from the mapped claims of a verified JWT, or from the client's own declaration when no auth mode is enforced.
 - In 0.18.1 neither header is written to a `data_access` audit record.
 
-Without an auth mode, the gateway is unauthenticated whatever the proxy does: a caller picks its own model, use case and `tenant_id`, so a `${caller.tenant_id}` row filter filters on a value the caller chose. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* Such a gateway also answers 421 to every request a proxy forwards under its public name, so it serves only callers on its own machine.
+Without an auth mode, the gateway is unauthenticated whatever the proxy does: a caller picks its own model, use case and `tenant_id`, so a `${caller.tenant_id}` row filter filters on a value the caller chose. *(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* Such a gateway also answers 421 to every request a proxy forwards under its public name, so it serves only callers on its own machine.
 :::
 
 `FLUID_MCP_JWT_CLAIM_MAPPING` is a comma-separated `claim=attr` list, e.g. `sub=principal,https://fluid/model=model,https://fluid/tenant=tenant_id`. Mapped claims land in `caller_attributes`, which is exactly what `rowFilters` `${caller.<attr>}` placeholders resolve against — so on the JWT path, per-tenant filters resolve **cryptographically** rather than from self-attested `clientInfo`.
@@ -410,7 +410,7 @@ On `0.14.1` and earlier the parsed value was assigned **wholesale**, so mapping 
 
 Note the asymmetry for the newest default: losing `sub` / `model` / `use_case` / `tenant_id` **widens** access, while losing `jurisdiction` **closes** the gate completely — an operator who remaps their IdP's jurisdiction claim to some other attribute name locks themselves out of a jurisdiction-pinned contract rather than letting strangers in. That is the correct direction for a sovereignty control, and this mapping is where to look when it happens.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).* When no claim is left mapped to `jurisdiction`, `fluid mcp output-port serve` refuses to start such a contract and names `FLUID_MCP_JWT_CLAIM_MAPPING`, instead of denying every call.
+*(since 0.31.0, [forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891))* When no claim is left mapped to `jurisdiction`, `fluid mcp output-port serve` refuses to start such a contract and names `FLUID_MCP_JWT_CLAIM_MAPPING`, instead of denying every call.
 :::
 
 ::: warning
@@ -545,13 +545,13 @@ A denial by the policy gate has the same keys, with `decision: "deny"` and a `re
 | `FLUID_MCP_AUDIT_WEBHOOK_HEADER_AUTH` | Optional `Authorization` header value (shared bearer). |
 | `FLUID_MCP_AUDIT_WEBHOOK_TIMEOUT_SECONDS` | Per-POST timeout (default 5.0). |
 
-When `FLUID_STORE_BACKEND` points at a non-file backend (Postgres / Sqlite / Vector), each event is also written through the Store under the `audit` namespace — again without losing the on-disk fallback. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* The Postgres and Vector backends are removed: `FLUID_STORE_BACKEND=postgres` or `vector` logs a warning and uses the file store. Sqlite stays.
+When `FLUID_STORE_BACKEND` points at a non-file backend (Postgres / Sqlite / Vector), each event is also written through the Store under the `audit` namespace — again without losing the on-disk fallback. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* The Postgres and Vector backends are removed: `FLUID_STORE_BACKEND=postgres` or `vector` logs a warning and uses the file store. Sqlite stays.
 
 Audit events are auto-correlated with the rest of the forge-cli pipeline: the gateway resolves the same cross-stage `run_id` (`FLUID_RUN_ID`) other CLI stages honour and stamps it onto both the audit payload and an OpenTelemetry span (`fluid.mcp.call_tool`) when an exporter is configured.
 
 ### HTTP transport and the reverse-proxy templates
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport http` serves the gateway over MCP Streamable HTTP, and clients connect at `http://host:port/mcp`. It runs on the MCP SDK's `StreamableHTTPSessionManager`, with Starlette and uvicorn from the `mcp` extra, and `fluid mcp serve --transport http` uses the same transport. Up to 0.30.1 the gateway served MCP-SSE (`mcp.server.sse.SseServerTransport`), and clients connected at `http://host:port/sse`. The status codes a refused request gets, and the binds the server refuses, are in [The HTTP transport](../cli/mcp.md#the-http-transport).
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* `--transport http` serves the gateway over MCP Streamable HTTP, and clients connect at `http://host:port/mcp`. It runs on the MCP SDK's `StreamableHTTPSessionManager`, with Starlette and uvicorn from the `mcp` extra, and `fluid mcp serve --transport http` uses the same transport. Up to 0.30.1 the gateway served MCP-SSE (`mcp.server.sse.SseServerTransport`), and clients connected at `http://host:port/sse`. The status codes a refused request gets, and the binds the server refuses, are in [The HTTP transport](../cli/mcp.md#the-http-transport).
 
 With no auth mode enforced, identity binding is the same as over stdio: the client declares it. With one enforced, only verified attributes bind, as described under [Authentication modes](#authentication-modes).
 
@@ -560,7 +560,7 @@ The HTTP transport has **no built-in TLS or strong identity on its own.** Front 
 - **`Caddyfile`**: Caddy 2.x, with automatic TLS, `client_auth { mode require_and_verify }` mTLS, a proxy-layer bearer-token check, `flush_interval -1` so streamed MCP responses (SSE) are not buffered, and `header_up X-Client-CN {tls_client_subject}` / `X-Client-Fingerprint {tls_client_fingerprint}`, which forward the certificate's subject and fingerprint as the headers described under [Authentication modes](#authentication-modes).
 - **`nginx.conf`**: the equivalent for nginx shops, with `ssl_verify_client on`, `proxy_buffering off` and long read/send timeouts for streamed responses, and the same `X-Client-CN` / `X-Client-Fingerprint` forwarding.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* Behind either template, keep `FLUID_MCP_AUTH_TOKEN` (or `jwt`) set on the gateway too. Without auth the gateway accepts only a loopback `Host` header, and both templates forward the public name, so every request would get `421 Invalid Host header`.
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* Behind either template, keep `FLUID_MCP_AUTH_TOKEN` (or `jwt`) set on the gateway too. Without auth the gateway accepts only a loopback `Host` header, and both templates forward the public name, so every request would get `421 Invalid Host header`.
 
 This is **defence-in-depth** — every layer stops a different failure:
 
@@ -576,7 +576,7 @@ The model, use-case and tenant rows tell a legitimate client from another one on
 
 ### Environment variables (output port)
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `fluid mcp serve --transport http` reads the `FLUID_MCP_AUTH_*` and `FLUID_MCP_JWT_*` rows too.
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* `fluid mcp serve --transport http` reads the `FLUID_MCP_AUTH_*` and `FLUID_MCP_JWT_*` rows too.
 
 | Env var | Purpose |
 | --- | --- |
@@ -592,7 +592,7 @@ The model, use-case and tenant rows tell a legitimate client from another one on
 | `FLUID_AUDIT_ROOT` | Redirect the audit directory (e.g. a SIEM-forwarded path). |
 | `FLUID_AUDIT_MAX_AGE_DAYS` / `FLUID_AUDIT_MAX_TOTAL_MB` | Audit rotation bounds (defaults 30 / 256). |
 | `FLUID_MCP_AUDIT_WEBHOOK_URL` / `_HEADER_AUTH` / `_TIMEOUT_SECONDS` | Audit webhook forwarder. |
-| `FLUID_STORE_BACKEND` | When non-file, mirror audit events through the Store `audit` namespace. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `postgres` and `vector` are removed and fall back to the file store. |
+| `FLUID_STORE_BACKEND` | When non-file, mirror audit events through the Store `audit` namespace. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `postgres` and `vector` are removed and fall back to the file store. |
 | `FLUID_RUN_ID` | Cross-stage correlation id stamped onto audit events + OTel spans. |
 | `ATHENA_WORKGROUP` | Default Athena workgroup when the binding doesn't set one. |
 

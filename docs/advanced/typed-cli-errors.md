@@ -43,7 +43,7 @@ print(e.as_json())
 | `where` | A string such as `contract.fluid.yaml:12:3`, or `null` |
 | `extras` | An object. The `for_*` factories leave it empty; a raise site may fill it |
 
-When the running command has a `--json` flag and the error reaches the top-level handler, the CLI prints this string to stdout instead of the panel. Not every command has `--json`; `fluid validate`, for example, uses `--format json` and prints its own report. *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* Each finding in that report carries an `ERR_*` code from the error catalog, with a JSON pointer, a fix and an example: see [Finding codes and `issues`](../cli/validate.md#finding-codes-and-issues).
+When the running command has a `--json` flag and the error reaches the top-level handler, the CLI prints this string to stdout instead of the panel. Not every command has `--json`; `fluid validate`, for example, uses `--format json` and prints its own report. *(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* Each finding in that report carries an `ERR_*` code from the error catalog, with a JSON pointer, a fix and an example: see [Finding codes and `issues`](../cli/validate.md#finding-codes-and-issues).
 
 ## Two kinds of error
 
@@ -142,7 +142,7 @@ These classes arrived after the original catalog. Inside a build they print as t
 | `2` | An uncaught Python exception (`❌ Unexpected error`; re-run with `--debug` for the traceback), or a catalogued error whose raise site chose 2 |
 | `130` | `fluid apply` interrupted |
 
-No class of this page carries its own exit code. A command that uses other codes says so on its own page: `fluid verify-signature` uses 2 for a configuration error, and `fluid mcp output-port serve` exits 2 on a jurisdiction refusal. *On forge-cli `main`, not yet in a release ([forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887)).* It also exits 2 on an `--allow-tools` or `--deny-tools` name that is not an output-port tool.
+No class of this page carries its own exit code. A command that uses other codes says so on its own page: `fluid verify-signature` uses 2 for a configuration error, and `fluid mcp output-port serve` exits 2 on a jurisdiction refusal. *(since 0.31.0, [forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887))* It also exits 2 on an `--allow-tools` or `--deny-tools` name that is not an output-port tool.
 
 ## Catching them in Python
 
@@ -186,7 +186,7 @@ The CLI builds each `doc` link from a fixed route table. A topic that is not in 
 | `installation` | [Getting started](../getting-started/README.md) |
 | `iceberg-catalog-move` | [Iceberg catalog-move guard](../cli/apply.md#iceberg-catalog-move-guard) *(since 0.20.0, [forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709))* |
 | `policy-compile#errors` | [`fluid policy compile`, Errors](../cli/policy-compile.md#errors) *(since 0.20.0, [forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710))* |
-| `validate` | *On forge-cli `main`, not yet in a release ([forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880)).* [`fluid validate`](../cli/validate.md), the page of the [finding codes](../cli/validate.md#finding-codes-and-issues) |
+| `validate` | *(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* [`fluid validate`](../cli/validate.md), the page of the [finding codes](../cli/validate.md#finding-codes-and-issues) |
 | anything else | [Production troubleshooting](./production-troubleshooting.md) |
 
 A few catalogued events land on a page that does not explain them. The CLI chooses these routes, so the explanations are here:
@@ -195,7 +195,7 @@ A few catalogued events land on a page that does not explain them. The CLI choos
 |---|---|---|
 | `copilot_missing_llm_api_key` | [`fluid secrets`](../cli/secrets.md) | That page covers source and pipeline secrets. LLM keys are not stored there: run `fluid ai setup`, or set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`; `--llm-provider ollama` needs no key |
 | `policy_compile_failed`, `policy_apply_failed` | [Sovereignty](../concepts/sovereignty.md) | The failure is in the contract's `agentPolicy` or `accessPolicy` block. Run `fluid policy check <contract>` to see the offending rule |
-| `opentofu_engine_install_failed` | [Getting started](../getting-started/README.md) | `tofu` is missing or older than 1.6.0. Install OpenTofu 1.6.0 or newer, or run `fluid apply --ensure-opentofu`. *On forge-cli `main`, not yet in a release ([forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899)).* The floor is 1.12.0. |
+| `opentofu_engine_install_failed` | [Getting started](../getting-started/README.md) | `tofu` is missing or older than 1.6.0. Install OpenTofu 1.6.0 or newer, or run `fluid apply --ensure-opentofu`. *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* The floor is 1.12.0. |
 
 ## See also
 

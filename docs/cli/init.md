@@ -70,7 +70,7 @@ The next-steps panel stops at `plan`. To run a scaffold, `cd` into it and `fluid
         └── forge-receipt.json     # provenance record; ignored by the generated .gitignore
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init` no longer writes `.fluid/team-memory.yaml`: the copilot that read it is removed.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `fluid init` no longer writes `.fluid/team-memory.yaml`: the copilot that read it is removed.
 
 Commit `fluid.workspace.yaml`, `.gitignore`, `.fluid/team-memory.yaml` and everything in `my-project/` except the receipt. The generated `.gitignore` block excludes `.fluid/init-receipt.json`, `.fluid/forge-receipt.json`, `.fluid/copilot-memory.json`, `.fluid/logs/`, `**/.fluid/debezium/`, `**/.fluid/meltano/` and `runtime/` ([what to commit](./split.md)).
 
@@ -91,8 +91,8 @@ Commit `fluid.workspace.yaml`, `.gitignore`, `.fluid/team-memory.yaml` and every
 | `--domain`, `--owner-team`, `--owner-email` | Values written into the contract by `--blueprint` and `--discover`. |
 | `--data-product-type` | `SDP`, `ADP` or `CDP` (or `Bronze`, `Silver`, `Gold`) for the first product. Carried into the init-to-forge handoff of the AI-assisted path. `--blank` writes Bronze/SDP regardless. |
 | `--workspace-lock SDP\|ADP\|CDP` | Lock the workspace to one product type. Recorded as `workspace.data_product_type_lock` in `fluid.workspace.yaml`; later `fluid forge` runs default to it and reject a conflicting `--data-product-type`. |
-| `--show-work` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Stream the agent's reasoning and tool calls during the init-to-forge handoff. Also saved under `.fluid/agents/<run-id>/`. |
-| `--agent NAME` | *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed. Scaffold a custom domain agent spec in `.fluid/agents/`. See [Custom domain agents](./agents.md#custom-domain-agents). |
+| `--show-work` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Stream the agent's reasoning and tool calls during the init-to-forge handoff. Also saved under `.fluid/agents/<run-id>/`. |
+| `--agent NAME` | *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed. Scaffold a custom domain agent spec in `.fluid/agents/`. See [Custom domain agents](./agents.md#custom-domain-agents). |
 | `--yes`, `-y` | Skip confirmation prompts. |
 | `--dry-run` | Preview what would be created. See the [known issues](#known-issues-as-of-0-29-0). |
 | `--dir`, `-C` | Directory to initialize, or, with `--discover`, where the contracts are written. |
@@ -180,7 +180,7 @@ What it does:
 - Sets `metadata.layer: Bronze` and `metadata.productType: SDP` (both vocabularies; see [Product Types](/forge_docs/data-products/product-type.html)).
 - Picks `engine: duckdb` for embedded ingestion, with no Airbyte cluster.
 - Writes `fluidVersion: 0.7.3`. The file validates; bump it by hand if you need a later version's fields.
-- Takes `--domain`, `--owner-team` and `--owner-email` for the contract's `domain` and `metadata.owner`. Without them it writes `data` and `data-platform`, and on forge-cli `main` ([forge-cli #928](https://github.com/Agenticstiger/forge-cli/pull/928)) leaves the email out. Releases up to 0.30.1 write `data-platform@example.com` instead, which `fluid validate --strict` refuses: replace it with the team's real address or delete it.
+- Takes `--domain`, `--owner-team` and `--owner-email` for the contract's `domain` and `metadata.owner`. Without them it writes `data` and `data-platform`, and on 0.31.0 ([forge-cli #928](https://github.com/Agenticstiger/forge-cli/pull/928)) leaves the email out. Releases up to 0.30.1 write `data-platform@example.com` instead, which `fluid validate --strict` refuses: replace it with the team's real address or delete it.
 
 The CLI registers discoverers for the file schemes `file`, `http`, `https`, `s3`, `gs` and `gcs`, and for the database schemes `postgres`, `postgresql`, `mysql` and `mariadb`. Any other scheme fails with `unsupported source scheme`. A discovered source is read again by the build that `apply` runs, and that build runs inside the [DuckDB sandbox](../advanced/duckdb-sandbox.md), which does not read `http(s)://` or `gs://` URLs from contract SQL. This page did not run an apply against a discovered `https://`, `gs://` or `gcs://` source.
 
@@ -221,7 +221,7 @@ See [Source-Aligned Acquisition](/forge_docs/advanced/source-aligned-acquisition
 - `fluid init --discover postgres://...` against an unreachable host (`127.0.0.1:1`) failed with `Unknown secret storage found: 'local_file'` instead of a connection error. No live Postgres or MySQL server was available for this page, so those two schemes are untested end to end on 0.18.1; the `file://` example above is the measured one. (Seen on 0.18.1; not re-checked on 0.29.0.)
 - `--provider azure` is rejected with `Unknown provider 'azure'`, and the run exits 2. The built-in providers in 0.29.0 are `aws`, `databricks`, `gcp`, `local` and `snowflake`; `redshift` and `datamesh_manager` are retired and name their replacement when you pass them.
 - Any `--provider gcp` run logs `Provider 'gcp' requires --project to be specified` unless the global `--project` is set. The scaffold is still written.
-- *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid init --agent` is removed. In 0.29.0, `fluid init --agent NAME` still looks for `custom.yaml.template` in the package, and the package-data globs ship only the `*.yaml` files of `cli/agent_specs`, so the template is likely missing from the installed wheel (read from source; the wheel was not run). The workaround is in [Custom domain agents](./agents.md#custom-domain-agents).
+- *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `fluid init --agent` is removed. In 0.29.0, `fluid init --agent NAME` still looks for `custom.yaml.template` in the package, and the package-data globs ship only the `*.yaml` files of `cli/agent_specs`, so the template is likely missing from the installed wheel (read from source; the wheel was not run). The workaround is in [Custom domain agents](./agents.md#custom-domain-agents).
 
 ## Notes
 

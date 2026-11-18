@@ -6,7 +6,7 @@ There are **two distinct servers** under this command, with two different threat
 
 | Server | Audience | What it serves |
 | --- | --- | --- |
-| `fluid mcp serve` | **Producer** — a data engineer authoring contracts | Forge *authoring* tools: inspect, validate, and carefully edit forge artifacts, including `forge_run`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_run` is removed. *On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* The server serves 7 tools, with one, `source_catalog`, for every catalog read. |
+| `fluid mcp serve` | **Producer** — a data engineer authoring contracts | Forge *authoring* tools: inspect, validate, and carefully edit forge artifacts, including `forge_run`. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `forge_run` is removed. *(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* The server serves 7 tools, with one, `source_catalog`, for every catalog read. |
 | `fluid mcp output-port serve` | **Consumer** — an AI agent reading a published data product | Read-only *data-access* tools (`describe` / `sample` / `query` / gated `query_sql`) bound to **one expose** of a contract, with contract-driven governance applied. |
 
 ::: tip Which one do I want?
@@ -23,7 +23,7 @@ fluid mcp output-port serve ... # consumer-side data-access server
 
 ## Producer: `fluid mcp serve`
 
-Runs the authoring MCP server so an MCP client can inspect, validate, and edit forge artifacts. It is a foreground process, with no daemon and no background service. By default it speaks stdio to the client that starts it. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport http` serves clients that connect by URL instead; see [Serve over HTTP](#serve-over-http).
+Runs the authoring MCP server so an MCP client can inspect, validate, and edit forge artifacts. It is a foreground process, with no daemon and no background service. By default it speaks stdio to the client that starts it. *(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* `--transport http` serves clients that connect by URL instead; see [Serve over HTTP](#serve-over-http).
 
 Needs the `mcp` extra: `pip install 'data-product-forge[mcp]'`. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* Without it the command prints that line and exits 1, with `[ERR_MCP_SDK_UNAVAILABLE]` and no traceback.
 
@@ -36,7 +36,7 @@ fluid mcp serve [--readable-paths PATH[,PATH...]] [--writable-paths PATH[,PATH..
 fluid mcp serve [--writable-namespaces NS[,NS...]] [--allow-inline-credentials]
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport`, `--host` and `--port` are in [Serve over HTTP](#serve-over-http).
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* `--transport`, `--host` and `--port` are in [Serve over HTTP](#serve-over-http).
 
 ### Recommended start
 
@@ -61,7 +61,7 @@ FLUID_QUIET=1 fluid mcp serve \
 
 | Flag | Purpose |
 | --- | --- |
-| `--read-only` | Reject any tool that mutates files or store namespaces, and hide those tools from `tools/list`. In 0.18.1 the tools that disappear are `add_relationship`, `forge_from_source`, `forge_run`, `regenerate_physical` and `update_entity`. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* They are `add_relationship`, `regenerate_physical` and `update_entity`. |
+| `--read-only` | Reject any tool that mutates files or store namespaces, and hide those tools from `tools/list`. In 0.18.1 the tools that disappear are `add_relationship`, `forge_from_source`, `forge_run`, `regenerate_physical` and `update_entity`. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* They are `add_relationship`, `regenerate_physical` and `update_entity`. |
 | `--allow-tools` | Advertise and allow only the named tools. |
 | `--deny-tools` | Block the named tools; denial wins over allow. |
 | `--readable-paths` | Limit path-based read tools to these roots. Default: current working directory. |
@@ -71,7 +71,7 @@ FLUID_QUIET=1 fluid mcp serve \
 
 Inline catalog credentials are blocked by default. Configure source credentials outside MCP and pass credential ids from the client.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* A name in `--allow-tools` or `--deny-tools` that is not one of the server's tools stops it at startup, with exit 2. A list written for one of the five tools that `source_catalog` replaced would otherwise deny nothing and leave `source_catalog` callable. The message, on stderr, says what replaced a renamed tool:
+*(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* A name in `--allow-tools` or `--deny-tools` that is not one of the server's tools stops it at startup, with exit 2. A list written for one of the five tools that `source_catalog` replaced would otherwise deny nothing and leave `source_catalog` callable. The message, on stderr, says what replaced a renamed tool:
 
 ```text
 fluid mcp serve: --deny-tools names no such tool: list_source_tables, forge_run.
@@ -83,11 +83,11 @@ fluid mcp serve: --deny-tools names no such tool: list_source_tables, forge_run.
 
 The flags take `source_catalog` whole: they cannot allow one `kind` and deny another.
 
-Each tool carries an MCP `inputSchema`, so clients can offer typed autocomplete and validate arguments before dispatch. The tool catalog and the LLM sampling backchannel are in the [Advanced MCP server guide](../advanced/mcp.md#authoring-tools).
+Each tool carries an MCP `inputSchema`, so clients can offer typed autocomplete and validate arguments before dispatch. The tool catalog is in the [Advanced MCP server guide](../advanced/mcp.md#authoring-tools).
 
 ### Serve over HTTP
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).*
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))*
 
 ```bash
 fluid mcp serve --transport http [--host HOST] [--port PORT] [OPTIONS...]
@@ -125,13 +125,13 @@ Over HTTP the tool calls still run one at a time, in the order they arrive, whic
 
 ### Large results
 
-*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* A result estimated at more than `FLUID_MCP_INLINE_TOKEN_LIMIT` tokens (default 6,000; `0` sends everything inline) comes back as a short envelope and an MCP `resource_link` to `fluid://artifacts/<id>`, which `resources/read` serves. Over stdio the envelope also names a file holding the same JSON. See [Large results](../advanced/mcp.md#large-results).
+*(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* A result estimated at more than `FLUID_MCP_INLINE_TOKEN_LIMIT` tokens (default 6,000; `0` sends everything inline) comes back as a short envelope and an MCP `resource_link` to `fluid://artifacts/<id>`, which `resources/read` serves. Over stdio the envelope also names a file holding the same JSON. See [Large results](../advanced/mcp.md#large-results).
 
 ### Tool errors
 
-`forge_run` reports an anticipated failure — an IDE that does not advertise the `sampling` capability, say — as the SDK's own `ToolError`. Its message names the capability and its two ways out: `mode='blank'`, or shelling out to `fluid forge --agent --blank`. *(since 0.15.0)* On MCP SDK 2.x an exception that is not a `ToolError` reaches the client as the generic text `Error executing tool forge_run`, so the tool raises `ToolError` to keep its message. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `forge_run` is removed, so this applies to 0.30.1 and earlier.
+`forge_run` reports an anticipated failure — an IDE that does not advertise the `sampling` capability, say — as the SDK's own `ToolError`. Its message names the capability and its two ways out: `mode='blank'`, or shelling out to `fluid forge --agent --blank`. *(since 0.15.0)* On MCP SDK 2.x an exception that is not a `ToolError` reaches the client as the generic text `Error executing tool forge_run`, so the tool raises `ToolError` to keep its message. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `forge_run` is removed, so this applies to 0.30.1 and earlier.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884)).* `source_catalog` now also raises `ToolError` for a call that lacks what its `kind` needs, for a credential it cannot find or may not take inline, and for the catalog adapter's own refusal, such as a scope field the catalog needs. A client on SDK 2.x reads that message and its next step, where it used to get `Error executing tool`. A connection failure, a permission denial and a credential that fails validation are not raised as `ToolError`, because their text can quote the catalog's own message, principals or account ids among them: on SDK 2.x the client gets `Error executing tool source_catalog`. On SDK 1.x the client gets every exception's text, these included.
+*(since 0.31.0, [forge-cli #884](https://github.com/Agenticstiger/forge-cli/pull/884))* `source_catalog` now also raises `ToolError` for a call that lacks what its `kind` needs, for a credential it cannot find or may not take inline, and for the catalog adapter's own refusal, such as a scope field the catalog needs. A client on SDK 2.x reads that message and its next step, where it used to get `Error executing tool`. A connection failure, a permission denial and a credential that fails validation are not raised as `ToolError`, because their text can quote the catalog's own message, principals or account ids among them: on SDK 2.x the client gets `Error executing tool source_catalog`. On SDK 1.x the client gets every exception's text, these included.
 
 ---
 
@@ -255,7 +255,7 @@ fluid mcp output-port serve ./contract.fluid.yaml \
 | `--allow-use-cases USE_CASE[,...]` | contract | Override `agentPolicy.allowedUseCases`. The caller's `useCase` (declared at `initialize`) must be in this list. |
 | `--deny-use-cases USE_CASE[,...]` | contract | Override `agentPolicy.deniedUseCases`. Evaluated before the allowlist so denial wins. |
 
-*On forge-cli `main`, not yet in a release ([forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887)).* A name in `--allow-tools` or `--deny-tools` that is not an output-port tool stops the server at startup, with exit 2, before either transport binds. In 0.30.1 the name was accepted: a mistyped deny list denied nothing and left the tool callable. Matching is exact and case-sensitive, and an empty value still means all tools. The message, on stderr, names the unknown names and lists the tools:
+*(since 0.31.0, [forge-cli #887](https://github.com/Agenticstiger/forge-cli/pull/887))* A name in `--allow-tools` or `--deny-tools` that is not an output-port tool stops the server at startup, with exit 2, before either transport binds. In 0.30.1 the name was accepted: a mistyped deny list denied nothing and left the tool callable. Matching is exact and case-sensitive, and an empty value still means all tools. The message, on stderr, names the unknown names and lists the tools:
 
 ```text
 fluid mcp output-port serve: --deny-tools names no such tool: sampel.
@@ -264,7 +264,7 @@ fluid mcp output-port serve: --deny-tools names no such tool: sampel.
 
 Correct the spelling, or drop the name.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* `--transport http` serves MCP Streamable HTTP at `http://<host>:<port>/mcp`. Up to 0.30.1 it served HTTP+SSE, and clients connected at `/sse`. A `--host` other than loopback now needs auth, and `--port` takes `1` to `65535`. See [The HTTP transport](#the-http-transport).
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* `--transport http` serves MCP Streamable HTTP at `http://<host>:<port>/mcp`. Up to 0.30.1 it served HTTP+SSE, and clients connected at `/sse`. A `--host` other than loopback now needs auth, and `--port` takes `1` to `65535`. See [The HTTP transport](#the-http-transport).
 
 ### Data outside the contract directory
 
@@ -300,9 +300,9 @@ Pass several roots with commas (`--readable-paths ./data,./warehouse`). The flag
 :::
 
 ::: warning HTTP transport has no built-in auth flag
-There is **no `--auth-token` flag.** When `--transport http` is used, authentication is configured through environment variables (`FLUID_MCP_AUTH_TOKEN` for a shared bearer token, or `FLUID_MCP_AUTH_MODE=jwt` for JWT). With no auth configured the gateway binds `--host:--port` **unauthenticated** and warns loudly at startup. *On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* That holds only on a loopback `--host`: anywhere else the gateway refuses to start and exits 2, as [Who can reach an HTTP server](#who-can-reach-an-http-server) shows.
+There is **no `--auth-token` flag.** When `--transport http` is used, authentication is configured through environment variables (`FLUID_MCP_AUTH_TOKEN` for a shared bearer token, or `FLUID_MCP_AUTH_MODE=jwt` for JWT). With no auth configured the gateway binds `--host:--port` **unauthenticated** and warns loudly at startup. *(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* That holds only on a loopback `--host`: anywhere else the gateway refuses to start and exits 2, as [Who can reach an HTTP server](#who-can-reach-an-http-server) shows.
 
-*(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true` is stricter: with `FLUID_MCP_AUTH_MODE` unset or `none` the gateway writes a refusal to stderr and exits 2 on any host, because the auth middleware never runs and so every call would be denied. *On forge-cli `main`, not yet in a release ([forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891)).* It also refuses under `shared-token`, with or without a token, and under `jwt` without its issuer, audience and JWKS URL or with no claim mapped to `jurisdiction`: only a verified JWT claim carries a jurisdiction. Always front the HTTP transport with an mTLS / OAuth reverse proxy for production. The proxy authenticates the connection; only `FLUID_MCP_AUTH_MODE=jwt` binds the caller's model, use case and tenant. See the [Caddy / nginx templates](../advanced/mcp.md#http-transport-and-the-reverse-proxy-templates) and the full auth-mode reference in the deep dive.
+*(since 0.15.0)* A contract that pins `sovereignty.jurisdiction` without `crossBorderTransfer: true` is stricter: with `FLUID_MCP_AUTH_MODE` unset or `none` the gateway writes a refusal to stderr and exits 2 on any host, because the auth middleware never runs and so every call would be denied. *(since 0.31.0, [forge-cli #891](https://github.com/Agenticstiger/forge-cli/pull/891))* It also refuses under `shared-token`, with or without a token, and under `jwt` without its issuer, audience and JWKS URL or with no claim mapped to `jurisdiction`: only a verified JWT claim carries a jurisdiction. Always front the HTTP transport with an mTLS / OAuth reverse proxy for production. The proxy authenticates the connection; only `FLUID_MCP_AUTH_MODE=jwt` binds the caller's model, use case and tenant. See the [Caddy / nginx templates](../advanced/mcp.md#http-transport-and-the-reverse-proxy-templates) and the full auth-mode reference in the deep dive.
 :::
 
 ### The agent tools
@@ -360,13 +360,13 @@ This was measured against schema 0.7.5 and the 0.7.6 preview. The MCP server loa
 
 `FLUID_QUIET=1` is important because stdout is reserved for MCP JSON-RPC frames; all human-facing notices go to stderr.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).* To use `--transport http` instead, give the client the URL `http://<host>:<port>/mcp` and the `Authorization` header, as in [Serve over HTTP](#serve-over-http).
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* To use `--transport http` instead, give the client the URL `http://<host>:<port>/mcp` and the `Authorization` header, as in [Serve over HTTP](#serve-over-http).
 
 ---
 
 ## The HTTP transport
 
-*On forge-cli `main`, not yet in a release ([forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879)).*
+*(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))*
 
 `fluid mcp serve` and `fluid mcp output-port serve` serve `--transport http` the same way: MCP Streamable HTTP on one endpoint, `/mcp`. Up to 0.30.1 only the output port had an HTTP transport, and it was HTTP+SSE at `/sse` and `/messages/`, which the MCP specification deprecated in its 2025-03-26 revision. Those two paths are gone: a request that passes auth gets 404 there.
 

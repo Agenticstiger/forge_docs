@@ -62,7 +62,7 @@ Hello from the my-first-product data product,2026-10-05 10:35:49.479853+02
 
 [Getting Started](./getting-started/README.md) walks through each step with its output, then makes the product read a CSV and adds a data-quality rule. It explains why it uses the `fluid.starter` blueprint rather than `fluid init --quickstart`.
 
-This site documents CLI `0.29.0`, with contract schema `0.7.6` as the stable default and `0.7.7` as an [opt-in preview](./reference/preview-fields.md). `fluid version` is the CLI release you installed; `fluidVersion` inside a contract is the [schema version](./reference/README.md) it is written against. Which version each scaffold writes is in [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
+This site documents CLI `0.31.0`, with contract schema `0.7.6` as the stable default and `0.7.7` as an [opt-in preview](./reference/preview-fields.md). `fluid version` is the CLI release you installed; `fluidVersion` inside a contract is the [schema version](./reference/README.md) it is written against. Which version each scaffold writes is in [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
 
 ## Follow one product from laptop to production
 
@@ -98,7 +98,7 @@ fluid forge
 fluid forge --domain retail
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* Removed: `fluid forge --domain`. Use `fluid forge --context "<what the product is for>"`, or name the domain in the prompt.
+*(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* Removed: `fluid forge --domain`. Use `fluid forge --context "<what the product is for>"`, or name the domain in the prompt.
 
 `fluid init` scaffolds from a fixed template or blueprint. `fluid forge` drafts a contract from the files in your directory with the LLM provider you configure with `fluid ai setup`. An API-key provider needs `pip install "data-product-forge[litellm]"`. *(since 0.28.0, [forge-cli #837](https://github.com/Agenticstiger/forge-cli/pull/837))* Without an API key, `fluid forge --llm-provider claude-code` uses your Claude Code login, and `fluid forge --template starter` uses no AI. To forge a data model from a business intent file and generate dbt from it:
 
@@ -123,7 +123,7 @@ These are the groups `fluid --help` prints on `0.29.0`:
 | Safety & Supply Chain | `rollback`, `verify-signature` |
 | Utilities | `config`, `ai`, `split`, `auth`, `doctor`, `providers`, `exporters`, `version` |
 
-`--help` promotes a short surface. Commands such as `bundle`, `diff`, `verify`, `runs`, `stats`, `ship` and [`mission`](./cli/mission.md) are registered and documented, and `--help` names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. The [CLI reference](./cli/README.md) covers the commands. *On forge-cli `main`, not yet in a release ([forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881)).* `fluid mission` and `fluid memory` are removed.
+`--help` promotes a short surface. Commands such as `bundle`, `diff`, `verify`, `runs`, `stats`, `ship` and [`mission`](./cli/mission.md) are registered and documented, and `--help` names the production path as `bundle` → `validate` → `generate artifacts` → `diff` → `plan` → `apply` → `verify` → `publish`. The [CLI reference](./cli/README.md) covers the commands. *(since 0.31.0, [forge-cli #881](https://github.com/Agenticstiger/forge-cli/pull/881))* `fluid mission` and `fluid memory` are removed.
 
 :::: tip Every release in one place
 [All releases](./releases.md) lists every CLI version with what changed. [Upgrading](./upgrading.md) has the steps for each version you cross.

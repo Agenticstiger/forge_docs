@@ -2,7 +2,7 @@
 
 Happy-path macro that chains `validate → bundle → plan → apply` in one command. Use it when you've already iterated on a contract locally and just want to push it through.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917)).* `fluid ship` runs the 11-stage pipeline, the same way on a laptop and in CI, in place of the four-stage macro this page describes for the pinned release. See [The 11-stage runner on forge-cli main](#the-11-stage-runner-on-forge-cli-main).
+*(since 0.31.0, [forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917))* `fluid ship` runs the 11-stage pipeline, the same way on a laptop and in CI, in place of the four-stage macro this page describes for the pinned release. See [The 11-stage runner in 0.31.0](#the-11-stage-runner-in-0-31-0).
 
 ::: tip Where this fits
 `fluid ship` landed in `0.8.3` alongside the day-2 ops surface.
@@ -16,8 +16,10 @@ fluid ship [contract-path] [options]
 
 ## Examples
 
+These are the four-stage macro's examples (0.30.1 and earlier). The first exits 2 in 0.31.0, where `--skip-plan` is removed; see [The 11-stage runner in 0.31.0](#the-11-stage-runner-in-0-31-0).
+
 ```bash
-# Local dev: validate + apply only
+# Local dev: validate + apply only (0.30.1 and earlier)
 fluid ship --skip-bundle --skip-plan --yes
 
 # Production-style: validate strictly, then deploy the prod overlay
@@ -85,7 +87,7 @@ A `fragments/` directory next to the contract does not change where the bundle g
 | For demo and quickstart speed | You need stage-specific flags `ship` doesn't expose (per-stage `--out` paths, `bundle --format`, `plan --html`) |
 | | You want to inspect `plan.json` before apply, or bind the apply to the plan |
 
-For the production-grade 11-stage pipeline (cryptographic plan binding, drift gating, supply-chain signing), use [`fluid generate ci`](./generate.md#fluid-generate-ci) to emit the full pipeline for your CI system instead of `fluid ship`. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* The pipeline `fluid generate ci` writes calls `fluid ship` for every stage, so the macro and the generated pipeline run the same code: see [What a generated pipeline runs](../advanced/operating-in-ci.md#what-a-generated-pipeline-runs).
+In 0.30.1 and earlier, for the production-grade 11-stage pipeline (cryptographic plan binding, drift gating, supply-chain signing), use [`fluid generate ci`](./generate.md#fluid-generate-ci) to emit the full pipeline for your CI system instead of `fluid ship`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The pipeline `fluid generate ci` writes calls `fluid ship` for every stage, so the macro and the generated pipeline run the same code: see [What a generated pipeline runs](../advanced/operating-in-ci.md#what-a-generated-pipeline-runs).
 
 ## Exit codes
 
@@ -98,9 +100,9 @@ For the production-grade 11-stage pipeline (cryptographic plan binding, drift ga
 
 With no contract path and no `contract.fluid.yaml` in the current directory, `ship` exits `1` with `contract_required`. Stage logs are written to stdout and stderr unmodified: the macro doesn't buffer or reformat them. Pipe to `tee` or to your CI system's log capture as usual.
 
-## The 11-stage runner on forge-cli main
+## The 11-stage runner in 0.31.0
 
-*On forge-cli `main`, not yet in a release ([forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917)).*
+*(since 0.31.0, [forge-cli #917](https://github.com/Agenticstiger/forge-cli/pull/917))*
 
 `fluid ship` runs the [11-stage pipeline](../walkthrough/11-stage-pipeline.md) itself, the same way on a laptop and in CI. Each stage is its own `fluid` process with the argv the generated pipelines use, and stage 7 applies the reviewed `runtime/plan.json` against the bundle stage 1 froze, never a re-plan from the contract. `--explain` prints the plan for your contract and runs nothing:
 
@@ -165,7 +167,7 @@ The options for single stages (`--strict`, `--emit`, `--exit-on-drift`, `--last-
 
 ### Stage switches and knobs
 
-*On forge-cli `main`, not yet in a release ([forge-cli #929](https://github.com/Agenticstiger/forge-cli/pull/929)).*
+*(since 0.31.0, [forge-cli #929](https://github.com/Agenticstiger/forge-cli/pull/929))*
 
 A generated pipeline exposes a switch per stage, `RUN_STAGE_<N>_<NAME>` (`RUN_STAGE_1_BUNDLE` to `RUN_STAGE_11_SCHEDULE_SYNC`), and `fluid ship` reads the same variables:
 
@@ -185,7 +187,7 @@ Each stage option takes the flag, then the variable the Jenkins pipeline already
 | 8 | `--policy-mode <mode>` | `POLICY_APPLY_MODE` | `enforce` | `enforce` or `check`. After a dry-run apply in the same pipeline, `enforce` becomes `check`. Another value exits 2 before stage 1. |
 | 9 | `--verify-strict`, `--no-verify-strict` | `VERIFY_STRICT` | on, unless the variable is `false` | `--strict` for `verify`. |
 
-Stages 2 and 4 also write `runtime/validate-report.json` and `runtime/validate-artifacts-report.json`. *On forge-cli `main`, not yet in a release ([forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942)).* When stage 11 runs (a scheduler is set, stage 3 wrote DAGs, and apply was not a dry run), it passes `--report runtime/schedule-sync-report.json` to `fluid schedule-sync`.
+Stages 2 and 4 also write `runtime/validate-report.json` and `runtime/validate-artifacts-report.json`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* When stage 11 runs (a scheduler is set, stage 3 wrote DAGs, and apply was not a dry run), it passes `--report runtime/schedule-sync-report.json` to `fluid schedule-sync`.
 
 ### Exit status
 
