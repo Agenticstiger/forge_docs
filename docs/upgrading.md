@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.31.0, and what moving the local engine from DuckDB 1.x to 2.x changes — what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.32.0, and what moving the local engine from DuckDB 1.x to 2.x changes: what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.31.0                                                              │
+│ Version: 0.32.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.31.0"
+pip install "data-product-forge[local]==0.32.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.31.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.32.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -1287,7 +1287,17 @@ These changes are in 0.31.0. Several remove a command, flag, tool or variable: r
 
 ## Changes in 0.32.0
 
-These changes are in 0.32.0.
+These changes are in 0.32.0. Two change what a contract or a generated file looks like: read them before you upgrade a pipeline.
+
+*(since 0.32.0, [forge-cli #952](https://github.com/Agenticstiger/forge-cli/pull/952))*
+
+- **In the 0.7.7 preview, an `enum` level may hold any character, and an empty item or an unescaped quote is now refused.** A level is a quoted string with its own quote doubled, as SQL writes a string literal, so `enum('Dr.', '>10000', 'O''Brien', 'a, b')` is valid. An unquoted word list such as `enum(IE, United Kingdom)` reads as before. An empty item, such as `enum(a,,b)`, and a level with an unescaped quote, such as `enum('it's')`, now fail `fluid validate` on a contract that declares `fluidVersion: "0.7.7"`. Fix them before you upgrade. The schemas for 0.7.6 and earlier are unchanged.
+- **The 0.7.7 schema file changed, and 0.7.1 to 0.7.6 keep their bytes.** If you copy schema files out of the package, copy 0.7.7 again.
+- **Generated files stop carrying an enum's levels.** dbt model contracts and casts wrote `varchar('a','b')` for an enum column, and the ODCS `physicalType` wrote `VARCHAR('a','b')`. Each now gives the plain string type, and ODCS no longer reads `enum(10)` as a `maxLength` of 10. Regenerate what you commit and expect that one diff.
+
+*(since 0.32.0, [forge-cli #953](https://github.com/Agenticstiger/forge-cli/pull/953))*
+
+- **`fluid generate transformation` keeps contract values as data in the Glue, Dataflow and Spark job scripts.** A column name or type, the expose id, the contract name, a stage name or embedded SQL that held a quote, a line break or `"""` could end its place in the script and add a statement that runs with it. Each value is now written as a string literal, a one-line comment or an escaped block. Regenerate and review the diff: the string literals these scripts write now use single quotes, the Glue script's SQL summary comment is one line, and two stages whose names sanitise alike, such as `a-b` and `a.b`, get two functions, `stage_a_b` and `stage_a_b_2`, where the second used to replace the first.
 
 *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))*
 
