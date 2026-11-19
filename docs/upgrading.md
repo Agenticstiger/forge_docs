@@ -1347,6 +1347,10 @@ These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 unti
 
 - **Each EMR runtime takes its own `releaseLabel` form.** `emr-serverless` and `emr-ec2` keep the plain `emr-7.12.0`. `emr-eks` takes `emr-X.Y.Z-latest` or a dated `emr-X.Y.Z-YYYYMMDD`, with an optional variant such as `emr-7.12.0-java11-latest`, and `fluid validate` now refuses the plain form there. An `emr-eks` build with no `releaseLabel` runs on `emr-7.12.0-latest`, so its config hash changes: run `fluid plan` again. The config hash of an `emr-serverless` or `emr-ec2` build does not change. Change an `emr-eks` build that names `emr-7.12.0` to `emr-7.12.0-latest` when you upgrade: 0.32.0 and earlier refuse that label. See [Release labels](./advanced/spark-iceberg-aws.md#release-labels).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990)).*
+
+- **`fluid validate` stops warning about SQL the operator listed.** The warning that a build's own `properties.sql` runs only if the operator lists it was printed for every Spark and managed Flink build with SQL, whatever `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` or `FLUID_FLINK_CONTRACT_SQL_ALLOWLIST` held, so `fluid validate --strict` failed such a build even after the list named it. Validate now reads the list, under the same environment as `fluid apply`, and warns only while apply would refuse the build. An entry that pins other SQL gets a warning that says the SQL changed after review. A build listed by product, by build or with the digest of its SQL is quiet, and `--strict` passes. Export the variable in the job that runs `fluid validate` as well as in the one that runs `fluid apply`: a validate job without it keeps the warning, and a pipeline whose stage 2 is `fluid validate --strict` fails on it. See [Contract SQL and `fluid validate`](./advanced/spark-iceberg-aws.md#contract-sql-and-fluid-validate).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
