@@ -224,7 +224,7 @@ dbt renders the names, descriptions and test arguments of a properties file as J
       quote: false
   ```
 
-This covers the three properties files. It does not cover the SQL of the models.
+This covers the three properties files. It does not cover the SQL of the models. *(since 0.33.0, [forge-cli #1011](https://github.com/Agenticstiger/forge-cli/pull/1011))* The SQL of a generated model, and a contract's own SQL, is dbt Jinja and still renders as dbt Jinja: `{{ ref('upstream') }}` and `{{ source('raw', 't') }}` in a stage's SQL run as dbt reads them. Only the `{{ env.X }}` and `${X}` placeholders in it are rewritten, to `env_var('X')`, as in 0.32.0. So a contract author is trusted for dbt: whoever can write the contract's SQL can run Jinja when dbt parses the project.
 
 #### dbt compatibility
 

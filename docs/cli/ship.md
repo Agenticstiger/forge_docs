@@ -151,6 +151,8 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--no-generate-artifacts` | | | Skips stage 3. |
 | `--require-artifacts <keys>` | | | *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
 | `--release-dir <dir>` | | | *(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
+| `--journal-dir <dir>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
+| `--acknowledge-inspected <stage>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Reruns a stage whose unknown outcome you inspected, and records it. Name or number; repeatable or comma-separated. |
 | `--publish` | | | Runs stage 10. |
 | `--target <catalog>` | `PUBLISH_TARGETS` (space-separated; the older `CATALOG` too) | `datamesh-manager` | Catalog to publish to; repeatable. A target names a catalog, never an endpoint: one with `:` exits 2 when stage 10 will publish. |
 | `--schedule-sync` | | | Runs stage 11. |
@@ -262,6 +264,51 @@ The flag is added whether or not `--no-verify-strict` drops `--strict`. A run th
 
 `identity` holds nothing that changes from run to run, so a downstream job compares `identity_digest` to tell whether two runs built the same release. The run id and the times are in `provenance`, outside it.
 
+### The stage journal
+
+*(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))*
+
+`fluid ship` can keep a journal of what each stage did, so that a rerun after a crash does not apply, publish or schedule again against a target nobody has looked at. It is on with `--journal-dir DIR`, and with every `--release-dir` run, which keeps it in `.fluid/ship-journal` under the project. Without either flag no journal is kept and no stage is refused. The one change is that the run report records a stage that exits 129 to 159, or is killed by a signal, as `unknown` instead of `failed`.
+
+```bash
+fluid ship --journal-dir /var/lib/fluid/ship-journal --yes
+fluid ship --journal-dir /var/lib/fluid/ship-journal --stage 6-7 --yes --acknowledge-inspected apply   # after an apply of unknown outcome
+```
+
+**What it writes.** One append-only JSON Lines file for each release, named by the bundle's digest, for each target, which is the product and the environment: `DIR/<product id>/<env>/<digest hex>.jsonl`, beside a `.lock` file. The product id and the environment are written as file names, and an id with upper-case letters gets a short hash added. A run holds the target through that lock, and a second run is refused before it rebundles. Each stage that runs leaves two events. `started` is written and fsynced before the stage runs (for `bundle`, once it has passed, because the bundle names the release). A stage that is skipped, or refused by the journal, leaves none. `finished` carries its status, its exit code and receipts: the report files the attempt wrote with their digests, the plan's digests, and the lineage and serial of local OpenTofu state. A file opens with an `opened` event, and an acknowledgement is an `acknowledged` event.
+
+```text
+{"argv": ["plan", "runtime/bundle.tgz", "--out", "runtime/plan.json", ...], "attempt": 1, "event": "started", "name": "plan", "run_id": "852290d84289", "side_effects": false, "stage": 6, ...}
+{"attempt": 1, "event": "finished", "exit_code": 0, "name": "plan", "receipts": {"files": {"runtime/plan.json": "sha256:a47e..."}, "plan": {...}}, "stage": 6, "status": "passed", ...}
+```
+
+Nothing is rewritten: a rerun adds attempts. A last line cut off by a crash is ignored. The `argv` of a stage is recorded with credential-bearing values masked.
+
+**What it refuses.** Before a stage that changes the target runs, ship reads what earlier attempts left. These stages change it: `apply`, unless it is a dry run, `policy-apply`, unless it only checks, `publish`, and `schedule-sync`, unless it is a dry run. The stages that only read always rerun.
+
+| Left by an earlier attempt | The stage is refused until |
+| --- | --- |
+| An attempt of that stage that could change the target (a dry run or a check never counts), in any release of the target, that started and never finished, or finished `unknown`: ship was interrupted or killed, the stage was killed by a signal (exit 129 to 159, such as 130 for Ctrl-C), or a CI job timed out. An unknown `apply` also blocks `policy-apply`, `publish` and `schedule-sync`, which would act on a target nobody has looked at | You inspect the target and pass `--acknowledge-inspected STAGE`, which records it |
+| An `apply` in this release that failed or whose outcome was unknown, so the plan it ran is stale | Stage 6 has planned again through ship, and `runtime/plan.json` is that plan: `--stage 6-7` |
+
+```text
+stage 7 apply: stage journal: stage 7 apply started in this release for env dev at 2026-11-19T06:20:00.000Z and has no known outcome (attempt 1), so what it changed in the target is unknown. Inspect the target, then run again with --acknowledge-inspected apply
+```
+
+```text
+stage 7 apply: stage journal: stage 7 apply failed in attempt 2 for this release, so it may have changed part of the target and the plan it ran is stale. Plan again against the target as it is now, then apply (--stage plan-apply)
+```
+
+The refused stage is recorded with exit code `2` and ship stops, exiting `1` (`3` if an apply has already changed something). `--acknowledge-inspected` takes a stage name or number, repeated or comma-separated, and one acknowledgement of a stage clears its unresolved attempts in every release of the target. After an unknown `apply` that blocks `policy-apply`, `publish` or `schedule-sync`, name `apply`. It exits `2` for an unknown stage (the message lists them), for a stage that changes nothing, and when there is no journal to record it in (`--journal-dir` or `--release-dir`). Acknowledging an unknown `apply` does not make the old plan good: the next `apply` is still refused until the plan is made again. Nothing is rolled back. Recovery goes forward: inspect, plan again, apply again.
+
+**Seeing it.** `--explain` prints the journal's path and marks each stage the journal would refuse, with its reason, and ends with the warning `a real run would stop`. The run report, `runtime/ship-report.json`, has a `journal` block when a journal is kept: the `dir` (`.fluid/ship-journal` for the default, a project-relative path, or the label `--journal-dir`, never an absolute path), the `path` of the release file below it, and the `digest` of that file when the report was written. A release published with `--release-dir` carries the same block under `provenance.journal` in `release.json`.
+
+**Where to keep it.** The journal is evidence only where the checkout cannot write it. Keep `DIR` outside the checkout, and out of reach of runs at a lower trust level: a CI cache that a pull request can fill is such a reach. The default under `--release-dir` is in the checkout, where it guards a working copy against its own reruns. Ship follows no symbolic link below the journal directory, reads only regular files with one link, and refuses a journal file larger than 8 MiB, and more than 64 MiB for the release files of one target. A journal that cannot be opened or written refuses only the stages that change the target. A `--journal-dir` that cannot be created or opened is a usage error, exit `2`, before stage 1:
+
+```text
+fluid ship: stage journal: cannot create the stage journal directory /dev/null/x/gold.customer.analytics_360_v1/dev: Not a directory
+```
+
 ### Stage switches and knobs
 
 *(since 0.31.0, [forge-cli #929](https://github.com/Agenticstiger/forge-cli/pull/929))*
@@ -311,9 +358,9 @@ Every run that starts a stage writes `runtime/ship-report.json` and `runtime/shi
 | `skipped-by-policy` | A flag, a `RUN_STAGE_*` switch or a dry run turned it off. |
 | `unsupported` | There is nothing to act on: no policy bindings, no DAGs, no scheduler. |
 | `not-run` | It was not selected, or came after a failure. |
-| `unknown` | It was interrupted: what it had done by then is not known. |
+| `unknown` | It was interrupted or killed by a signal (exit 129 to 159): what it had done by then is not known. |
 
-Each stage also has one `reason`, which replaces `skip_reason` and `failure_reason`, and `started_at` and `finished_at` in UTC. The report gains `written_at`, and a `release` block under `--release-dir` with the directory, a `status` (`published` or `not-published`), the `identity_digest` and the `reason`. In one-step-per-stage CI, an earlier step's report that is the run's but cannot be read leaves the stages before this step `unknown`, and the run's `exit_code` is not 0. A version 1 record still merges, with `skipped` read as `skipped-by-policy`. JUnit counts `unknown` as a failure and both kinds of skip as skipped.
+Each stage also has one `reason`, which replaces `skip_reason` and `failure_reason`, and `started_at` and `finished_at` in UTC. The report gains `written_at`, a `journal` block when a [stage journal](#the-stage-journal) is kept, and a `release` block under `--release-dir` with the directory, a `status` (`published` or `not-published`), the `identity_digest` and the `reason`. In one-step-per-stage CI, an earlier step's report that is the run's but cannot be read leaves the stages before this step `unknown`, and the run's `exit_code` is not 0. A version 1 record still merges, with `skipped` read as `skipped-by-policy`. JUnit counts `unknown` as a failure and both kinds of skip as skipped.
 
 A CI job that calls `fluid ship --stage N` once per step gets one report: calls with the same run id, env, mode and contract merge, and each call keeps its own records for the stages it selected. The run id is `FLUID_RUN_ID`, else the one in `.fluid/run-id.txt`. A call that includes stage 1 starts a new report.
 
