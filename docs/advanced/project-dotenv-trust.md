@@ -91,6 +91,14 @@ Ignored 10 settings from project dotenv files: 1ABC (.env), A-B (.env), BASH_FUN
 
 The credential in that file, `WAREHOUSE_PASSWORD`, loaded as before. A name that starts with a letter or an underscore, holds only letters, digits and underscores, and is on no list loads as it always did. If you need one of the refused names, set it in the shell or in the environment of the CI job.
 
+*(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A Spark build of `runtime: local` makes `fluid apply` start `spark-submit` on the machine that runs it, and what it starts depends on its environment. `spark-submit` reads `SPARK_HOME`, `SPARK_CONF_DIR` (a `spark-defaults.conf` that loads jars and agents), `SPARK_SUBMIT_OPTS` and `SPARK_DIST_CLASSPATH`. `PYSPARK_PYTHON` and `PYSPARK_DRIVER_PYTHON` pick the program the driver runs, and `HADOOP_CONF_DIR` and `YARN_CONF_DIR` pick the cluster and file systems it talks to. A project dotenv file can no longer set a name that starts with `SPARK_`, `PYSPARK_`, `HADOOP_` or `YARN_`, in any letter case. A name such as `SPARKY` does not start with one of them, and loads. The four variables of the local runtime, `FLUID_SPARK_SUBMIT_EXECUTABLE`, `FLUID_SPARK_SUBMIT_PROPERTIES_FILE`, `FLUID_SPARK_LOCAL_ROOT` and `FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST`, are operator-only too: the rule on the shape of a name already refused them on 0.32.0. A dotenv file with these names and one credential, run on forge-cli `main`:
+
+```text
+Ignored 11 settings from project dotenv files: FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST (.env), FLUID_SPARK_LOCAL_ROOT (.env), FLUID_SPARK_SUBMIT_EXECUTABLE (.env), FLUID_SPARK_SUBMIT_PROPERTIES_FILE (.env), HADOOP_CONF_DIR (.env), PYSPARK_PYTHON (.env), SPARK_CONF_DIR (.env), SPARK_HOME (.env), SPARK_SUBMIT_OPTS (.env), YARN_CONF_DIR (.env), spark_home (.env). A project file may hold credentials, but not settings that widen a sandbox, change authentication or trust, or change where data and credentials are sent. If you meant to set them, export them in your shell or CI environment instead.
+```
+
+On 0.32.0 the same file ignores only the four `FLUID_SPARK_*` names, and the `SPARK_*`, `PYSPARK_*`, `HADOOP_*` and `YARN_*` names reach the CLI's environment. Set what you need in the shell or in the environment of the CI job.
+
 ::: tip Two more since `0.23.0`
 `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`, which allows an acquisition source's `env://`
 reference against a remote host, and `TESTCONTAINERS_HOST_OVERRIDE`, which rewrites a
