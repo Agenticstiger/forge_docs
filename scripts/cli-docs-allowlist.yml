@@ -128,6 +128,8 @@ flag_oracle_ok:
   - docs/cli/doctor.md::--provider  # forge-cli #992
   - docs/cli/doctor.md::--state-backend  # forge-cli #992
   - docs/cli/doctor.md::--compare  # forge-cli #992
+  - docs/cli/ship.md::--journal-dir  # forge-cli #1003
+  - docs/cli/ship.md::--acknowledge-inspected  # forge-cli #1003
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and
