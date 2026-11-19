@@ -359,6 +359,15 @@ The `aws_glue_catalog_table` now carries `open_table_format_input` with `iceberg
 
 An existing table is never replaced. Its state holds no `open_table_format_input`, the ignore keeps that value, and the plan shows no change. An engine's commits change `metadata_location` in `parameters`, which is ignored too.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1012](https://github.com/Agenticstiger/forge-cli/pull/1012)).* The table's `location` is emitted as Iceberg keeps it: without a trailing slash, as `s3://<bucket>/<path>`, and as `s3://<bucket>` for a table at a bucket's root. Iceberg strips the trailing slash from a table's location and writes the location back into the Glue table with every commit. With the slash that forge emitted before, each plan after a commit planned an update of the table, one for each table an engine had written to, and `fluid apply` sent an `UpdateTable` beside the commits of a stream that kept running. This is the plan that follows an Iceberg-style commit, run as forge-cli's own test of it plays it (the real OpenTofu against a local mock of AWS): the first line on the code before this change, the second after it:
+
+```text
+tofu plan: +0 ~1 -0
+tofu plan: +0 ~0 -0
+```
+
+The first `fluid apply` after the upgrade updates once, in place, the location of each Iceberg table that Glue still holds with the trailing slash. A table that an engine has committed to since the last apply has none already, and the plan shows no change for it. A table in a Hive format, such as Parquet, keeps its trailing slash.
+
 **A table created before this change** has no metadata, so Athena still refuses it. Give it metadata only once you know it is empty:
 
 1. Check that no engine has written to it. Its Glue parameters must have no `metadata_location`, and its prefix must hold no data files:

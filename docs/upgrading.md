@@ -1484,6 +1484,10 @@ These changes are on forge-cli `main`. The pin on this site is 0.33.0, so they a
 
 - **A Spark job on AWS can write its own table where Lake Formation governs new tables.** forge granted a job's role Lake Formation access to its table only when the output's binding declared a non-empty `governance.lakeFormation` block, so in an account that removed the `IAM_ALLOWED_PRINCIPALS` default for new tables, a stream without that block could not see its own table. The grant (`INSERT`, `ALTER`, `DESCRIBE`, `SELECT`, and `DELETE` for a batch job) is now emitted for such an output and for a stream's dead-letter table beside it, with a `count` that the plan decides from the account's settings: 1 where Lake Formation governs new tables, 0 where IAM alone decides, so an account that keeps the default creates nothing new. The identity that runs `fluid plan` and `fluid apply` needs `lakeformation:GetDataLakeSettings`. An output with a non-empty `governance.lakeFormation` block keeps its grants, and an EMR on EC2 job, which runs as the cluster's own role, gets none. See [Lake Formation writes](./advanced/spark-iceberg-aws.md#lake-formation-writes).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1012](https://github.com/Agenticstiger/forge-cli/pull/1012)).*
+
+- **An Iceberg table on Glue plans no change after an engine commits to it.** forge emitted the table's location with a trailing slash. Iceberg keeps it without one and writes it back into Glue on every commit, so each `fluid apply` after a commit planned an update (`~1`) for each table that had been written, and sent an `UpdateTable` while a stream kept committing. The location is now emitted as Iceberg keeps it. The first apply after the upgrade updates once, in place, the location of each Iceberg table that Glue still holds with the trailing slash, and a table in a Hive format keeps its trailing slash. See [Iceberg tables in Glue](./providers/aws.md#iceberg-tables-in-glue).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
