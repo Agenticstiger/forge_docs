@@ -114,6 +114,8 @@ flag_oracle_ok:
   - docs/cli/ship.md::--release-dir        # forge-cli #980
   - docs/cli/diff.md::--impact             # forge-cli #981
   - docs/cli/diff.md::--plan               # forge-cli #981
+  - docs/cli/verify.md::--require-every-port  # forge-cli #986
+  - docs/cli/generate.md::--macros-dir  # forge-cli #991
 
 # Files the version sweep must not scan, as paths relative to the repo root
 # (glob syntax allowed). RELEASE_NOTES_*.md is excluded unconditionally and

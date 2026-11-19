@@ -423,10 +423,11 @@ left at that name.
 
 Like the manifest's `source` block, the file is outside every digest: later
 stages treat it as a hint and check it. A stage ignores it when it is not a
-regular file, is over 64 KiB, has another `version`, or names other bytes (its
-`packetDigest` is not the sha256 of the archive beside it). The recorded
-contract must also still exist and carry the id of the contract inside the
-bundle.
+file (a link to a file is followed), is over 64 KiB, is not a JSON object, has another
+`version`, or names other bytes (its `packetDigest` is not the sha256 of the
+archive beside it). The recorded contract must also be a relative path ending in
+`.yaml`, `.yml` or `.json`, still exist, and carry the id of the contract inside
+the bundle, read with the bundle's environment overlay applied.
 
 Without a usable file, `fluid plan` and `fluid apply` log
 `source_contract_unresolved` and anchor relative paths at the bundle's own

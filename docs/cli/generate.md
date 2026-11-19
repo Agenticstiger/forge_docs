@@ -255,11 +255,44 @@ Key options:
 | `--out`, `-o` | Output path for the dbt `schema.yml` (default `./schema.yml`). Drop it into your dbt project's `models/<schema>/` directory. |
 | `--env` | Environment overlay (`dev` / `test` / `prod`). |
 | `--dbt-tests-key {auto,tests,data_tests}` | Which YAML key the tests attach under; same rule as [`generate transformation`](#fluid-generate-transformation). Default `auto`, also `$FLUID_DBT_TESTS_KEY`. |
+| `--macros-dir DIR` | *On forge-cli `main`, not yet in a release ([forge-cli #991](https://github.com/Agenticstiger/forge-cli/pull/991)).* Where the `fluid_rule` macro goes, as `DIR/fluid/fluid_rule.sql`. Default: the first `macro-paths` entry of the nearest `dbt_project.yml` above `--out`, or `macros` when it names none. A relative `DIR` is relative to the current directory. Only a contract that declares rules uses it. See [Declared rules as dbt tests](#declared-rules-as-dbt-tests). |
 
 - **Column-level rules** map to dbt's built-in tests — `not_null`, `unique`, `accepted_values` — with `dbt-utils` placeholders emitted for rules that have no native dbt equivalent.
 - **Model-level rules** map to `dbt-utils`: `anomaly_detection` / `drift_detection` rules become `dbt-utils` expressions, and a `freshness` rule becomes `dbt_utils.recency`.
 - The generated `dbt-utils`-based tests require the `dbt-utils` package to be installed in your dbt project.
 - A generated file starts with `# managed-by: fluid`. Re-running the command regenerates a file that has the header, so edits to it are lost. A file without the header is not overwritten: the command fails with `dbt_tests_refusing_overwrite` and tells you to delete the file or pick another `--out`.
+
+#### Declared rules as dbt tests
+
+*On forge-cli `main`, not yet in a release ([forge-cli #991](https://github.com/Agenticstiger/forge-cli/pull/991)).*
+
+On a `fluidVersion: 0.7.7` contract, the command also writes the rules the contract declares in [Rules about valid data](../concepts/data-rules.md). Each invariant, identifier format, bounded placeholder declaration, shared column and shared attribute becomes one model-level `fluid_rule` test on the model of the expose that declares it. A placeholder declaration with no operator is not bounded, and gets no test. The test is named `fluid_` plus the rule's id, with each character outside letters, digits and `_` turned into `_` and a repeated name given `_2`, `_3`: `fluid_gross_from_net` for an invariant, `fluid_product_code_identifierFormat` and `fluid_product_code_placeholders` for a column, `fluid_account_status` for a shared column of the `account` relationship, and `fluid_customer_segment_orders_segment` for the `segment` column of `orders` in the shared attribute `customer_segment`. A dependency with `bothWays` writes a second test with `_reverse` added. A contract of an earlier version gets no `fluid_rule` test and no macro.
+
+The tests need the `fluid_rule` macro, which the command writes to `<macro folder>/fluid/fluid_rule.sql` in the same run. For a project whose `dbt_project.yml` names no `macro-paths`:
+
+```text
+dbt/
+├── dbt_project.yml
+├── macros/fluid/fluid_rule.sql
+└── models/schema.yml          # fluid generate dbt-tests -o dbt/models/schema.yml
+```
+
+```bash
+fluid generate dbt-tests contract.fluid.yaml -o dbt/models/schema.yml
+fluid generate dbt-tests contract.fluid.yaml -o schema.yml --macros-dir dbt/macros   # --out is outside the project
+```
+
+The macro file starts with `-- managed-by: fluid`. A run replaces a macro file that starts with it and never one that does not: it fails with `dbt_tests_refusing_overwrite` and `refusing to overwrite <path>: it is not managed by fluid (missing the '-- managed-by: fluid' first line). Delete it or pass another --macros-dir.`, before it writes `schema.yml`. Three more refusals are `dbt_tests_no_macro_dir`: no `dbt_project.yml` above `--out`, a `dbt_project.yml` that cannot be read, and a first `macro-paths` entry that is absolute or has `..` in it. The first and the last name `--macros-dir` as the way out. None of them writes a file.
+
+**One project, every adapter.** Each test carries the SQL of the rule for each adapter forge writes, and the macro picks the one for `target.type`: `duckdb`, `snowflake`, `bigquery`, `databricks`, `spark`, `postgres`, `athena` and `trino`. A project that tests on DuckDB locally runs the same tests on Athena in production. On an adapter the rule has no SQL for, the test fails when it runs, with an error that names the rule and the adapter, and `dbt parse` still succeeds. The command warns at generation which adapters those are. A rule that no adapter can run is logged as a warning with its reason, gets no test, and is not approximated. `fluid validate` says what to change.
+
+**The band is compared exactly.** With `unit: rows` the test compares the violating rows with the bound. With `unit: percent` it compares `100 * violating` with `value * covered`, so a boundary row is never lost to a division. `severity: error` fails the test, and `warning` and `info` warn.
+
+**Placeholders.** A column's placeholder values and prefixes are exempt from the column's own `accepted_values` and range tests, through a `where` config with one branch for each SQL dialect (`spark` shares the branch of `databricks`, and `trino` that of `athena`). An adapter with no branch keeps every row. A column name, placeholder value or prefix that holds a backslash gets no `where`, so its placeholders are not exempt.
+
+**Contract text is data.** dbt renders a test's arguments as Jinja, and it evaluates one that looks like `env_var(...)` even without braces. Every piece of contract text in a `fluid_rule` test is written as a Jinja string literal of itself, so an invariant id of `{{ exceptions.raise_compiler_error(env_var('HOME')) }}` stays the text. The rest of `schema.yml` follows the same rule: a column name, description, enum value or test argument that holds `{{`, `{%` or `{#`, or looks like a call to `env_var`, `var`, `source` or `doc`, or to `ref` with anything but a plain model name, is written as a literal, and any other string is written as before. `ref('orders')` is left as it is.
+
+No dbt was available to run `dbt test` on a generated project. The generated YAML and its quoting come from the CLI's output, read back with a YAML and a Jinja parser.
 
 After generating, run `dbt test` in your dbt project to execute the rules.
 

@@ -241,6 +241,14 @@ A run that fails, or is interrupted, publishes nothing. Its reports stay in `run
 warning: a real run would stop: --release-dir needs stages 1-4 (bundle to validate-artifacts) in this invocation, and stage 3 generate-artifacts does not run (--no-generate-artifacts)
 ```
 
+**Every port is verified.** *On forge-cli `main`, not yet in a release ([forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986)).* Under `--release-dir`, stage 9 passes `--require-every-port` to `fluid verify`, so a run that runs stage 9 publishes a release only when every expose was verified. An expose that was skipped (no verifier for its binding, or a reference-only table that is not built yet), an entry that verify cannot check (no id, or an id used twice) and a contract with no exposes fail stage 9, and nothing is published. `--explain` shows the argument:
+
+```text
+   9 verify              run      fluid verify runtime/bundle.tgz --strict --require-every-port --env dev --out runtime/verify-report.json
+```
+
+The flag is added whether or not `--no-verify-strict` drops `--strict`. A run that does not run stage 9, for example with `--skip-stage verify`, still publishes. See [Requiring every port](./verify.md#requiring-every-port).
+
 **`release.json`** keeps what the release is apart from how it was made:
 
 | Key | Holds |
@@ -274,7 +282,7 @@ Each stage option takes the flag, then the variable the Jenkins pipeline already
 | 5 | `--last-applied <plan>` | `DIFF_LAST_APPLIED` | | `diff --last-applied`: compares with the plan the last apply ran, so a change the contract makes is pending, not drift. A missing file is a first run, compared with the contract alone. |
 | 6 | `--plan-html`, `--no-plan-html` | `PLAN_HTML` | off, unless the variable is `true` | Also writes `runtime/plan.html`. |
 | 8 | `--policy-mode <mode>` | `POLICY_APPLY_MODE` | `enforce` | `enforce` or `check`. After a dry-run apply in the same pipeline, `enforce` becomes `check`. Another value exits 2 before stage 1. |
-| 9 | `--verify-strict`, `--no-verify-strict` | `VERIFY_STRICT` | on, unless the variable is `false` | `--strict` for `verify`. |
+| 9 | `--verify-strict`, `--no-verify-strict` | `VERIFY_STRICT` | on, unless the variable is `false` | `--strict` for `verify`. With `--release-dir`, `verify` also gets `--require-every-port`. |
 
 Stages 2 and 4 also write `runtime/validate-report.json` and `runtime/validate-artifacts-report.json`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* When stage 11 runs (a scheduler is set, stage 3 wrote DAGs, and apply was not a dry run), it passes `--report runtime/schedule-sync-report.json` to `fluid schedule-sync`.
 

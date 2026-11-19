@@ -1365,6 +1365,16 @@ These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 unti
 
 - **New, opt-in: `fluid validate --diagnostics` and `--format sarif`, and `fluid diff --baseline --impact` with `--plan`.** The first puts each finding at the file, line and column that wrote it, and writes a SARIF 2.1.0 log for code scanning. The second adds an impact report to the version diff for a pull request. Without the flags, the output of both commands is unchanged. See [Findings at the line that wrote them](./cli/validate.md#findings-at-the-line-that-wrote-them) and [Impact report for a pull request](./cli/diff.md#impact-report-for-a-pull-request).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986)).*
+
+- **New, opt-in: `fluid verify --require-every-port`.** `--strict` fails a run that verified nothing, so a run that verified one port passed while the others were skipped. With the flag, each skipped expose fails the run and is named with the reason. Nothing changes until you pass it. See [Requiring every port](./cli/verify.md#requiring-every-port).
+- **`fluid ship --release-dir` passes it to stage 9.** A release run now fails at stage 9, and publishes nothing, when an expose was skipped (no verifier for its binding, or a reference-only table that is not built yet), when an entry has no id or repeats one, or when the contract declares no expose. `--skip-stage verify` takes stage 9 out of the run. See [Publishing a release](./cli/ship.md#publishing-a-release).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #991](https://github.com/Agenticstiger/forge-cli/pull/991)).*
+
+- **`fluid generate dbt-tests` writes a `fluid_rule` test for each declared rule, and a macro.** On a 0.7.7 contract, each invariant, identifier format, bounded placeholder declaration, shared column and shared attribute becomes a model-level test, and `fluid_rule.sql` goes to `<project>/<first macro-paths entry>/fluid/`. The command now fails with `dbt_tests_no_macro_dir` when the contract declares such rules and no `dbt_project.yml` is above `--out`: write `--out` inside the project, or pass the new `--macros-dir`. It never overwrites a macro file it did not write. A column's placeholders are also exempt from its `accepted_values` and range tests. A contract that declares none of these generates what it did before. See [Declared rules as dbt tests](./cli/generate.md#declared-rules-as-dbt-tests).
+- **A `schema.yml` no longer carries contract text that dbt would run as Jinja.** A column name, description, enum value or test argument that holds `{{`, `{%` or `{#`, or looks like a call to `env_var`, `var`, `source` or `doc`, or to `ref` with anything but a plain model name, is written as a literal of itself. Run `fluid generate dbt-tests` again to rewrite a file made before. Any other string is written as before.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
