@@ -151,8 +151,8 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--no-generate-artifacts` | | | Skips stage 3. |
 | `--require-artifacts <keys>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)).* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
 | `--release-dir <dir>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980)).* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
-| `--journal-dir <dir>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003)).* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
-| `--acknowledge-inspected <stage>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003)).* Reruns a stage whose unknown outcome you inspected, and records it. Name or number; repeatable or comma-separated. |
+| `--journal-dir <dir>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
+| `--acknowledge-inspected <stage>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Reruns a stage whose unknown outcome you inspected, and records it. Name or number; repeatable or comma-separated. |
 | `--publish` | | | Runs stage 10. |
 | `--target <catalog>` | `PUBLISH_TARGETS` (space-separated; the older `CATALOG` too) | `datamesh-manager` | Catalog to publish to; repeatable. A target names a catalog, never an endpoint: one with `:` exits 2 when stage 10 will publish. |
 | `--schedule-sync` | | | Runs stage 11. |
@@ -266,7 +266,7 @@ The flag is added whether or not `--no-verify-strict` drops `--strict`. A run th
 
 ### The stage journal
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003)).*
+*(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))*
 
 `fluid ship` can keep a journal of what each stage did, so that a rerun after a crash does not apply, publish or schedule again against a target nobody has looked at. It is on with `--journal-dir DIR`, and with every `--release-dir` run, which keeps it in `.fluid/ship-journal` under the project. Without either flag no journal is kept and no stage is refused. The one change is that the run report records a stage that exits 129 to 159, or is killed by a signal, as `unknown` instead of `failed`.
 
