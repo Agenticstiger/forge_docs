@@ -1,7 +1,7 @@
 # GCP Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.18.1`. A part marked *(since …)* or *(on forge-cli `main`)* describes a later change.<br>  <!-- cli-version: historical -->
+**Docs Baseline:** CLI `0.18.1`, released on 5 October 2026. This site is pinned to CLI `0.35.0`, and a part marked *(since …)* or *(on forge-cli `main`)* describes a later change.<br>  <!-- cli-version: historical -->
 **Services:** BigQuery, Cloud Storage, Pub/Sub, IAM, Data Catalog policy tags, Cloud KMS
 
 > **Why it matters**
