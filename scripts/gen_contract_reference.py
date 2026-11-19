@@ -500,6 +500,10 @@ class Walker:
                 parts.append(f"{code(key)} is {code(_scalar(sub['const']))}")
             elif "pattern" in sub:
                 parts.append(f"{code(key)} matches {code(sub['pattern'])}")
+            elif "enum" in sub:
+                # 0.33.0: `if: {properties: {runtime: {enum: [emr-serverless, local]}}}`.
+                values = ", ".join(code(_scalar(v)) for v in sub["enum"])
+                parts.append(f"{code(key)} is one of {values}")
             else:
                 die(f"unsupported `if` property schema for {key!r}: {sub!r}")
         for key in eff.get("required", []):
