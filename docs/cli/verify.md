@@ -15,6 +15,7 @@ fluid verify CONTRACT
 ```bash
 fluid verify contract.fluid.yaml
 fluid verify contract.fluid.yaml --strict
+fluid verify contract.fluid.yaml --require-every-port     # fail if any expose was skipped
 fluid verify contract.fluid.yaml --expose orders
 fluid verify contract.fluid.yaml --show-diffs
 fluid verify runtime/bundle.tgz --env aws --strict --out runtime/verify-report.json
@@ -71,6 +72,7 @@ Without `--strict` the same run reports the drift and exits `0`. Remove the extr
 | `--state-backend` | With `--state-drift`: the remote state `fluid apply` used. Defaults to `$FLUID_STATE_BACKEND`, else local; `""` forces local. |
 | `--workspace-dir DIR` | With `--state-drift`: the directory `fluid apply` ran in. Default `.`. |
 | `--warn-only` | Downgrade `--reconcile-dbt`, `--reconcile-lineage` and `--state-drift` drift to a warning (exit `0`). |
+| `--require-every-port` | *On forge-cli `main`, not yet in a release ([forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986)).* Exit `1` unless every expose was verified: each one that was skipped fails the run and is named. `--warn-only` does not downgrade it, and `--expose` beside it exits `2`. See [Requiring every port](#requiring-every-port). |
 | `--athena-output-location S3_URI` | Where Athena writes the row-count query result. Env `FLUID_ATHENA_OUTPUT_LOCATION`. See [S3 and Glue](#s3-and-glue-athena). |
 | `--athena-workgroup NAME` | Athena workgroup for the row-count query. Env `FLUID_ATHENA_WORKGROUP`, default `primary`. |
 | `--athena-timeout SECONDS` | Stop the Athena row-count query and fail after this long. Env `FLUID_ATHENA_TIMEOUT_SECONDS`, default `300`. |
@@ -113,7 +115,7 @@ Flink <build>: <status>; snapshot <snapshot id>; checkpoint <checkpoint id>; row
 
 Dataset and table access grants (`accessPolicy.grants`) are not checked on any platform as of 0.18.1. [Governance parity](../concepts/governance-parity.md) sets what each cloud emits beside what verify reads back.
 
-An `unsupported` expose prints `Skipped`, is counted separately in the summary and never fails the run. It means `fluid verify` did not check it, not that the check passed:
+An `unsupported` expose prints `Skipped`, is counted separately in the summary and does not fail the run by itself. The exceptions are [`--require-every-port`](#requiring-every-port), and `--strict` when no other expose was checked. It means `fluid verify` did not check it, not that the check passed:
 
 ```text
 📋 Verifying: events
@@ -163,7 +165,9 @@ Each mismatch is scored:
 | `--reconcile-lineage` critical drift | `1` with `--strict`, unless `--warn-only` |
 | `--state-drift`: resources changed outside the apply | `1`, unless `--warn-only` |
 | `--state-drift`: the state could not be refreshed | `1`; `--warn-only` does not downgrade it |
-| `unsupported` exposes | Not counted |
+| `--require-every-port`: an expose was skipped, or the contract declares none | `1`; `--warn-only` does not downgrade it |
+| `--require-every-port` with `--expose` | `2`, `verify_require_every_port_with_expose` |
+| `unsupported` exposes | Not counted, except under `--require-every-port` |
 
 A contract file that cannot be read, or an unknown `--expose`, exits `1` before any target is checked.
 
@@ -288,6 +292,57 @@ The four that depend on the contract are new in 0.27.0, and each is skipped when
 `USE CATALOG` is checked per table, so a grant scoped to one expose is checked only on that table.
 
 A table a dbt build writes is rebuilt by dbt, which drops a contract's `NOT NULL`. Verify reports the column unless the dbt model declares the constraint; see [the limitation](../providers/databricks.md#tables-a-dbt-build-writes).
+
+## Requiring every port
+
+*On forge-cli `main`, not yet in a release ([forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986)).*
+
+A run that verified one expose passes `--strict` even when the others were skipped. `--strict` fails a run on a skipped expose only when every expose was skipped and nothing else was checked. `--require-every-port` closes that gap. It fails the run on each expose that was skipped, whatever else was verified, and names it with the reason:
+
+```bash
+fluid verify contract.fluid.yaml --strict --require-every-port
+echo $?
+```
+
+For a contract with a local CSV that verifies (`ids`) and an `aws` Parquet binding that names a bucket but no Glue table (`orders`), the run ends with:
+
+```text
+❌ --require-every-port: 1 expose(s) were not verified: orders (no verifier for the binding). Every expose has to be verified for this run to pass.
+1
+```
+
+The exposes it fails on, and the reason it prints for each:
+
+| Reason | What it means |
+| --- | --- |
+| `no verifier for the binding` | The expose is `unsupported`, see [What gets checked](#what-gets-checked). |
+| `reference-only, not built yet` | A [reference-only contract](#reference-only-contracts) whose table the external pipeline has not built yet. |
+| `no exposeId, so it is never checked` | An `exposes` entry with neither `exposeId` nor `id`. It is named by its position, as `exposes[1]`. |
+| `declared 3 times: only exposes[2] is checked` | An id used by more than one entry. It is named once, with the position of the entry that was checked, the last one. |
+
+A contract with no `exposes` fails too: `--require-every-port: the contract declares no expose, so no port was verified.`
+
+The flag is a gate you asked for by name, so it works on its own:
+
+- It needs no `--strict`. It does not turn `--strict` on either: drift in a port that was verified is judged by `--strict` and `--fail-on-warning` as before.
+- `--warn-only` does not downgrade it.
+- It checks every expose, so `--expose` beside it is refused with exit `2` and `verify_require_every_port_with_expose`: `--require-every-port checks every expose; --expose verifies one. Drop one of them.`
+- It runs before the `--strict` check for a run that verified nothing, so a run that fails on both prints this message and not that one. The message names every unverified expose, not the first five.
+- An expose that errored, or drift that `--reconcile-dbt`, a critical `--reconcile-lineage` or `--state-drift` reports, fails the run first, with its own message. The unverified exposes are then not named.
+
+`--out` adds the unverified exposes to the JSON report, in the same words as the message:
+
+```json
+"require_every_port": {
+  "unverified": ["orders (no verifier for the binding)"]
+}
+```
+
+The key is there under the flag: an empty list when no expose was left unverified, which includes a contract that declares none and fails the run anyway. It is absent without the flag, and for a managed Flink contract, whose `--out` holds the checkpoint evidence.
+
+A contract with a [managed Flink](../advanced/managed-flink-iceberg.md) build is verified as a whole, from each build's checkpoint evidence, and has no per-expose result to gate. With the flag, the run keeps that check and prints `--require-every-port: a managed streaming contract is verified as a whole from checkpoint evidence, not port by port`. No managed Flink cluster was available to capture that line; it comes from the CLI's source.
+
+[`fluid ship --release-dir`](./ship.md#publishing-a-release) passes the flag to its verify stage, so a release never stands for a port nobody verified.
 
 ## Reference-only contracts
 

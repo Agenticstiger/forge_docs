@@ -136,7 +136,7 @@ An artifact tree that passed stage 4 on `0.14.1` can now fail it **with no contr
 
 ## Reference-only contracts
 
-Stage 4 runs against whatever stage 3 emitted. For `builds[].pattern: hybrid-reference` contracts, stage 3 auto-skips the `schedule` and `policies` emitters, so stage 4 only validates the catalog artifacts (`odcs/` + `odps-bitol/`) that stage 3 did emit. The self-gate on `fileExists('dist/artifacts/MANIFEST.json')` ensures the stage is skipped entirely if stage 3 was turned off.
+Stage 4 runs against whatever stage 3 emitted. For `builds[].pattern: hybrid-reference` contracts, stage 3 skips the `schedule` and `policies` emitters through 0.32.0, so stage 4 only validates the catalog artifacts (`odcs/` + `odps-bitol/`) that stage 3 did emit. *On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)), stage 3 runs for these contracts as for any other: see [Reference-only contracts](./ship.md#reference-only-contracts).* The self-gate on `fileExists('dist/artifacts/MANIFEST.json')` ensures the stage is skipped entirely if stage 3 was turned off.
 
 ## Notes
 
