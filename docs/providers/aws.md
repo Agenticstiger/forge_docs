@@ -299,6 +299,58 @@ Parquet files written under the old schema, by an Athena `INSERT` or `CTAS` or b
 Until that apply, `fluid verify` and `fluid diff` compare the live table with the new mapping and report the mismatch on those columns: CRITICAL from `verify`, drift from `diff`. `verify`'s "require table recreation" wording is wrong for them, because a re-apply updates the column in place. A consumer that compares these columns as strings (`small = '5'`) may need changes.
 :::
 
+### Partitioned Glue tables
+
+*On forge-cli `main`, not yet in a release ([forge-cli #996](https://github.com/Agenticstiger/forge-cli/pull/996)).*
+
+`binding.location.partitionBy` partitions the Glue table that the emitter writes for a Hive file format (`parquet`, `orc`, `avro`, `csv` or `json`). Through 0.32.0 the key never reached the table, and `binding.properties.cluster_by` was read by nobody on AWS: both passed `fluid validate --strict` and were dropped. On `main`:
+
+```yaml
+binding:
+  platform: aws
+  format: parquet
+  location:
+    database: shop
+    table: events
+    bucket: my-bucket
+    path: data/events/
+    partitionBy: [event_date, country, shard]
+```
+
+The columns of this example are `event_date` (a `date`), `country` (a `string` with an `enum` rule of `DE | FR | IT`) and `shard` (an `integer` with a `range` rule of `between 0 and 7`), each `required: true`.
+
+- **Partition keys.** The `partitionBy` columns become the table's `partition_keys`, in order, and leave its `columns`, because Glue refuses a column in both. Each key is a declared, top-level column of a string, integer, date or boolean type, named in lower case, because Hive keeps partition names in lower case and Athena looks for `<name>=<value>/` paths. A key may not be named twice, and a table may not partition by every column.
+- **Athena partition projection.** It is written when the contract gives every key's values, and the key is `required: true`, because a writer puts null keys under `__HIVE_DEFAULT_PARTITION__`, which a projection never reads.
+
+  | Key | Projected as |
+  | --- | --- |
+  | A string key with an enum type, or a `validationRules` entry of type `enum` | `enum` of the values. They may hold letters, digits, `_`, `.` and `-` only: a writer escapes any other character in a path |
+  | An integer with a `range` rule that has both bounds and whole numbers, such as `between 0 and 7` or `> 0 and < 8` (read as 1 to 7) | `integer` over the range. A one-sided or fractional range leaves the table unprojected |
+  | A boolean | `enum` of `true,false` |
+  | A date | `date`, by day, from `1970-01-01` to `NOW` |
+
+  For the keys above, the table gets `projection.enabled`, `projection.country.type: enum` with `values: DE,FR,IT`, `projection.shard.type: integer` with `range: 0,7`, and the date projection. No `storage.location.template` is written: without one, Athena projects the Hive `<name>=<value>/` paths under `location`. A date key is read up to today (UTC), and `fluid validate` notes that a row dated later is not read until its day comes.
+- **Without projection.** One key with no known values leaves the whole table unprojected, and `fluid validate` and `fluid apply` note why and that the partitions need registering:
+
+  ```text
+  exposes[events]: Glue table shop.events is partitioned by (event_id) without Athena partition projection, because event_id may be null (declare required: true). Its partitions need registering: Athena INSERT INTO and CTAS and Spark's saveAsTable/insertInto register theirs, and a duckdb build registers none; after files written another way run MSCK REPAIR TABLE or ALTER TABLE ADD PARTITION, or declare the values to have Athena project them.
+  ```
+- **Changing the keys replaces the table.** forge cannot change partition keys or projection on a live table in place, because the table's parameters are ignored on update, and files laid out under other keys no longer read. A `terraform_data` resource, named `<product id>_<database>_<table>_partitioning` with `_` for each other character (here `gold_shop_events_shop_events_partitioning`), holds the keys and the projection, and the table names it in `replace_triggered_by`. A live table whose keys or projection change, or that is partitioned for the first time, is replaced, and `fluid apply` refuses that without `--allow-data-loss`. Dropping the keys is an update in place, which the data-loss gate also holds. Lake Formation grants on a replaced table are recreated with it.
+
+**Landing.** A `pattern: acquisition` build with `engine: duckdb` that writes a partitioned table lands its rows in the Hive layout, `<location>/<key>=<value>/`, with `COPY ... PARTITION_BY` and the key columns kept in the paths. A full refresh replaces the partitions it writes and keeps the others, and `incremental_append` adds files and reads its cursor across them. Before it writes anything, it refuses a late-arrival split, a dedup or merge mode, a sink that is not `parquet` or `csv`, a stream that lands outside the location, a file where a partition's directory goes, and a full refresh where files that another run wrote would be read beside the new ones. A null in a `required` partition key fails the stream after it has written, naming the key. The build registers no partitions: see the note above for a table without projection.
+
+**Refused.** `fluid validate`, `fluid generate iac` and `fluid apply` refuse these, naming the field:
+
+| Declared | Why |
+| --- | --- |
+| A key of another type, such as `timestamp` or `decimal(10,2)` | A timestamp or a decimal makes one partition per distinct value. Partition by a coarser column the writer derives, such as `event_date` |
+| A key that is not a declared top-level column, or whose name is not lower-case letters, digits and underscores, or starts with a digit | Hive keeps partition names in lower case, and Athena looks for `<name>=<value>/` |
+| A key named twice, or every column as a key | |
+| `partitionBy` on an Iceberg table in Glue, or on `format: delta` | Their partition spec lives in their own metadata, and the provider sets an Iceberg spec only when it creates the table, so forge would create it unpartitioned and never change it. Drop `partitionBy` and set the spec with an Iceberg engine once the table exists, for example Spark `ALTER TABLE <database>.<table> ADD PARTITION FIELD <column>` |
+| `cluster_by` on any Glue table | Glue has no clustering. Hive bucketing is a different layout. Partition by a low-cardinality column or sort the files in the writer |
+
+An Iceberg-in-Glue contract that set `partitionBy` for a Kafka Connect or Debezium sink now fails `fluid validate`: the sink's default partitioning applies only to a table it creates, and `fluid apply` had already created this one unpartitioned.
+
 ### Iceberg tables in Glue
 
 *(since 0.31.0, [forge-cli #915](https://github.com/Agenticstiger/forge-cli/pull/915))* A `format: iceberg` expose in the Glue catalog gets a table that has a first metadata file. Up to 0.30.1 the table was registered without one, and Athena refused it with `Detected Iceberg type table without metadata location` until an engine wrote one.
