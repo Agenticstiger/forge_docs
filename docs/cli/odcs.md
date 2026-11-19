@@ -97,6 +97,65 @@ dq rule 'ghost' (type 'completeness') on expose 'orders' has no ODCS v3.1.0 qual
 
 A consumer that read the old export, such as a data quality engine or a catalog that seeds assertions from `quality`, sees thresholds that mean the opposite of what it saw. Re-export and re-publish.
 
+## Declared invariants as quality rules
+
+*On forge-cli `main`, not yet in a release ([forge-cli #970](https://github.com/Agenticstiger/forge-cli/pull/970)).*
+
+On a `fluidVersion: 0.7.7` contract, the export writes each rule the contract declares as an executable ODCS quality rule: each `exposes[].contract.invariants[]` entry, each identifier format and placeholder declaration, each `sharedColumns` entry and each member of a `sharedAttribute`. See [Rules about valid data](../concepts/data-rules.md) for how to declare them. Both [`fluid generate standard --format odcs`](./generate.md) and `fluid odcs export` write them.
+
+| Declaration | ODCS rule |
+| --- | --- |
+| A check, a derived column, a summary over child rows, a functional dependency (once for each direction with `bothWays`), a shared attribute | A `sql` rule on the schema object. The query returns the violating rows, or with `unit: percent` the violating rows times 100 divided by the covered rows. The rule keeps the invariant's own operator and unit. |
+| An identifier format | `logicalTypeOptions.pattern` on the property, and an `invalidValues` rule with `arguments.pattern` |
+| Placeholders, with an operator that bounds them | A `sql` rule on the property that counts placeholder rows |
+| Placeholders, with none | A `text` rule |
+| A derived column | `transformLogic` and `transformSourceObjects` on the property, where it has none |
+
+The query is printed from the parsed expression, in the dialect of the expose's platform:
+
+| The expose's binding | Dialect |
+| --- | --- |
+| `local` | DuckDB |
+| `snowflake` | Snowflake |
+| `gcp` (a BigQuery table) | BigQuery |
+| `databricks` | Databricks |
+| `postgres`, `pgvector` | PostgreSQL |
+| `aws` with `athena_table`, `glue_table` or `iceberg` | Athena |
+
+The rule's own table is `${table}`, as in the other `sql` rules of this export. A linked expose is named by its quoted binding location. A link joins to the target rows whose key occurs once, so a missing or ambiguous link reads as NULL and no row is counted twice.
+
+This is the rule written for `gross_from_net`, a derived column, on a Snowflake table:
+
+```yaml
+- id: gross_from_net
+  name: gross_from_net
+  dimension: consistency
+  severity: error
+  type: sql
+  query: SELECT "violating" FROM (SELECT COUNT(*) AS "covered", COUNT(CASE WHEN
+    (NOT (CAST("t"."gross" AS NUMBER(38, 2)) IS NOT DISTINCT FROM CAST(ROUND(("t"."net"
+    * (1 + "t"."tax_rate")), 2) AS NUMBER(38, 2)))) THEN 1 END) AS "violating" FROM
+    ${table} AS "t") AS "fluid_counts"
+  mustBe: 0
+  unit: rows
+  description: gross is ROUND(net * (1 + tax_rate), 2)
+  customProperties:
+  - property: fluidGenerated
+    value: true
+```
+
+The same contract bound to BigQuery quotes names with backticks and casts to `BIGNUMERIC(38, 2)`, where Snowflake casts to `NUMBER(38, 2)`. A percent rule divides as `FLOAT64` on BigQuery and `DOUBLE` on Snowflake.
+
+**What has no exact SQL becomes a text rule.** A declaration on a platform with no dialect (a Redshift table, for example), a link to an expose whose binding names no table to quote, a link to another platform, and a declaration `fluid validate` refuses each become a `text` rule that says why, and the export logs a warning. Nothing is dropped or approximated.
+
+```text
+gross is ROUND(net * (1 + tax_rate), 2). Not executable here: its binding is aws (redshift_table), which forge writes no FLUID SQL/1 dialect for (it writes duckdb, snowflake, bigquery, databricks, postgres, athena)
+```
+
+**Round trip.** Every generated rule carries `customProperties` `{property: fluidGenerated, value: true}`. The declarations also ride in `fluidExtras`, and an import that restores them from there drops the marked rules. So FLUID to ODCS to FLUID loses no declaration, a generated rule never comes back as a hand-written one, and a re-export is unchanged. With `ODCS_FLUID_EXTRAS=false` there is nothing to restore from, so the generated rules stay in an import as ordinary rules, and the text rules are the only record of what the export could not write as SQL.
+
+**Placeholders.** A placeholder value is exempt from the `invalidValues` rules the export already wrote: the placeholders join an enum's `validValues` and extend a regex rule's pattern, and an enum on a column that declares placeholder prefixes becomes a `sql` rule. For example, a column with the identifier format `INV` plus five digits, the placeholder `XXXXX` and the placeholder prefix `TBD_` gets the pattern `^((INV[0-9]{5})|XXXXX|TBD_.*)$`.
+
 ## Notes
 
 - ODCS is bidirectional: `export` goes FLUID -> ODCS, `import` goes ODCS -> FLUID. The underlying exporter was modularised under `providers/odcs/` in `v0.8.3` with paired `to_fluid()` / `to_odcs()` mappers and per-level `odcs_passthrough` buckets for lossless round-trip. As of `0.10.0`, ODCS is a spec exporter (surfaced by [`fluid exporters`](./exporters.md)), not a registered cloud provider — it is not listed by [`fluid providers`](./providers.md).

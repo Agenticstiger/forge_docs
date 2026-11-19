@@ -79,7 +79,8 @@ A failure prints a stable `[ERR_<EVENT>]` slug, such as `[ERR_VERSION_BELOW_MINI
 | `--cache-dir CACHE_DIR` | Use a custom schema cache directory. |
 | `--verbose`, `-v` | Detailed validation output. |
 | `--quiet`, `-q` | Minimal output: errors only. A run that stops on an error such as `contract_load_failed` still prints the error and the line that says what failed; the `[ERR_...]` slug, the suggestions and the documentation link stay hidden. See [Quiet output](#quiet-output). |
-| `--format {text\|json}` | Output format. Default `text`. |
+| `--format {text\|json\|sarif}` | Output format. Default `text`. *On forge-cli `main`, not yet in a release ([forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969)):* `sarif` writes a SARIF 2.1.0 log and implies `--diagnostics`. See [Findings at the line that wrote them](#findings-at-the-line-that-wrote-them). |
+| `--diagnostics` | *On forge-cli `main`, not yet in a release ([forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969)).* Report each finding at the file, line and column that wrote the value, with the related place in the root contract. One contract or fragment file at a time. See [Findings at the line that wrote them](#findings-at-the-line-that-wrote-them). |
 | `--list-versions` | List the available schema versions and exit. |
 | `--show-schema` | Show the schema used for validation. |
 | `--probe` | Accepted and ignored. See [`--probe`](#probe-is-accepted-and-does-nothing). |
@@ -504,6 +505,74 @@ Validation Warnings:
 ```
 
 An upstream whose product type the workspace can read is judged by the composition rule, as before: an SDP that consumes it fails validation with `ERR_CONTRACT_COMPOSITION_VIOLATION`. For an ADP or a CDP, an upstream the workspace cannot resolve is still not a warning, because such a product may consume a product of another workspace or catalog.
+
+## Findings at the line that wrote them
+
+*On forge-cli `main`, not yet in a release ([forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969)).*
+
+A contract composed from `$ref` fragments and an `--env` overlay reports most findings as a path into the composed document, which is not a place anyone wrote. With `--diagnostics`, each finding carries the file, line and column that wrote the value. It also carries the related place in the root contract (the key whose `$ref` brought a fragment in, or the base value an overlay patched), and the product, environment and expose or consume it sits under.
+
+```bash
+fluid validate contract.fluid.yaml --diagnostics
+```
+
+This contract's root points at `fragments/customers.yaml`, which spells a column type `strng`. The text output is one `file:line:col: severity CODE: message` line for each finding, with the related place beneath it:
+
+```text
+fragments/customers.yaml:14:21: error ERR_CONTRACT_SCHEMA_NO_VARIANT: exposes[0].contract.schema[1].type: 'strng' is not valid under any of the given schemas
+  related: contract.fluid.yaml:12:5: exposes[0] in the root contract
+fragments/customers.yaml:1:1: error ERR_CONTRACT_GCP_BINDING: expose 'customers': BigQuery cannot hold its columns as declared: 'email' is declared 'strng', which the BigQuery emitter does not map. Column 'email': Declare a FLUID column type such as string, integer, bigint, numeric, double, boolean, date, timestamp or json.
+  related: contract.fluid.yaml:12:5: exposes[0] in the root contract
+```
+
+`--format json` adds a `diagnostics` block after the keys it always had. Each item has the code, severity, message, the JSON pointer `path`, `location` (`file`, `line`, `column`), `related`, `product`, `environment`, `port`, a `fix` written in words, and a `docs_url`:
+
+```json
+"diagnostics": {
+  "version": "1.0",
+  "items": [
+    {
+      "code": "ERR_CONTRACT_SCHEMA_NO_VARIANT",
+      "severity": "error",
+      "path": "/exposes/0/contract/schema/1/type",
+      "location": {"file": "fragments/customers.yaml", "line": 14, "column": 21},
+      "related": [
+        {"location": {"file": "contract.fluid.yaml", "line": 12, "column": 5},
+         "message": "exposes[0] in the root contract"}
+      ],
+      "product": "demo.customers",
+      "environment": null,
+      "port": "customers",
+      ...
+    }
+  ]
+}
+```
+
+A minor version only adds fields. `fluid_build.diagnostics.DiagnosticReport.from_dict` reads any `1.x` document and ignores keys it does not know. No diagnostic carries a fix a tool could apply, a source snippet or a credential: `fix` is advice, not an edit. Without the flags, the text and JSON output are unchanged.
+
+### SARIF for code scanning
+
+```bash
+fluid validate contract.fluid.yaml --format sarif > validate.sarif
+```
+
+`--format sarif` writes a SARIF 2.1.0 log, the format GitHub code scanning and other review tools read. It has one rule for each finding code, locations relative to the directory you run validate in (`%SRCROOT%`; run it from the repository root for code scanning), the related place as a related location, and a fingerprint (`partialFingerprints`) that does not move when the finding's line does. A contract that cannot be loaded still gets a log, with that failure in it (`ERR_CONTRACT_LOAD_FAILED`).
+
+```text
+{"ruleId": "ERR_CONTRACT_SCHEMA_NO_VARIANT", "level": "error",
+ "locations": [{"physicalLocation": {
+   "artifactLocation": {"uri": "fragments/customers.yaml", "uriBaseId": "%SRCROOT%"},
+   "region": {"startLine": 14, "startColumn": 21}}}],
+ "relatedLocations": [{"id": 1, "physicalLocation": {
+   "artifactLocation": {"uri": "contract.fluid.yaml", "uriBaseId": "%SRCROOT%"},
+   "region": {"startLine": 12, "startColumn": 5}},
+   "message": {"text": "exposes[0] in the root contract"}}], ...}
+```
+
+The exit code is the one validate always had: `1` when the contract has an error, so the log and the gate come from one run.
+
+**Limits.** A bundle, or a run with no contract argument inside a workspace, refuses both flags with `diagnostics_scope_unsupported` (exit `1`): validate each contract file on its own. `--format sarif` also refuses `--list-versions` and `--show-schema`, whose text would end the log.
 
 ## Finding codes and `issues`
 

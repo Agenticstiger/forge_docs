@@ -122,7 +122,7 @@ fluid ship: 9 stage(s) selected (env=dev, mode=amend, contract=contract.fluid.ya
   11 schedule-sync       not run  (opt-in: pass --schedule-sync or set RUN_STAGE_11_SCHEDULE_SYNC=true)
 ```
 
-Stages 10 and 11 run only when asked for, with `--publish` and `--schedule-sync` or their [switches](#stage-switches-and-knobs). A stage with nothing to do is skipped with its reason: stage 3 for a reference-only contract or with `--no-generate-artifacts`, stage 4 when stage 3 generates no `dist/artifacts/`, stage 8 without `dist/artifacts/policy/bindings.json`, stages 9 to 11 after a dry-run apply, and stage 11 without a scheduler or without DAGs in `dist/artifacts/schedule/`. After a dry-run apply in the same pipeline, stage 8 checks the policy bindings instead of enforcing them.
+Stages 10 and 11 run only when asked for, with `--publish` and `--schedule-sync` or their [switches](#stage-switches-and-knobs). A stage with nothing to do is skipped with its reason: stage 3 for a reference-only contract (through 0.32.0; see [Reference-only contracts](#reference-only-contracts)) or with `--no-generate-artifacts`, stage 4 when stage 3 generates no `dist/artifacts/`, stage 8 without `dist/artifacts/policy/bindings.json`, stages 9 to 11 after a dry-run apply, and stage 11 without a scheduler or without DAGs in `dist/artifacts/schedule/`. After a dry-run apply in the same pipeline, stage 8 checks the policy bindings instead of enforcing them.
 
 ### Select stages
 
@@ -149,6 +149,8 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--allow-data-loss` | `ALLOW_DATA_LOSS=true` | | Passed to `fluid apply`. |
 | `--no-verify-digest` | `NO_VERIFY_DIGEST=true` | | Passes `--no-verify-plan-binding --no-verify-federation` to `fluid apply`. |
 | `--no-generate-artifacts` | | | Skips stage 3. |
+| `--require-artifacts <keys>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)).* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
+| `--release-dir <dir>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980)).* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
 | `--publish` | | | Runs stage 10. |
 | `--target <catalog>` | `PUBLISH_TARGETS` (space-separated; the older `CATALOG` too) | `datamesh-manager` | Catalog to publish to; repeatable. A target names a catalog, never an endpoint: one with `:` exits 2 when stage 10 will publish. |
 | `--schedule-sync` | | | Runs stage 11. |
@@ -164,6 +166,101 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--skip-plan` | | | Removed: exits 2. Use `--stage` or `--until`. |
 
 The options for single stages (`--strict`, `--emit`, `--exit-on-drift`, `--last-applied`, `--plan-html`, `--policy-mode`, `--verify-strict`) and the `RUN_STAGE_<N>_<NAME>` switches are in [Stage switches and knobs](#stage-switches-and-knobs).
+
+### Reference-only contracts
+
+*On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)).*
+
+Through 0.32.0, stage 3 skipped every contract with a `hybrid-reference`, `reference` or `external-reference` build, even with `--emit`. Stage 4 skipped too, and the run exited 0 with no `MANIFEST.json`. But `fluid generate artifacts` has written ODCS, ODPS and policy artifacts for such contracts for a long time: they do not depend on where the transformation runs. Stage 3 now runs for them as well.
+
+Stage 4 now fails, where it used to skip, when stage 3 was to write `dist/artifacts/` and did not. It still skips under `--no-generate-artifacts`. A CI file from `fluid generate ci` still switches stage 3 off by default for a reference-only contract.
+
+### Requiring artifacts
+
+*On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)).*
+
+`--require-artifacts KEYS` fails the run unless stage 3 writes what it promised. A key is one of `generate artifacts`' emit keys:
+
+| Key | Stage 3 must write |
+|---|---|
+| `odcs` | One ODCS file for each `exposes[]` port of the bundled contract |
+| `odps-bitol` | The ODPS product |
+| `opds` | The OPDS document |
+| `policies` | `policy/bindings.json` |
+| `schedule` | At least one schedule file |
+
+```bash
+fluid ship --require-artifacts odcs,policies
+```
+
+Ship removes the earlier `dist/artifacts/MANIFEST.json` before stage 3 runs. A file counts only when the new MANIFEST lists it and its digest on disk matches, so output left by an earlier run never passes. When a file is missing, stage 3 fails with exit `1` and names every missing file (the port, for ODCS), in the log, in `ship-report.json` and in the JUnit report:
+
+```text
+stage 3 generate-artifacts: required artifact missing: schedule: stage 3 wrote no schedule file (orchestration.engine is none, or it is unset and no build has a schedule trigger)
+ERROR: stage 3 generate-artifacts failed (exit 1)
+Ship aborted at stage 3 generate-artifacts (it exited 0, but --require-artifacts was not met). After the fix, run the same command again; to go on from that stage with this bundle, use --stage 3-9.
+```
+
+A run that cannot meet the requirement is refused with exit `2` before stage 1, and `--explain` shows why:
+
+- Stage 3 does not run in this invocation (`--stage`, `--until`, `--skip-stage`, `--no-generate-artifacts`, or `RUN_STAGE_3_GENERATE_ARTIFACTS=false`).
+- `--emit` or `GENERATE_EMIT` leaves a required key out.
+
+```text
+warning: a real run would stop: --require-artifacts odcs needs stage 3 generate-artifacts in this invocation, and it does not run (--no-generate-artifacts)
+```
+
+An unknown key exits `2` and lists the keys: `fluid ship: --require-artifacts: unknown key(s) bogus: use odps-bitol, odcs, opds, schedule, policies`.
+
+### Publishing a release
+
+*On forge-cli `main`, not yet in a release ([forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980)).*
+
+`--release-dir DIR` publishes a run as a release, once every stage it ran passed. Use it when a later job, an auditor or a promotion step needs one directory that holds what this run produced.
+
+```bash
+fluid ship --release-dir releases/orders-1 --yes
+```
+
+The run stages into a new `DIR.partial-<run-id>-*` beside `DIR`. It copies the bundle, the artifacts the artifacts MANIFEST lists (each checked against its digest), the plan when stage 6 ran, and the reports there. It writes `release.json` last, and renames the directory to `DIR`. This is what a run of a one-expose local contract published:
+
+```text
+releases/orders-1/
+├── artifacts/        the files artifacts/MANIFEST.json lists, with the MANIFEST
+├── bundle.tgz
+├── plan.json
+├── release.json
+└── reports/          ship-report.json, ship-junit.xml, and each stage's report
+```
+
+A run that fails, or is interrupted, publishes nothing. Its reports stay in `runtime/` and in the staging directory, and `ship-report.json` names the stage that stopped it. `DIR` does not exist after a failed run. A release run first removes the stage reports in `runtime/`, so only this run's are published. The release directory holds the bundle but does not copy the bundle's `.provenance.json` file (see [The provenance file](./bundle.md#the-provenance-file)); the release's `identity` does not need it. A release run reads only local files: it opens no network connection of its own.
+
+**Rules.** `DIR` must not exist, and stages 1 to 4 must run in the invocation. Otherwise ship refuses with exit `2`, and `--explain` says why:
+
+```text
+warning: a real run would stop: --release-dir needs stages 1-4 (bundle to validate-artifacts) in this invocation, and stage 3 generate-artifacts does not run (--no-generate-artifacts)
+```
+
+**Every port is verified.** *On forge-cli `main`, not yet in a release ([forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986)).* Under `--release-dir`, stage 9 passes `--require-every-port` to `fluid verify`, so a run that runs stage 9 publishes a release only when every expose was verified. An expose that was skipped (no verifier for its binding, or a reference-only table that is not built yet), an entry that verify cannot check (no id, or an id used twice) and a contract with no exposes fail stage 9, and nothing is published. `--explain` shows the argument:
+
+```text
+   9 verify              run      fluid verify runtime/bundle.tgz --strict --require-every-port --env dev --out runtime/verify-report.json
+```
+
+The flag is added whether or not `--no-verify-strict` drops `--strict`. A run that does not run stage 9, for example with `--skip-stage verify`, still publishes. See [Requiring every port](./verify.md#requiring-every-port).
+
+**`release.json`** keeps what the release is apart from how it was made:
+
+| Key | Holds |
+|---|---|
+| `schema` | `fluid-release/1` |
+| `identity` | The product id, environment, `fluidVersion`, Forge version, the exact emit set and any `--require-artifacts` keys, the bundle's MANIFEST digest and archive sha256, the artifacts MANIFEST digest, the plan's digests, and the apply mode when stage 7 ran (so a dry run never reads as an apply) |
+| `identity_digest` | A digest of `identity`. Two clean runs of one checkout give the same `identity` and `identity_digest` |
+| `provenance` | The run id, the stage times, the CI run and the report time |
+| `gates` | Each stage's number, name, status and reason |
+| `files` | The sha256 of every file in the release |
+
+`identity` holds nothing that changes from run to run, so a downstream job compares `identity_digest` to tell whether two runs built the same release. The run id and the times are in `provenance`, outside it.
 
 ### Stage switches and knobs
 
@@ -185,7 +282,7 @@ Each stage option takes the flag, then the variable the Jenkins pipeline already
 | 5 | `--last-applied <plan>` | `DIFF_LAST_APPLIED` | | `diff --last-applied`: compares with the plan the last apply ran, so a change the contract makes is pending, not drift. A missing file is a first run, compared with the contract alone. |
 | 6 | `--plan-html`, `--no-plan-html` | `PLAN_HTML` | off, unless the variable is `true` | Also writes `runtime/plan.html`. |
 | 8 | `--policy-mode <mode>` | `POLICY_APPLY_MODE` | `enforce` | `enforce` or `check`. After a dry-run apply in the same pipeline, `enforce` becomes `check`. Another value exits 2 before stage 1. |
-| 9 | `--verify-strict`, `--no-verify-strict` | `VERIFY_STRICT` | on, unless the variable is `false` | `--strict` for `verify`. |
+| 9 | `--verify-strict`, `--no-verify-strict` | `VERIFY_STRICT` | on, unless the variable is `false` | `--strict` for `verify`. With `--release-dir`, `verify` also gets `--require-every-port`. |
 
 Stages 2 and 4 also write `runtime/validate-report.json` and `runtime/validate-artifacts-report.json`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* When stage 11 runs (a scheduler is set, stage 3 wrote DAGs, and apply was not a dry run), it passes `--report runtime/schedule-sync-report.json` to `fluid schedule-sync`.
 
@@ -204,6 +301,19 @@ The failing stage's own exit code is in the report and in the line ship prints w
 ### Reports
 
 Every run that starts a stage writes `runtime/ship-report.json` and `runtime/ship-junit.xml`. The JSON holds the run id, env, mode, contract and the run's exit status, and for each stage its status, the reason it was skipped or failed, its argv, exit code and duration. The JUnit file has one test case per stage.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980)).* `ship-report.json` is versioned, `"schema": "fluid-ship-report/2"`. Every stage has one of six statuses:
+
+| Status | Meaning |
+|---|---|
+| `passed` | The stage ran and passed. |
+| `failed` | The stage ran and failed. |
+| `skipped-by-policy` | A flag, a `RUN_STAGE_*` switch or a dry run turned it off. |
+| `unsupported` | There is nothing to act on: no policy bindings, no DAGs, no scheduler. |
+| `not-run` | It was not selected, or came after a failure. |
+| `unknown` | It was interrupted: what it had done by then is not known. |
+
+Each stage also has one `reason`, which replaces `skip_reason` and `failure_reason`, and `started_at` and `finished_at` in UTC. The report gains `written_at`, and a `release` block under `--release-dir` with the directory, a `status` (`published` or `not-published`), the `identity_digest` and the `reason`. In one-step-per-stage CI, an earlier step's report that is the run's but cannot be read leaves the stages before this step `unknown`, and the run's `exit_code` is not 0. A version 1 record still merges, with `skipped` read as `skipped-by-policy`. JUnit counts `unknown` as a failure and both kinds of skip as skipped.
 
 A CI job that calls `fluid ship --stage N` once per step gets one report: calls with the same run id, env, mode and contract merge, and each call keeps its own records for the stages it selected. The run id is `FLUID_RUN_ID`, else the one in `.fluid/run-id.txt`. A call that includes stage 1 starts a new report.
 
