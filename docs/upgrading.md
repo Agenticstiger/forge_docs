@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.32.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.33.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.32.0                                                              │
+│ Version: 0.33.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.32.0"
+pip install "data-product-forge[local]==0.33.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.32.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.33.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -1305,7 +1305,7 @@ These changes are in 0.32.0. Two change what a contract or a generated file look
 
 ## Changes in 0.33.0
 
-These changes are in 0.33.0. The pin on this site stays at 0.32.0 until the pages are checked against that release.
+These changes are in 0.33.0. Several change what a plan or a generated file does: read them before you upgrade a pipeline. A BigQuery decimal with a precision replaces its live table once, behind `--allow-data-loss`; a Snowflake column whose type changes needs its table migrated; a Glue table that declares `partitionBy` is replaced the first time it is partitioned; and a generated CI file changes only when you run `fluid generate ci` again.
 
 *(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965), [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967))*
 
@@ -1453,7 +1453,7 @@ These changes are in 0.33.0. The pin on this site stays at 0.32.0 until the page
 
 ## Not in a release yet
 
-These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 until they ship.
+These changes are on forge-cli `main`. The pin on this site is 0.33.0, so they are not in the release these pages document.
 
 *On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).*
 
