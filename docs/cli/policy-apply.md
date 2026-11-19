@@ -6,7 +6,7 @@ Stage 8 of the 11-stage pipeline. Reads the compiled bindings file from [`fluid 
 In 0.18.1 `fluid policy apply` does not create IAM bindings, GRANTs or policies on the providers this page lists. The GCP provider reports the compiled bindings and applies none. Every other provider has no policy applier, so the command prints a warning and exits `0`. Access resources reach the cloud through [`fluid apply`](./apply.md), which provisions them with OpenTofu. See [What each provider does](#what-each-provider-does).
 :::
 
-*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* A table that Lakekeeper catalogs is the exception: stage 8 reads its grants in Lakekeeper and, with `--mode enforce`, changes them. See [Lakekeeper tables](#lakekeeper-tables).
+*(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* A table that Lakekeeper catalogs is the exception: stage 8 reads its grants in Lakekeeper and, with `--mode enforce`, changes them. See [Lakekeeper tables](#lakekeeper-tables).
 
 The unified `fluid policy {check,compile,apply}` group was added in `0.8.0`. The older `fluid policy-apply` form is still registered in 0.18.1 and behaves the same; it prints no deprecation notice.
 
@@ -24,7 +24,7 @@ fluid policy-apply BINDINGS [--mode {check,enforce}]
 | Option | Description |
 | --- | --- |
 | `BINDINGS` | Path to compiled bindings file, typically `runtime/policy/bindings.json` (positional, required). |
-| `--mode` | `check` (default) or `enforce`. In 0.18.1 neither mode mutates a provider (see below), so the value only changes the `mode` the provider reports. *On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* On a Lakekeeper table, `check` reads the table's grants and plans the difference and changes nothing, and `enforce` applies the plan. |
+| `--mode` | `check` (default) or `enforce`. In 0.18.1 neither mode mutates a provider (see below), so the value only changes the `mode` the provider reports. *(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* On a Lakekeeper table, `check` reads the table's grants and plans the difference and changes nothing, and `enforce` applies the plan. |
 
 The provider is not a flag of this command. Set it before the subcommand (`fluid --provider gcp policy apply ...`) or with `FLUID_PROVIDER`.
 
@@ -34,7 +34,7 @@ The provider is not a flag of this command. Set it before the subcommand (`fluid
 | --- | --- |
 | `gcp` | Reports the compiled bindings and returns `status: ok` with `applied: 0`, in both modes. The provider's own message says GCP IAM is provisioned declaratively by `fluid apply` from the contract, and that this stage does not mutate IAM through the Google SDK. |
 | `aws`, `snowflake`, `local`, and any other provider without an applier | Prints `No policy bindings were enforced` and says the provider has no standalone policy applier. Exit `0`. |
-| `lakekeeper`, a binding that [`fluid policy compile`](./policy-compile.md#lakekeeper-tables) writes for an Iceberg table that Lakekeeper catalogs | *On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* Reads the table's grants in Lakekeeper itself and, with `--mode enforce`, applies the difference, whatever cloud the expose is on. See [Lakekeeper tables](#lakekeeper-tables). |
+| `lakekeeper`, a binding that [`fluid policy compile`](./policy-compile.md#lakekeeper-tables) writes for an Iceberg table that Lakekeeper catalogs | *(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* Reads the table's grants in Lakekeeper itself and, with `--mode enforce`, applies the difference, whatever cloud the expose is on. See [Lakekeeper tables](#lakekeeper-tables). |
 | any provider, `bindings` empty | Succeeds without resolving a provider. A contract with no `accessPolicy` grants compiles to zero bindings. |
 
 For the cloud providers the grants, masking and row-access policies come from `fluid apply` (stage 7). For GCP that includes the column-level policy tags that `policy.authz.columnRestrictions` produces; `fluid policy compile` does not model them, so they never appear in `bindings.json`.
@@ -54,7 +54,7 @@ is a no-op for this provider.
 
 ## Lakekeeper tables
 
-*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).*
+*(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))*
 
 A binding with `provider: lakekeeper` goes to Lakekeeper itself, through its management API, and never to a cloud. [`fluid policy compile`](./policy-compile.md#lakekeeper-tables) writes one for each principal that has access to an Iceberg table that Lakekeeper catalogs. A bindings file can hold both kinds: the bindings of a cloud go to its provider first, as before, and the Lakekeeper ones after them. A file with Lakekeeper bindings alone builds no provider, so it needs no cloud credentials.
 

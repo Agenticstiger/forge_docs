@@ -99,7 +99,7 @@ A consumer that read the old export, such as a data quality engine or a catalog 
 
 ## Declared invariants as quality rules
 
-*On forge-cli `main`, not yet in a release ([forge-cli #970](https://github.com/Agenticstiger/forge-cli/pull/970)).*
+*(since 0.33.0, [forge-cli #970](https://github.com/Agenticstiger/forge-cli/pull/970))*
 
 On a `fluidVersion: 0.7.7` contract, the export writes each rule the contract declares as an executable ODCS quality rule: each `exposes[].contract.invariants[]` entry, each identifier format and placeholder declaration, each `sharedColumns` entry and each member of a `sharedAttribute`. See [Rules about valid data](../concepts/data-rules.md) for how to declare them. Both [`fluid generate standard --format odcs`](./generate.md) and `fluid odcs export` write them.
 

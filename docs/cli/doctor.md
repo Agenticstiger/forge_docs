@@ -54,16 +54,16 @@ fluid doctor --env
 | Option | Description |
 | --- | --- |
 | `--scope {authoring\|pipeline\|ingestion\|infra\|catalog\|all}` | Run one group of checks, or all of them. There is no default scope: without `--scope`, `fluid doctor` runs the checks described under [Without `--scope`](#without-scope). |
-| `--env` | List the recognised `FLUID_*` runtime switches with their current value, source and default behaviour. See [`--env`](#env-the-runtime-switches). Alone, it keeps this meaning. *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract` it takes a name, the environment overlay, as on `plan` and `apply`. |
-| `--contract FILE` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* Preflight a contract (or a `.tgz` bundle): can the operation run here? Offline. See [`--contract`](#contract-can-this-operation-run-here). |
-| `--operation {validate,generate,plan,apply,ship}` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`: the operation to preflight. Default `plan`, the offline plan. |
-| `--live` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`: add read-only checks of the identity and the state backend, for `apply` and `ship`. |
-| `--provider P` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`: the cloud `apply` provisions, as `apply` takes it. A contract on several clouds needs one for `apply` and `ship`. |
-| `--state-backend SPEC` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`: the OpenTofu state `apply` uses (`s3://...` or `gcs://...`), as `apply` takes it. Else `FLUID_STATE_BACKEND`. |
-| `--compare LEFT RIGHT` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* Compare two saved `--contract --json` reports and name the version gaps. |
+| `--env` | List the recognised `FLUID_*` runtime switches with their current value, source and default behaviour. See [`--env`](#env-the-runtime-switches). Alone, it keeps this meaning. *(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))* With `--contract` it takes a name, the environment overlay, as on `plan` and `apply`. |
+| `--contract FILE` | *(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))* Preflight a contract (or a `.tgz` bundle): can the operation run here? Offline. See [`--contract`](#contract-can-this-operation-run-here). |
+| `--operation {validate,generate,plan,apply,ship}` | *(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))* With `--contract`: the operation to preflight. Default `plan`, the offline plan. |
+| `--live` | *(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))* With `--contract`: add read-only checks of the identity and the state backend, for `apply` and `ship`. |
+| `--provider P` | *(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))* With `--contract`: the cloud `apply` provisions, as `apply` takes it. A contract on several clouds needs one for `apply` and `ship`. |
+| `--state-backend SPEC` | *(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))* With `--contract`: the OpenTofu state `apply` uses (`s3://...` or `gcs://...`), as `apply` takes it. Else `FLUID_STATE_BACKEND`. |
+| `--compare LEFT RIGHT` | *(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))* Compare two saved `--contract --json` reports and name the version gaps. |
 | `--json` | Machine-readable output. What it contains depends on the other flags; see [`--json`](#json-output). |
 | `--features-only` | Run only the feature-availability check and skip the rest of the default run. |
-| `--strict` | *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* Exit `1` whenever the summary says "Action needed", copilot readiness included. See [`--strict`](#strict). *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`, it also exits `1` when a capability is `lossy`. |
+| `--strict` | *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* Exit `1` whenever the summary says "Action needed", copilot readiness included. See [`--strict`](#strict). *(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))* With `--contract`, it also exits `1` when a capability is `lossy`. |
 | `--extended`, `--comprehensive` | Also run a `scripts/diagnose.sh` that you provide in the current directory. See [`--extended`](#extended). |
 | `--out-dir DIR` | Where `--extended` writes its diagnostic files. Default `runtime/diag`. |
 | `--verbose`, `-v` | Show detailed output. |
@@ -191,7 +191,7 @@ This lists the switches `fluid doctor` knows about. It is a convenient first loo
 
 ## `--contract`: can this operation run here?
 
-*On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).*
+*(since 0.33.0, [forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992))*
 
 `fluid doctor --contract` answers one question before CI starts: can this operation run on this machine, for this contract? It reads the contract (or a bundle), resolves what the operation needs, and checks the machine against it. It is offline unless you pass `--live`: it fetches no schema, provider or tool, and installs nothing.
 

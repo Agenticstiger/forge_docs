@@ -437,8 +437,8 @@ The declarations travel with the contract. What reads them in this version:
 | Consumer | What it does |
 | --- | --- |
 | `fluid validate` | Runs the lint above. |
-| ODCS export | Carries the declarations through `fluidExtras`, so FLUID to ODCS and back to FLUID loses none. *On forge-cli `main`, not yet in a release ([forge-cli #970](https://github.com/Agenticstiger/forge-cli/pull/970)):* it also writes each one as an executable quality rule. See [ODCS](../cli/odcs.md#declared-invariants-as-quality-rules). |
-| dbt bridge | Output is unchanged. *On forge-cli `main`, not yet in a release ([forge-cli #991](https://github.com/Agenticstiger/forge-cli/pull/991)):* [`fluid generate dbt-tests`](../cli/generate.md#declared-rules-as-dbt-tests) also writes a `fluid_rule` test for each invariant, identifier format, bounded placeholder declaration, shared column and shared attribute. |
+| ODCS export | Carries the declarations through `fluidExtras`, so FLUID to ODCS and back to FLUID loses none. *(since 0.33.0, [forge-cli #970](https://github.com/Agenticstiger/forge-cli/pull/970))* It also writes each one as an executable quality rule. See [ODCS](../cli/odcs.md#declared-invariants-as-quality-rules). |
+| dbt bridge | Output is unchanged. *(since 0.33.0, [forge-cli #991](https://github.com/Agenticstiger/forge-cli/pull/991))* [`fluid generate dbt-tests`](../cli/generate.md#declared-rules-as-dbt-tests) also writes a `fluid_rule` test for each invariant, identifier format, bounded placeholder declaration, shared column and shared attribute. |
 | MCP `describe` | Returns the invariants, formats, placeholders and shared attributes. See [`fluid mcp`](../cli/mcp.md). |
 | Contract digest | Covers every field here, so changing a rule changes the digest. |
 

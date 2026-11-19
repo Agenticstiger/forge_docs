@@ -54,7 +54,7 @@ fluid bundle contract.fluid.yaml --env prod --format tgz --out runtime/bundle.tg
 | --- | --- |
 | `--sign` | Sigstore cosign sign the emitted tgz. Default is keyless OIDC (GitHub / GitLab / CircleCI / GCP WIF are detected by cosign). Writes `<bundle>.sig` and, in keyless mode, `<bundle>.pem` next to the tgz. Needs `cosign` on `PATH`. |
 | `--sign-key PATH_OR_KMS_URI` | Use keyed cosign signing instead of keyless. Accepts a key file path or a KMS URI (`awskms://`, `gcpkms://`, `azurekms://`, `hashivault://`, `k8s://`, `pkcs11://`, `file://`). Needs `COSIGN_PASSWORD` for an encrypted local key. Ignored without `--sign`. For Bitbucket Pipelines, air-gapped and regulated environments without OIDC. |
-| `--attest` | Write an in-toto v1 Statement with a SLSA Provenance v1 predicate next to the bundle as `<bundle>.intoto.jsonl`. Records the git commit SHA, CI run URL, bundle digest and builder identity. *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* The statement's subject is the sha256 of the bundle file; see [Signing and attestation](#signing-and-attestation). Works offline with a localhost builder and a random run id; full SLSA Level 2 needs a trusted build service. |
+| `--attest` | Write an in-toto v1 Statement with a SLSA Provenance v1 predicate next to the bundle as `<bundle>.intoto.jsonl`. Records the git commit SHA, CI run URL, bundle digest and builder identity. *(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))* The statement's subject is the sha256 of the bundle file; see [Signing and attestation](#signing-and-attestation). Works offline with a localhost builder and a random run id; full SLSA Level 2 needs a trusted build service. |
 
 With `--format yaml` or `json`, `--sign` and `--attest` are ignored without a
 warning: the command exits `0` and writes no `.sig` or `.intoto.jsonl`. CI
@@ -186,7 +186,7 @@ may only use same-document refs; see
 
 #### The dbt project of a dbt build
 
-*On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).*
+*(since 0.33.0, [forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972))*
 `fluid bundle --format tgz` packs the dbt project of each dbt build under
 `sources/dbt/<build id>/`, byte for byte, so that a model edited after the
 plan was made cannot run unreviewed. In 0.32.0 and earlier the bundle holds no
@@ -368,9 +368,9 @@ The file itself is compact JSON with sorted keys.
 |---|---|
 | `files` | SHA-256 of each file in the archive except `MANIFEST.json`. |
 | `digest` | The bundle digest (`bundleDigest` in `plan.json`): SHA-256 over the sorted `<path>:<file digest>` lines, one per file. |
-| `source.contract` | 0.32.0 and earlier: the source contract, relative to the directory the bundle was written to. *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)),* the MANIFEST does not hold it: see [The provenance file](#the-provenance-file). Paths inside the MANIFEST of an older bundle are not read. |
+| `source.contract` | 0.32.0 and earlier: the source contract, relative to the directory the bundle was written to. *(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))* The MANIFEST does not hold it: see [The provenance file](#the-provenance-file). Paths inside the MANIFEST of an older bundle are not read. |
 | `source.env` | The `--env` the bundle was built with, or `null`. |
-| `source.overlay` | 0.32.0 and earlier: the overlay file that was merged, relative to the contract's directory, or `null`. *On `main`,* it moved to the provenance file with `source.contract`. |
+| `source.overlay` | 0.32.0 and earlier: the overlay file that was merged, relative to the contract's directory, or `null`. *Since 0.33.0,* it moved to the provenance file with `source.contract`. |
 | `source.overlayWarnings` | *(since 0.22.0, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* The overlay merge warnings `fluid validate --strict` fails on, one message each: a patch that landed on another entry. Present only when the merge raised one. |
 
 The `source` block is outside the digest, so the digest names the resolved
@@ -378,7 +378,7 @@ contract alone: the same contract bundled into two directories keeps one
 digest. The same holds for the manifest's integrity check: it recomputes the
 digest from the files, so it does not cover `source`, and later stages read
 `source.env` to refuse a mismatched `--env`. A cosign signature
-(`--sign`) over the whole tgz covers it. *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* So does the
+(`--sign`) over the whole tgz covers it. *(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))* So does the
 `packetDigest` that a plan records: see [The packet digest](#the-packet-digest).
 You can recompute the digest from an extracted bundle:
 
@@ -396,7 +396,7 @@ the manifest records, with any character that is not printable escaped.
 
 #### The provenance file
 
-*On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).*
+*(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))*
 In 0.32.0 and earlier the MANIFEST recorded the source contract relative to the
 directory of `--out`. One checkout bundled to `out.tgz` and to `x/y/out.tgz`
 gave two different archives with one digest. The paths now go to a file beside
@@ -440,7 +440,7 @@ contract.
 
 #### The packet digest
 
-*On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).*
+*(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))*
 `fluid bundle` prints two digests. They name different things:
 
 | Digest | Printed as | Covers |
@@ -568,7 +568,7 @@ attestation_written
    intoto: /work/customer-360/runtime/bundle.tgz.intoto.jsonl
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).*
+*(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))*
 The statement's subject is the bundle file: its name and its sha256 in bare
 hex, the form in-toto's digest set takes. A verifier that runs `sha256sum` on
 the file finds that value. The subject of a run on `main`, trimmed:
@@ -600,11 +600,11 @@ The tgz format produces **byte-identical output** across independent runs of the
 - YAML via `yaml.safe_dump(sort_keys=True, default_flow_style=False)`.
 - JSON via `json.dumps(sort_keys=True, separators=(",", ":"))`.
 - Extracted SQL / OpenAPI sources: byte-identical to the source strings after Unicode NFC normalisation + trailing-newline enforcement. No formatter mutation.
-- *On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).* The dbt files of a dbt build: the bytes on disk, listed in sorted order, with no newline or Unicode change.
+- *(since 0.33.0, [forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972))* The dbt files of a dbt build: the bytes on disk, listed in sorted order, with no newline or Unicode change.
 
 Result: the bundle's SHA-256 digest is a stable identifier usable as a cache key, a release artifact, or the `bundleDigest` field in `plan.json`. It does not depend on how the contract is split into fragments.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).*
+*(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))*
 The archive does not depend on where it was written either: the same checkout
 bundled to two `--out` paths gives the same bytes, and the `packet:` digest
 `fluid bundle` prints is the same (see [The packet digest](#the-packet-digest)).

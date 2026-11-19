@@ -15,7 +15,7 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 ::: warning Where you set it matters
 Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may hold credentials but not a setting that widens a sandbox, moves where the CLI reads trusted configuration, changes authentication or trust, changes where data and credentials are sent, or chooses which program runs. `fluid` names what it ignored and runs without it. Export those in your shell, your CI job, or a `FLUID_SECRETS_FILE` you export — see [What a project's `.env` may set](./project-dotenv-trust.md). 
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1004](https://github.com/Agenticstiger/forge-cli/pull/1004)).* A project file can no longer set a name that is not a shell identifier, a name that starts with `BASH_FUNC_`, `BASH_XTRACEFD`, `ZDOTDIR`, `FPATH`, `NULLCMD` or `READNULLCMD` either.
+*(since 0.33.0, [forge-cli #1004](https://github.com/Agenticstiger/forge-cli/pull/1004))* A project file can no longer set a name that is not a shell identifier, a name that starts with `BASH_FUNC_`, `BASH_XTRACEFD`, `ZDOTDIR`, `FPATH`, `NULLCMD` or `READNULLCMD` either.
 :::
 
 ## CLI behaviour
@@ -93,7 +93,7 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 | `FLUID_SPARK_TARGET_ALLOWLIST` | The existing runtimes a contract may name (`emr-serverless:<applicationId>`, `emr-ec2:<clusterId>`, `emr-eks:<virtualClusterId>`) and the MSK clusters it may read (`msk:<cluster ARN>`). |
 | `FLUID_SPARK_EXECUTION_ROLE_ALLOWLIST` | The roles `parameters.spark.executionRoleArn` may name: a role ARN, or an ARN prefix ending in `/`. |
 | `FLUID_SPARK_CONF_ALLOWLIST` | `sparkConf` keys beyond the built-in tuning keys: a key, or a prefix ending in `*`. A key that loads code, sets credentials or moves the catalog or checkpoint is refused even when listed. |
-| `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` a Spark job may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>`. *On forge-cli `main`, not yet in a release ([forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990)).* `fluid validate` reads it too, and warns only about a build it does not approve: see [Contract SQL and `fluid validate`](./spark-iceberg-aws.md#contract-sql-and-fluid-validate). |
+| `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` a Spark job may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>`. *(since 0.33.0, [forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990))* `fluid validate` reads it too, and warns only about a build it does not approve: see [Contract SQL and `fluid validate`](./spark-iceberg-aws.md#contract-sql-and-fluid-validate). |
 | `FLUID_SPARK_WAIT_SECONDS` | How long a reconcile waits for a cancelled run to stop and a started one to leave its pending states. Default 900. |
 | `FLUID_SPARK_MAVEN_REPOSITORY` | One https Maven mirror that replaces Confluent's repository in `spark.jars.repositories`. A URL with a user or password, a query, a comma, plain http or a link-local host is refused. |
 | `FLUID_SPARK_GLUE_JARS_URL` | `s3://<bucket>/<prefix>/`: where the platform keeps the pinned jars of a Glue Confluent Avro build. |
@@ -111,7 +111,7 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 | `FLUID_FLINK_IMAGE_ALLOWLIST` | The images it may run: an exact repository, without `:tag` and `@sha256:`, or a prefix ending in `/`. |
 | `FLUID_FLINK_SERVICE_ACCOUNT_ALLOWLIST` | The service accounts the job may run as: `name`, in any listed namespace, or `namespace/name`. |
 | `FLUID_FLINK_SECRET_ALLOWLIST` | The Kubernetes Secrets `deployment.secretRefs` may mount, in the same two forms. |
-| `FLUID_FLINK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` `fluid apply` may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>` for that SQL only. The refusal prints the pinned entry. *On forge-cli `main`, not yet in a release ([forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990)).* `fluid validate` reads it too: see [A build's own SQL](./managed-flink-iceberg.md#a-build-s-own-sql). |
+| `FLUID_FLINK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` `fluid apply` may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>` for that SQL only. The refusal prints the pinned entry. *(since 0.33.0, [forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990))* `fluid validate` reads it too: see [A build's own SQL](./managed-flink-iceberg.md#a-build-s-own-sql). |
 | `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | For managed Flink: every hostname the job contacts (the catalog and an OAuth2 token endpoint at apply and verify; at `fluid apply` also an `s3.endpoint`, the Kafka brokers and the schema registry), and every public IP address. Link-local addresses are always refused. Also read by acquisition deployments and by the Kafka Connect and embedded Debezium Iceberg sinks, where it lists a catalog or token-endpoint hostname the worker resolves itself ([Operator allowlists](./source-aligned-acquisition.md#operator-allowlists)). |
 | `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | A `catalogAuth` variable, as `NAME@host`, for each host that receives it or a token minted from it. Read by managed Flink and by the Kafka Connect and embedded Debezium Iceberg sinks ([Operator allowlists](./source-aligned-acquisition.md#operator-allowlists)); acquisition sources use it for their `secretRef`. A bare `NAME` allows every host. *(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* It now covers a `secretRef` of every scheme, with more entry forms: see [Secret references](#secret-references). |
 
@@ -119,7 +119,7 @@ The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments rea
 
 ## Lakekeeper grants (`fluid policy apply`)
 
-*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* The operator sets these in the real environment of the job that runs `fluid policy apply`: a project `.env` cannot set them. See [Lakekeeper tables](../cli/policy-apply.md#lakekeeper-tables).
+*(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* The operator sets these in the real environment of the job that runs `fluid policy apply`: a project `.env` cannot set them. See [Lakekeeper tables](../cli/policy-apply.md#lakekeeper-tables).
 
 | Variable | Effect |
 |---|---|

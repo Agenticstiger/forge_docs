@@ -192,7 +192,7 @@ fluid policy-apply runtime/policy/bindings.json --mode enforce   # same effect i
 
 On GCP the command reports the compiled bindings and returns `applied: 0`. A provider with no standalone policy applier prints that no bindings were enforced and exits 0. An empty bindings file is a no-op that exits 0. GCP access is provisioned by `fluid apply`, which writes the dataset IAM from `accessPolicy.grants` and the policy tags for column restrictions. See [`fluid policy apply`](../cli/policy-apply.md#what-each-provider-does) for each provider.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* A binding for a table that Lakekeeper catalogs is the exception: the command applies it in Lakekeeper, and `--mode enforce` changes that table's grants there. See [Lakekeeper tables](../cli/policy-apply.md#lakekeeper-tables).
+*(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* A binding for a table that Lakekeeper catalogs is the exception: the command applies it in Lakekeeper, and `--mode enforce` changes that table's grants there. See [Lakekeeper tables](../cli/policy-apply.md#lakekeeper-tables).
 
 ## Governance workflow
 
