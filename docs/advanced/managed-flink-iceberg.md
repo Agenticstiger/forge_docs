@@ -251,7 +251,7 @@ The refusal prints the pinned entry for the SQL it found. All three forms are ac
 - **Build:** `<product>/<build>` approves whatever SQL that build runs.
 - **Product:** `<product>` approves every build of the product.
 
-`fluid validate` warns about every build that brings its own SQL.
+`fluid validate` warns about a build that brings its own SQL. *On forge-cli `main`, not yet in a release ([forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990)).* It reads the same list, under the same environment as `fluid apply`, and warns only while apply would refuse the build: one the list does not name, or one whose entry pins other SQL, in which case the warning says so. A build listed by product, by build or with the digest of its SQL gets no warning about its SQL, so `fluid validate --strict` passes when nothing else warns. In 0.32.0 and earlier it warned about every build that brings its own SQL, whatever the list held. [Contract SQL and `fluid validate`](./spark-iceberg-aws.md#contract-sql-and-fluid-validate) has the cases and the output; the Flink variable is `FLUID_FLINK_CONTRACT_SQL_ALLOWLIST`.
 
 ## Operator settings
 
