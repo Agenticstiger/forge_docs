@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.34.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.35.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.34.0                                                              │
+│ Version: 0.35.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.34.0"
+pip install "data-product-forge[local]==0.35.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.34.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.35.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -1501,6 +1501,19 @@ These changes are in 0.34.0.
 *(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))*
 
 - **`fluid generate schedule` writes a keepalive DAG for an always-on stream that declares `execution.retries`.** On Airflow, a Spark stream that is not `trigger.availableNow` and not `trigger.type: continuous` gets a DAG whose one task, `fluid_keepalive`, runs `fluid apply <contract> --mode reconcile --build-id <stream> --yes` every 5 minutes, or on the build's `execution.orchestration.airflow.dagConfig.schedule`. A stream that died starts again on its checkpoint, within the restart budget that `execution.retries` sets, and a run fails when the stream cannot be kept running. A stream that already declares `execution.retries` gets the DAG from its next `fluid generate schedule` or `fluid generate artifacts`. A stream without `execution.retries` gets no DAG, as before. A contract whose only builds are such streams gets this DAG instead of `No build needs a DAG`; Prefect, Dagster and `fluid scaffold-composer` still write nothing for it. The worker needs the `FLUID_SPARK_*` settings and the forge release that the CI apply has. See [Keeping a stream running](./advanced/airflow.md#keeping-a-stream-running).
+
+## Changes in 0.35.0
+
+These changes are in 0.35.0.
+
+*(since 0.35.0, [forge-cli #1022](https://github.com/Agenticstiger/forge-cli/pull/1022))*
+
+- **A plan made from a `fluid ship --release-dir` release can be applied when the contract has a dbt build.** The release now holds `bundle.tgz.provenance.json`, listed in `release.json` `files` and outside `identity`. Through 0.34.0 `fluid apply` refused such a plan with `apply_plan_digest_bundle_mismatch`. `fluid ship` warns `release_provenance_missing` when it cannot write the file. See [Publishing a release](./cli/ship.md#publishing-a-release).
+- **A plan can be applied in another checkout of the same tree.** When the paths the plan records are gone, `fluid apply` finds the contract through the provenance file beside the bundle it verified the plan against. The dbt files must still match the packed copy. See [The dbt project](./cli/apply.md#the-dbt-project).
+
+*(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))*
+
+- **`data-product-forge[profile]` installs flux-stats 0.7.0.** The extra asked for `flux-stats>=0.6.2,<0.7` in 0.34.0 and asks for `flux-stats[yaml]>=0.7.0,<0.8` now. Upgrade the extra with `pip install -U 'data-product-forge[profile]'`. `fluid profile` stops with `profile_statistics_unavailable` on an older flux-stats. See [fluid profile](./cli/profile.md).
 
 ## Older releases
 

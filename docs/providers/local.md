@@ -1,7 +1,7 @@
 # Local Provider
 
 **Status:** ✅ Production Ready  
-**Docs Baseline:** CLI `0.18.1`<br>  <!-- cli-version: historical -->
+**Docs Baseline:** CLI `0.18.1`, released on 5 October 2026. This site is pinned to CLI `0.35.0`, and a part marked *(since …)* or *(on forge-cli `main`)* describes a later change.<br>  <!-- cli-version: historical -->
 **Engine:** DuckDB (1.5.0 or later)
 
 > **Why it matters**

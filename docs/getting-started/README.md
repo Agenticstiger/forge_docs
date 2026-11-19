@@ -25,7 +25,7 @@ fluid version
 ```text
 ╭───────────────────────────────────── 📦 Version Information ─────────────────────────────────────╮
 │ FLUID CLI                                                                                        │
-│ Version: 0.34.0                                                                                  │
+│ Version: 0.35.0                                                                                  │
 │ API: v1                                                                                          │
 │                                                                                                  │
 │ Supported Specifications:                                                                        │
@@ -55,7 +55,7 @@ The table lists the extras a first project needs. A base install has none of `li
 
 ```bash
 pip install "data-product-forge[local,gcp]"           # several extras at once
-pip install "data-product-forge[local]==0.34.0"       # an exact version, for CI
+pip install "data-product-forge[local]==0.35.0"       # an exact version, for CI
 ```
 
 A cloud `fluid apply` runs OpenTofu, so it also needs `tofu` 1.6.0 or newer on your `PATH`, or `fluid apply --ensure-opentofu`, which downloads a pinned build from the OpenTofu release and checks it against that release's `SHA256SUMS` (integrity, not a signature). *(since 0.31.0, [forge-cli #899](https://github.com/Agenticstiger/forge-cli/pull/899))* The minimum is 1.12.0, and the pinned build is 1.13.9. For production CI, install OpenTofu with a cosign- or gpg-verified install instead, and keep `tofu` on the runner image. The local path in this tutorial does not use OpenTofu.

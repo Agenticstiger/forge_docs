@@ -6,11 +6,11 @@ Profile one expose's records where they live, and write a profile document of ou
 
 FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
 
-The `[profile]` extra installs DuckDB and `flux-stats` (`>=0.6.0,<0.7`) from PyPI. Without flux-stats, `fluid profile` stops before it reads anything and says what to install:
+The `[profile]` extra installs DuckDB and `flux-stats` from PyPI: `flux-stats>=0.6.2,<0.7` through 0.34.0 and, *(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))*, `flux-stats[yaml]>=0.7.0,<0.8`. Without flux-stats, `fluid profile` stops before it reads anything and says what to install:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
-  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed. It needs flux-stats>=0.6.0,<0.7; install it with: pip install 'data-product-forge[profile]'
+  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed. It needs flux-stats[yaml]>=0.7.0,<0.8; install it with: pip install 'data-product-forge[profile]'
   read: nothing: no record was read
   next: pip install 'data-product-forge[profile]'
 ```
@@ -155,18 +155,22 @@ For each property, the document holds the statistic the engine compares it with:
 | `marginalHistogram` | `marginalHistogram/1`: a count for each of the property's bins |
 | `levelHistogram` | `levelHistogram/1`: a count for each level the column declares |
 | `support` | `support/1`: the declared levels the records hold |
-| `quantile` | `quantile/1`: the value at the property's `level`, in steps of the grid, with the number of records below it and at or below it, both rounded like every count |
+| `quantile` | `quantile/1`: the value at the property's `level`, in steps of the grid, with the number of records below it and at or below it, both rounded like every count. *(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))* A `quantile` that declares `bins` is answered with `quantile/2` instead, see below |
 | `correlation` | nothing: see below |
 
 A property with a `groupBy` gets one group for each level of that column the records hold, and one without gets a single group. The grid is the block's `encoding.fractionalBits`, 16 when the block declares none, and a `--fractional-bits` that differs is refused with `profile_fractional_bits_conflict`. Each number column still gets the [ungrouped `mean/1`](#the-mean-1-statistic), written once when the block declares that same mean.
 
 The block is read the way the FLUX engine reads it, and the fidelity grammar in flux-stats parses it, so a profile and a check read the same declarations. Before any record is read, `fluid profile` refuses a block the engine would refuse (`profile_bundle_block_refused`, with the engine's code), and a property over a column the profile does not read, or reads in another domain than the property does (`profile_bundle_column_not_profiled`, `profile_bundle_column_domain`). A record value outside the block's declared range for its column is refused with `profile_bundle_record_refused`, and so is a level outside the declared support where a level histogram or a `groupBy` reads the column; nothing is written, and the refusal names the row, never the value. A `support` lists the levels the records hold, as the engine reads them. A bundle that gives no block is refused before any record is read, with `profile_bundle_not_a_directory`, `profile_bundle_no_simulation`, `profile_bundle_many_simulations`, `profile_bundle_no_block` or `profile_bundle_unreadable`. `profile_bundle_unreadable` also refuses a block that holds more than 100,000 values once its YAML aliases are written out, nests deeper than 64 levels, or holds a number of more than 1,000 digits written out, and a bundle whose YAML merge keys (`<<`) copy more than 100,000 pairs.
 
-`--bundle` needs flux-stats 0.6.2 or newer, the first release that holds the fidelity grammar, and on `main` the `[profile]` extra asks for `>=0.6.2,<0.7`. With an older flux-stats, `--bundle` stops before it reads anything:
+*(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))* A `quantile` property that declares `bins` is answered with `quantile/2`. The group states the declared bin that holds the order statistic at its level, and the records below that bin and through it, and no witness. A reader checks that the rounded counts still put the order statistic in that bin, and a group whose rounded counts do not is withheld. A profile that holds one names format `1-1-0`, and every other profile keeps `1-0-0` and its bytes. A quantile with bins is published beside a histogram that shares its bins, where a `quantile/1` is withheld.
+
+*(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))* `--bundle` reads the bundle's YAML with flux-stats' exact reader and puts its block in the canonical form with flux-stats, where 0.34.0 used a copy of the engine's code. The bounds hold as before and a refusal still names the file, and the line where the reader reports one, never a value. Its words differ in places: a YAML error names the line and column where the reader found it, the most values a document may write out through its aliases is 1,000,000, and the characters it writes out are bounded too. A block whose bins are not strictly increasing grid points is refused before any record is read (`FLX-5004`), as the fidelity check refuses it.
+
+Through 0.34.0, `--bundle` needed flux-stats 0.6.2 or newer, the first release that holds the fidelity grammar, and the `[profile]` extra asked for `>=0.6.2,<0.7`. *(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))* Every `fluid profile` run needs `flux-stats[yaml]>=0.7.0,<0.8`, the first release that holds the readers and the check below. With an older flux-stats, `fluid profile` stops before it reads anything, whether or not it has `--bundle`:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
-  detail: --bundle reads the fidelity block with flux-stats, and the installed flux-stats lacks flux_stats.fidelity. It needs flux-stats>=0.6.2,<0.7
+  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats 0.6.2 is installed but cannot be imported (ImportError). It needs flux-stats[yaml]>=0.7.0,<0.8; install it with: pip install 'data-product-forge[profile]'
   read: nothing: no record was read
   next: pip install 'data-product-forge[profile]'
 ```
@@ -196,7 +200,9 @@ What the checks leave readable, on purpose: a grouped statistic lists every grou
 *(since 0.33.0, [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967), [forge-cli #978](https://github.com/Agenticstiger/forge-cli/pull/978))* One thing changes in that paragraph: a histogram or quantile group withheld for its size now brings secondary suppression, as the checks above say, and its siblings are withheld too. A withheld histogram cell still does not. The checks also leave two more things readable, or open:
 
 - A published `min` shows that no record lies below it, and a published `max` that none lies above it. That is a range of no records, and no check withholds a `min` or a `max` for it. A quantile group whose value is the smallest or the largest of its records shows the same, and `acro-default` holds zeros disclosive, so the group is withheld for that.
-- The checks do not close one gap yet. A reader can still subtract one histogram's published counts from another's, or from a level histogram's group size, and read a withheld cell, a zero included, to within the rounding. forge-cli plans to close it with FLUX's `check_edge_counts`, which a flux-stats release has to carry first, and to ship that in a later release.
+- Through 0.34.0 the checks left one gap: a reader could subtract one histogram's published counts from another's, or from a level histogram's group size, and read a withheld cell, a zero included, to within the rounding.
+
+*(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))* `fluid profile` passes every histogram, level histogram and quantile of a column to flux-stats' `check_edge_counts` in one call, and publishes what it lets through. A histogram and a coarser one of one column, or a published cell and the column's count, no longer give a withheld cell back by subtraction, and a cell that does goes with it. A level histogram is checked over its levels as it is over bins, so one small level withholds a neighbour. A histogram that does not sit on the column's one partition of bins is withheld, and so is a group whose rounded counts no longer prove its quantile. The summary counts a cell or group withheld for its size or rounding as `A`, and one withheld so that another cannot be recovered as `D`. The check does not see a column's `support/1`, the group sizes of a statistic grouped by the column, or a declared level that holds no record, which is absent from a grouped statistic.
 
 A `correlation` property is not answered: its moments need the exact number of records, which the checks round. The summary names it, and `fluxsim verify` fails with `FLX-5037`, so a block you check against a profile cannot declare a correlation yet.
 
