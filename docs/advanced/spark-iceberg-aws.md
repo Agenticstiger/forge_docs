@@ -780,6 +780,13 @@ spark.sql.shuffle.partitions=16
 1a04314328989295
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1014](https://github.com/Agenticstiger/forge-cli/pull/1014)).* The argv of a run on `main` ends with two more lines, `--fluid-job-sha256` and the digest of the job config that forge wrote under the root, and the runner refuses any other config before it reads anything: see [A run starts only on the config this apply compiled](#a-run-starts-only-on-the-config-this-apply-compiled). These are the two lines in a run of the same stream on `main`:
+
+```text
+--fluid-job-sha256
+273573946cb2003dc5cb3d54ecb3223eada561317cd2ed8df658b9c6fc11e22f
+```
+
 forge puts the properties file's path on the command line, and copies none of its values there, except the two lists it merges, below. forge passes the settings of the run beside the file's: the contract's allowed `sparkConf` ([Spark settings](#spark-settings)), the Iceberg extension and the Kafka connector package. For `spark.jars.packages` and `spark.sql.extensions`, which `spark-submit` would otherwise replace as a whole, forge passes the union of the file's value and its own, the file's entries first. A package that both name is passed once, in the file's version. The file's own `spark.jars` and `spark.jars.repositories` replace forge's, so on a Spark that is not an EMR image the file names the Iceberg runtime jar there. Without its own `spark.jars`, forge points `spark.jars` at the path an EMR image keeps it, `/usr/share/aws/iceberg/lib/iceberg-spark3-runtime.jar`.
 
 ### Operator settings for a local run
@@ -1043,6 +1050,44 @@ The line is printed unbroken, and a narrow terminal wraps it at spaces: join the
 
 The output above is from forge-cli's reconcile step, the code `fluid apply` runs after `tofu apply`, with AWS answered by botocore's test stubs: the real cluster, instance profile and role calls were not made.
 
+### A run starts only on the config this apply compiled
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1014](https://github.com/Agenticstiger/forge-cli/pull/1014)).* A run's job config is an object in S3, which the runtime reads when the run starts and again each time it starts the job again after a failure. Until this change nothing checked what the object held: a config that another `fluid apply` had put there since this one compiled its runs would run under the config hash of this apply's runs, and a later `fluid apply` would take the hash for the config. Now a run starts only on the config that `fluid apply` compiled, in two steps.
+
+1. **`fluid apply` reads the job config and the runner back from S3 before it starts a run, and starts nothing unless both are the ones it compiled.** This is for the runs on AWS: EMR Serverless, Glue, EMR on EC2 and EMR on EKS. The job config counts when its [digest](#the-digest) is the compiled config's. The runner counts when it is, byte for byte, the runner that this forge-cli ships. On EMR on EC2 the [check that the policy is attached](#an-emr-on-ec2-step-starts-once-its-policy-is-attached) comes first. A mismatch is the build's error, and `fluid apply` ends with exit code `1`. Nothing new was started. A running job of another config, which `fluid apply` cancels before it starts the new one, is already cancelled by then, so the stream stays stopped until the next `fluid apply`:
+
+   ```text
+   Spark ingest-orders (emr-ec2): failed. Spark build ingest-orders: s3://commerce-lake/_fluid/spark/commerce.orders-stream/ingest-orders/job.json or its runner is not the one this apply compiled (another apply has changed it since); nothing was started. Run fluid apply again: it uploads them and starts the run on them
+   ```
+
+   An object that cannot be read, or is larger than 4 MiB, refuses the start in the same way. forge reads the config first and then the runner, and the message names the object it could not read: `s3://commerce-lake/_fluid/spark/commerce.orders-stream/ingest-orders/job.json cannot be read to check it before the run starts (AccessDenied); nothing was started`, or `... is larger than any artifact forge writes; nothing was started`. The word in parentheses is the code that AWS answered with, or the name of the error when AWS did not answer. A scheduler's start, `fluid apply --mode amend-and-build`, goes through the same check and fails in the same way.
+
+2. **The run carries the digest, and the runner refuses any other config before it reads anything.** Every runtime, local included, starts the runner with `--fluid-job-sha256 <digest>` after the arguments that identify the run. These are the runner's arguments in the EMR on EC2 step of the example above:
+
+   ```text
+   --config s3://commerce-lake/_fluid/spark/commerce.orders-stream/ingest-orders/job.json --fluid-config-hash 4db36743c76cdbdd980138a0689119de161e565181a9546b0c3ca01a76ad0f49 --fluid-source 8de3ab14e359cfad --fluid-checkpoint 1a04314328989295 --fluid-job-sha256 5316fc870295d2ff984b6d407947d73ec4d316fdab2f0f48b3f34ba483d1d9dd
+   ```
+
+   The runner computes the digest of the config it reads, and when that is not the run's, it fails with `JobConfigError` before it reads a record. A runtime that starts the job again after a failure reads the config again, and the runner checks it again:
+
+   ```text
+   JobConfigError: the job config at s3://commerce-lake/_fluid/spark/commerce.orders-stream/ingest-orders/job.json is not the one fluid apply started this run on (its digest is 5316fc870295d2ff984b6d407947d73ec4d316fdab2f0f48b3f34ba483d1d9dd; the run's is 0000000000000000000000000000000000000000000000000000000000000000); nothing was read. Run fluid apply again: it starts a run on the config it uploads
+   ```
+
+   A run that someone starts by hand, without `--fluid-job-sha256`, is not checked.
+
+#### The digest
+
+The digest is the sha256 of the config's JSON in one canonical form: keys sorted, no spaces, strings in Unicode NFC (OpenTofu writes them so). Two things are not part of it as they are written. For a source that names an `mskClusterArn`, the broker list is left out, because OpenTofu fills it in at apply and MSK can change it, and a change would otherwise stop a stream's retries. The account number that OpenTofu fills into a config is the one that `fluid apply` fills into the compiled config before it compares. Every other field counts, a different `groupIdPrefix` included.
+
+#### What the check does not cover
+
+The check guards against another apply changing the config or the runner. Write access to the artifact bucket stays the boundary: someone who can write there can replace the runner after the read. The identity that runs `fluid apply` needs `s3:GetObject` on the two objects, and `kms:Decrypt` where the bucket encrypts them with a KMS key. The scheduler's policy `fluid-<product>-spark-caller` already holds `s3:GetObject` on both, but not `kms:Decrypt`: add that for the scheduler's role where the bucket encrypts them with a KMS key.
+
+The runner changed, so each running Spark stream restarts once on its next apply, on its checkpoint.
+
+The outputs are from forge-cli's reconcile step, the code `fluid apply` runs after `tofu apply`, with AWS answered by botocore's test stubs (the reads of S3 included), and from forge's runner, run as a script with a stand-in for Spark. No cluster, bucket or Spark job was involved.
+
 ### The caller's permissions
 
 The role that runs `fluid apply`, or the scheduler's execution role (the MWAA role, say) that runs `fluid apply --mode amend-and-build` for a scheduled build, needs these actions. A scheduler's worker runs the whole apply, `tofu` included, so it also needs the apply's own permissions and the state backend, as for any scheduled build: the caller policy below covers the run only. For a build that runs to completion, the managed policy `fluid-<product>-spark-caller` holds them, scoped to the product's own application, job, cluster or virtual cluster:
@@ -1055,6 +1100,8 @@ The role that runs `fluid apply`, or the scheduler's execution role (the MWAA ro
 | `emr-eks` | `emr-containers:StartJobRun`, `DescribeJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-containers.amazonaws.com` |
 
 Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a stronger one.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1014](https://github.com/Agenticstiger/forge-cli/pull/1014)).* A start on AWS also reads the build's job config and runner from S3, so the role needs `s3:GetObject` on both objects: see [A run starts only on the config this apply compiled](#a-run-starts-only-on-the-config-this-apply-compiled). The generated `fluid-<product>-spark-caller` policy holds it in an `Artifacts` statement, and holds no `kms:Decrypt`.
 
 ### When a build leaves the contract
 
