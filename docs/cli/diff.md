@@ -506,7 +506,7 @@ fluid diff contract.fluid.yaml --baseline /tmp/base/contract.fluid.yaml --impact
 fluid diff contract.fluid.yaml --baseline /tmp/base/contract.fluid.yaml --plan plan.tofu.json --format markdown
 ```
 
-`--plan` implies `--impact`. Without `--baseline`, both are refused with `diff_modes_mutually_exclusive`. Without the flags, the version diff is unchanged.
+`--plan` implies `--impact`. Without `--baseline`, both are refused with `diff_modes_mutually_exclusive`. Without the flags, the version diff is unchanged. *On forge-cli `main`, not yet in a release ([forge-cli #1000](https://github.com/Agenticstiger/forge-cli/pull/1000)),* the pipeline that `fluid generate ci --system gitlab` writes runs this report on each merge request, as the `fluid-impact` job ([GitLab CI: form, release packet and impact report](../advanced/operating-in-ci.md#gitlab-ci-form-release-packet-and-impact-report)).
 
 The report has three parts. This is the markdown for a change that removes a required column from `orders`, adds a read grant for a whole domain, and moves the partition column, with a plan that replaces the table:
 
