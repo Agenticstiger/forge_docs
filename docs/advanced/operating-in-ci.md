@@ -254,13 +254,15 @@ The apply runs `tofu apply` of `plan.tfplan` and plans nothing of its own. What 
 
 - **A plan file that is not the approved one** (`apply_plan_digest_tofu_plan_mismatch`, or `_missing` when it is not there).
 - **State that moved since the plan** (`apply_plan_digest_tofu_plan_stale`), because another apply ran in between. Plan and apply again; the approval covered a state that no longer exists.
-- **A plan made for another state** (`apply_plan_digest_tofu_plan_target`). The two jobs must resolve the same provider and state, so use the same `--state-backend` or `FLUID_STATE_BACKEND`.
+- **A plan made for another state** (`apply_plan_digest_tofu_plan_target`). The two jobs must resolve the same provider and state, so use the same `--state-backend` or `FLUID_STATE_BACKEND`. From `main`, the same code covers another state backend configuration.
+- **A plan applied against another target** (`apply_plan_digest_tofu_plan_target_mismatch`). *On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* The plan records the cloud account, project, region or host it was made for, and the apply job refuses credentials that reach another one before it applies or changes anything. When the apply job cannot read a recorded field, for want of `boto3` or credentials, it stops with `apply_plan_digest_tofu_plan_target_unverified`.
+- **Another OpenTofu or provider version** (`apply_plan_digest_tofu_plan_toolchain`). *On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* The apply job needs the same `tofu` version as the plan job, the patch release included.
 
 Three requirements follow:
 
-1. **A remote state.** Local state in a CI workspace is gone when the apply job starts, so the plan is refused as stale or as made for another target.
+1. **A remote state.** Local state in a CI workspace is gone when the apply job starts, so the plan is refused as stale or as made for another target, and from `main` as `apply_plan_digest_tofu_plan_state_missing` when it was made against existing state. *On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* With a remote state, the apply job can run on another runner, in another checkout path, and the plan still needs the state the plan job used.
 2. **Protected artifacts.** The plan files are plaintext unless [`FLUID_STATE_ENCRYPTION`](../cli/apply.md#state-and-plan-encryption) is set, and `plan.tfplan.json` holds every sensitive value. Keep them in short-lived job artifacts that only the plan job can write, because the digests are not signatures.
-3. **The same providers.** The apply job's `tofu init` must resolve the provider versions the plan was made with, and the apply job needs the same `tofu` and, if the plan was made with it, the same `FLUID_STATE_ENCRYPTION`.
+3. **The same providers.** The apply job's `tofu init` must resolve the provider versions the plan was made with, and the apply job needs the same `tofu` and, if the plan was made with it, the same `FLUID_STATE_ENCRYPTION`. *On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* When `tofu init` wrote a lock, the plan job writes one more file, `runtime/plan.terraform.lock.hcl`, beside the four in the example above. Pass it on with them: the apply job installs it before `tofu init`, and refuses a missing or changed one (`apply_plan_digest_tofu_plan_lock_missing`, `_lock_mismatch`).
 
 See [Applying a saved OpenTofu plan](../cli/apply.md#applying-a-saved-opentofu-plan) for the errors and [`fluid plan --tofu`](../cli/plan.md#saving-the-opentofu-plan-tofu) for the files.
 

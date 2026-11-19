@@ -63,8 +63,20 @@ Each error carries a stable `kind` tag, a distinct event CI can match:
 | `tofu-plan-invalid` | The `opentofuPlan` record in `plan.json` is malformed | Re-run `fluid plan --tofu` |
 | `tofu-plan-missing` | The saved plan (`plan.tfplan`) is not next to `plan.json` | Keep the plan's files together; in CI pass every file `fluid plan --tofu` wrote as artifacts |
 | `tofu-plan-mismatch` | The saved plan's sha256 differs from the one `plan.json` binds: it is not the plan that was reviewed | Re-run `fluid plan --tofu` and approve the new plan |
-| `tofu-plan-target` | The plan was made for another provider or another state | Apply with the same `--state-backend` and work directory, or re-plan |
+| `tofu-plan-target` | The plan was made for another provider or another state. From `main`, also for another state backend configuration | Apply with the same `--state-backend` and work directory, or re-plan |
 | `tofu-plan-stale` | The state changed after the plan was made, so applying it would not do what it showed. Nothing was applied | Re-run `fluid plan --tofu`, review it, apply that plan |
+
+*On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* Seven more, for the target and the lock of a saved plan:
+
+| `kind` | Diagnosis | Fix |
+|---|---|---|
+| `tofu-plan-target-mismatch` | The account, project, region or host the plan was made for is not the one this apply reaches | Apply with the credentials and region the plan was made for, or re-plan for this target |
+| `tofu-plan-target-unverified` | The plan is bound to a field this run cannot read, such as the AWS account without `boto3` or credentials | Give this run what the plan's runner had, or re-plan |
+| `tofu-plan-target-missing` | The plan records no target, as one made by `fluid plan --tofu` 0.32.0 or earlier | Re-run `fluid plan --tofu` |
+| `tofu-plan-toolchain` | Another `tofu` or provider version than the plan's | Apply with the versions the plan was made with, or re-plan here |
+| `tofu-plan-lock-missing` | The plan's `<stem>.terraform.lock.hcl` is not next to `plan.json` | Pass it on with the plan's other files |
+| `tofu-plan-lock-mismatch` | The lock's sha256 differs from the one `plan.json` binds | Pass on the lock written with the plan |
+| `tofu-plan-state-missing` | The plan was made against existing state and this run finds none there, as with existing local state on another runner | Apply in the workspace the plan was made in, or use a state backend both runners reach. With a remote backend, check its credentials and key |
 
 See [Applying a saved OpenTofu plan](../cli/apply.md#applying-a-saved-opentofu-plan).
 
