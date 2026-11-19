@@ -169,8 +169,42 @@ An `emr-eks` build with no `releaseLabel` gets a new config hash, because its de
 | `watermark` | `{column, delay}`. The column must be a top-level `timestamp_ltz`: Spark 3.5 does not keep a watermark on `timestamp` (an NTZ type). |
 | `checkpoint` | An `s3://` prefix. It defaults to `s3://<bucket>/_checkpoints/<product>/<build>/`, at the bucket root and never under the table, where Iceberg's orphan-file cleanup would delete it. When forge creates the job's role, a declared checkpoint must sit under `s3://<bucket>/_checkpoints/<product>/`; one outside it is refused (`spark-checkpoint-scope`). |
 | `startingOffsets` | `earliest` or `latest`, for a stream with no checkpoint yet. |
+| `maxOffsetsPerTrigger` | *On forge-cli `main`, not yet in a release ([forge-cli #1015](https://github.com/Agenticstiger/forge-cli/pull/1015)).* The most Kafka records one micro-batch reads: a whole number from 1 to 9223372036854775807, split across the topic's partitions by their backlog. Unset, a batch reads everything that is waiting. A Spark stream only: managed Flink refuses the key. See [Bounding a batch](#bounding-a-batch). |
 | `registry` | The schema registry of an `avro-confluent` stream. On a forge Spark build only `kind: confluent` is accepted: `kind: glue` is refused. Its `auth` takes `env://` or `aws-sm://` references only. See [Schema registry](./schema-registry.md). |
 | `deadLetter` | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* Where a record the stream cannot land goes, instead of failing the stream: a table beside the output (`sink: table`, the default) or a Kafka topic (`sink: topic`), with `maxRecordsBeforeAbort` (default 10000) and `alertOn: [schema_violation]`. An Avro stream is refused. See [Dead letters](#dead-letters). |
+
+### Bounding a batch
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1015](https://github.com/Agenticstiger/forge-cli/pull/1015)).* A stream that has been stopped, or that starts from `earliest`, finds a backlog, and without a limit its first batch reads all of it. `properties.stream.maxOffsetsPerTrigger` is the most records one micro-batch reads. forge passes it to Spark's Kafka source, which splits it across the topic's partitions by their backlog, so the stream catches up in batches of bounded size and memory. It holds for a `trigger.availableNow` run as well: the run ends once the backlog is read, in as many batches as the limit needs.
+
+```yaml
+properties:
+  stream:
+    startingOffsets: earliest
+    maxOffsetsPerTrigger: 5000
+```
+
+The value is a whole number from 1 to 9223372036854775807, the largest that Spark reads as a long. `fluid validate` refuses anything else: `0`, a negative number, `true`, a string such as `"5"`, a number with a fraction and a number above the maximum. `5.0` is refused too, by the Spark check alone. For `0` it prints the schema's error and the Spark check's:
+
+```text
+❌ Invalid FLUID contract (2 error(s)) (schema v0.7.7)
+Validation completed in 0.008s
+
+Validation Errors:
+==================
+ 1. builds[0].properties.stream.maxOffsetsPerTrigger: 0 is less than the minimum of 1
+ 2. Spark: Spark build ingest-orders: properties.stream.maxOffsetsPerTrigger: expected a whole number, at least 1
+```
+
+Unset, the `source` block of `job.json` has no `maxOffsetsPerTrigger` key and the Kafka source has no limit. Set to 5000, the runner gives the source these options, with its `kafka.*` connection options left out. `failOnDataLoss` is in them with or without the limit: see [the Spot checklist](#running-emr-on-ec2-on-spot).
+
+```text
+{"subscribe": "commerce.orders", "startingOffsets": "earliest", "includeHeaders": "false", "failOnDataLoss": "true", "maxOffsetsPerTrigger": "5000", "groupIdPrefix": "fluid-commerce-orders"}
+```
+
+Setting, changing or removing the limit changes the job config, and with it the config hash, so a running stream restarts once on its next apply, on its checkpoint (see [Starting and reconciling runs](#starting-and-reconciling-runs)). A forge-cli without this change refuses the key: 0.32.0 prints `builds[0].properties.stream: Additional properties are not allowed ('maxOffsetsPerTrigger' was unexpected)`. Managed Flink refuses it as well, with `Managed Flink: Flink build ingest-orders: properties.stream: unsupported field(s) ['maxOffsetsPerTrigger']`.
+
+The outputs are from forge-cli's `fluid validate` and the Spark runner's own option function on a contract of this page's shape (a JSON stream from MSK to an Iceberg table on EMR Serverless) with the key added, and, for 0.32.0, from the pinned CLI. No Kafka source was run: the split across partitions is what forge-cli's schema says Spark does.
 
 ### Dead letters
 
@@ -272,7 +306,7 @@ The table is not partitioned. Its location is beside the output's, not inside it
 
 #### The topic
 
-A topic sink sends each dead letter to a topic on the cluster the stream reads, with the stream's own connection settings. The record's key is `raw_key` and its value is `raw_value`. It carries these headers, each value as text:
+A topic sink sends each dead letter to a topic on the cluster the stream reads, with the stream's own connection settings. The record's value is `raw_value`. In 0.33.0 its key is `raw_key`, the record's own key, and it carries these headers, each value as text:
 
 | Header | Value |
 |---|---|
@@ -283,7 +317,13 @@ A topic sink sends each dead letter to a topic on the cluster the stream reads, 
 | `__connect.errors.stage` | `VALUE_CONVERTER` when the reason starts with `the value`, `KEY_CONVERTER` when it starts with `the key`, and `TRANSFORMATION` otherwise. |
 | `__connect.errors.exception.message` | The reason. |
 
-The record's Kafka timestamp and `dead_lettered_at` are not sent. A topic receives each batch at least once.
+*On forge-cli `main`, not yet in a release ([forge-cli #1015](https://github.com/Agenticstiger/forge-cli/pull/1015)).* The key is where the record came from, `<topic>-<partition>@<offset>`, as in `commerce.orders-2@41874`, and the record's own key moves to one more header, which holds the bytes it was read as and not text:
+
+| Header | Value |
+|---|---|
+| `fluid.dead-letter.raw-key` | The record's own key. Null for a record that had no key, and for a build that masks fields. |
+
+The record's Kafka timestamp and `dead_lettered_at` are not sent. A topic receives each batch at least once. On `main`, a batch that is sent again after a failure carries the same keys, so a consumer drops repeats by key, and on a topic with `cleanup.policy=compact` a record sent twice is kept once when Kafka compacts the log. A record with a null value is a delete marker on a compacted topic ([Kafka's log compaction](https://kafka.apache.org/documentation/#compaction)). The dead letters of a [masked build](#masked-builds) have no value, and neither has the dead letter of a source record that had none, so send those to a topic that deletes by retention.
 
 #### How the records land
 
@@ -310,7 +350,7 @@ With `alertOn: [schema_violation]`, the job writes a line like this one to its s
 
 #### Masked builds
 
-A build that masks a column at ingest (`maskAtIngest`, see [`maskAtIngest: hash`](#maskatingest-hash)) keeps no raw bytes, because they would hold the masked fields in clear. Its dead letters store the reason, the record's topic, partition, offset and timestamp, and `dead_lettered_at`, and `raw_value` and `raw_key` are null. A topic sink reads the same two columns, so the key and the value it sends are null, and the headers carry the rest. The topic, partition and offset find the record in Kafka while the topic still retains it.
+A build that masks a column at ingest (`maskAtIngest`, see [`maskAtIngest: hash`](#maskatingest-hash)) keeps no raw bytes, because they would hold the masked fields in clear. Its dead letters store the reason, the record's topic, partition, offset and timestamp, and `dead_lettered_at`, and `raw_value` and `raw_key` are null. A topic sink reads the same two columns, so the value it sends is null and, in 0.33.0, its key is null too, and the headers carry the rest. *On forge-cli `main`, not yet in a release ([forge-cli #1015](https://github.com/Agenticstiger/forge-cli/pull/1015)).* The key of every dead letter is `<topic>-<partition>@<offset>`, a masked build's included, and the header `fluid.dead-letter.raw-key` is null. The topic, partition and offset find the record in Kafka while the topic still retains it.
 
 #### What is refused
 
@@ -1104,7 +1144,7 @@ The checklist:
 2. **Spot task fleets, with `price-capacity-optimized` allocation and diverse instance types.** Use instance fleets, and set the task fleet's Spot `AllocationStrategy` to `price-capacity-optimized`: AWS recommends it, and it is the default from EMR 6.10.0. List several instance types: when EC2 reclaims a Spot instance, EMR tries to replace it with any type on the list. Offer subnets in several Availability Zones too. EMR picks the zone it judges best for the fleet when it creates the cluster, and the cluster's instances then run in that one zone.
 3. **YARN application masters pinned to On-Demand (EMR 7.2.0 and later).** In the cluster's `yarn-site` classification, set `yarn.node-labels.enabled` to `true` and `yarn.node-labels.am.default-node-label-expression` to `ON_DEMAND`. AWS warns that an application master on a Spot node can mean "immediate shutdown of the entire YARN application". Set it when you create the cluster: EMR does not add node labels when you reconfigure a running one. AWS describes this setting for clusters that use managed scaling, and its blog post shows instance groups. The example below uses instance fleets and no managed scaling, so check on the running cluster that YARN lists an `ON_DEMAND` node label. Settings that start with `spark.yarn.` are refused in `sparkConf` even when the operator lists them, so this belongs to the cluster and not to the contract.
 4. **A minimum On-Demand executor baseline for streams.** Size the On-Demand capacity (the core nodes, and any On-Demand part of a task fleet) for the executors the stream needs to keep committing batches when every Spot node is gone, and tell Spark that number in `sparkConf`: `spark.dynamicAllocation.minExecutors` with dynamic allocation, or `spark.executor.instances` without it. Both are allowed without an operator entry, and both fix a count, not where the executors run. When Spot nodes are reclaimed, YARN can place a replacement executor only on the nodes that remain. Where YARN puts executors while Spot nodes exist depends on the cluster's node labels, so look at where they ran in the interruption test (item 6).
-5. **Kafka retention at least as long as the longest downtime you tolerate.** A restarted stream resumes from the offsets in its checkpoint, so the topic must still hold them. Count the whole outage: detecting the loss, replacing the cluster, starting the step, and catching up. Set the topic's `retention.ms` (Kafka's default is 7 days) to at least that, and leave `retention.bytes` unset (`-1`) or size it for the same window, because a topic discards a segment at whichever limit it reaches first. forge's runner leaves Spark's Kafka option `failOnDataLoss` at its default, `true`, so a stream whose checkpointed offsets have aged out fails and does not skip records. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* The same holds for a batch that a restart replays into a [dead-letter table](#how-the-records-land) or into the output through Iceberg's streaming sink: each is appended only once while the snapshot that records the batch is still in the table, so run `expire_snapshots` with a retention longer than the longest downtime you tolerate.
+5. **Kafka retention at least as long as the longest downtime you tolerate.** A restarted stream resumes from the offsets in its checkpoint, so the topic must still hold them. Count the whole outage: detecting the loss, replacing the cluster, starting the step, and catching up. Set the topic's `retention.ms` (Kafka's default is 7 days) to at least that, and leave `retention.bytes` unset (`-1`) or size it for the same window, because a topic discards a segment at whichever limit it reaches first. forge's runner leaves Spark's Kafka option `failOnDataLoss` at its default, `true`, so a stream whose checkpointed offsets have aged out fails and does not skip records. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* The same holds for a batch that a restart replays into a [dead-letter table](#how-the-records-land) or into the output through Iceberg's streaming sink: each is appended only once while the snapshot that records the batch is still in the table, so run `expire_snapshots` with a retention longer than the longest downtime you tolerate. *On forge-cli `main`, not yet in a release ([forge-cli #1015](https://github.com/Agenticstiger/forge-cli/pull/1015)).* The runner sets `failOnDataLoss` to `true` on every Kafka source, so it no longer depends on Spark's default. Offsets that the topic no longer holds, because retention passed them while the stream was stopped or because the topic was recreated, fail the stream with a Spark error whose message contains `Some data may have been lost because they are not available in Kafka any more`.
 6. **Spark decommissioning only after a measured interruption test.** Leave Spark's own decommissioning off until a test shows that it helps.
    - **What is already there.** EC2 sends a Spot interruption notice two minutes before it reclaims an instance, on a best-effort basis. EMR on EC2 has its own decommissioning for Spark, built on YARN's. Spark schedules no new tasks on a node that YARN is decommissioning, and lets the running tasks finish (`spark.blacklist.decommissioning.enabled`, `true` by default). `spark.decommissioning.timeout.threshold` (20 seconds by default, EMR 5.11.0 and later) is for Spot: a Spot instance decommissions within 20 seconds whatever the YARN decommissioning timeout is, and a node that will decommission within the threshold is deny-listed and cleaned up without waiting.
    - **What is separate.** Spark's own `spark.decommission.enabled` (`false` by default since Spark 3.1.0) and its `spark.storage.decommission.*` settings. A contract may set them only when the operator lists them in `FLUID_SPARK_CONF_ALLOWLIST`.
