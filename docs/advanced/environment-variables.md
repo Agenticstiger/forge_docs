@@ -115,6 +115,18 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 
 The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments read them too. *(since 0.27.0, [forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818))* The Kafka Connect and embedded Debezium Iceberg sinks read them as well, and a project `.env` cannot set either.
 
+## Lakekeeper grants (`fluid policy apply`)
+
+*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* The operator sets these in the real environment of the job that runs `fluid policy apply`: a project `.env` cannot set them. See [Lakekeeper tables](../cli/policy-apply.md#lakekeeper-tables).
+
+| Variable | Effect |
+|---|---|
+| `FLUID_LAKEKEEPER_CREDENTIAL_REF` | A secret reference to `client_id:client_secret`, for an OAuth2 client-credentials token. Needs `FLUID_LAKEKEEPER_OAUTH2_SERVER_URI` and `FLUID_LAKEKEEPER_SCOPE`. |
+| `FLUID_LAKEKEEPER_OAUTH2_SERVER_URI` | The token endpoint, an `https://` URL. |
+| `FLUID_LAKEKEEPER_SCOPE` | The scope to ask the token endpoint for. |
+| `FLUID_LAKEKEEPER_TOKEN_REF` | A secret reference to a bearer token, used as it is. Set this or `FLUID_LAKEKEEPER_CREDENTIAL_REF`, not both. |
+| `FLUID_LAKEKEEPER_NAMESPACE_ALLOWLIST` | The namespaces whose tables stage 8 may change: comma-separated `<warehouse>/<namespace prefix>` entries, matched on whole dotted levels. Unset allows none, and `--mode enforce` then refuses every Lakekeeper table. |
+
 ## Command Center
 
 [The Command Center](../concepts/command-center.md) says what each of these sends.
