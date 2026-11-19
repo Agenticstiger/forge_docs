@@ -301,9 +301,9 @@ Until that apply, `fluid verify` and `fluid diff` compare the live table with th
 
 ### Partitioned Glue tables
 
-*On forge-cli `main`, not yet in a release ([forge-cli #996](https://github.com/Agenticstiger/forge-cli/pull/996)).*
+*(since 0.33.0, [forge-cli #996](https://github.com/Agenticstiger/forge-cli/pull/996))*
 
-`binding.location.partitionBy` partitions the Glue table that the emitter writes for a Hive file format (`parquet`, `orc`, `avro`, `csv` or `json`). Through 0.32.0 the key never reached the table, and `binding.properties.cluster_by` was read by nobody on AWS: both passed `fluid validate --strict` and were dropped. On `main`:
+`binding.location.partitionBy` partitions the Glue table that the emitter writes for a Hive file format (`parquet`, `orc`, `avro`, `csv` or `json`). Through 0.32.0 the key never reached the table, and `binding.properties.cluster_by` was read by nobody on AWS: both passed `fluid validate --strict` and were dropped. In 0.33.0:
 
 ```yaml
 binding:
@@ -1101,7 +1101,7 @@ A pipeline that runs `fluid validate --strict` fails on it; stage 2 of the [11-s
  1. accessPolicy.grants are not enforced on aws binding(s) orders (lakekeeper): their Iceberg tables live in a catalog other than Glue, and the AWS emitter writes access only as Lake Formation grants on a Glue table. Grant access in that catalog.
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* `fluid generate iac` and `fluid apply` still write no grant in that catalog. For a Lakekeeper table, `fluid policy compile` writes a Lakekeeper binding, and [`fluid policy apply`](../cli/policy-apply.md#lakekeeper-tables) applies it in Lakekeeper itself.
+*(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* `fluid generate iac` and `fluid apply` still write no grant in that catalog. For a Lakekeeper table, `fluid policy compile` writes a Lakekeeper binding, and [`fluid policy apply`](../cli/policy-apply.md#lakekeeper-tables) applies it in Lakekeeper itself.
 
 `fluid policy-compile` still reads `accessPolicy.grants` and writes IAM bindings, which you can use as a starting point for IAM policies. Nothing applies those IAM bindings:
 
@@ -1142,7 +1142,7 @@ fluid policy-compile contract.fluid.yaml --out runtime/policy/bindings.json
 }
 ```
 
-Each principal gets one entry for the bucket and one for the Glue table. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), since 0.20.0)* An Iceberg expose in a catalog other than Glue gets the bucket entry only, and a warning (`Iceberg expose 'orders' is cataloged in 'lakekeeper', not AWS Glue, so no table grant was compiled ...`). *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* The command also prints the warning, at WARNING level; see [Warnings](../cli/policy-compile.md#warnings). *On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* A table that Lakekeeper catalogs also gets a Lakekeeper binding, and that warning is no longer printed. When the binding lacks a location key, a different warning names the missing keys; see [Lakekeeper tables](../cli/policy-compile.md#lakekeeper-tables). The permissions map to two action sets: any of `write`, `insert`, `update` or `delete` selects the write set (`s3:PutObject`, `s3:DeleteObject`, `s3:GetObject`, `s3:ListBucket`, and `glue:CreateTable`, `glue:UpdateTable`, `glue:DeleteTable`); every other permission selects the read set shown above. Placeholders in the bucket stay literal, and the principals are written as the contract names them.
+Each principal gets one entry for the bucket and one for the Glue table. *(forge-cli [#707](https://github.com/Agenticstiger/forge-cli/pull/707), since 0.20.0)* An Iceberg expose in a catalog other than Glue gets the bucket entry only, and a warning (`Iceberg expose 'orders' is cataloged in 'lakekeeper', not AWS Glue, so no table grant was compiled ...`). *([forge-cli #710](https://github.com/Agenticstiger/forge-cli/pull/710), since 0.20.0)* The command also prints the warning, at WARNING level; see [Warnings](../cli/policy-compile.md#warnings). *(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* A table that Lakekeeper catalogs also gets a Lakekeeper binding, and that warning is no longer printed. When the binding lacks a location key, a different warning names the missing keys; see [Lakekeeper tables](../cli/policy-compile.md#lakekeeper-tables). The permissions map to two action sets: any of `write`, `insert`, `update` or `delete` selects the write set (`s3:PutObject`, `s3:DeleteObject`, `s3:GetObject`, `s3:ListBucket`, and `glue:CreateTable`, `glue:UpdateTable`, `glue:DeleteTable`); every other permission selects the read set shown above. Placeholders in the bucket stay literal, and the principals are written as the contract names them.
 
 `fluid policy-apply` enforces nothing on AWS. As of 0.18.1 the aws provider has no standalone policy applier, and the command exits 0:
 

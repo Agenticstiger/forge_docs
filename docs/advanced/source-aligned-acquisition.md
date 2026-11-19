@@ -1031,7 +1031,7 @@ An Iceberg expose on `platform: aws` whose `location.catalog` is anything other 
    1. accessPolicy.grants are not enforced on aws binding(s) orders (lakekeeper): their Iceberg tables live in a catalog other than Glue, and the AWS emitter writes access only as Lake Formation grants on a Glue table. Grant access in that catalog.
   ```
 
-Grant access in the catalog itself; forge-cli writes no grant there. *On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* For a Lakekeeper table that changes: [`fluid policy apply`](../cli/policy-apply.md#lakekeeper-tables) applies the grants in Lakekeeper, from the bindings `fluid policy compile` writes.
+Grant access in the catalog itself; forge-cli writes no grant there. *(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* For a Lakekeeper table that changes: [`fluid policy apply`](../cli/policy-apply.md#lakekeeper-tables) applies the grants in Lakekeeper, from the bindings `fluid policy compile` writes.
 
 ### Upgrading an AWS contract that names another catalog
 

@@ -72,7 +72,7 @@ Without `--strict` the same run reports the drift and exits `0`. Remove the extr
 | `--state-backend` | With `--state-drift`: the remote state `fluid apply` used. Defaults to `$FLUID_STATE_BACKEND`, else local; `""` forces local. |
 | `--workspace-dir DIR` | With `--state-drift`: the directory `fluid apply` ran in. Default `.`. |
 | `--warn-only` | Downgrade `--reconcile-dbt`, `--reconcile-lineage` and `--state-drift` drift to a warning (exit `0`). |
-| `--require-every-port` | *On forge-cli `main`, not yet in a release ([forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986)).* Exit `1` unless every expose was verified: each one that was skipped fails the run and is named. `--warn-only` does not downgrade it, and `--expose` beside it exits `2`. See [Requiring every port](#requiring-every-port). |
+| `--require-every-port` | *(since 0.33.0, [forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986))* Exit `1` unless every expose was verified: each one that was skipped fails the run and is named. `--warn-only` does not downgrade it, and `--expose` beside it exits `2`. See [Requiring every port](#requiring-every-port). |
 | `--athena-output-location S3_URI` | Where Athena writes the row-count query result. Env `FLUID_ATHENA_OUTPUT_LOCATION`. See [S3 and Glue](#s3-and-glue-athena). |
 | `--athena-workgroup NAME` | Athena workgroup for the row-count query. Env `FLUID_ATHENA_WORKGROUP`, default `primary`. |
 | `--athena-timeout SECONDS` | Stop the Athena row-count query and fail after this long. Env `FLUID_ATHENA_TIMEOUT_SECONDS`, default `300`. |
@@ -295,7 +295,7 @@ A table a dbt build writes is rebuilt by dbt, which drops a contract's `NOT NULL
 
 ## Requiring every port
 
-*On forge-cli `main`, not yet in a release ([forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986)).*
+*(since 0.33.0, [forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986))*
 
 A run that verified one expose passes `--strict` even when the others were skipped. `--strict` fails a run on a skipped expose only when every expose was skipped and nothing else was checked. `--require-every-port` closes that gap. It fails the run on each expose that was skipped, whatever else was verified, and names it with the reason:
 

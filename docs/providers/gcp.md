@@ -214,7 +214,7 @@ Contract types are written as BigQuery types:
 | `string`, `text`, `varchar`, `char`, `uuid` | `STRING` |
 | `integer`, `int`, `bigint`, `smallint` | `INT64` |
 | `float`, `double`, `double precision` | `FLOAT64` |
-| `numeric`, `decimal(p,s)` | `NUMERIC`. *On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)).* `NUMERIC(p,s)` or `BIGNUMERIC(p,s)`: see [Decimal precision and scale](#decimal-precision-and-scale) |
+| `numeric`, `decimal(p,s)` | `NUMERIC`. *(since 0.33.0, [forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988))* `NUMERIC(p,s)` or `BIGNUMERIC(p,s)`: see [Decimal precision and scale](#decimal-precision-and-scale) |
 | `boolean` | `BOOL` |
 | `timestamp`, `timestamptz`, `timestamp with time zone` | `TIMESTAMP` |
 | `datetime` | `DATETIME` |
@@ -251,12 +251,12 @@ One function decides for those three commands, so a contract that passes `fluid 
 | `json`, `jsonb`, `variant`, `super` | `JSON` |
 | `geography`, `point` | `GEOGRAPHY` |
 
-Through 0.32.0, BigQuery decimal precision and scale were not emitted: `decimal(p,s)` was `NUMERIC` whatever it declared. *On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)),* they are: see [Decimal precision and scale](#decimal-precision-and-scale).
+Through 0.32.0, BigQuery decimal precision and scale were not emitted: `decimal(p,s)` was `NUMERIC` whatever it declared. *(since 0.33.0, [forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988))* They are: see [Decimal precision and scale](#decimal-precision-and-scale).
 
 **Warned.** `fluid validate` warns, and the column is written as shown:
 
 - `geometry` and `geom` become `GEOGRAPHY`. They are planar and `GEOGRAPHY` is spherical, so the same coordinates mean other shapes and distances. Declare `geography` if the coordinates are on the sphere.
-- A `decimal(p,s)`, `numeric(p,s)`, `dec(p,s)` or `number(p,s)` wider than a `NUMERIC` holds, which is 29 integer and 9 fractional digits, becomes `NUMERIC` and would overflow at load. Declare `bignumeric` if the values need that range. *On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)),* a decimal that a `BIGNUMERIC` holds becomes `BIGNUMERIC(p,s)` with no warning, and one wider than that is written as a bare `BIGNUMERIC` with a warning that advises a decimal within that range, or `string`.
+- A `decimal(p,s)`, `numeric(p,s)`, `dec(p,s)` or `number(p,s)` wider than a `NUMERIC` holds, which is 29 integer and 9 fractional digits, becomes `NUMERIC` and would overflow at load. Declare `bignumeric` if the values need that range. *(since 0.33.0, [forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988))* A decimal that a `BIGNUMERIC` holds becomes `BIGNUMERIC(p,s)` with no warning, and one wider than that is written as a bare `BIGNUMERIC` with a warning that advises a decimal within that range, or `string`.
 
 ```text
 expose '<exposeId>': column '<column>' is declared 'geometry', which is planar, and BigQuery has only the spherical GEOGRAPHY; it is written as 'GEOGRAPHY'. Declare geography if the coordinates are on the sphere.
@@ -279,11 +279,11 @@ One refusal names the expose, every column it cannot hold with its declared type
 
 The BigQuery emitter no longer falls back to the ODCS table for these types. A contract with an `array` or `struct` column that validated before now fails with `column-type`; declare the column `json`, which BigQuery stores as its JSON type, or `string`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #968](https://github.com/Agenticstiger/forge-cli/pull/968)): a 0.7.7 column that declares its shape is no longer refused. See [Nested columns](#nested-columns).*
+*(since 0.33.0, [forge-cli #968](https://github.com/Agenticstiger/forge-cli/pull/968))* A 0.7.7 column that declares its shape is no longer refused. See [Nested columns](#nested-columns).
 
 #### Nested columns
 
-*On forge-cli `main`, not yet in a release ([forge-cli #968](https://github.com/Agenticstiger/forge-cli/pull/968)).*
+*(since 0.33.0, [forge-cli #968](https://github.com/Agenticstiger/forge-cli/pull/968))*
 
 A column in a `fluidVersion: "0.7.7"` contract can declare what it holds: `element` for an array, `fields` for a struct, `key` and `value` for a map. The BigQuery emitter writes each as BigQuery stores it:
 
@@ -345,7 +345,7 @@ expose 'orders': column 'scores' is declared 'array', where scores may be NULL, 
 
 #### Decimal precision and scale
 
-*On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)).*
+*(since 0.33.0, [forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988))*
 
 `decimal(p,s)` (and `numeric(p,s)`, `dec(p,s)` and `number(p,s)`) is written with its precision and scale, so the table matches what dbt writes as `numeric(p,s)`. Through 0.32.0 it was a bare `NUMERIC`, which BigQuery reads as `NUMERIC(38,9)`, and each dbt rebuild and each apply changed the column back.
 
@@ -374,7 +374,7 @@ Each contract with a BigQuery table gains one `terraform_data` resource, named a
 These are not produced by the 0.18.1 GCP module. A contract key for them is either absent from the schema or accepted and ignored:
 
 - VPC Service Controls.
-- Partitioning, clustering, table expiration, materialized or authorized views from `binding.properties` (`partitioning`, `clustering`, `materialized`, `authorized`). `binding.properties` passes validation and the module ignores these keys. Partitioning comes only from [retention](#retention-0-7-6). *On forge-cli `main`, not yet in a release ([forge-cli #973](https://github.com/Agenticstiger/forge-cli/pull/973)): `binding.location.partitionBy` and `binding.properties.cluster_by` are read; see [Partitioning and clustering](#partitioning-and-clustering).*
+- Partitioning, clustering, table expiration, materialized or authorized views from `binding.properties` (`partitioning`, `clustering`, `materialized`, `authorized`). `binding.properties` passes validation and the module ignores these keys. Partitioning comes only from [retention](#retention-0-7-6). *(since 0.33.0, [forge-cli #973](https://github.com/Agenticstiger/forge-cli/pull/973))* `binding.location.partitionBy` and `binding.properties.cluster_by` are read; see [Partitioning and clustering](#partitioning-and-clustering).
 - Service accounts, routines, external tables and Cloud Run services.
 
 BigQuery row-level security and data-policy masking are not in this list, because 0.19.0 added both. A contract's [row filters](#row-filters) become BigQuery row access policies, and a column restriction with `access: mask` becomes a BigQuery data policy; see [Data Masking](#data-masking).
@@ -854,7 +854,7 @@ BigQuery cannot partition an existing table. The first apply that adds `expire: 
 
 ### Partitioning and clustering
 
-*On forge-cli `main`, not yet in a release ([forge-cli #973](https://github.com/Agenticstiger/forge-cli/pull/973)).*
+*(since 0.33.0, [forge-cli #973](https://github.com/Agenticstiger/forge-cli/pull/973))*
 
 A BigQuery table is partitioned and clustered as its binding declares. Through 0.32.0 `binding.location.partitionBy` was read only together with [retention](#retention-0-7-6), and `binding.properties.cluster_by` (which Snowflake honours) was read by nobody on BigQuery. Both were dropped without a word, and `fluid validate --strict` passed.
 
