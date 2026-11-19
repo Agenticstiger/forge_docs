@@ -173,7 +173,7 @@ The options for single stages (`--strict`, `--emit`, `--exit-on-drift`, `--last-
 
 Through 0.32.0, stage 3 skipped every contract with a `hybrid-reference`, `reference` or `external-reference` build, even with `--emit`. Stage 4 skipped too, and the run exited 0 with no `MANIFEST.json`. But `fluid generate artifacts` has written ODCS, ODPS and policy artifacts for such contracts for a long time: they do not depend on where the transformation runs. Stage 3 now runs for them as well.
 
-Stage 4 now fails, where it used to skip, when stage 3 was to write `dist/artifacts/` and did not. It still skips under `--no-generate-artifacts`. A CI file from `fluid generate ci` still switches stage 3 off by default for a reference-only contract.
+Stage 4 now fails, where it used to skip, when stage 3 was to write `dist/artifacts/` and did not. It still skips under `--no-generate-artifacts`. A CI file from `fluid generate ci` still switches stage 3 off by default for a reference-only contract. *On forge-cli `main`, not yet in a release ([forge-cli #1000](https://github.com/Agenticstiger/forge-cli/pull/1000)),* it does not: only `fluid generate ci --no-generate-artifacts` turns stage 3 off.
 
 ### Requiring artifacts
 
