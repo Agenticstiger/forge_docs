@@ -144,7 +144,7 @@ An MSK source needs no broker list: forge looks the brokers up from the cluster 
 | `emr-ec2` | `emr-X.Y.Z` | `emr-7.12.0` | Sends it nowhere: the cluster has its own release. It goes into the config hash. |
 | `emr-eks` | `emr-X.Y.Z-latest` or `emr-X.Y.Z-YYYYMMDD` | `emr-7.12.0-latest` | Sends it as the release of each job run it starts. |
 
-On EMR on EKS the label names an image of a release. AWS's release page lists `emr-X.Y.Z-latest` and `emr-X.Y.Z-YYYYMMDD`, the second for a dated image. forge also accepts a variant between the release and the suffix, such as `emr-7.12.0-java11-latest`, and checks only that it is lower-case letters and digits. A Glue build takes `glueVersion`, and `fluid validate` refuses a `releaseLabel` on it. The label is part of the config hash, so changing it on a running stream restarts the stream.
+On EMR on EKS the label names an image of a release. AWS's release page lists `emr-X.Y.Z-latest` and `emr-X.Y.Z-YYYYMMDD`, the second for a dated image. forge also accepts a variant between the release and the suffix, such as `emr-7.12.0-java11-latest`, and checks only that it is lower-case letters and digits, in one or more segments separated by hyphens. A Glue build takes `glueVersion`, and `fluid validate` refuses a `releaseLabel` on it. The label is part of the config hash, so changing it on a running stream restarts the stream.
 
 `fluid validate` refuses a form the runtime does not take. An `emr-eks` build with `releaseLabel: emr-7.12.0` (run on forge-cli `main`):
 
@@ -155,7 +155,7 @@ On EMR on EKS the label names an image of a release. AWS's release page lists `e
  2. Spark build ingest-orders: parameters.spark.releaseLabel: runtime emr-eks takes emr-X.Y.Z-latest or emr-X.Y.Z-YYYYMMDD (e.g. emr-7.12.0-latest)
 ```
 
-An `emr-serverless` or `emr-ec2` build with `releaseLabel: emr-7.12.0-latest` gets the same two lines, the second saying `runtime emr-serverless takes emr-X.Y.Z (e.g. emr-7.12.0)`. In 0.32.0 and earlier every EMR runtime took only the plain form: an `emr-eks` build with `emr-7.12.0` passed `fluid validate`, and `emr-7.12.0-latest` was refused with `expected emr-[0-9]+\.[0-9]+\.[0-9]+`.
+An `emr-serverless` or `emr-ec2` build with `releaseLabel: emr-7.12.0-latest` gets two lines of the same shape: the first shows the plain pattern, `^emr-[0-9]+\\.[0-9]+\\.[0-9]+(?![\\s\\S])`, and the second says `runtime emr-serverless takes emr-X.Y.Z (e.g. emr-7.12.0)`, with `emr-ec2` for an `emr-ec2` build. In 0.32.0 and earlier every EMR runtime took only the plain form: an `emr-eks` build with `emr-7.12.0` passed `fluid validate`, and `emr-7.12.0-latest` was refused with `expected emr-[0-9]+\.[0-9]+\.[0-9]+`.
 
 An `emr-eks` build with no `releaseLabel` gets a new config hash, because its default moved from `emr-7.12.0` to `emr-7.12.0-latest`: plan it again. The config hash of an `emr-serverless` or an `emr-ec2` build does not change.
 

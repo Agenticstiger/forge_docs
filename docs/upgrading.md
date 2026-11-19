@@ -1345,7 +1345,7 @@ These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 unti
 
 *On forge-cli `main`, not yet in a release ([forge-cli #984](https://github.com/Agenticstiger/forge-cli/pull/984)).*
 
-- **Each EMR runtime takes its own `releaseLabel` form.** `emr-serverless` and `emr-ec2` keep the plain `emr-7.12.0`. `emr-eks` takes `emr-X.Y.Z-latest` or a dated `emr-X.Y.Z-YYYYMMDD`, with an optional variant such as `emr-7.12.0-java11-latest`, and `fluid validate` now refuses the plain form there. An `emr-eks` build with no `releaseLabel` runs on `emr-7.12.0-latest`, so its config hash changes: run `fluid plan` again. The config hash of an `emr-serverless` or `emr-ec2` build does not change. Change an `emr-eks` build that names `emr-7.12.0` to `emr-7.12.0-latest` before you upgrade. See [Release labels](./advanced/spark-iceberg-aws.md#release-labels).
+- **Each EMR runtime takes its own `releaseLabel` form.** `emr-serverless` and `emr-ec2` keep the plain `emr-7.12.0`. `emr-eks` takes `emr-X.Y.Z-latest` or a dated `emr-X.Y.Z-YYYYMMDD`, with an optional variant such as `emr-7.12.0-java11-latest`, and `fluid validate` now refuses the plain form there. An `emr-eks` build with no `releaseLabel` runs on `emr-7.12.0-latest`, so its config hash changes: run `fluid plan` again. The config hash of an `emr-serverless` or `emr-ec2` build does not change. Change an `emr-eks` build that names `emr-7.12.0` to `emr-7.12.0-latest` when you upgrade: 0.32.0 and earlier refuse that label. See [Release labels](./advanced/spark-iceberg-aws.md#release-labels).
 
 ## Older releases
 
