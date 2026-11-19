@@ -1343,6 +1343,10 @@ These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 unti
 
 - **A Spark job's role can look up the directories it is granted.** On 0.32.0 and earlier, a stream on AWS failed within minutes of starting, because S3 refused the lookup of its checkpoint directory with a 403. The role forge creates, and the policy for an EMR on EC2 cluster, now read each granted directory's own key and list it by its exact name. Run `fluid apply` to update the policy. A role you name with `executionRoleArn` is yours, and needs the same two permissions. See [What the job's role may do in S3](./advanced/spark-iceberg-aws.md#what-the-job-s-role-may-do-in-s3).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #984](https://github.com/Agenticstiger/forge-cli/pull/984)).*
+
+- **Each EMR runtime takes its own `releaseLabel` form.** `emr-serverless` and `emr-ec2` keep the plain `emr-7.12.0`. `emr-eks` takes `emr-X.Y.Z-latest` or a dated `emr-X.Y.Z-YYYYMMDD`, with an optional variant such as `emr-7.12.0-java11-latest`, and `fluid validate` now refuses the plain form there. An `emr-eks` build with no `releaseLabel` runs on `emr-7.12.0-latest`, so its config hash changes: run `fluid plan` again. The config hash of an `emr-serverless` or `emr-ec2` build does not change. Change an `emr-eks` build that names `emr-7.12.0` to `emr-7.12.0-latest` before you upgrade. See [Release labels](./advanced/spark-iceberg-aws.md#release-labels).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

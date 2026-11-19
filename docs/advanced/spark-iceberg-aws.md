@@ -126,13 +126,38 @@ Bucket names are global: write a bucket you own in place of `commerce-lake`.
 | `clusterId` | EMR on EC2 only: an existing cluster. A transient cluster is refused for now. A cluster that runs on Spot needs the layout in [Running EMR on EC2 on Spot](#running-emr-on-ec2-on-spot). |
 | `virtualClusterId` | EMR on EKS only, and required there: an existing virtual cluster. |
 | `glueVersion` | Glue only. Default `5.0`. |
-| `releaseLabel` | The EMR release, on the EMR runtimes. Default `emr-7.12.0`. |
+| `releaseLabel` | The EMR release, on the EMR runtimes. Default `emr-7.12.0`. *On forge-cli `main`, not yet in a release ([forge-cli #984](https://github.com/Agenticstiger/forge-cli/pull/984)).* Each runtime takes its own form, and the default on EMR on EKS is `emr-7.12.0-latest`: see [Release labels](#release-labels). |
 | `executionRoleArn` | An existing role the job runs as. See [Roles](#roles-and-who-lists-what). |
 | `maskKeySecretArn` | The Secrets Manager ARN of the key `maskAtIngest: hash` uses. A mapping that masks a column needs it. |
 | `sparkConf` | Spark settings, limited to sizing and tuning unless the operator lists more. See [Spark settings](#spark-settings). |
 | `source` | The Kafka connection. Exactly one of `bootstrapServers` or `mskClusterArn`; `auth` is `msk-iam` (the default with an ARN) or `none` (the default with brokers); `groupIdPrefix`. |
 
 An MSK source needs no broker list: forge looks the brokers up from the cluster ARN when it applies, and fills them into `job.json` (the SASL/IAM list for `msk-iam`, the TLS list for `auth: none`). A plaintext listener is named in `bootstrapServers`.
+
+### Release labels
+
+*On forge-cli `main`, not yet in a release ([forge-cli #984](https://github.com/Agenticstiger/forge-cli/pull/984)).* Each EMR runtime takes its own form of `releaseLabel`:
+
+| Runtime | Form | Default | What forge does with it |
+|---|---|---|---|
+| `emr-serverless` | `emr-X.Y.Z` | `emr-7.12.0` | Sets the release of the isolated application it creates. An existing `applicationId` has its own release, so there the label only goes into the config hash. |
+| `emr-ec2` | `emr-X.Y.Z` | `emr-7.12.0` | Sends it nowhere: the cluster has its own release. It goes into the config hash. |
+| `emr-eks` | `emr-X.Y.Z-latest` or `emr-X.Y.Z-YYYYMMDD` | `emr-7.12.0-latest` | Sends it as the release of each job run it starts. |
+
+On EMR on EKS the label names an image of a release. AWS's release page lists `emr-X.Y.Z-latest` and `emr-X.Y.Z-YYYYMMDD`, the second for a dated image. forge also accepts a variant between the release and the suffix, such as `emr-7.12.0-java11-latest`, and checks only that it is lower-case letters and digits. A Glue build takes `glueVersion`, and `fluid validate` refuses a `releaseLabel` on it. The label is part of the config hash, so changing it on a running stream restarts the stream.
+
+`fluid validate` refuses a form the runtime does not take. An `emr-eks` build with `releaseLabel: emr-7.12.0` (run on forge-cli `main`):
+
+```text
+❌ Invalid FLUID contract (2 error(s)) (schema v0.7.7)
+...
+ 1. builds[0].properties.parameters.spark.releaseLabel: 'emr-7.12.0' does not match '^emr-[0-9]+\\.[0-9]+\\.[0-9]+(-[a-z0-9]+)*-(latest|[0-9]{8})(?![\\s\\S])'
+ 2. Spark build ingest-orders: parameters.spark.releaseLabel: runtime emr-eks takes emr-X.Y.Z-latest or emr-X.Y.Z-YYYYMMDD (e.g. emr-7.12.0-latest)
+```
+
+An `emr-serverless` or `emr-ec2` build with `releaseLabel: emr-7.12.0-latest` gets the same two lines, the second saying `runtime emr-serverless takes emr-X.Y.Z (e.g. emr-7.12.0)`. In 0.32.0 and earlier every EMR runtime took only the plain form: an `emr-eks` build with `emr-7.12.0` passed `fluid validate`, and `emr-7.12.0-latest` was refused with `expected emr-[0-9]+\.[0-9]+\.[0-9]+`.
+
+An `emr-eks` build with no `releaseLabel` gets a new config hash, because its default moved from `emr-7.12.0` to `emr-7.12.0-latest`: plan it again. The config hash of an `emr-serverless` or an `emr-ec2` build does not change.
 
 ### Stream settings
 
