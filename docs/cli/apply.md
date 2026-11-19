@@ -136,7 +136,7 @@ Two things differ between the engines, and the rest of this page says which one 
 | `amend-and-build` | Same as `amend`, then run the contract's `builds[]` (the build runner). |
 | `replace` | Destructive. Requires `--allow-data-loss`. |
 | `replace-and-build` | Same as `replace`, then the builds with a full refresh. Destructive. |
-| `reconcile` | *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* Deploys nothing: keeps the contract's always-on Spark streams running. See [Reconcile mode](#reconcile-mode). |
+| `reconcile` | *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* Deploys nothing: keeps the contract's always-on Spark streams running. See [Reconcile mode](#reconcile-mode). |
 
 What each engine does with the mode:
 
@@ -153,9 +153,9 @@ The build-augmented modes (`amend-and-build`, `replace-and-build`) run the confi
 amend-and-build (or replace-and-build) to run that build, or drop --build-id.
 ```
 
-Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* `--build-id` is accepted with `--mode reconcile` too, where it names the stream to keep running, and the hint of this refusal adds `--mode reconcile to keep that stream running`.
+Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0. *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* `--build-id` is accepted with `--mode reconcile` too, where it names the stream to keep running, and the hint of this refusal adds `--mode reconcile to keep that stream running`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1009](https://github.com/Agenticstiger/forge-cli/pull/1009)).* A dbt or Python build runs once under `--mode amend-and-build` whatever its `execution.trigger.type`, `manual` and `continuous` aside: see [What the DAG does](../advanced/airflow.md#what-the-dag-does). Which dbt a dbt build runs on, and what the container fallback installs, are in [Which dbt `fluid apply` runs](./generate.md#which-dbt-fluid-apply-runs).
+*(since 0.34.0, [forge-cli #1009](https://github.com/Agenticstiger/forge-cli/pull/1009))* A dbt or Python build runs once under `--mode amend-and-build` whatever its `execution.trigger.type`, `manual` and `continuous` aside: see [What the DAG does](../advanced/airflow.md#what-the-dag-does). Which dbt a dbt build runs on, and what the container fallback installs, are in [Which dbt `fluid apply` runs](./generate.md#which-dbt-fluid-apply-runs).
 
 *(since 0.30.0, [forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861))* On Databricks, a dbt build with `execution.runtime.platform: databricks` runs as the job the apply provisions. The build phase starts a run of the job and waits for it to end, and a failed run fails the apply. See [Running the job from `fluid apply`](../providers/databricks.md#running-the-job-from-fluid-apply).
 
@@ -163,7 +163,7 @@ Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0. *
 
 ### Reconcile mode
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* `--mode reconcile` keeps the contract's always-on Spark streams running, and deploys nothing: it runs no `tofu`, no DDL and no build, and it takes no plan. A stream that died is started again on its checkpoint, within its [restart budget](../advanced/spark-iceberg-aws.md#the-restart-budget), when what the last `fluid apply` deployed is what the contract compiles to. A scheduler task that runs it every few minutes, a keepalive, keeps a stream going between applies:
+*(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* `--mode reconcile` keeps the contract's always-on Spark streams running, and deploys nothing: it runs no `tofu`, no DDL and no build, and it takes no plan. A stream that died is started again on its checkpoint, within its [restart budget](../advanced/spark-iceberg-aws.md#the-restart-budget), when what the last `fluid apply` deployed is what the contract compiles to. A scheduler task that runs it every few minutes, a keepalive, keeps a stream going between applies:
 
 ```bash
 fluid apply contract.fluid.yaml --env prod --mode reconcile --build-id ingest-orders --yes
@@ -491,7 +491,7 @@ Removing a resource that only grants access is a revocation, not a loss, and pas
 
 A Cloud KMS key's IAM grant is not exempt: without it BigQuery cannot decrypt the table. Any removal of a type not in the list counts, so removing a bucket's lifecycle or server-side-encryption configuration, or a product's KMS key, needs `--allow-data-loss` even though no object is deleted. See [AWS](../providers/aws.md). If the plan's per-resource events do not account for every removal in its summary (an older `tofu`, a truncated stream), the gate counts every removal.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1007](https://github.com/Agenticstiger/forge-cli/pull/1007)).* On AWS the list is by type and, for what a forge Spark build ran with, by the end of the resource's name too. Its artifacts, role, log group and the key that encrypts the log groups, jobs and the product's own EMR Serverless application hold no data, so removing a Spark build is not a data loss. `apply` lists them (`<n> resource(s) a removed build ran with (its artifacts, role, log group and job; no table data lost; not gated; its logs go with them)`) and passes without the flag. An output table, a bucket and a bucket's own key still count, and so does a stream's dead-letter table (`sink: table`), which goes with the build: removing that build needs the flag. See [When a build leaves the contract](../advanced/spark-iceberg-aws.md#when-a-build-leaves-the-contract).
+*(since 0.34.0, [forge-cli #1007](https://github.com/Agenticstiger/forge-cli/pull/1007))* On AWS the list is by type and, for what a forge Spark build ran with, by the end of the resource's name too. Its artifacts, role, log group and the key that encrypts the log groups, jobs and the product's own EMR Serverless application hold no data, so removing a Spark build is not a data loss. `apply` lists them (`<n> resource(s) a removed build ran with (its artifacts, role, log group and job; no table data lost; not gated; its logs go with them)`) and passes without the flag. An output table, a bucket and a bucket's own key still count, and so does a stream's dead-letter table (`sink: table`), which goes with the build: removing that build needs the flag. See [When a build leaves the contract](../advanced/spark-iceberg-aws.md#when-a-build-leaves-the-contract).
 
 Some governance changes cannot be made to a live BigQuery table in place and plan its replacement, which this gate refuses without the flag: adding retention (`expire: true`) to a table that exists, adding or changing its Cloud KMS key, and removing `expire`. Roll these out as: plan, review the replacement, apply with `--allow-data-loss`, then run the build again to land the data. See [GCP](../providers/gcp.md).
 
@@ -784,7 +784,7 @@ Options marked *native* are read only by the native engine. As of 0.18.1 the Ope
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--mode` | `amend` | One of `dry-run`, `create-only`, `amend`, `amend-and-build`, `replace`, `replace-and-build`. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* Also `reconcile`: see [Reconcile mode](#reconcile-mode). |
+| `--mode` | `amend` | One of `dry-run`, `create-only`, `amend`, `amend-and-build`, `replace`, `replace-and-build`. *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* Also `reconcile`: see [Reconcile mode](#reconcile-mode). |
 | `--yes` | off | Skip confirmation. |
 | `--dry-run` | off | Alias for `--mode dry-run`. |
 | `--ensure-opentofu` | off | *(since 0.8.8)* If the `tofu` binary is missing, provision a **pinned, SHA-256-verified** OpenTofu build before a cloud apply — **no root, gpg, cosign, curl, or unzip needed** (Python stdlib only). Idempotent (a usable `tofu` at/above the engine floor is left untouched) and a no-op for native / `local` applies. Pin via `FLUID_OPENTOFU_VERSION`. `fluid generate ci` bakes this into the generated apply stage so cloud applies work on locked-down / non-root runners. |
