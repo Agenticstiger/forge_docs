@@ -13,7 +13,9 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 :::
 
 ::: warning Where you set it matters
-Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may hold credentials but not a setting that widens a sandbox, moves where the CLI reads trusted configuration, changes authentication or trust, changes where data and credentials are sent, or chooses which program runs. `fluid` names what it ignored and runs without it. Export those in your shell, your CI job, or a `FLUID_SECRETS_FILE` you export — see [What a project's `.env` may set](./project-dotenv-trust.md).
+Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may hold credentials but not a setting that widens a sandbox, moves where the CLI reads trusted configuration, changes authentication or trust, changes where data and credentials are sent, or chooses which program runs. `fluid` names what it ignored and runs without it. Export those in your shell, your CI job, or a `FLUID_SECRETS_FILE` you export — see [What a project's `.env` may set](./project-dotenv-trust.md). 
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1004](https://github.com/Agenticstiger/forge-cli/pull/1004)).* A project file can no longer set a name that is not a shell identifier, a name that starts with `BASH_FUNC_`, `BASH_XTRACEFD`, `ZDOTDIR`, `FPATH`, `NULLCMD` or `READNULLCMD` either.
 :::
 
 ## CLI behaviour

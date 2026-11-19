@@ -1414,6 +1414,10 @@ These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 unti
 - **`--install-mode dev-source` puts `fluid` on `PATH`.** On GitHub Actions, GitLab CI, Azure DevOps, Bitbucket, CircleCI and Tekton the install step ran `export PYTHONPATH=/forge-cli-src`, which ended with the step and never provided the command, so the install step failed at `fluid --version` with `command not found`, and no `fluid ship` step ran. It now runs `pip install -e /forge-cli-src`, and a missing checkout or a failed install stops the job with a `FATAL` line. Jenkins is unchanged.
 - **Generated pipelines pin their container images by digest, and `fluid generate ci --system tekton --image IMAGE` sets the Task image.** Tekton, GitLab, Bitbucket and CircleCI named `python:3.12-slim` and `cimg/python:3.12` by tag (and, on `main`, `python:3.12` for the GitLab `fluid-impact` job). See [Container images](./advanced/operating-in-ci.md#container-images).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1004](https://github.com/Agenticstiger/forge-cli/pull/1004)).*
+
+- **A project `.env` can no longer set a name that is not a shell identifier, a `BASH_FUNC_` name, or `BASH_XTRACEFD`, `ZDOTDIR`, `FPATH`, `NULLCMD` or `READNULLCMD`.** Bash reads `BASH_FUNC_<name>%%` as the function `<name>`, so a project file could replace a command, or `exec`, in a bash script the CLI starts, such as Debezium Server's `run.sh`, with your credentials in scope. The names go with the shell start-up settings that were already refused. A name has to be letters, digits and underscores, and not start with a digit: a key such as `my.setting`, `A-B` or `1ABC` in `.env`, `.env.<environment>` or `.env.local` is now ignored too. `fluid` names each ignored variable and file with the usual warning, and never a value. Search the project's dotenv files for such a key, and set what you need in the shell or the CI job. See [What a project's `.env` may set](./advanced/project-dotenv-trust.md).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
