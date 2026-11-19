@@ -1,11 +1,13 @@
 # `fluid doctor`
 
-Check that the CLI and the machine it runs on are ready: copilot configuration, the memory store, the tools and Python libraries that individual commands shell out to or import, and the `FLUID_*` switches that change CLI behaviour.
+Check that the CLI and the machine it runs on are ready (and, with [`--contract`](#contract-can-this-operation-run-here), that one contract's operation can run on it): copilot configuration, the memory store, the tools and Python libraries that individual commands shell out to or import, and the `FLUID_*` switches that change CLI behaviour.
 
 ## Syntax
 
 ```bash
 fluid doctor [--scope SCOPE] [--env] [--json] [--features-only] [--strict] [--extended] [--out-dir DIR] [--verbose]
+fluid doctor --contract FILE [--operation OP] [--env NAME] [--provider P] [--state-backend SPEC] [--live] [--json] [--strict]
+fluid doctor --compare LEFT RIGHT
 ```
 
 ## Examples
@@ -52,10 +54,16 @@ fluid doctor --env
 | Option | Description |
 | --- | --- |
 | `--scope {authoring\|pipeline\|ingestion\|infra\|catalog\|all}` | Run one group of checks, or all of them. There is no default scope: without `--scope`, `fluid doctor` runs the checks described under [Without `--scope`](#without-scope). |
-| `--env` | List the recognised `FLUID_*` runtime switches with their current value, source and default behaviour. See [`--env`](#env-the-runtime-switches). |
+| `--env` | List the recognised `FLUID_*` runtime switches with their current value, source and default behaviour. See [`--env`](#env-the-runtime-switches). Alone, it keeps this meaning. *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract` it takes a name, the environment overlay, as on `plan` and `apply`. |
+| `--contract FILE` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* Preflight a contract (or a `.tgz` bundle): can the operation run here? Offline. See [`--contract`](#contract-can-this-operation-run-here). |
+| `--operation {validate,generate,plan,apply,ship}` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`: the operation to preflight. Default `plan`, the offline plan. |
+| `--live` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`: add read-only checks of the identity and the state backend, for `apply` and `ship`. |
+| `--provider P` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`: the cloud `apply` provisions, as `apply` takes it. A contract on several clouds needs one for `apply` and `ship`. |
+| `--state-backend SPEC` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`: the OpenTofu state `apply` uses (`s3://...` or `gcs://...`), as `apply` takes it. Else `FLUID_STATE_BACKEND`. |
+| `--compare LEFT RIGHT` | *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* Compare two saved `--contract --json` reports and name the version gaps. |
 | `--json` | Machine-readable output. What it contains depends on the other flags; see [`--json`](#json-output). |
 | `--features-only` | Run only the feature-availability check and skip the rest of the default run. |
-| `--strict` | *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* Exit `1` whenever the summary says "Action needed", copilot readiness included. See [`--strict`](#strict). |
+| `--strict` | *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* Exit `1` whenever the summary says "Action needed", copilot readiness included. See [`--strict`](#strict). *On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).* With `--contract`, it also exits `1` when a capability is `lossy`. |
 | `--extended`, `--comprehensive` | Also run a `scripts/diagnose.sh` that you provide in the current directory. See [`--extended`](#extended). |
 | `--out-dir DIR` | Where `--extended` writes its diagnostic files. Default `runtime/diag`. |
 | `--verbose`, `-v` | Show detailed output. |
@@ -180,6 +188,82 @@ fluid doctor --env --json | jq '.env[] | select(.name == "FLUID_FEDERATION_TIMEO
 ```
 
 This lists the switches `fluid doctor` knows about. It is a convenient first look, not a substitute for the full table in [Environment variables](../advanced/environment-variables.md).
+
+## `--contract`: can this operation run here?
+
+*On forge-cli `main`, not yet in a release ([forge-cli #992](https://github.com/Agenticstiger/forge-cli/pull/992)).*
+
+`fluid doctor --contract` answers one question before CI starts: can this operation run on this machine, for this contract? It reads the contract (or a bundle), resolves what the operation needs, and checks the machine against it. It is offline unless you pass `--live`: it fetches no schema, provider or tool, and installs nothing.
+
+```bash
+fluid doctor --contract contract.fluid.yaml --operation apply --env prod
+```
+
+The report names the schema revision the contract resolves to (with the sha256 of the bundled file), the Forge build, each extra against the pins this build declares, the plugins installed through entry points, `tofu`, `dbt` and `spark-submit`, the dbt adapters and the OpenTofu provider pins. Each capability the operation relies on is in one of four classes:
+
+| Class | Meaning |
+| --- | --- |
+| `exact` | The operation does what the contract declares |
+| `lossy` | It runs, and writes something other than what the contract declares, such as a `geometry` column written as `GEOGRAPHY` |
+| `unsupported` | It would be refused, such as a bare `array` column on BigQuery, or an extra that is not installed |
+| `requires-live-proof` | An offline check cannot tell, such as the cloud identity or the provider download |
+
+```text
+fluid doctor --contract: validate (offline)
+  forge 0.32.0 · python 3.12.13 · darwin-arm64
+  schema 0.7.7 (bundled, preview)
+  needs: no cloud, credential or external tool
+✗ unsupported (1)
+  [column-type] bigquery exposes[orders].tags: declared 'array', which BigQuery
+holds only with its element or field types, and none is declared (fields,
+element, or key and value need contract 0.7.7 or later)
+      fix: Declare the type's fields, element, or key and value (contract 0.7.7
+or later), or declare json or string.
+! lossy (1)
+  [column-type] bigquery exposes[orders].area: declared 'geometry', which is
+planar, and BigQuery has only the spherical GEOGRAPHY; written as 'GEOGRAPHY'
+      fix: Declare geography if the coordinates are on the sphere.
+not-ready: exact 1 · lossy 1 · unsupported 1 · requires live proof 0
+```
+
+The report lists the `lossy` and `unsupported` findings, and counts the `exact` ones: here, the third column of the contract is `exact`. Column types come from the type tables of the emitters, and every other finding from the rules and installed validators that [`fluid validate`](./validate.md) runs, so a column that `fluid generate iac` refuses is `unsupported` here first.
+
+**The operation.** `--operation` is `validate`, `generate`, `plan` (the default, the offline plan), `apply` or `ship`. `validate`, `generate` and the offline `plan` need no cloud, credential or tool, so a catalog-only contract on AWS lists no AWS identity. `apply` and `ship` also list the extras for the cloud, `tofu`, `dbt` and its adapter or `spark-submit` where the contract builds with them, the provider pins, the cloud's identity and the state backend. The identity, the provider pins and a remote state backend (`s3://` or `gcs://`) are `requires-live-proof`. The default local state is `lossy`, because `apply` then keeps its OpenTofu state on this machine, where another runner cannot see it, so `--strict` exits `1`. A state spec that cannot be read is `unsupported`. They resolve the cloud and the state backend as `apply` does, so a contract on several clouds needs `--provider`, and `--state-backend` (else `FLUID_STATE_BACKEND`) names the state. `--env NAME` applies an environment overlay, as `plan` and `apply` do.
+
+**Verdict and exit codes.** The summary line ends in a verdict. `not-ready` means a capability is `unsupported`, and exits `1`. `ready` exits `0`, with its `lossy` findings listed. `needs-live-proof` means nothing is `unsupported` and something still needs `--live` to prove, and exits `0`. `--strict` also exits `1` on `lossy`.
+
+**`--live`.** For `apply` and `ship`, `--live` adds read-only checks, one attempt each: the identity (AWS `GetCallerIdentity`, a GCP token refresh) and whether the state bucket is reachable. It prints no identity. A check that passes makes its capability `exact`, and one that fails makes it `unsupported`, so the run exits `1`. For `validate`, `generate` and `plan` it says that no live check applies. Without `--live` the preflight makes no network call. A failed check names the cloud's status code and never its message, because the message can name the identity or the bucket. A check it cannot run, because the SDK is not installed, is listed as skipped, for example `live gcp-identity: skipped (google is not installed)`.
+
+**`--json`.** `--json` writes the report as one document in the format `fluid-preflight/1`, with the keys `version`, `operation`, `mode`, `forge`, `schema_revision`, `contract`, `env`, `needs`, `extras`, `plugins`, `tools`, `adapters`, `state_backend`, `capabilities`, `validation` and `summary`, and `live_checks` with `--live`. Each capability has an `area`, a `class`, a `subject`, a `target`, a `detail` and a `fix`. A report holds no environment value, so no path, account, bucket or variable value, and it goes through both redaction layers.
+
+**`--compare`.** Run the preflight in two places, save each `--json` report, and compare them:
+
+```bash
+fluid doctor --contract contract.fluid.yaml --json > laptop.json
+fluid doctor --contract contract.fluid.yaml --json > ci.json
+fluid doctor --compare laptop.json ci.json
+```
+
+```text
+2 difference(s) (left vs right):
+  [forge] version: 0.32.0 vs 0.31.0
+      Pin one Forge version.
+  [tool] tofu: 1.13.1 vs 1.11.0
+      Install the same tofu version on both (this build needs >=1.12).
+```
+
+It exits `1` when the reports differ in anything it compares: a version, the operation, the environment, the contract or a capability class. With `--json` it writes the differences as a document in the format `fluid-preflight-compare/1`.
+
+Errors:
+
+| Event | Exit | Raised when |
+| --- | --- | --- |
+| `doctor_preflight_failed` | `2` | `--operation`, `--live`, `--provider`, `--state-backend` or `--env NAME` is given without `--contract` (`--live needs --contract`), `--contract` or `--compare` is given with `--scope`, `--extended`, `--features-only` or each other (`--contract runs on its own; drop --scope`), `--env` has no overlay name with `--contract`, or a `--compare` file is not a `fluid-preflight/1` report |
+| `doctor_preflight_failed` | `1` | The contract is malformed or cannot be read (`cannot load the contract`) |
+| `contract_file_not_found` | `1` | The `--contract` file does not exist |
+| `file_not_found` | `1` | A `--compare` report does not exist |
+
+Run it offline, as a gate, before a pipeline starts, and run it with `--live` on the runner that will apply to learn whether it can reach the cloud and the state.
 
 ## `--extended`
 

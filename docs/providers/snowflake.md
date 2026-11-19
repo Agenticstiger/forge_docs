@@ -245,14 +245,23 @@ This is identical to GCP (`platform: gcp`, `format: bigquery_table`) and AWS (`p
 |---|---|
 | `string`, `text`, `varchar`, `char` | `VARCHAR` |
 | `integer`, `int`, `bigint`, `long` | `NUMBER(38,0)` |
-| `number(p,s)`, `decimal(p,s)`, `numeric(p,s)` | `NUMBER(p,s)` |
+| `number(p,s)`, `decimal(p,s)`, `numeric(p,s)` | `NUMBER(p,s)`. *On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)).* The precision is 1 to 38 and the scale 0 to 37, no larger than the precision, in digits; `fluid validate` and `fluid generate iac` refuse any other |
 | `float`, `double`, `real` | `FLOAT` |
 | `boolean` | `BOOLEAN` |
 | `timestamp`, `datetime` | `TIMESTAMP_NTZ` |
 | `date`, `time`, `variant`, `object`, `array`, `binary` | `DATE`, `TIME`, `VARIANT`, `OBJECT`, `ARRAY`, `BINARY` |
 
+*On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)).* The dbt engine and the Snowflake module now type a column from one table, so a dbt rebuild and `fluid apply` write the same type. On `main`, `smallint` is `NUMBER(38,0)`, `money` is `NUMBER(19,4)` (a bare `NUMBER` would drop the cents), `json` is `VARIANT`, `timestamp_ntz` is `TIMESTAMP_NTZ` and `timestamptz` is `TIMESTAMP_TZ`; `geography` is `GEOGRAPHY`, `geometry` is `GEOMETRY` and `timestamp_ltz` is `TIMESTAMP_LTZ`. The 0.32.0 module wrote each of these as `VARCHAR`; a plain `timestamp` or `datetime` was already `TIMESTAMP_NTZ`. A declared type keeps its arguments only in a type of the same family, so a type that takes no precision on Snowflake, such as `money`, drops them. A table applied before this change keeps the types written then, and Snowflake cannot change a live column to another type, so a column whose type changes needs its table migrated. A contract whose decimal Snowflake cannot hold is refused at `fluid validate`:
+
+```text
+expose 'orders': Snowflake cannot hold its columns as declared: 'b' is declared 'decimal(40,20)', whose precision and scale a Snowflake NUMBER cannot hold; 'c' is declared 'decimal(38,38)', whose precision and scale a Snowflake NUMBER cannot hold; 'd' is declared 'decimal(1;drop table x)', whose arguments are not a precision and an optional scale in digits.
+Columns 'b', 'c': Declare decimal(p,s) with p from 1 to 38 and s from 0 to 37, no larger than p. Column 'd': Declare decimal(p) or decimal(p,s) in digits, for example decimal(18,4).
+```
+
+`fluid validate` refuses a Databricks decimal the same way, with a precision to 38 and a scale from 0 to 38, no larger than the precision.
+
 ::: warning Other type names become `VARCHAR`
-As of 0.18.1 the Snowflake module writes any type name outside this table as `VARCHAR`, without a warning. A column declared `TIMESTAMP_NTZ`, `TIMESTAMP_TZ` or `TIMESTAMP_LTZ` is created as `VARCHAR`. Declare `timestamp` for `TIMESTAMP_NTZ`. Because the module pins `lifecycle.ignore_changes = ["column"]`, a later corrected type does not change an existing table; `fluid verify --strict` reports the mismatch.
+As of 0.18.1 the Snowflake module writes any type name outside this table as `VARCHAR`, without a warning. A column declared `TIMESTAMP_NTZ`, `TIMESTAMP_TZ` or `TIMESTAMP_LTZ` is created as `VARCHAR`; on `main` those three are written as declared, and other unknown names, such as `uuid` and `interval`, are still `VARCHAR` without a warning. Declare `timestamp` for `TIMESTAMP_NTZ`. Because the module pins `lifecycle.ignore_changes = ["column"]`, a later corrected type does not change an existing table; `fluid verify --strict` reports the mismatch.
 :::
 
 ## CLI Commands

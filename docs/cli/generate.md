@@ -192,6 +192,40 @@ schema: '{{ env_var(''FLUID_SOURCE_SCHEMA'', target.schema) }}'
 
 For a Snowflake, BigQuery (`gcp`), Redshift or Athena (`aws`) binding, a platform variable sits between the two: `SNOWFLAKE_DATABASE` / `SNOWFLAKE_STAGE_SCHEMA`, `GCP_PROJECT` / `BIGQUERY_DATASET`, `REDSHIFT_DATABASE` / `REDSHIFT_SCHEMA`, `ATHENA_DATABASE` / `ATHENA_SCHEMA`. The generated project's output above is for a `local` binding, which has none.
 
+#### Contract text in a generated dbt project
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1001](https://github.com/Agenticstiger/forge-cli/pull/1001)).*
+
+dbt renders the names, descriptions and test arguments of a properties file as Jinja, and it runs a test argument that looks like `env_var(...)`, `var(...)`, `ref(...)`, `source(...)` or `doc(...)` even without braces. Through 0.32.0 the dbt engine wrote a contract's text into `schema.yml`, `sources.yml` and `semantic_models.yml` as it was, so a description of `{{ exceptions.raise_compiler_error(env_var('HOME')) }}` ran when dbt parsed the project. The engine now writes each such string as a Jinja literal of itself, the way [`fluid generate dbt-tests`](#declared-rules-as-dbt-tests) does, and dbt reads it back as the same text:
+
+```yaml
+# contract: description: "{{ exceptions.raise_compiler_error(env_var('HOME')) }}"
+- name: orders
+  description: '{{ "{{ exceptions.raise_compiler_error(env_var(''HOME'')) }}" }}'
+```
+
+- **What is escaped.** A string that holds `{{`, `{%` or `{#`, or looks like one of those calls. Every other string is written as before, so the project of a contract with plain names is unchanged. A `ref('<model>')` that the engine writes itself for a relationship test stays as it is.
+- **Source placeholders.** In `sources.yml`, a `{{ env.X }}`, `${X}` or dbt `env_var(...)` placeholder, with or without a default, still becomes an `env_var(...)` that dbt resolves at parse time. The text around a placeholder is escaped where it holds a brace.
+- **Semantic models.** `semantic_models.yml` gets the same escaping. A metric's `filter` is written as it is, because dbt never renders it.
+- **Refused names.** dbt runs a model's tests against `ref('<name>', version='<v>')` and a source table's against `source('<source>', '<id>')`, Jinja that it builds by pasting the name in, so no literal of the name helps. A model name, source name, table name or version that holds a quote, a backslash, a brace or a control character is refused when the project is generated. The command exits `1` and the error names the value:
+
+  ```text
+  exposeId "orders') }}{{ env_var('SECRET'" cannot name a dbt node: dbt writes it into Jinja it runs, so it must hold no quote, backslash, brace or control character
+  ```
+
+  An integer contract version stays an integer.
+- **`accepted_values` with a quote or a backslash.** dbt pastes each value between single quotes, so a value such as `it's` or a backslash broke the test. A test with such a value is written with `quote: false`, and each value is written as the SQL string literal of each adapter, chosen by `target.type`. The values that need nothing are written as before, here `A`:
+
+  ```yaml
+  - accepted_values:
+      values:
+      - '''A'''
+      - '{% if target.type in ["duckdb"] %}{{ "''it''''s''" }}{% elif target.type in ["bigquery"] %}{{ "''it\\''s''" }}{% else %}...{% endif %}'
+      quote: false
+  ```
+
+This covers the three properties files. It does not cover the SQL of the models.
+
 #### dbt compatibility
 
 The generator reads `dbt --version` from `$DBT_EXECUTABLE` or `PATH`, and chooses the YAML shapes the detected dbt understands:
