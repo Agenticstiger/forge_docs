@@ -48,13 +48,13 @@ fluid policy compile contract.fluid.yaml
 {"time": "...", "level": "WARNING", "name": "fluid.cli", "message": "policy_compile_warning", "warning": "Iceberg expose 'orders' is cataloged in 'lakekeeper', not AWS Glue, so no table grant was compiled for group:analysts@acme.com ['read']. Enforce it in the 'lakekeeper' catalog's own access control.", "out": "runtime/policy/bindings.json"}
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* That grant now also compiles to a binding for the table in Lakekeeper, and the warning above is no longer printed for a Lakekeeper table. A table whose binding lacks its catalog `uri`, its `warehouse`, its namespace or its `table` gets a different warning, which names the missing keys. See [Lakekeeper tables](#lakekeeper-tables).
+*(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))* That grant now also compiles to a binding for the table in Lakekeeper, and the warning above is no longer printed for a Lakekeeper table. A table whose binding lacks its catalog `uri`, its `warehouse`, its namespace or its `table` gets a different warning, which names the missing keys. See [Lakekeeper tables](#lakekeeper-tables).
 
 A contract with no `accessPolicy` grants gets `No grants found in accessPolicy` in the file only: no grant is left unenforced. [`fluid policy apply`](./policy-apply.md#notes) prints the file's warnings again. Before #710 the warnings were written only to the file.
 
 ## Lakekeeper tables
 
-*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).*
+*(since 0.33.0, [forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993))*
 
 An Iceberg expose whose `binding.location.catalog` is `lakekeeper` lives in Lakekeeper, so Lakekeeper's own authorization decides who may read or write its table, not a cloud's IAM. For each such table the command writes one binding with `provider: lakekeeper` for each principal the contract gives access to it. They sit in the same file as the bindings of the cloud the expose is on: an AWS expose keeps its S3 bucket bindings. [`fluid policy apply`](./policy-apply.md#lakekeeper-tables) sends them to Lakekeeper.
 
@@ -182,4 +182,4 @@ When the schema finds no such error, the message is the compiler's own exception
 
 - Loads the contract with the requested env overlay and emits a JSON document with `bindings` and `warnings` arrays at the `--out` path.
 - The compiler embeds `provider` and `project` on each binding so [`fluid policy apply`](./policy-apply.md) can target the right account without extra flags.
-- Pair with [`fluid policy check`](./policy-check.md) for static linting and [`fluid policy apply`](./policy-apply.md) for the stage-8 hand-off to the provider (it changes no permissions in 0.18.1, and on forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)), it changes only the grants of Lakekeeper tables).
+- Pair with [`fluid policy check`](./policy-check.md) for static linting and [`fluid policy apply`](./policy-apply.md) for the stage-8 hand-off to the provider (it changes no permissions in 0.18.1, and since 0.33.0 ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)) it changes only the grants of Lakekeeper tables).

@@ -63,7 +63,7 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 
 - `bundleDigest` — SHA-256 of the tgz bundle the plan was derived from (matches `MANIFEST.json`'s merkle root). An empty string when planning from a raw YAML contract.
 - `planDigest` — SHA-256 of the plan's action list itself (internal consistency check).
-- `packetDigest` — *On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)).* SHA-256 of the bundle file's bytes, for a plan made from a bundle. `bundleDigest` names the resolved contract and the files it packs; `packetDigest` names the exact archive, so the plan applies only with the bytes it was made from. It sits under `planDigest`. See [The packet digest](./bundle.md#the-packet-digest).
+- `packetDigest` — *(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))* SHA-256 of the bundle file's bytes, for a plan made from a bundle. `bundleDigest` names the resolved contract and the files it packs; `packetDigest` names the exact archive, so the plan applies only with the bytes it was made from. It sits under `planDigest`. See [The packet digest](./bundle.md#the-packet-digest).
 
 `fluid apply` re-verifies both before executing any DDL. Helpers live in `fluid_build/forge/core/plan_digest.py`:
 
@@ -102,7 +102,7 @@ Besides the digests, `plan.json` carries what `apply` needs to refuse a plan tha
 | `contract_metadata.source_contract` | The plan was made from a bundle. | Names the source contract file the bundle was built from. |
 | `contract` | Always. | Apply runs the embedded contract, which already has the overlay applied. *([forge-cli #714](https://github.com/Agenticstiger/forge-cli/pull/714), since 0.20.0)* It validates it against its schema first, on both engines, and refuses a plan with no embedded contract with `apply_plan_missing_contract`. See [Contract validation](./apply.md#contract-validation). |
 
-*On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972) and [#985](https://github.com/Agenticstiger/forge-cli/pull/985)).*
+*(since 0.33.0, [forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972) and [#985](https://github.com/Agenticstiger/forge-cli/pull/985))*
 A plan made from a bundle records two more fields. This is a trimmed excerpt of `fluid plan runtime/bundle.tgz --out runtime/plan.json` on the bundle from [The dbt project of a dbt build](./bundle.md#the-dbt-project-of-a-dbt-build):
 
 ```json
@@ -155,7 +155,7 @@ It opens the OpenTofu engine the way `fluid apply` does: the same state backend,
 
 With `--out runtime/plan.json` they are `runtime/plan.tfplan`, `runtime/plan.tfplan.json` and `runtime/plan.gitlab-tofu.json`. The run prints the change counts as `tofu plan: +<add> ~<change> -<remove>` and the three file names.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* The run also prints the target it bound, as `target:      aws account 111111111111, region eu-west-1`. When `tofu init` wrote a dependency lock, the plan writes it as a further file next to `plan.json`, `plan.terraform.lock.hcl` (named after `--out`, mode `0600`), and the `saved plan:` line lists it. A module that uses only built-in resources has no lock and no such file.
+*(since 0.33.0, [forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999))* The run also prints the target it bound, as `target:      aws account 111111111111, region eu-west-1`. When `tofu init` wrote a dependency lock, the plan writes it as a further file next to `plan.json`, `plan.terraform.lock.hcl` (named after `--out`, mode `0600`), and the `saved plan:` line lists it. A module that uses only built-in resources has no lock and no such file.
 
 `plan.json` gains an `opentofuPlan` record, and `planDigest` covers it:
 
@@ -167,12 +167,12 @@ With `--out runtime/plan.json` they are `runtime/plan.tfplan`, `runtime/plan.tfp
 | `stateLineage`, `stateSerial` | The version of that state when the plan was made. Left out when the state could not be read |
 | `changes` | The `add`, `change` and `remove` counts |
 | `imports` | The addresses of pre-existing resources the plan adopts |
-| `lockFile`, `lockSha256` | *On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* The provider lock written with the plan, and its `sha256:<hex>`. Left out when there is no lock |
-| `target` | *On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* What the plan is bound to besides its state: see [The target a plan is bound to](#the-target-a-plan-is-bound-to) |
+| `lockFile`, `lockSha256` | *(since 0.33.0, [forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999))* The provider lock written with the plan, and its `sha256:<hex>`. Left out when there is no lock |
+| `target` | *(since 0.33.0, [forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999))* What the plan is bound to besides its state: see [The target a plan is bound to](#the-target-a-plan-is-bound-to) |
 
 ### The target a plan is bound to
 
-*On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* OpenTofu applies a saved plan on whatever account the apply's credentials reach, and does not check it. So the plan records its target, and `fluid apply` reads the target again, before it applies or changes anything, and refuses another one. `target` holds:
+*(since 0.33.0, [forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999))* OpenTofu applies a saved plan on whatever account the apply's credentials reach, and does not check it. So the plan records its target, and `fluid apply` reads the target again, before it applies or changes anything, and refuses another one. `target` holds:
 
 | Field | Holds |
 | --- | --- |
@@ -193,9 +193,9 @@ The identity comes from the module's `provider` block where forge sets one (the 
 | `snowflake` | `organization`, `account` | `SNOWFLAKE_ORGANIZATION_NAME` and `SNOWFLAKE_ACCOUNT_NAME`. Forge sets both from `SNOWFLAKE_ACCOUNT` when it has the `<organization>-<account>` form, and a bare account locator leaves both unread. Stored in upper case |
 | `databricks` | `host` | `DATABRICKS_HOST`. Stored in lower case, without a trailing `/` |
 
-An identity field the run cannot read, such as the AWS account without `boto3` or credentials, is left out of `identity`, and the plan prints it, for example `account not bound: boto3 is not installed (pip install 'data-product-forge[aws]')`. A provider with no row here, `confluent` or a plugin installed through an entry point for one, binds no identity field, and still binds the backend and the `tofu` and provider versions. *On forge-cli `main`, not yet in a release ([forge-cli #1002](https://github.com/Agenticstiger/forge-cli/pull/1002)).* The plan then prints `target: forge reads no account, project or host for <provider>, so the saved plan is not bound to one`, and logs it at WARNING as `plan_tofu_target_provider_unbound`.
+An identity field the run cannot read, such as the AWS account without `boto3` or credentials, is left out of `identity`, and the plan prints it, for example `account not bound: boto3 is not installed (pip install 'data-product-forge[aws]')`. A provider with no row here, `confluent` or a plugin installed through an entry point for one, binds no identity field, and still binds the backend and the `tofu` and provider versions. *(since 0.33.0, [forge-cli #1002](https://github.com/Agenticstiger/forge-cli/pull/1002))* The plan then prints `target: forge reads no account, project or host for <provider>, so the saved plan is not bound to one`, and logs it at WARNING as `plan_tofu_target_provider_unbound`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1002](https://github.com/Agenticstiger/forge-cli/pull/1002)).* The AWS profile is `AWS_PROFILE`, else `AWS_DEFAULT_PROFILE`, the order of the SDK that the `hashicorp/aws` provider is built on. With neither set, the profile is `default`. It is the profile for the account lookup and for the region fallback in the row above. [Applying a saved OpenTofu plan](./apply.md#applying-a-saved-opentofu-plan) lists what `fluid apply` refuses.
+*(since 0.33.0, [forge-cli #1002](https://github.com/Agenticstiger/forge-cli/pull/1002))* The AWS profile is `AWS_PROFILE`, else `AWS_DEFAULT_PROFILE`, the order of the SDK that the `hashicorp/aws` provider is built on. With neither set, the profile is `default`. It is the profile for the account lookup and for the region fallback in the row above. [Applying a saved OpenTofu plan](./apply.md#applying-a-saved-opentofu-plan) lists what `fluid apply` refuses.
 
 **Brownfield adoption.** A saved plan carries the state it was made from, so planning must leave the state as it was. Adoption runs `tofu import` to confirm each resource exists, hands the import back with `state rm`, and puts it into the plan as an `import` block. The reviewer sees the resource listed as to be imported, and the apply does the import. If the hand-back fails, the plan stops with `plan_tofu_adoption_not_released` and prints the `tofu state rm` command to run.
 
@@ -211,7 +211,7 @@ Other errors:
 - **The plan files are plaintext.** `plan.tfplan.json` holds every sensitive value in clear, as `tofu show -json` does. Mode `0600` does not protect a CI artifact download. Keep them in protected, short-lived job artifacts. With [`FLUID_STATE_ENCRYPTION`](./apply.md#state-and-plan-encryption) set, OpenTofu encrypts the saved plan.
 - **The digests are not signatures.** `planDigest` and `opentofuPlan.sha256` catch a plan that was changed by accident or by an edit. They do not prove who wrote it. Store the plan artifacts where only the plan job can write them, as for any `tofu apply <planfile>`: a forged saved plan can do anything OpenTofu can do on the apply runner.
 - **Planning writes state.** `fluid plan --tofu` moves a legacy state key as `fluid apply` does, and its adoption imports and then removes. The net content of the state is unchanged, but the plan role needs write access to the state, and to the lock.
-- **Plan and apply must share a remote state.** Local state in a CI workspace does not reach the apply job, and the plan is then refused as stale or as made for another state. *On forge-cli `main`, not yet in a release ([forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999)).* With a state backend that both runners reach, a plan made on one runner applies on another, at another checkout path: hand over `plan.json`, the saved plan and the lock. A plan made against existing local state that the applying runner does not have is refused as `apply_plan_digest_tofu_plan_state_missing`. A first plan on local state is not refused, but the state it creates stays on the runner that applied it.
+- **Plan and apply must share a remote state.** Local state in a CI workspace does not reach the apply job, and the plan is then refused as stale or as made for another state. *(since 0.33.0, [forge-cli #999](https://github.com/Agenticstiger/forge-cli/pull/999))* With a state backend that both runners reach, a plan made on one runner applies on another, at another checkout path: hand over `plan.json`, the saved plan and the lock. A plan made against existing local state that the applying runner does not have is refused as `apply_plan_digest_tofu_plan_state_missing`. A first plan on local state is not refused, but the state it creates stays on the runner that applied it.
 :::
 
 ## Sovereignty gate (since 0.15.0)

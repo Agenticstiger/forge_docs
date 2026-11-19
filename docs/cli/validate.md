@@ -79,8 +79,8 @@ A failure prints a stable `[ERR_<EVENT>]` slug, such as `[ERR_VERSION_BELOW_MINI
 | `--cache-dir CACHE_DIR` | Use a custom schema cache directory. |
 | `--verbose`, `-v` | Detailed validation output. |
 | `--quiet`, `-q` | Minimal output: errors only. A run that stops on an error such as `contract_load_failed` still prints the error and the line that says what failed; the `[ERR_...]` slug, the suggestions and the documentation link stay hidden. See [Quiet output](#quiet-output). |
-| `--format {text\|json\|sarif}` | Output format. Default `text`. *On forge-cli `main`, not yet in a release ([forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969)):* `sarif` writes a SARIF 2.1.0 log and implies `--diagnostics`. See [Findings at the line that wrote them](#findings-at-the-line-that-wrote-them). |
-| `--diagnostics` | *On forge-cli `main`, not yet in a release ([forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969)).* Report each finding at the file, line and column that wrote the value, with the related place in the root contract. One contract or fragment file at a time. See [Findings at the line that wrote them](#findings-at-the-line-that-wrote-them). |
+| `--format {text\|json\|sarif}` | Output format. Default `text`. *(since 0.33.0, [forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969))* `sarif` writes a SARIF 2.1.0 log and implies `--diagnostics`. See [Findings at the line that wrote them](#findings-at-the-line-that-wrote-them). |
+| `--diagnostics` | *(since 0.33.0, [forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969))* Report each finding at the file, line and column that wrote the value, with the related place in the root contract. One contract or fragment file at a time. See [Findings at the line that wrote them](#findings-at-the-line-that-wrote-them). |
 | `--list-versions` | List the available schema versions and exit. |
 | `--show-schema` | Show the schema used for validation. |
 | `--probe` | Accepted and ignored. See [`--probe`](#probe-is-accepted-and-does-nothing). |
@@ -508,7 +508,7 @@ An upstream whose product type the workspace can read is judged by the compositi
 
 ## Findings at the line that wrote them
 
-*On forge-cli `main`, not yet in a release ([forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969)).*
+*(since 0.33.0, [forge-cli #969](https://github.com/Agenticstiger/forge-cli/pull/969))*
 
 A contract composed from `$ref` fragments and an `--env` overlay reports most findings as a path into the composed document, which is not a place anyone wrote. With `--diagnostics`, each finding carries the file, line and column that wrote the value. It also carries the related place in the root contract (the key whose `$ref` brought a fragment in, or the base value an overlay patched), and the product, environment and expose or consume it sits under.
 
@@ -704,7 +704,7 @@ What it checks:
 - **The files in the bundle.** The resolved contract against the JSON Schema, SQL fragments with a SQL parser, and OpenAPI fragments with an OpenAPI validator. When the SQL parser or the OpenAPI validator is not installed, those fragments are reported as an info (an error under `--strict`) instead of being checked.
 - **The contract rules.** The resolved contract goes through the same rules a contract file does: sovereignty, agent policy, binding prerequisites, packaging, semantics, composition and plugin validators. Each finding is reported with code `CONTRACT-RULE`. *(since 0.31.0, [forge-cli #880](https://github.com/Agenticstiger/forge-cli/pull/880))* So are the [placeholder and starter-value checks](#placeholders-and-starter-values) and the [SDP checks](#what-an-sdp-does-not-do), and each `CONTRACT-RULE` finding also carries its `ERR_*` code as `rule`, with `pointer`, `fix`, `example` and `docs_url`, as in [`issues`](#finding-codes-and-issues).
 - **The environment.** `--env` must match the environment the bundle was built for.
-- **The dbt projects.** *On forge-cli `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).* One finding per project the bundle packs under `sources/dbt/<build id>/`. It is an `info`, `DBT-PROJECT-BOUND`, that says how many files the bundle binds and that `fluid validate` does not parse dbt's Jinja SQL, so run `dbt parse` on the project in CI. A project that no dbt build of the bundled contract runs (`DBT-PROJECT-ORPHAN`), or that has no `dbt_project.yml` (`DBT-PROJECT-INCOMPLETE`), is a warning, because `fluid apply` refuses both. See [The dbt project of a dbt build](./bundle.md#the-dbt-project-of-a-dbt-build).
+- **The dbt projects.** *(since 0.33.0, [forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972))* One finding per project the bundle packs under `sources/dbt/<build id>/`. It is an `info`, `DBT-PROJECT-BOUND`, that says how many files the bundle binds and that `fluid validate` does not parse dbt's Jinja SQL, so run `dbt parse` on the project in CI. A project that no dbt build of the bundled contract runs (`DBT-PROJECT-ORPHAN`), or that has no `dbt_project.yml` (`DBT-PROJECT-INCOMPLETE`), is a warning, because `fluid apply` refuses both. See [The dbt project of a dbt build](./bundle.md#the-dbt-project-of-a-dbt-build).
 - **The overlay warnings.** *(since 0.22.0, [forge-cli #735](https://github.com/Agenticstiger/forge-cli/pull/735))* An overlay patch that `fluid bundle --env` merged onto another entry is recorded in the manifest and reported as a warning, `OVERLAY-WARNING`, so `--strict` fails on it. A bundle is never re-overlaid, so the record is how validate sees it.
 
 A bundle is never re-overlaid, so a mismatched `--env` is an error, `BUNDLE-ENV-MISMATCH`, and exits `1`:
@@ -771,7 +771,7 @@ Codes you will meet in a report:
 | --- | --- |
 | `MANIFEST-TAMPER` | A file's hash does not match the manifest. |
 | `BUNDLE-ENV-MISMATCH` | `--env` differs from the environment the bundle was built for. |
-| `DBT-PROJECT-BOUND`, `DBT-PROJECT-ORPHAN`, `DBT-PROJECT-INCOMPLETE` | *On `main`, not yet in a release ([forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972)).* One finding per packed dbt project: an `info` for a bound one, a warning for one that no dbt build runs or that lacks `dbt_project.yml`. |
+| `DBT-PROJECT-BOUND`, `DBT-PROJECT-ORPHAN`, `DBT-PROJECT-INCOMPLETE` | *(since 0.33.0, [forge-cli #972](https://github.com/Agenticstiger/forge-cli/pull/972))* One finding per packed dbt project: an `info` for a bound one, a warning for one that no dbt build runs or that lacks `dbt_project.yml`. |
 | `OVERLAY-WARNING` | `fluid bundle --env` recorded an overlay patch that landed on another entry (a warning; `--strict` fails on it). |
 | `CONTRACT-RULE` | A contract rule failed or warned on the resolved contract. |
 | `CONTRACT-LOAD` | The resolved contract inside the bundle could not be loaded. |

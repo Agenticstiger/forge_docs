@@ -149,8 +149,8 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--allow-data-loss` | `ALLOW_DATA_LOSS=true` | | Passed to `fluid apply`. |
 | `--no-verify-digest` | `NO_VERIFY_DIGEST=true` | | Passes `--no-verify-plan-binding --no-verify-federation` to `fluid apply`. |
 | `--no-generate-artifacts` | | | Skips stage 3. |
-| `--require-artifacts <keys>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)).* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
-| `--release-dir <dir>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980)).* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
+| `--require-artifacts <keys>` | | | *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
+| `--release-dir <dir>` | | | *(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
 | `--journal-dir <dir>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
 | `--acknowledge-inspected <stage>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Reruns a stage whose unknown outcome you inspected, and records it. Name or number; repeatable or comma-separated. |
 | `--publish` | | | Runs stage 10. |
@@ -171,15 +171,15 @@ The options for single stages (`--strict`, `--emit`, `--exit-on-drift`, `--last-
 
 ### Reference-only contracts
 
-*On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)).*
+*(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))*
 
 Through 0.32.0, stage 3 skipped every contract with a `hybrid-reference`, `reference` or `external-reference` build, even with `--emit`. Stage 4 skipped too, and the run exited 0 with no `MANIFEST.json`. But `fluid generate artifacts` has written ODCS, ODPS and policy artifacts for such contracts for a long time: they do not depend on where the transformation runs. Stage 3 now runs for them as well.
 
-Stage 4 now fails, where it used to skip, when stage 3 was to write `dist/artifacts/` and did not. It still skips under `--no-generate-artifacts`. A CI file from `fluid generate ci` still switches stage 3 off by default for a reference-only contract. *On forge-cli `main`, not yet in a release ([forge-cli #1000](https://github.com/Agenticstiger/forge-cli/pull/1000)),* it does not: only `fluid generate ci --no-generate-artifacts` turns stage 3 off.
+Stage 4 now fails, where it used to skip, when stage 3 was to write `dist/artifacts/` and did not. It still skips under `--no-generate-artifacts`. A CI file from `fluid generate ci` still switches stage 3 off by default for a reference-only contract. *(since 0.33.0, [forge-cli #1000](https://github.com/Agenticstiger/forge-cli/pull/1000))* It does not: only `fluid generate ci --no-generate-artifacts` turns stage 3 off.
 
 ### Requiring artifacts
 
-*On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)).*
+*(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))*
 
 `--require-artifacts KEYS` fails the run unless stage 3 writes what it promised. A key is one of `generate artifacts`' emit keys:
 
@@ -216,7 +216,7 @@ An unknown key exits `2` and lists the keys: `fluid ship: --require-artifacts: u
 
 ### Publishing a release
 
-*On forge-cli `main`, not yet in a release ([forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980)).*
+*(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))*
 
 `--release-dir DIR` publishes a run as a release, once every stage it ran passed. Use it when a later job, an auditor or a promotion step needs one directory that holds what this run produced.
 
@@ -243,7 +243,7 @@ A run that fails, or is interrupted, publishes nothing. Its reports stay in `run
 warning: a real run would stop: --release-dir needs stages 1-4 (bundle to validate-artifacts) in this invocation, and stage 3 generate-artifacts does not run (--no-generate-artifacts)
 ```
 
-**Every port is verified.** *On forge-cli `main`, not yet in a release ([forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986)).* Under `--release-dir`, stage 9 passes `--require-every-port` to `fluid verify`, so a run that runs stage 9 publishes a release only when every expose was verified. An expose that was skipped (no verifier for its binding, or a reference-only table that is not built yet), an entry that verify cannot check (no id, or an id used twice) and a contract with no exposes fail stage 9, and nothing is published. `--explain` shows the argument:
+**Every port is verified.** *(since 0.33.0, [forge-cli #986](https://github.com/Agenticstiger/forge-cli/pull/986))* Under `--release-dir`, stage 9 passes `--require-every-port` to `fluid verify`, so a run that runs stage 9 publishes a release only when every expose was verified. An expose that was skipped (no verifier for its binding, or a reference-only table that is not built yet), an entry that verify cannot check (no id, or an id used twice) and a contract with no exposes fail stage 9, and nothing is published. `--explain` shows the argument:
 
 ```text
    9 verify              run      fluid verify runtime/bundle.tgz --strict --require-every-port --env dev --out runtime/verify-report.json
@@ -324,7 +324,7 @@ Each stage option takes the flag, then the variable the Jenkins pipeline already
 | Stage | Option | Variable | Default | Description |
 |---|---|---|---|---|
 | 2, 4 | `--strict`, `--no-strict` | `VALIDATE_STRICT` | on, unless the variable is `false` | `--strict` for `validate` and `validate-artifacts`. |
-| 3 | `--emit <list>` | `GENERATE_EMIT` | every emitter | `generate artifacts --emit`, comma-separated: `odps-bitol`, `odcs`, `opds`, `schedule`, `policies`. *On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)).* `spark` is a sixth key, and `GENERATE_EMIT` in a generated Jenkinsfile lists it. `--explain` assumes only the outputs it names, so stage 8 shows as skipped without `policies`. |
+| 3 | `--emit <list>` | `GENERATE_EMIT` | every emitter | `generate artifacts --emit`, comma-separated: `odps-bitol`, `odcs`, `opds`, `schedule`, `policies`. *(since 0.33.0, [forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979))* `spark` is a sixth key, and `GENERATE_EMIT` in a generated Jenkinsfile lists it. `--explain` assumes only the outputs it names, so stage 8 shows as skipped without `policies`. |
 | 5 | `--exit-on-drift`, `--no-exit-on-drift` | `DIFF_EXIT_ON_DRIFT` | on, unless the variable is `false` | Whether drift fails stage 5 or is only reported. |
 | 5 | `--last-applied <plan>` | `DIFF_LAST_APPLIED` | | `diff --last-applied`: compares with the plan the last apply ran, so a change the contract makes is pending, not drift. A missing file is a first run, compared with the contract alone. |
 | 6 | `--plan-html`, `--no-plan-html` | `PLAN_HTML` | off, unless the variable is `true` | Also writes `runtime/plan.html`. |
@@ -349,7 +349,7 @@ The failing stage's own exit code is in the report and in the line ship prints w
 
 Every run that starts a stage writes `runtime/ship-report.json` and `runtime/ship-junit.xml`. The JSON holds the run id, env, mode, contract and the run's exit status, and for each stage its status, the reason it was skipped or failed, its argv, exit code and duration. The JUnit file has one test case per stage.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980)).* `ship-report.json` is versioned, `"schema": "fluid-ship-report/2"`. Every stage has one of six statuses:
+*(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* `ship-report.json` is versioned, `"schema": "fluid-ship-report/2"`. Every stage has one of six statuses:
 
 | Status | Meaning |
 |---|---|
