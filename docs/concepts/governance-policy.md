@@ -266,6 +266,8 @@ fluid policy-apply runtime/policy/bindings.json --mode enforce
 # is a no-op for this provider.
 ```
 
+*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* A table that Lakekeeper catalogs is the exception: `fluid policy-apply` reads its grants in Lakekeeper and, with `--mode enforce`, changes them. See [Lakekeeper tables](../cli/policy-apply.md#lakekeeper-tables).
+
 For acquisition contracts it still registers retention, alerting and cost policies under `.fluid/policies/<contract-id>/` for the acquisition runtime. `fluid policy-compile` maps `write` to `roles/bigquery.dataOwner` in its GCP bindings JSON, while `fluid apply` grants `roles/bigquery.dataEditor`; the table above is what apply provisions.
 
 ### When `policy-compile` or `policy-apply` fails
