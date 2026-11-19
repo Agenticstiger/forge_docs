@@ -216,7 +216,7 @@ Per runtime:
 | `emr-serverless` | With `applicationId`, nothing: the application is the domain's and the contract only names it. Without it, `packaging.containers.emrApplication: isolated` creates one for the product, which stops after 15 idle minutes, is capped at 16 vCPU and 64 GB, and sits in the MSK cluster's subnets and security groups. With neither, the contract is refused (`spark-emr-application-shared`). | The EMR Serverless service, for this account and this application. |
 | `glue` | An `aws_glue_job` (`gluestreaming` or `glueetl`), Glue 5.0 by default, with `--datalake-formats iceberg`, the runner as its script, `--config` pointing at `job.json`, continuous logs to its group, and a `NETWORK` connection in one of the MSK cluster's subnets. | `glue.amazonaws.com`, for this build's own Glue job. |
 | `emr-eks` | Nothing: the virtual cluster is existing. | The IRSA statement that `aws emr-containers update-role-trust-policy` writes. The virtual cluster and its EKS cluster are read at plan time. |
-| `emr-ec2` | No role: a step runs as the cluster's instance profile, so forge emits the job's policy as a managed `aws_iam_policy` for the cluster's owner to attach. | None. |
+| `emr-ec2` | No role: a step runs as the cluster's instance profile, so forge emits the job's policy as a managed `aws_iam_policy` for the cluster's owner to attach. *On forge-cli `main`, not yet in a release ([forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005)).* `fluid apply` starts no step until it is attached: see [An EMR on EC2 step starts once its policy is attached](#an-emr-on-ec2-step-starts-once-its-policy-is-attached). | None. |
 
 ### What the job's role may do in S3
 
@@ -364,6 +364,26 @@ Per runtime, the start is:
 - **EMR on EC2:** `AddJobFlowSteps` on `clusterId`, with `spark-submit --deploy-mode client`, so cancelling the step stops the driver.
 - **EMR on EKS:** `StartJobRun` on `virtualClusterId`.
 
+### An EMR on EC2 step starts once its policy is attached
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005)).*
+
+A step on an `emr-ec2` cluster runs as the role of the cluster's instance profile, which the cluster's owner holds. Forge does not change that role: it belongs to the cluster's owner. `fluid apply` creates the build's least-privilege policy (the managed `aws_iam_policy` in [What forge provisions](#what-forge-provisions)), and the owner attaches it. On 0.32.0 the first `fluid apply` started the stream before anyone could attach the policy, so, unless the role already held the job's permissions, the step failed at once. A stream that failed is not started again with the same config.
+
+Before it starts a step, `fluid apply` now reads the cluster's instance profile and the policies attached to the role in it, and starts nothing until the build's policy is among them. The refusal is the build's error and `fluid apply` ends with exit code `1`. The infrastructure is applied by then, so the policy exists, and the line gives the command that attaches it:
+
+```text
+Spark ingest-orders (emr-ec2): failed. not started: policy fluid-commerce.orders-stream-ingest-orders-744ba50a-spark is not attached to EMR_EC2_DefaultRole, the role its steps run as on j-1ABCDEF. Attach it, then apply again: aws iam attach-role-policy --role-name EMR_EC2_DefaultRole --policy-arn arn:aws:iam::123456789012:policy/fluid-commerce.orders-stream-ingest-orders-744ba50a-spark
+```
+
+The line is printed unbroken, and a narrow terminal wraps it at spaces: join the wrapped lines before you run the command. Attach the policy and run `fluid apply` again. Nothing was started, so that apply starts the stream. With the policy on the role, the same run prints `Spark ingest-orders (emr-ec2): started run s-1 RUNNING on EMR cluster j-1ABCDEF`.
+
+- **What it reads.** `elasticmapreduce:DescribeCluster` for the cluster's instance profile, `iam:GetInstanceProfile` for the roles in it, and `iam:ListAttachedRolePolicies` for each role. The policy counts as attached when its name is among the policies attached to any role of the profile. The command names the first role, and `<the instance-profile role>` when the profile holds none.
+- **When it does not run.** When forge cannot read them, for whatever reason, the step starts as it did before. A build that names its own `executionRoleArn` has no forge policy and is not checked, unless that role is named exactly like the forge policy. A dry run reads nothing.
+- **Scheduled builds.** A scheduler's start, `fluid apply --mode amend-and-build`, goes through the same check: it prints the same line under the build, the build counts as failed, and `fluid apply` exits with code `1`. The scheduler's next run starts the build once the policy is attached.
+
+The output above is from forge-cli's reconcile step, the code `fluid apply` runs after `tofu apply`, with AWS answered by botocore's test stubs: the real cluster, instance profile and role calls were not made.
+
 ### The caller's permissions
 
 The role that runs `fluid apply`, or the scheduler's execution role (the MWAA role, say) that runs `fluid apply --mode amend-and-build` for a scheduled build, needs these actions. A scheduler's worker runs the whole apply, `tofu` included, so it also needs the apply's own permissions and the state backend, as for any scheduled build: the caller policy below covers the run only. For a build that runs to completion, the managed policy `fluid-<product>-spark-caller` holds them, scoped to the product's own application, job, cluster or virtual cluster:
@@ -372,7 +392,7 @@ The role that runs `fluid apply`, or the scheduler's execution role (the MWAA ro
 |---|---|---|
 | `emr-serverless` | `emr-serverless:StartJobRun`, `GetJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource`, and `ListApplications` when the contract names no `applicationId` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-serverless.amazonaws.com` |
 | `glue` | `glue:StartJobRun`, `GetJobRun`, `GetJobRuns`, `BatchStopJobRun` | |
-| `emr-ec2` | `elasticmapreduce:AddJobFlowSteps`, `ListSteps`, `DescribeStep`, `CancelSteps` | *On forge-cli `main`, not yet in a release ([forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994)).* Also `DescribeCluster`, `ListInstanceGroups` and `ListInstanceFleets`, read-only, for the Spot check at plan and apply; the generated `fluid-<product>-spark-caller` policy includes them. Without them the check prints nothing. |
+| `emr-ec2` | `elasticmapreduce:AddJobFlowSteps`, `ListSteps`, `DescribeStep`, `CancelSteps` | *On forge-cli `main`, not yet in a release ([forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994)).* Also `DescribeCluster`, `ListInstanceGroups` and `ListInstanceFleets`, read-only, for the Spot check at plan and apply; the generated `fluid-<product>-spark-caller` policy includes them. Without them the check prints nothing. *On forge-cli `main`, not yet in a release ([forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005)).* A start also reads the cluster's role, to check that the build's policy is attached to it: `DescribeCluster`, and `iam:GetInstanceProfile` and `iam:ListAttachedRolePolicies` on `arn:aws:iam::<account>:instance-profile/*` and `arn:aws:iam::<account>:role/*`. The generated `fluid-<product>-spark-caller` policy holds `DescribeCluster` in its `Run` statement, scoped to the cluster, and the two IAM reads in a `StepRole` statement. Without them the step starts as before. |
 | `emr-eks` | `emr-containers:StartJobRun`, `DescribeJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-containers.amazonaws.com` |
 
 Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a stronger one.
