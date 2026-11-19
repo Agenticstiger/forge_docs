@@ -1450,6 +1450,14 @@ These changes are in 0.33.0. The pin on this site stays at 0.32.0 until the page
 
 - **New, opt-in: `fluid ship --journal-dir` keeps a stage journal, and every `--release-dir` run keeps one.** Each stage writes a `started` event before it runs and a `finished` event after, with its status and the digests of what it wrote. Before an `apply` that is not a dry run, an enforcing `policy-apply`, `publish` or a `schedule-sync` that is not a dry run, ship refuses the stage when an earlier attempt of it, or of `apply`, has no known outcome, until you inspect the target and pass `--acknowledge-inspected STAGE`. An `apply` that did not pass is refused until stage 6 has planned again. `--explain` shows what the journal would refuse. Without either flag no journal is kept and no stage is refused, and the run report records a stage killed by a signal (exit 129 to 159) as `unknown` instead of `failed`. See [The stage journal](./cli/ship.md#the-stage-journal).
 
+## Not in a release yet
+
+These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 until they ship.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).*
+
+- **`fluid apply` stops a removed Spark build's runs on AWS before it destroys what they run with.** When a plan deletes a build's resources, because the build left the contract or the product went, the apply cancels the build's active runs and waits for them (`FLUID_SPARK_WAIT_SECONDS`, 900 seconds by default), and empties and stops the product's own EMR Serverless application. It refuses first, with the `aws iam detach-*-policy` commands, when an IAM policy that the plan destroys is still attached, and a run that is still going after the wait refuses the apply before anything is destroyed. `--dry-run` says what it would cancel. The first apply after the upgrade adds three tags, `fluid_runtime`, `fluid_run_target` and `fluid_run_region`, in place to each Spark build's log group and to an EMR on EC2 build's job policy. The identity that runs `fluid apply` needs `iam:ListEntitiesForPolicy`, and `emr-serverless:GetApplication` and `emr-serverless:StopApplication` for the product's own application. See [When a build leaves the contract](./advanced/spark-iceberg-aws.md#when-a-build-leaves-the-contract).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

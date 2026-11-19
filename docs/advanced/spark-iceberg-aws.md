@@ -748,6 +748,63 @@ The role that runs `fluid apply`, or the scheduler's execution role (the MWAA ro
 
 Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a stronger one.
 
+### When a build leaves the contract
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).* When a plan deletes the resources of a Spark build on AWS, because the build left the contract or the product went, `fluid apply` stops the build's runs before `tofu apply` destroys the role, the artifacts and the log group that they run with. On 0.32.0 the apply destroyed those and left the stream going, a writer that nothing reconciles any more. A destroy of a whole product also failed part way: EMR Serverless deletes only an application that is stopped or created, and IAM deletes no policy that is still attached.
+
+`fluid apply` reads the plan's deletes, and before it changes anything it does these, in this order:
+
+1. **It refuses when a policy it would destroy is still attached.** forge emits two IAM managed policies that someone else attaches: an EMR on EC2 build's job policy, which the cluster's owner attaches to the cluster's instance-profile role, and the product's scheduler policy `fluid-<product>-spark-caller`, which the platform attaches to the scheduler's role. The apply ends with the error `opentofu_destroy_preparation_failed` and the kind `spark-policy-attached`. Nothing is stopped or destroyed. The error names where the policy is attached and the commands that detach it:
+
+   ```text
+   IAM policy fluid-commerce.orders-stream-ingest-orders-744ba50a-spark (an EMR on EC2 build's job policy, which the cluster's owner attaches to its instance-profile role) is attached to role EMR_EC2_DefaultRole. The plan destroys it, and IAM deletes no attached policy (DeleteConflict), so the apply would stop part way through the destroys. Nothing was stopped or destroyed.
+   Detach it, then run fluid apply again:
+   aws iam detach-role-policy --role-name EMR_EC2_DefaultRole --policy-arn arn:aws:iam::000000000005:policy/fluid-commerce.orders-stream-ingest-orders-744ba50a-spark
+   ```
+
+2. **It cancels the runs of a build whose log group goes.** Every active run of the build is cancelled, and the apply waits for each to end. The runs are found by the build's run name, on the target that the log group's tags name: see [The tags](#the-tags-that-say-where-a-build-runs).
+
+   ```text
+     Spark ingest-orders (emr-ec2): stopped on EMR cluster j-1ABCDEF. cancelled s-1 before the apply destroys what it runs with
+   ```
+
+3. **It stops the runs of a Glue job that goes.** A build moved off Glue keeps its log group, and its Glue job goes.
+4. **It empties and stops the product's own EMR Serverless application, when that goes.** Every active run in it is cancelled, whichever build started it, and then the application is stopped and waited for. An application that the contract only names is not one the plan deletes, so it is left as it is.
+
+   ```text
+     EMR Serverless application fluid-commerce.orders-stream-spark (00fabc123def): cancelled jr1 before the apply destroys what it runs with; stopped the application.
+   ```
+
+A build that moves from an EMR on EC2 cluster to another runtime keeps its log group, whose tags then name the new runtime. Its job policy goes, and carries the old cluster, so the steps on the old cluster are cancelled as well.
+
+A run that is still going after the wait, or an AWS error, refuses the apply before anything is destroyed, with the error `opentofu_destroy_preparation_failed` and the kind `spark-destroy-runs-going`. The wait is [`FLUID_SPARK_WAIT_SECONDS`](./environment-variables.md#spark-on-aws-preview) for each run, 900 seconds by default. Run `fluid apply` again once the runs have ended, or stop them yourself:
+
+```text
+Spark ingest-orders (emr-ec2): run s-1 was cancelled but is still CANCEL_PENDING after 3 s (FLUID_SPARK_WAIT_SECONDS). The plan destroys what these runs run with, so nothing was destroyed.
+Run fluid apply again once the runs have stopped, or stop them yourself.
+The identity running fluid apply needs the runtime's list and cancel actions (as for starting runs).
+```
+
+With `--dry-run`, the apply reads the policies and the runs, changes nothing, and says what it would do. An AWS error is then a note and not a refusal:
+
+```text
+  Spark ingest-orders (emr-ec2): planned on EMR cluster j-1ABCDEF. would cancel s-1
+```
+
+#### The tags that say where a build runs
+
+The log group of every Spark build, and an EMR on EC2 build's job policy, carry three tags: `fluid_runtime`, `fluid_run_target` (`applicationId=<id>`, `glueJobName=<name>`, `clusterId=<id>` or `virtualClusterId=<id>`) and `fluid_run_region`. A destroy reads them from the state, because the build is no longer in the contract. The first `fluid apply` after the upgrade adds them to the existing resources in place. A build that a forge without them deployed, and that goes in that same apply, has none, and the apply cannot tell where its runs are. It prints a note, and stops nothing for that build:
+
+```text
+  note: Spark build ingest-orders goes, but nothing it is destroyed with says where it runs (an apply by an earlier forge): stop its run fluid-commerce.orders-stream-ingest-orders-744ba50a yourself if one is going.
+```
+
+#### What the identity needs
+
+Besides the list, get and cancel actions of the runtime that it needs to start runs (see [The caller's permissions](#the-caller-s-permissions)), the identity that runs `fluid apply` needs `iam:ListEntitiesForPolicy`, to tell whether a policy is attached, and, for the product's own EMR Serverless application, `emr-serverless:GetApplication` and `emr-serverless:StopApplication`.
+
+The outputs above come from forge-cli's destroy step, the code `fluid apply` calls with the plan's deletes before `tofu apply`, with AWS answered by botocore's test stubs and the plan's deletes built as forge-cli's own tests build them: no AWS account, cluster or application was touched, and the printed account number is a placeholder.
+
 ## Running EMR on EC2 on Spot
 
 A stream on EMR on EC2 runs as one step of a cluster you already run (`clusterId`). forge creates no cluster, so the layout below is a checklist for the cluster's owner. Only the `sparkConf` values in items 4 and 6 go in the contract. Its aim is that a Spot interruption costs time and not records.
@@ -915,6 +972,8 @@ In the account's `<account>-fluid-data` fallback bucket, and in a `shared` packa
 | `spark-emr-application-shared` | An EMR Serverless build with no `applicationId` and no `emrApplication: isolated` |
 | `spark-checkpoint-scope` | A declared checkpoint outside `s3://<bucket>/_checkpoints/<product>/`, while forge creates the role |
 | `spark-glue-jars-unset`, `spark-glue-jars-url` | A Glue Avro build, and `FLUID_SPARK_GLUE_JARS_URL` is unset or malformed |
+| `spark-policy-attached` | *On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).* The plan destroys an IAM policy that is still attached: an EMR on EC2 build's job policy or the product's scheduler policy. The error is `opentofu_destroy_preparation_failed`. See [When a build leaves the contract](#when-a-build-leaves-the-contract). |
+| `spark-destroy-runs-going` | *On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).* A run of a build that goes is still going after `FLUID_SPARK_WAIT_SECONDS`, or AWS refused to list or cancel it. The error is `opentofu_destroy_preparation_failed`. See [When a build leaves the contract](#when-a-build-leaves-the-contract). |
 | `spark-dead-letters-table-unsupported` | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A `deadLetter` table sink beside an output at its bucket's root, beside a location forge registers with Lake Formation, or beside an output whose lifecycle expires its objects. See [What is refused](#what-is-refused). |
 | `apply_spark_refused` | `fluid apply` refuses a Spark build before `tofu apply` changes anything when an operator's list does not allow what the build names: an MSK cluster that `FLUID_SPARK_TARGET_ALLOWLIST` does not list, a host, or a secret reference. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* It also refuses a `deadLetter` topic that `FLUID_SPARK_TARGET_ALLOWLIST` does not list: see [Listing the topic](#listing-the-topic). |
 | `apply_spark_artifact_mismatch` | The bound plan lists other Spark runs than apply compiles |
