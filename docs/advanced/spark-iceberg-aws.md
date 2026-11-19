@@ -7,7 +7,7 @@ description: Declare a Kafka stream, or batch SQL over catalog tables, in the co
 
 *(since 0.31.0, [forge-cli #902](https://github.com/Agenticstiger/forge-cli/pull/902), [forge-cli #903](https://github.com/Agenticstiger/forge-cli/pull/903), [forge-cli #904](https://github.com/Agenticstiger/forge-cli/pull/904), [forge-cli #912](https://github.com/Agenticstiger/forge-cli/pull/912), [forge-cli #918](https://github.com/Agenticstiger/forge-cli/pull/918), [forge-cli #919](https://github.com/Agenticstiger/forge-cli/pull/919), [forge-cli #924](https://github.com/Agenticstiger/forge-cli/pull/924), [forge-cli #927](https://github.com/Agenticstiger/forge-cli/pull/927), [forge-cli #934](https://github.com/Agenticstiger/forge-cli/pull/934), [forge-cli #950](https://github.com/Agenticstiger/forge-cli/pull/950))*
 
-A build with `engine: spark` and `parameters.spark` (under `builds[].properties`) lands records in an Iceberg table that the Glue catalog holds:
+A build with `engine: spark` and `parameters.spark` (under `builds[].properties`) lands records in an Iceberg table that the Glue catalog holds (*(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* With `runtime: local`, in an Iceberg REST catalog: see [Running a build on this machine](#running-a-build-on-this-machine)):
 
 - The contract says which Kafka topic the job reads, or which SQL it runs over catalog tables, and how the result becomes the rows of the output expose.
 - forge-cli compiles that into a `job.json` and checks every output column against it before anything deploys.
@@ -20,11 +20,11 @@ The lane is opt-in: the contract declares `fluidVersion: "0.7.7"`, the preview s
 
 | Surface | Preview behaviour |
 |---|---|
-| Runtimes | EMR Serverless, AWS Glue (Glue 5.0, Spark 3.5), EMR on EC2 and EMR on EKS. One runner file runs unchanged on all four. |
+| Runtimes | EMR Serverless, AWS Glue (Glue 5.0, Spark 3.5), EMR on EC2 and EMR on EKS. One runner file runs unchanged on all four. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A fifth, `local`, is `spark-submit` on the machine `fluid apply` runs on, and the same runner file serves it: see [Running a build on this machine](#running-a-build-on-this-machine). |
 | Modes | `streaming`: a Kafka topic, appended to the table. `batch`: SQL over catalog tables, which overwrites the partitions it writes. |
 | Records | `properties.stream`: one topic, the value as `json` or `avro-confluent`, as on the Flink lane. |
 | Mapping | `properties.mapping`, as on the Flink lane, plus `maskAtIngest: hash` on a column. |
-| Output | One Iceberg expose in the Glue catalog, at the warehouse path forge derives from the binding. |
+| Output | One Iceberg expose in the Glue catalog, at the warehouse path forge derives from the binding. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* With `runtime: local`, one table in an Iceberg REST catalog on `platform: local`. |
 
 ## Declaring the build
 
@@ -120,7 +120,7 @@ Bucket names are global: write a bucket you own in place of `commerce-lake`.
 
 | Field | Meaning |
 |---|---|
-| `runtime` | Required: `emr-serverless`, `emr-ec2`, `emr-eks` or `glue`. |
+| `runtime` | Required: `emr-serverless`, `emr-ec2`, `emr-eks`, `glue` or `local`. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* `local` runs `spark-submit` on the machine `fluid apply` runs on, and ignores `applicationId`, `clusterId`, `virtualClusterId`, `releaseLabel`, `glueVersion` and `executionRoleArn`: see [Running a build on this machine](#running-a-build-on-this-machine). |
 | `mode` | `streaming` or `batch`. It defaults to `streaming` when the build declares `properties.stream`, and to `batch` otherwise. |
 | `applicationId` | EMR Serverless only: an existing application. |
 | `clusterId` | EMR on EC2 only: an existing cluster. A transient cluster is refused for now. A cluster that runs on Spot needs the layout in [Running EMR on EC2 on Spot](#running-emr-on-ec2-on-spot). |
@@ -520,6 +520,10 @@ CLI command error
   hint: If this topic is the product's, have the operator list it in the OPERATOR environment (not a project .env): export FLUID_SPARK_TARGET_ALLOWLIST="emr-serverless:00fexampleapp0001,msk:arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1,msk-write:arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1/commerce.orders.dlq"
 ```
 
+#### On this machine
+
+The dead-letter table also exists for `runtime: local`, where the job creates it (Iceberg v2, the same columns) in a namespace the operator lists: see [Running a build on this machine](#running-a-build-on-this-machine).
+
 ### Batch builds
 
 A `batch` build runs `properties.sql` over catalog tables and never reads a topic. A batch read of a topic sees only what Kafka still retains, so overwriting the table with it would drop every older row. To land a topic on a schedule, use a `streaming` build with `trigger: {availableNow: true}`: it keeps its position in its checkpoint, and the scheduled run is the micro-batch.
@@ -638,6 +642,269 @@ Without the entries, `fluid validate` warns, and `fluid generate iac` and `fluid
  2. Spark build ingest-orders: parameters.spark.source.mskClusterArn arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1 is not in FLUID_SPARK_TARGET_ALLOWLIST (as msk:arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1); the IaC is refused at generate and apply until the operator lists it
 ```
 
+## Running a build on this machine
+
+*(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A build with `parameters.spark.runtime: local` runs forge's Spark runner and its compiled `job.json` with `spark-submit` on the machine `fluid apply` runs on: a laptop or a lab host. When `spark-submit` is not on `PATH`, the error says to install Spark 3.5, or to use an EMR 7.x image. Nothing is provisioned. There is no OpenTofu step, no role and no AWS account, and the job runs with the credentials of the machine. It runs on Linux or macOS: forge tracks a local run with `fcntl.flock`, and refuses the build where that is missing.
+
+A local build needs three things:
+
+- **A `spark-submit`**: the one the operator names, or `spark-submit` on `PATH` (see [Operator settings for a local run](#operator-settings-for-a-local-run)).
+- **An Iceberg REST catalog** for the output. The output's binding is on `platform: local`, with `location.catalog` set to `lakekeeper`, `rest` or `polaris`. A binding on `platform: aws`, or a Glue catalog, is refused (see below). The operator declares the catalog's connection in a Spark properties file, under the catalog name `fluid`. The contract carries no connection or credential: a `uri` or `warehouse` that its binding names is only compared with the file's.
+- **For a stream, brokers by name and an S3 store for the checkpoint.** `source.bootstrapServers` replaces `source.mskClusterArn`, which a local run refuses because nothing looks up the brokers of an MSK cluster for it. The checkpoint defaults to `s3://<bucket>/_checkpoints/<product>/<build>/`, in the output's `location.bucket`. An output with no bucket needs a declared `properties.stream.checkpoint`, and a declared one must sit under `_checkpoints/<product>/` (in the output's bucket, when it names one). The store's credentials are the operator's, in the properties file.
+
+A batch build's `properties.sql` reads tables of the same `fluid` catalog.
+
+### Switching a contract written for AWS
+
+`runtime: local` ignores the keys of the AWS runtimes: `applicationId`, `clusterId`, `virtualClusterId`, `releaseLabel`, `glueVersion` and `executionRoleArn`. Each still has to have the form its runtime takes. A contract written for AWS can therefore keep them. The switch is one line on the build, in an [overlay](../concepts/environments-and-overlays.md) that `--env local` picks, plus the output's binding, which has to be on `platform: local`:
+
+```yaml
+# overlays/local.yaml
+builds:
+  - id: ingest-orders
+    properties:
+      parameters:
+        spark:
+          runtime: local
+exposes:
+  - exposeId: orders
+    binding:
+      platform: local
+      location:
+        catalog: lakekeeper
+```
+
+Run on the page's example with a JSON stream and no registry, a `bootstrapServers` source with `auth: none` in place of the MSK cluster, and no `maskAtIngest` or `maskKeySecretArn` (the column is `customer_email`), and with the namespace entry below and the broker's host listed, `fluid validate` passes this overlay with no warning. It raises no `FLUID_SPARK_TARGET_ALLOWLIST` warning for the ignored `applicationId`:
+
+```bash
+FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST=fluid/commerce fluid validate contract.fluid.yaml --env local
+```
+
+```text
+overlay_applied
+✅ Valid FLUID contract (schema v0.7.7)
+Validation completed in 0.020s
+```
+
+With only the `runtime` line in the overlay, the output is still on AWS, and `fluid validate` refuses it (the error lines of its output):
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.7)
+...
+ 1. Spark: Spark build ingest-orders: runtime local writes a table in an Iceberg REST catalog on platform local (binding.platform: local, location.catalog lakekeeper, rest or polaris); a Glue table runs on an AWS runtime
+```
+
+A contract whose Spark builds run on AWS and here cannot be applied as one: the native engine that applies a local build runs no AWS Spark build, and `fluid apply` refuses with `apply_spark_needs_opentofu`. Keep the AWS builds and the local builds in separate contracts, or apply each environment's overlay on its own. Each environment keeps its own runs: an apply of AWS builds never stops the local runs of this machine.
+
+### Where the files and the run state go
+
+`fluid apply` writes the job config and the runner when it starts a run, in the layout OpenTofu uploads on AWS:
+
+| File | Where, under the root |
+|---|---|
+| The job config | `_fluid/spark/<product>/<build>/job.json` |
+| The runner | `_fluid/spark/<product>/<build>/runner/<16 hex digits of its sha256>/forge_spark_runner.py` |
+
+The root is `FLUID_SPARK_LOCAL_ROOT`: an `s3://<bucket>[/<prefix>]`, or an absolute directory. Without it the root is `.fluid/spark-artifacts` beside the contract. An `s3://` root is written through the AWS SDK, so it needs the `[aws]` extra (`pip install 'data-product-forge[aws]'`) and reaches SeaweedFS or MinIO through the SDK's own `AWS_ENDPOINT_URL_S3`. `spark-submit` reads the job config from the root. It runs the runner from an `s3://` root, and for a directory root from the copy that forge places in the run's own directory: see [Safety rules](#safety-rules). The root is read when the run starts: `fluid plan` holds `${fluid_spark_local_root}` in its place, so a plan made on one machine matches the apply on another.
+
+Run state lives beside the contract, under `.fluid/<product>/runtime/spark/<build>/runs/<run id>/`. A run id is a UTC timestamp and eight hex digits. The directory holds `run.json` (the run's record and its `spark-submit` argv), `status.json`, `driver.log`, a `lock` file, with a directory root the runner that `spark-submit` runs (`forge_spark_runner.py`), and, after a stop, a `cancel` mark. A run is active while one of its processes holds the lock. When a new run starts, forge removes the ended runs beyond the newest ten of the build. `.fluid` must be a directory of the project's own: a link in it that leads out is refused.
+
+A detached supervisor starts `spark-submit` in a session of its own and records how it ended, so a terminal's Ctrl-C does not reach a stream. The call is in client mode, so the driver is the run's own process and stopping the run stops the job. This is the argv of that stream (the run id, the operator's paths and the project path shortened):
+
+```text
+$OPS/spark-submit
+--name
+fluid-commerce.orders-stream-ingest-orders-744ba50a
+--deploy-mode
+client
+--properties-file
+$OPS/spark.properties
+--conf
+spark.jars=/usr/share/aws/iceberg/lib/iceberg-spark3-runtime.jar
+--conf
+spark.jars.packages=org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1
+--conf
+spark.redaction.regex=(?i)secret|password|token|access[.]?key|credential
+--conf
+spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+--conf
+spark.sql.shuffle.partitions=16
+<project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/<run-id>/forge_spark_runner.py
+--config
+<project>/.fluid/spark-artifacts/_fluid/spark/commerce.orders-stream/ingest-orders/job.json
+--fluid-config-hash
+9413e2b0daefdcdc0af443f6847abaf0aa9dc4a453092639fe8880f76f198483
+--fluid-source
+3801464d85c37480
+--fluid-checkpoint
+1a04314328989295
+```
+
+forge puts the properties file's path on the command line, and copies none of its values there, except the two lists it merges, below. forge passes the settings of the run beside the file's: the contract's allowed `sparkConf` ([Spark settings](#spark-settings)), the Iceberg extension and the Kafka connector package. For `spark.jars.packages` and `spark.sql.extensions`, which `spark-submit` would otherwise replace as a whole, forge passes the union of the file's value and its own, the file's entries first. A package that both name is passed once, in the file's version. The file's own `spark.jars` and `spark.jars.repositories` replace forge's, so on a Spark that is not an EMR image the file names the Iceberg runtime jar there. Without its own `spark.jars`, forge points `spark.jars` at the path an EMR image keeps it, `/usr/share/aws/iceberg/lib/iceberg-spark3-runtime.jar`.
+
+### Operator settings for a local run
+
+*(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* The operator sets these in the real environment of the shell or job that runs `fluid apply`. A contract names none of them. `fluid doctor --env` lists these four, with their current value and default; see [`fluid doctor --env`](../cli/doctor.md#env-the-runtime-switches).
+
+| Variable | What it sets |
+|---|---|
+| `FLUID_SPARK_SUBMIT_EXECUTABLE` | The `spark-submit` a local run starts: an absolute path to an executable file, or a name on `PATH`. Default: `spark-submit` on `PATH`. |
+| `FLUID_SPARK_SUBMIT_PROPERTIES_FILE` | An absolute path to a Spark properties file, passed to every local run as `--properties-file`: the catalog (`spark.sql.catalog.fluid`, with its `uri` and `warehouse`), the S3 store, their credentials and the master. forge reads it with the rules of Java's `Properties`, as `spark-submit` does. A `uri` or `warehouse` that the output's binding names has to equal the one the file sets (a trailing `/` aside), or the runner refuses before it writes. Default: none. |
+| `FLUID_SPARK_LOCAL_ROOT` | Where the runs read their job config and runner: `s3://<bucket>[/<prefix>]` (a prefix of letters, digits and `. _ = / -`) or an absolute directory. Default: `.fluid/spark-artifacts` beside the contract. |
+| `FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST` | The namespaces a local run may create and write tables in, as `<warehouse>/<namespace>`, comma-separated. An unset list allows none. See [The table the job creates](#the-table-the-job-creates). |
+
+`fluid apply` checks the first three, and that this system has `fcntl.flock`, before it applies anything. A build it cannot start ends the apply with `apply_spark_local_unavailable` and exit code `1`, and the error ends `nothing was applied`. A dry run checks none of them. For a missing `spark-submit`:
+
+```bash
+FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST=fluid/commerce FLUID_SPARK_SUBMIT_EXECUTABLE=/nonexistent/spark-submit fluid apply contract.fluid.yaml --env local --yes 2>&1 | tail -3
+```
+
+```text
+❌ apply_spark_local_unavailable  [ERR_APPLY_SPARK_LOCAL_UNAVAILABLE]
+  error: Spark build(s) ingest-orders run on this machine (runtime local), and FLUID_SPARK_SUBMIT_EXECUTABLE names /nonexistent/spark-submit, which is not an executable file; nothing was applied
+  hint: Set the operator's FLUID_SPARK_SUBMIT_EXECUTABLE, FLUID_SPARK_SUBMIT_PROPERTIES_FILE and FLUID_SPARK_LOCAL_ROOT in the real environment (a project .env cannot set them).
+```
+
+A properties file that is not a file and an `s3://` root that breaks the form end the same way, each with its own message.
+
+A local run also reads settings that other parts of this page define:
+
+| Variable | What it does for a local run |
+|---|---|
+| `FLUID_SPARK_CONF_ALLOWLIST` | The `sparkConf` keys beyond the tuning ones, as on AWS. A key that is refused even when listed is refused for a local build too: with `FLUID_SPARK_CONF_ALLOWLIST=spark.*`, `fluid apply` still refuses `spark.jars` with `apply_spark_refused`. See [Spark settings](#spark-settings). |
+| `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` the job may run. A batch build with `properties.sql` warns in `fluid validate` until the operator lists it. See [Contract SQL and `fluid validate`](#contract-sql-and-fluid-validate). |
+| `FLUID_SPARK_MAVEN_REPOSITORY` | The Maven mirror, which sets `spark.jars.repositories` of a local stream as it does on AWS, unless the properties file sets its own. |
+| `FLUID_SPARK_WAIT_SECONDS` | How long a reconcile waits for a cancelled local run to stop, and for a started one to leave its pending state. Default 900. |
+| `FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST` | The Kafka broker's host, as for other Spark streams that name brokers. `fluid validate` warns while it is missing. See [Environment variables](./environment-variables.md). |
+
+The AWS SDK's own settings reach an `s3://` root: `AWS_ENDPOINT_URL_S3` or `AWS_ENDPOINT_URL` (forge then asks for path-style requests), `AWS_REGION` or `AWS_DEFAULT_REGION` (`us-east-1` when neither is set), and the SDK's credential chain.
+
+### The table the job creates
+
+Nothing creates the output's table before a local job runs, as OpenTofu creates the Glue table on AWS. The job creates it on its first write. It runs `CREATE NAMESPACE IF NOT EXISTS` for the output's database and `CREATE TABLE IF NOT EXISTS` for the table, in the catalog `fluid`: an Iceberg v2 table with the contract's columns (`NOT NULL` for a `required` one), not partitioned. The statements are in the `sink.create` list of `job.json`, which `fluid generate artifacts --emit spark` writes. Apart from `sink`, that `job.json` equals the AWS one for the same contract, whose sink names a Glue catalog and its warehouse.
+
+A table that exists is written as it is, so a contract could name another team's table and append to it. The operator's list stops that. An entry is `<warehouse>/<namespace>`:
+
+- `<warehouse>` is the binding's `location.warehouse`, or `fluid` when the binding names none.
+- The namespace is the output's database. An entry matches whole levels: `fluid/commerce` lists `commerce`, and `fluid/comm` does not.
+- An unset list allows no namespace.
+- The check covers every table the build creates, a stream's dead-letter table among them: see [Dead letters](#dead-letters).
+
+`fluid validate` warns while the list lacks the entry, and `--strict` turns the warning into exit 1:
+
+```bash
+FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST=fluid/comm fluid validate contract.fluid.yaml --env local --strict; echo "exit $?"
+```
+
+```text
+overlay_applied
+✅ Valid FLUID contract (schema v0.7.7)
+⚠️  1 warning(s)
+Validation completed in 0.021s
+
+Validation Warnings:
+====================
+ 1. Build ingest-orders: not in FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST: fluid/commerce; the local run is refused until the operator lists it
+
+❌ Validation failed: warnings treated as errors (--strict)
+exit 1
+```
+
+`fluid apply` refuses the build, even with `--dry-run`, and prints the `export` line to use. `fluid plan` and `fluid generate artifacts` do not refuse:
+
+```bash
+fluid apply contract.fluid.yaml --env local --dry-run --yes 2>&1 | tail -3
+```
+
+```text
+❌ apply_spark_refused  [ERR_APPLY_SPARK_REFUSED]
+  error: Spark build 'ingest-orders' writes a namespace the operator has not listed. A local run writes commerce.orders in namespace commerce of fluid, which FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST does not list (as fluid/commerce). It creates its tables IF NOT EXISTS, so a table that exists, another team's included, would be adopted and appended to. An unset list allows none.
+  hint: If this namespace is the product's, have the operator list it in the OPERATOR environment (not a project .env): export FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST="fluid/commerce"
+```
+
+### What `fluid apply` does
+
+A local stream follows the `spark.reconcile` action of [Starting and reconciling runs](#starting-and-reconciling-runs), on this machine. The line of each outcome names the run and where its state is. The reconcile has no AWS client: the local run store plays that part.
+
+| Found | What apply does |
+|---|---|
+| A running stream with this config hash | Nothing: `unchanged run <run id> RUNNING` |
+| A running stream with another hash | Stops it, and starts the new config on the **same checkpoint**: `restarted run <run id> RUNNING` |
+| No running stream | Starts one: `started run <run id> RUNNING` |
+| A stream stopped from outside forge: the machine shut down or restarted, or a kill | Starts the same config again, as it does for a job run cancelled by hand on AWS. |
+| A stream that failed with this config | An error that names the run and its log, and no new start. Change the build, and apply starts the new config. |
+| A stream of a build that the contract no longer declares | Stops it: `stopped run <run id> CANCELLED`. A build moved to an AWS runtime keeps its local runs, because an apply of AWS builds never stops them. |
+
+A stop sends SIGTERM to the run's process group, and SIGKILL after a grace period of 60 seconds. forge waits for the run to end for as long as `FLUID_SPARK_WAIT_SECONDS` says. A new topic or cluster on a checkpoint that an earlier run read is refused before anything is stopped, as on AWS.
+
+A run whose processes ended without recording how, because the machine restarted or something killed them with SIGKILL, did not fail. The next apply starts the same config again and says that the run stopped without recording its end (forge-cli's tests).
+
+These runs used a stand-in `spark-submit`, a script that sleeps, because no Spark is installed where they were produced: they show what forge records and prints, and nothing of Spark's own behaviour. The first three rows, from the stream above (the `Spark ` line of each apply, from `grep "^Spark "`; the second apply changed `spark.sql.shuffle.partitions` from `8` to `16`):
+
+```text
+Spark ingest-orders (local): started run 20261119T060815Z-406dcde5 RUNNING on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders)
+Spark ingest-orders (local): unchanged run 20261119T060815Z-406dcde5 RUNNING on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders)
+Spark ingest-orders (local): restarted run 20261119T060817Z-24b5a23b RUNNING on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders)
+```
+
+A failed stream says why and how to start it again. The operator's `spark-submit` and properties file are not in the config hash, so when the cause was this machine's, the message gives the second way: remove the run's directory, and `fluid apply` starts the stream again:
+
+```text
+Spark ingest-orders (local): failed run 20261119T060909Z-89c3a970 FAILED on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders). run 20261119T060909Z-89c3a970 ended FAILED (exit 1): log <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/20261119T060909Z-89c3a970/driver.log: the stream failed. It is not started again with the same config, which would fail the same way: fix the cause and change the build, and fluid apply starts the new config; when the cause was this machine's (spark-submit, its properties file), remove <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/20261119T060909Z-89c3a970 and fluid apply starts it again
+```
+
+The two lines of that message, `the stream failed` and the exit code, come from a stand-in `spark-submit` that exits 1; the path is shortened to `<project>`.
+
+**A dry run.** `fluid apply --dry-run` starts and stops nothing and creates no run directory. It prints `would be reconciled to config <first 12 hex digits of the hash>` for a stream, and `would stop <run id>` for a run the contract no longer runs here:
+
+```bash
+FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST=fluid/commerce fluid apply contract.fluid.yaml --env local --dry-run --yes 2>&1 | grep -E "^(Spark |spark_reconcile)"
+```
+
+```text
+Spark ingest-orders (local): would be reconciled to config 423168902cd2
+```
+
+**A batch or `availableNow` build** is reported as `scheduled` by a plain `fluid apply`, and runs under its scheduler's command, `fluid apply <contract> --mode amend-and-build --build-id <id>`: see [Scheduled Spark builds](./airflow.md#scheduled-spark-builds). The command starts one run and waits for it to end, up to `execution.runtime.timeout` (21600 seconds when the build sets none). Ctrl-C, SIGTERM or SIGHUP while it waits cancels the run. The line says `succeeded run <run id> SUCCEEDED`, and a run that fails prints `failed run <run id> FAILED` with the log's last lines, and `fluid apply` exits with code `1`:
+
+```text
+   Spark daily-curated: started run 20261119T060914Z-b8d947d4 on this machine (.fluid/platform.events/runtime/spark/daily-curated)
+   Spark daily-curated (local): succeeded run 20261119T060914Z-b8d947d4 SUCCEEDED on this machine (.fluid/platform.events/runtime/spark/daily-curated)
+```
+
+A dry run of that command prints `would start one run and wait up to 21600 s for it to end`.
+
+### The config hash on a local run
+
+The [config hash](#starting-and-reconciling-runs) of a local build is the sha256 of the job config, the runner's sha256 and the run settings, as on AWS. A local build has no target, role, release or retry policy, so those parts are empty. The operator's `spark-submit`, properties file and root are not in it: changing one restarts nothing.
+
+The runner's sha256 is in the hash on every runtime, and the runner of 0.33.0 differs from the one of 0.32.0. So each Spark stream that runs on AWS restarts once on its next `fluid apply`, on its checkpoint. A scheduled build is not restarted.
+
+### An `s3://` root on a Spark that is not an EMR image
+
+`spark-submit` and the runner read an `s3://` root through Hadoop. On a Spark that is not an EMR image, the properties file maps the `s3` scheme to S3A (`spark.hadoop.fs.s3.impl`, with its endpoint) and puts `hadoop-aws` on `spark.driver.extraClassPath`. The class path is needed because `spark-submit` downloads the runner before it loads `--packages`. A directory root needs none of this.
+
+### Safety rules
+
+- **`spark-submit` is the operator's, not the project's.** `FLUID_SPARK_SUBMIT_EXECUTABLE` is one program: an absolute path to an executable file, or a name that `PATH` resolves to an absolute path. A relative path is refused, and so is a `spark-submit` inside the project, links followed, because the project would then choose the program forge starts:
+
+  ```bash
+  FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST=fluid/commerce FLUID_SPARK_SUBMIT_EXECUTABLE=$PWD/bin/spark-submit fluid apply contract.fluid.yaml --env local --yes 2>&1 | tail -3
+  ```
+
+  ```text
+  ❌ apply_spark_local_unavailable  [ERR_APPLY_SPARK_LOCAL_UNAVAILABLE]
+    error: Spark build(s) ingest-orders run on this machine (runtime local), and the spark-submit to run (<project>/bin/spark-submit) is inside the project (<project>), which would choose the program forge starts; set FLUID_SPARK_SUBMIT_EXECUTABLE to a spark-submit outside it; nothing was applied
+    hint: Set the operator's FLUID_SPARK_SUBMIT_EXECUTABLE, FLUID_SPARK_SUBMIT_PROPERTIES_FILE and FLUID_SPARK_LOCAL_ROOT in the real environment (a project .env cannot set them).
+  ```
+
+- **The call is a list, not a shell line.** forge starts `spark-submit` and its supervisor without a shell. The properties file's path is on the command line and its values are not, apart from the two merged lists.
+- **The run's files are owner-only.** The run's directory is mode `700`, and `run.json`, `status.json`, `driver.log` and the `lock` are `600` as `stat` shows after a run on macOS. The runner's copy in the run's directory keeps the default `644`, and is readable only through that directory. The supervisor sets its umask to `077`, and forge writes the job config and runner of a directory root as `600`.
+- **Credentials are redacted.** forge passes `spark.redaction.regex` with the value `(?i)secret|password|token|access[.]?key|credential`, unless the properties file sets its own. The value adds `credential`, the last word of an Iceberg REST catalog's `spark.sql.catalog.<name>.credential` key, for Spark versions whose own pattern lacks it.
+- **The run's environment is cleaned.** `spark-submit` is a bash script. A run keeps only the environment names that a shell could set: `[A-Za-z_][A-Za-z0-9_]*`. It drops names that bash reads as exported functions (`BASH_FUNC_*`), and the settings that make bash run code or trace itself as it starts: `BASH_ENV`, `ENV`, `SHELLOPTS`, `BASHOPTS`, `PS4` and `BASH_XTRACEFD`.
+- **The runner runs from a directory of the run's own.** For a directory root forge copies the runner into the run's own directory and checks its sha256 against the one the run was compiled with. For an `s3://` root `spark-submit` downloads the runner into a directory of its own. Every run's driver also gets `PYTHONSAFEPATH`, which Python 3.11 and later honour, so a file such as `json.py` in the project cannot take the place of a module the runner imports.
+- **Links under `.fluid` are refused.** A link in the run state's path, or under the default root, that leads out of the project's `.fluid` directory stops the run before it writes.
+
 ## Operator settings
 
 | Variable | What it lists or sets |
@@ -650,7 +917,7 @@ Without the entries, `fluid validate` warns, and `fluid generate iac` and `fluid
 | `FLUID_SPARK_MAVEN_REPOSITORY` | One https Maven mirror. See [Network](#network-and-packages). |
 | `FLUID_SPARK_GLUE_JARS_URL` | `s3://<bucket>/<prefix>/`: where the platform keeps the pinned jars a Glue Avro build loads. See [Avro on Glue](#avro-on-glue). |
 
-A stream that reads a registry with a credential also needs the settings of the [Schema registry](./schema-registry.md#operator-settings) page.
+A stream that reads a registry with a credential also needs the settings of the [Schema registry](./schema-registry.md#operator-settings) page. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A build with `runtime: local` needs those of [Operator settings for a local run](#operator-settings-for-a-local-run).
 
 ### Contract SQL and `fluid validate`
 
@@ -692,7 +959,7 @@ A key with a bad name or value gets its own message, and only a valid key that i
 
 There is no OpenTofu resource for a job run, so runs are started by forge and not by the module.
 
-`fluid plan` lists one `spark.reconcile` action per Spark build. `planDigest` covers it, and it needs no AWS credentials. *(since 0.33.0, [forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994))* For an `emr-ec2` build, `fluid plan` and a non-dry-run `fluid apply` also read the cluster, when they can, to warn about Spot: see [What plan and apply check on the cluster](#what-plan-and-apply-check-on-the-cluster). The action's payload carries the runtime, mode, target, execution role, the artifact locations and a **config hash**: the sha256 of the job config, the runner's sha256 and the run settings (runtime, target, release, role, `sparkConf`, retries, and on Glue the pinned jars it loads). `fluid apply` compiles the runs again and refuses a bound plan whose Spark actions differ (`apply_spark_artifact_mismatch`). A non-dry-run apply of a streaming build also needs the `[aws]` extra (`apply_aws_sdk_missing`). Apply needs the OpenTofu engine (`apply_spark_needs_opentofu`).
+`fluid plan` lists one `spark.reconcile` action per Spark build. `planDigest` covers it, and it needs no AWS credentials. *(since 0.33.0, [forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994))* For an `emr-ec2` build, `fluid plan` and a non-dry-run `fluid apply` also read the cluster, when they can, to warn about Spot: see [What plan and apply check on the cluster](#what-plan-and-apply-check-on-the-cluster). The action's payload carries the runtime, mode, target, execution role, the artifact locations and a **config hash**: the sha256 of the job config, the runner's sha256 and the run settings (runtime, target, release, role, `sparkConf`, retries, and on Glue the pinned jars it loads). `fluid apply` compiles the runs again and refuses a bound plan whose Spark actions differ (`apply_spark_artifact_mismatch`). A non-dry-run apply of a streaming build on an AWS runtime also needs the `[aws]` extra (`apply_aws_sdk_missing`). Apply needs the OpenTofu engine (`apply_spark_needs_opentofu`) for a build on an AWS runtime. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A build with `runtime: local` runs on any engine: see [Running a build on this machine](#running-a-build-on-this-machine).
 
 After `tofu apply`, `fluid apply` reconciles each streaming build:
 
@@ -714,6 +981,7 @@ Per runtime, the start is:
 - **Glue:** `StartJobRun` on the build's job.
 - **EMR on EC2:** `AddJobFlowSteps` on `clusterId`, with `spark-submit --deploy-mode client`, so cancelling the step stops the driver.
 - **EMR on EKS:** `StartJobRun` on `virtualClusterId`.
+- **Local:** *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* `spark-submit --deploy-mode client` on this machine, under a detached supervisor: see [Running a build on this machine](#running-a-build-on-this-machine).
 
 ### An EMR on EC2 step starts once its policy is attached
 
@@ -974,11 +1242,12 @@ In the account's `<account>-fluid-data` fallback bucket, and in a `shared` packa
 | `spark-policy-attached` | *On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).* The plan destroys an IAM policy that is still attached: an EMR on EC2 build's job policy or the product's scheduler policy. The error is `opentofu_destroy_preparation_failed`. See [When a build leaves the contract](#when-a-build-leaves-the-contract). |
 | `spark-destroy-runs-going` | *On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).* A run of a build that goes, or the product's own application, is still going after `FLUID_SPARK_WAIT_SECONDS`, or AWS refused to list, cancel or stop it. The error is `opentofu_destroy_preparation_failed`. See [When a build leaves the contract](#when-a-build-leaves-the-contract). |
 | `spark-dead-letters-table-unsupported` | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A `deadLetter` table sink beside an output at its bucket's root, beside a location forge registers with Lake Formation, or beside an output whose lifecycle expires its objects. See [What is refused](#what-is-refused). |
-| `apply_spark_refused` | `fluid apply` refuses a Spark build before `tofu apply` changes anything when an operator's list does not allow what the build names: an MSK cluster that `FLUID_SPARK_TARGET_ALLOWLIST` does not list, a host, or a secret reference. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* It also refuses a `deadLetter` topic that `FLUID_SPARK_TARGET_ALLOWLIST` does not list: see [Listing the topic](#listing-the-topic). |
+| `apply_spark_refused` | `fluid apply` refuses a Spark build before `tofu apply` changes anything when an operator's list does not allow what the build names: an MSK cluster that `FLUID_SPARK_TARGET_ALLOWLIST` does not list, a host, a secret reference, or a `sparkConf` key. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* It also refuses a `deadLetter` topic that `FLUID_SPARK_TARGET_ALLOWLIST` does not list (see [Listing the topic](#listing-the-topic)), and, for a local build, a namespace that `FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST` does not list (see [The table the job creates](#the-table-the-job-creates)). |
 | `apply_spark_artifact_mismatch` | The bound plan lists other Spark runs than apply compiles |
 | `apply_aws_sdk_missing` | boto3 is not installed: `pip install 'data-product-forge[aws]'` |
-| `apply_spark_needs_opentofu` | The contract's apply engine is not OpenTofu |
+| `apply_spark_needs_opentofu` | The contract's apply engine is not OpenTofu, and it has a Spark build on an AWS runtime. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A build with `runtime: local` is not refused. |
 | `apply_spark_invalid` | A Spark build the runner would refuse (a contract before the 0.7.7 managed lane, or an `execution.runtime.timeout` that is not an ISO-8601 duration of at least one second), refused before `tofu apply` changes anything |
+| `apply_spark_local_unavailable` | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A build with `runtime: local` whose `spark-submit`, properties file or artifact root this machine cannot use, refused before anything is applied. See [Operator settings for a local run](#operator-settings-for-a-local-run) |
 
 ## See also
 

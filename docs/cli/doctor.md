@@ -187,7 +187,7 @@ fluid doctor --env --json | jq '.env[] | select(.name == "FLUID_FEDERATION_TIMEO
 }
 ```
 
-This lists the switches `fluid doctor` knows about. It is a convenient first look, not a substitute for the full table in [Environment variables](../advanced/environment-variables.md).
+This lists the switches `fluid doctor` knows about. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* It lists the four settings of a Spark build with `runtime: local` (`FLUID_SPARK_SUBMIT_EXECUTABLE`, `FLUID_SPARK_SUBMIT_PROPERTIES_FILE`, `FLUID_SPARK_LOCAL_ROOT` and `FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST`): see [Operator settings for a local run](../advanced/spark-iceberg-aws.md#operator-settings-for-a-local-run). It is a convenient first look, not a substitute for the full table in [Environment variables](../advanced/environment-variables.md).
 
 ## `--contract`: can this operation run here?
 
