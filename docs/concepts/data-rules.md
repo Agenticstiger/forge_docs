@@ -442,7 +442,7 @@ The declarations travel with the contract. What reads them in this version:
 | MCP `describe` | Returns the invariants, formats, placeholders and shared attributes. See [`fluid mcp`](../cli/mcp.md). |
 | Contract digest | Covers every field here, so changing a rule changes the digest. |
 
-On forge-cli `main`, `fluid generate dbt-tests` runs the bounded declarations as dbt tests, and the ODCS export renders them as executable quality rules, so a quality engine that reads ODCS can run them. Through 0.32.0, an invariant is declared and validated, but dbt does not run it against warehouse data.
+On forge-cli `main`, `fluid generate dbt-tests` runs the bounded declarations as dbt tests (`--coverage` says which engines can run each rule, and `--require-rule` fails the command when one cannot, see [Which engines run each rule](../cli/generate.md#which-engines-run-each-rule)), a Databricks dbt job runs them as singular tests ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997); see [Declared rules about valid data](../providers/databricks.md#declared-rules-about-valid-data)), and the ODCS export renders them as executable quality rules, so a quality engine that reads ODCS can run them. Through 0.32.0, an invariant is declared and validated, but dbt does not run it against warehouse data.
 
 ## The conformance vectors
 

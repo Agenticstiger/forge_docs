@@ -1389,6 +1389,11 @@ These changes are on forge-cli `main`. The pin on this site stays at 0.32.0 unti
 - **The provider lock travels with the plan.** When `tofu init` wrote one, `fluid plan --tofu` writes `<stem>.terraform.lock.hcl` next to `plan.json` and binds its sha256. Pass it on with the plan: `fluid apply` installs it before `tofu init`, and refuses a missing or changed one.
 - **A plan saved by 0.32.0 or earlier records no target.** `fluid apply` on `main` refuses it with `apply_plan_digest_tofu_plan_target_missing`: run `fluid plan --tofu` again. Reading the AWS account needs `boto3` (`pip install 'data-product-forge[aws]'`) on both runners.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)).*
+
+- **New: `fluid generate dbt-tests --coverage`, `--coverage-out`, `--require-rule`, `--require-all-rules` and `--adapter`.** `--coverage` prints which declared rules each engine can run, and the reason where one cannot, and `--coverage-out` writes the report as JSON. `--require-rule ID` (repeatable) and `--require-all-rules` fail the command, before it writes any test, when a selected adapter cannot run a required rule, when a rule named by `--require-rule` has nothing to test, and when the contract declares rules below 0.7.7. `--adapter TYPE` selects the adapters, by default one for each platform the exposes bind to (never `spark` or `trino`). See [Which engines run each rule](./cli/generate.md#which-engines-run-each-rule).
+- **A Databricks dbt job tests the declared rules too.** `fluid apply` adds each declared rule that has a bound, on an expose the build writes, to the uploaded project as a singular test, `<test path>/fluid_dq/<model>/fluid_dq_<id>.sql`, and the run report names it. A rule with no exact Databricks SQL, or one that reads an expose the build does not write, is refused when the build is planned, and so is a declared rule on a build whose `repository` is a Git URL. A contract that declares such a rule and builds a Databricks dbt job now fails at plan, where 0.32.0 ignored the rule. See [Declared rules about valid data](./providers/databricks.md#declared-rules-about-valid-data).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

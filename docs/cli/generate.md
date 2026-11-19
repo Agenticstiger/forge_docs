@@ -256,6 +256,11 @@ Key options:
 | `--env` | Environment overlay (`dev` / `test` / `prod`). |
 | `--dbt-tests-key {auto,tests,data_tests}` | Which YAML key the tests attach under; same rule as [`generate transformation`](#fluid-generate-transformation). Default `auto`, also `$FLUID_DBT_TESTS_KEY`. |
 | `--macros-dir DIR` | *On forge-cli `main`, not yet in a release ([forge-cli #991](https://github.com/Agenticstiger/forge-cli/pull/991)).* Where the `fluid_rule` macro goes, as `DIR/fluid/fluid_rule.sql`. Default: the first `macro-paths` entry of the nearest `dbt_project.yml` above `--out`, or `macros` when it names none. A relative `DIR` is relative to the current directory. Only a contract that declares rules uses it. See [Declared rules as dbt tests](#declared-rules-as-dbt-tests). |
+| `--coverage` | *On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)).* Prints which declared rules each engine can run, and why not where one cannot. See [Which engines run each rule](#which-engines-run-each-rule). |
+| `--coverage-out PATH` | *On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)).* Writes the same report as JSON to `PATH`. Missing parent directories are created. |
+| `--require-rule ID` | *On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)).* Repeatable. Fails, and writes no tests, when a selected adapter cannot run that rule, or nothing tests it (a placeholder declaration with no bound). |
+| `--require-all-rules` | *On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)).* The same check for every declared rule that has something to test. |
+| `--adapter TYPE` | *On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)).* Repeatable. An adapter the required rules must run on: `duckdb`, `snowflake`, `bigquery`, `databricks`, `spark`, `postgres`, `athena` or `trino`. Default: the adapter of each platform the exposes bind to (never `spark` or `trino`: name those with `--adapter`), or all eight when none maps to one. It changes nothing without a requirement. |
 
 - **Column-level rules** map to dbt's built-in tests — `not_null`, `unique`, `accepted_values` — with `dbt-utils` placeholders emitted for rules that have no native dbt equivalent.
 - **Model-level rules** map to `dbt-utils`: `anomaly_detection` / `drift_detection` rules become `dbt-utils` expressions, and a `freshness` rule becomes `dbt_utils.recency`.
@@ -291,6 +296,47 @@ The macro file starts with `-- managed-by: fluid`. A run replaces a macro file t
 **Placeholders.** A column's placeholder values and prefixes are exempt from the column's own `accepted_values` and range tests, through a `where` config with one branch for each SQL dialect (`spark` shares the branch of `databricks`, and `trino` that of `athena`). An adapter with no branch keeps every row. A column name, placeholder value or prefix that holds a backslash gets no `where`, so its placeholders are not exempt.
 
 **Contract text is data.** dbt renders a test's arguments as Jinja, and it evaluates one that looks like `env_var(...)` even without braces. Every piece of contract text in a `fluid_rule` test is written as a Jinja string literal of itself, so an invariant id of `{{ exceptions.raise_compiler_error(env_var('HOME')) }}` stays the text. The rest of `schema.yml` follows the same rule: a column name, description, enum value or test argument that holds `{{`, `{%` or `{#`, or looks like a call to `env_var`, `var`, `source` or `doc`, or to `ref` with anything but a plain model name, is written as a literal, and any other string is written as before. `ref('orders')` is left as it is.
+
+#### Which engines run each rule
+
+*On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)).*
+
+`--coverage` prints one row for each declared rule and one column for each engine forge writes SQL for, before it generates anything else, and the command then carries on and writes its files:
+
+```text
+rule                     expose    duckdb  snowflake  bigquery  databricks  postgres  athena
+-----------------------  --------  ------  ---------  --------  ----------  --------  ------
+gross_from_net           invoices  yes     yes        yes       yes         yes       yes   
+bad                      invoices  no      no         no        no          no        no    
+group_name.placeholders  invoices  -       -          -         -           -         -     
+
+yes: runs exactly; no: not run (reason below); -: declared, nothing to test
+
+Why not:
+  bad (invoices) on every engine: the validator refuses it (... FLUID SQL/1 has no pattern matching ...)
+  group_name.placeholders (invoices) on every engine: declared, and no operator bounds it
+```
+
+`yes` is a rule the engine runs exactly. `no` is a rule it cannot run, with the reason below the table: the validator refuses the rule, or a construct has no exact SQL on that engine. `-` is a placeholder declaration that no operator bounds, so there is nothing to test. `spark` uses the SQL of `databricks`, and `trino` that of `athena`, so they have no column. A contract that declares no rules, or declares them below `fluidVersion` 0.7.7, prints `No declared rules about valid data (exposes[].contract.invariants[] and friends).`
+
+`--coverage-out PATH` writes the same report as JSON: `engines`, the list of engines, and `rules`, one object for each rule with `id`, `expose`, `kind`, `column` and `engines`. Each engine entry has a `status` (`executable`, `unsupported` or `skipped`) and, where there is one, a `reason`.
+
+**Rules that must run.** `--require-rule ID` (repeatable) and `--require-all-rules` turn the report into a gate. The `ID` is the first column of the table. The command stops before it writes `schema.yml` or the macro, with `exit 1` and one of these errors:
+
+| Error | Raised when |
+| --- | --- |
+| `dbt_tests_required_rule_unsupported` | A selected adapter cannot run a required rule, or a rule named by `--require-rule` has nothing to test (a placeholder declaration with no bound). The message lists each one as `<rule> on <adapter>: <reason>`. `--require-all-rules` passes over declarations with nothing to test |
+| `dbt_tests_unknown_required_rule` | `--require-rule` names an id the contract does not declare. The message lists the declared ids |
+| `dbt_tests_unknown_adapter` | `--adapter` names a type forge writes no SQL for. The message lists the eight |
+| `dbt_tests_rules_need_preview` | The contract declares rules about valid data below `fluidVersion` 0.7.7, where none of them runs, so no requirement can be met |
+
+```bash
+fluid generate dbt-tests contract.fluid.yaml -o dbt/models/schema.yml \
+  --require-rule gross_from_net --adapter snowflake --adapter athena
+fluid generate dbt-tests contract.fluid.yaml -o dbt/models/schema.yml --require-all-rules
+```
+
+A coverage file asked for with `--coverage-out` is written before the requirement is checked, so a refused run still leaves it.
 
 No dbt was available to run `dbt test` on a generated project. The generated YAML and its quoting come from the CLI's output, read back with a YAML and a Jinja parser.
 
