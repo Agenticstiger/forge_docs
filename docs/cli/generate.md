@@ -239,7 +239,58 @@ Model `access` is written under `config:` whatever version is detected.
 
 If no dbt is detectable, the generator emits the older shapes. dbt v2 rejects those, so a CI job that generates without dbt installed and then runs dbt v2 fails at parse. Install the dbt you will run in the job that runs `generate`, or pass `--dbt-tests-key` explicitly for the tests key. forge-cli's source records the floors above as measured on dbt-core 1.8.10, 1.9.11, 1.10.0, 1.10.5, 1.10.8, 1.12.5 and 2.0.4.
 
-When `fluid apply` runs a dbt build in a container, the fallback when the local dbt cannot run the build's adapter, the container installs `dbt-<adapter><2` and `dbt-core<2` into `python:3.12-slim`. Three variables change that: `DBT_BOOTSTRAP_IMAGE` replaces the base image, `DBT_ADAPTER_PACKAGE` replaces the install (and drops the `dbt-core<2` cap, which is how you opt into v2), and `DBT_DOCKER_IMAGE` runs a prebuilt image that already has dbt.
+Up to 0.33.0, when `fluid apply` runs a dbt build in a container, the fallback when the local dbt cannot run the build's adapter, the container installs `dbt-<adapter><2` and `dbt-core<2` into `python:3.12-slim`. Three variables change that: `DBT_BOOTSTRAP_IMAGE` replaces the base image, `DBT_ADAPTER_PACKAGE` replaces the install (and drops the `dbt-core<2` cap, which is how you opt into v2), and `DBT_DOCKER_IMAGE` runs a prebuilt image that already has dbt. *On forge-cli `main`, not yet in a release ([forge-cli #1009](https://github.com/Agenticstiger/forge-cli/pull/1009)).* The fallback installs pinned packages into a pinned image, and the variables take pinned values only: see [Which dbt `fluid apply` runs](#which-dbt-fluid-apply-runs).
+
+#### Which dbt `fluid apply` runs
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1009](https://github.com/Agenticstiger/forge-cli/pull/1009)).* `fluid apply` runs a dbt build with the dbt that `$DBT_EXECUTABLE` names, as it is and whatever adapter it has. Without `$DBT_EXECUTABLE`, it uses `dbt` on `PATH`, or the `dbt` next to the Python that runs forge, when that dbt has the build's adapter. Otherwise, with Docker available, it runs the build in a container.
+
+**The adapter.** The build's `engine` names it, as `dbt-snowflake` names `snowflake`. The engines `dbt` and `dbt-core` name none, so the build's `execution.runtime.platform` does: `snowflake`, `bigquery` (and `gcp`), `duckdb`, `redshift` (and `aws`), `postgres` (and `postgresql`), `spark`, `athena` (and `aws-athena`), `glue` (and `aws-glue`) and `databricks`. dbt lists an adapter under its plugin name, which can differ from its package's: `dbt-athena-community` installs the plugin `athena`. For dbt-core v1, forge matches the plugin name exactly against the names listed under `Plugins:` in `dbt --version`. A dbt Fusion (v2), which lists none, is used for any adapter. In 0.33.0 the engine `dbt-athena-community` was looked for as `athena-community`, so a dbt that had the Athena plugin, found without `$DBT_EXECUTABLE`, was never used, and the build went to a container. A build that names no adapter runs on the local dbt as it is.
+
+**The container.** With no local dbt that has the adapter, forge runs `docker run` on an image pinned by digest, installs the packages in it from wheels only, and runs dbt. This is the command that `fluid apply` prints for an Athena build, with the project's path shortened:
+
+```text
+docker run --rm -v <project>:/workspace/project -w /workspace/project -v <project>:/workspace/profiles -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b sh -lc PIP_CONFIG_FILE=/dev/null python -I -m pip install --isolated --index-url https://pypi.org/simple --quiet --no-cache-dir --disable-pip-version-check --only-binary=:all: dbt-core==1.11.17 dbt-athena-community==1.11.1 && dbt build --no-partial-parse --project-dir /workspace/project --profiles-dir /workspace/project --profile lake
+```
+
+The environment goes in by name (`-e NAME`), so no value is on the command line. pip runs isolated: `-I` keeps the mounted project off its path, the index is PyPI and no pip configuration file loads, and no `PIP_*` setting is passed into the container, so a project `.env` cannot point pip at another index. A `PYTHON*` setting reaches the container only when forge sets it itself or `FLUID_DBT_FORWARD_ENV` names it. forge pins dbt-core and one package for each of these adapters. Their dependencies resolve within those packages' own ranges, and nothing is hash-locked.
+
+| Adapter | Package pinned |
+|---|---|
+| `athena` | `dbt-athena-community==1.11.1` |
+| `bigquery` | `dbt-bigquery==1.12.4` |
+| `clickhouse` | `dbt-clickhouse==1.10.3` |
+| `databricks` | `dbt-databricks==1.13.0` |
+| `duckdb` | `dbt-duckdb==1.11.1` |
+| `postgres` | `dbt-postgres==1.11.0` |
+| `redshift` | `dbt-redshift==1.11.2` |
+| `snowflake` | `dbt-snowflake==1.12.5` |
+| `spark` | `dbt-spark==1.11.1` |
+| `trino` | `dbt-trino==1.11.0` |
+
+dbt-core is pinned at `dbt-core==1.11.17`. An adapter that is not in the table, `glue` for one, runs in a container only when `DBT_ADAPTER_PACKAGE` or `DBT_DOCKER_IMAGE` is set. Without either, and once the AWS checks below pass, the build is refused with `forge has no pinned package for the dbt adapter 'glue', so it will not install one in a container. Install the adapter next to your dbt, or set DBT_ADAPTER_PACKAGE to an exact pin (for example dbt-<name>==1.2.3)`. Without Docker, a local dbt that lacks the adapter refuses the build too:
+
+```text
+❌ Unable to prepare dbt build 'marts': dbt executable '/venv/bin/dbt' has no 'athena' plugin. Install the adapter next to it (pip install 'dbt-athena-community==1.11.1'), set DBT_EXECUTABLE to a dbt that has it, or make Docker available.
+```
+
+**The variables.** Each takes only a pinned value, and refuses the rest before `docker` starts:
+
+- `DBT_BOOTSTRAP_IMAGE` is the base image that dbt is installed into, pinned by digest (`name[:tag]@sha256:<64 hex digits>`). A tag is refused: `DBT_BOOTSTRAP_IMAGE='python:3.12-slim' names a tag, and a tag can move: pin it by digest (python:3.12-slim@sha256:<digest>, from `docker buildx imagetools inspect python:3.12-slim`)`.
+- `DBT_ADAPTER_PACKAGE` is one or more exact requirements (`name==version`), separated by spaces or commas. They replace the adapter's pin, and forge adds `dbt-core==1.11.17` unless the list names dbt-core, which is how a build runs another dbt-core, v2 included. A range is refused: `DBT_ADAPTER_PACKAGE must list exact pins (name==version), not 'dbt-glue>=1.0': the dbt container installs only pinned packages`.
+- `DBT_DOCKER_IMAGE` is a prebuilt image that has dbt, pinned by digest. forge installs nothing in it. A tag is refused as for the base image.
+
+**AWS adapters.** The adapters `athena`, `glue` and `redshift` authenticate to AWS, and a container has no access to the host's AWS profiles: forge mounts the project and the profiles directory and nothing of `~/.aws`, and it does not pass in `AWS_PROFILE`, `AWS_DEFAULT_PROFILE`, `AWS_CONFIG_FILE`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CA_BUNDLE` or the two token-file paths (`AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE`). Before `docker` starts, forge refuses a build that would find no credentials: when the dbt profile names an AWS profile (`aws_profile_name` or `iam_profile`), and when neither the environment (`AWS_ACCESS_KEY_ID` with `AWS_SECRET_ACCESS_KEY`, or the container credentials URI) nor the dbt profile holds keys. A Redshift build that does not use IAM needs none. The first message names the profile's field and never its value, and both give the two ways out:
+
+```text
+❌ Unable to prepare dbt build 'marts': the local dbt has no 'athena' plugin, so this build would run in a container, and the dbt profile names an AWS profile (aws_profile_name), which a container cannot read. Install the adapter next to dbt (pip install 'dbt-athena-community==1.11.1'), or export that profile's short-lived keys (eval "$(aws configure export-credentials --profile <that profile> --format env)") and run without naming a profile (unset AWS_PROFILE, or drop aws_profile_name from the dbt profile)
+```
+
+```text
+❌ Unable to prepare dbt build 'marts': the local dbt has no 'athena' plugin, so this build would run in a container, and neither the environment nor the dbt profile holds AWS keys, and a container cannot read the host's AWS profiles. Install the adapter next to dbt (pip install 'dbt-athena-community==1.11.1'), or export short-lived keys (eval "$(aws configure export-credentials --format env)")
+```
+
+These outputs are from forge-cli's dbt runner, the code `fluid apply` calls for a dbt build, with a stand-in for the local dbt (its `--version` output) and for `docker`: no container ran and no AWS call was made. The project's path is `<project>`.
 
 #### Mesh hub
 
