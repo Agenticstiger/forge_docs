@@ -466,7 +466,7 @@ jq '.data.aws_iam_policy_document | to_entries[] | select(.key | endswith("_acce
 }
 ```
 
-When `binding.governance.lakeFormation` governs the output, the role also gets Lake Formation permissions on the dead-letter table: `ALTER`, `DESCRIBE`, `INSERT` and `SELECT`, and not `DELETE`, which [Lake Formation writes](#lake-formation-writes) grants for a batch overwrite. On `emr-ec2` forge emits the policy for the cluster's owner to attach and no role, so it emits no Lake Formation permission there. From `fluid generate iac` on the contract with `governance: {lakeFormation: {grants: []}}`:
+When `binding.governance.lakeFormation` governs the output, the role also gets Lake Formation permissions on the dead-letter table: `ALTER`, `DESCRIBE`, `INSERT` and `SELECT`, and not `DELETE`, which [Lake Formation writes](#lake-formation-writes) grants for a batch overwrite. *On forge-cli `main`, not yet in a release ([forge-cli #1010](https://github.com/Agenticstiger/forge-cli/pull/1010)).* An output with no `governance.lakeFormation` block gets the same grant where the account's Lake Formation settings govern new tables: see [A job's grant on its own table](#a-job-s-grant-on-its-own-table). On `emr-ec2` forge emits the policy for the cluster's owner to attach and no role, so it emits no Lake Formation permission there. From `fluid generate iac` on the contract with `governance: {lakeFormation: {grants: []}}`:
 
 ```bash
 jq '.resource.aws_lakeformation_permissions | with_entries(select(.key | contains("dead_letters")))' iac-governed/main.tf.json
@@ -600,7 +600,7 @@ A mapped column can set `maskAtIngest: hash`. The column is the HMAC-SHA256 of i
 | Artifacts | `aws_s3_object` in the output's bucket. `job.json` at `_fluid/spark/<product>/<build>/job.json`, and the runner at `_fluid/spark/<product>/<build>/runner/<16 hex digits of its sha256>/forge_spark_runner.py`. A new runner is a new key. |
 | Logs | A CloudWatch log group `/aws/fluid/spark/<product>/<build>`, encrypted with a per-product KMS key that only CloudWatch Logs may use, for this product's groups. |
 | The job's role | Unless the contract names one. Least privilege: S3 read and write on the data and checkpoint prefixes, read on the artifacts, the Glue calls on the output, KMS through S3 and Secrets Manager only, MSK IAM on the cluster, topic and consumer group, `lakeformation:GetDataAccess`, the mask key and a registry secret, and its log group. |
-| A dead-letter table | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* For a stream with `deadLetter` and `sink: table`: an Iceberg v2 `aws_glue_catalog_table` beside the output's table, with its S3 prefix, Glue table and, when Lake Formation governs the output, Lake Formation permissions added to the job's role. A `sink: topic` emits no table: on MSK with IAM the job's role gets the permissions to write the topic. See [What OpenTofu emits for dead letters](#what-opentofu-emits-for-dead-letters). |
+| A dead-letter table | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* For a stream with `deadLetter` and `sink: table`: an Iceberg v2 `aws_glue_catalog_table` beside the output's table, with its S3 prefix, Glue table and, when Lake Formation governs the output, Lake Formation permissions added to the job's role. *On forge-cli `main`, not yet in a release ([forge-cli #1010](https://github.com/Agenticstiger/forge-cli/pull/1010)).* Without a `governance.lakeFormation` block, those permissions are added where the account's Lake Formation settings govern new tables: see [A job's grant on its own table](#a-job-s-grant-on-its-own-table). A `sink: topic` emits no table: on MSK with IAM the job's role gets the permissions to write the topic. See [What OpenTofu emits for dead letters](#what-opentofu-emits-for-dead-letters). |
 | A caller policy | For a build that runs to completion (batch, or a stream with `availableNow`): the managed policy `fluid-<product>-spark-caller`, for the platform to attach to the scheduler's role. |
 
 Per runtime:
@@ -1329,11 +1329,44 @@ The setting is protected: a project `.env` cannot set it, and the contract never
 - Each writer's role is granted `ALTER`, `DESCRIBE`, `INSERT` and `SELECT` on the table, and `DELETE` for a batch overwrite. It is not granted `DATA_LOCATION_ACCESS`, because the table exists.
 - A registered location that a Spark job writes must be one named, resolved prefix: no bucket root and no unresolved template. It gets one role per location.
 - Without a Spark writer, the registration is unchanged.
-- **A dead-letter table.** *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* When `binding.governance.lakeFormation` governs the output, a stream's dead-letter table gets the writer's role `ALTER`, `DESCRIBE`, `INSERT` and `SELECT`, without `DELETE`. A dead-letter table beside a location forge registers is refused: see [What is refused](#what-is-refused).
+- **A dead-letter table.** *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* When `binding.governance.lakeFormation` governs the output, a stream's dead-letter table gets the writer's role `ALTER`, `DESCRIBE`, `INSERT` and `SELECT`, without `DELETE`. A dead-letter table beside a location forge registers is refused: see [What is refused](#what-is-refused). Without a block, see [A job's grant on its own table](#a-job-s-grant-on-its-own-table).
 - **The apply role needs `iam:PassRole`** on the registration role, because `lakeformation:RegisterResource` passes it.
 - **Moving a registered location from the service-linked role to the new role re-registers it.** While that runs, Lake Formation vends no credentials for the location, so jobs that are running on it may fail for that short window.
 
 In the account's `<account>-fluid-data` fallback bucket, and in a `shared` packaging pool's bucket, a forge role writes only the product's own `<product>/` prefix.
+
+### A job's grant on its own table
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1010](https://github.com/Agenticstiger/forge-cli/pull/1010)).* Up to 0.33.0 forge granted a job's role Lake Formation access to its table only for an output whose binding declares a non-empty `governance.lakeFormation` block. In an account that removed the `IAM_ALLOWED_PRINCIPALS` default for new tables, as Lake Formation advises, a stream with no such block could not see its own table. forge now emits the grant for such an output as well, when the output is a Glue table: `ALTER`, `DESCRIBE`, `INSERT` and `SELECT` on the output's table, with `DELETE` for a batch job, and `ALTER`, `DESCRIBE`, `INSERT` and `SELECT` on the dead-letter table of a stream beside it. The module is the same text in every account. The plan decides whether each grant exists: the module reads the account's Lake Formation settings, and the grant has a `count` of 1 when none of the settings' default permissions for new tables names `IAM_ALLOWED_PRINCIPALS`, and 0 when one does. An account that keeps that default creates nothing new. This is what `fluid generate iac` emits for the example contract on EMR Serverless:
+
+```json
+{
+  "data": {
+    "aws_lakeformation_data_lake_settings": {
+      "commerce_orders_stream_lf_settings": {}
+    }
+  },
+  "resource": {
+    "aws_lakeformation_permissions": {
+      "commerce_orders_stream_lf_spark_writer_order_lines_0": {
+        "count": "${length([for d in data.aws_lakeformation_data_lake_settings.commerce_orders_stream_lf_settings.create_table_default_permissions : d if d.principal == \"IAM_ALLOWED_PRINCIPALS\"]) == 0 ? 1 : 0}",
+        "principal": "${aws_iam_role.commerce_orders_stream_ingest_orders_spark.arn}",
+        "permissions": ["ALTER", "DESCRIBE", "INSERT", "SELECT"],
+        "table": [
+          {
+            "database_name": "${aws_glue_catalog_table.commerce_orders_stream_commerce_order_lines.database_name}",
+            "name": "${aws_glue_catalog_table.commerce_orders_stream_commerce_order_lines.name}"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+An output with a non-empty `governance.lakeFormation` block keeps its grants as they are, and no settings are read for it. An EMR on EC2 job runs as the cluster's own role, which forge does not know, so it gets no grant and no settings are read.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1010](https://github.com/Agenticstiger/forge-cli/pull/1010)).* The identity that runs `fluid plan` and `fluid apply` needs `lakeformation:GetDataLakeSettings`, for a Spark build on any runtime but EMR on EC2 whose output is a Glue table with no `governance.lakeFormation` block. The grant goes to the job's role whether forge creates it or the contract names it.
 
 ## Errors
 
