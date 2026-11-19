@@ -1267,7 +1267,7 @@ Validation Errors:
 
 | Refusal | Refused when | The fix |
 | --- | --- | --- |
-| `databricks-job-dq-git-source` | The build's `repository` is a Git URL, and an expose it writes has rules. | Point `repository` at the local dbt project. |
+| `databricks-job-dq-git-source` | The build's `repository` is a Git URL, and an expose it writes has rules. *On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)),* declared rules count too. | Point `repository` at the local dbt project. |
 | `databricks-job-dq-model` | The model that writes the expose is not in the project's `model-paths`. | Name the model in `properties.model` (one output per build), or name it after the expose's `binding.location.table`. |
 | `databricks-job-dq-not-selected` | The build's selection leaves the model out, so dbt would never run its tests. | Select the model: `properties.select: ['orders']`, or `properties.model`. |
 | `databricks-job-dq-reference` | A `labels.references` product is not in `consumes[]`, or the project does not declare exactly one dbt source table named like the consumed expose. | List the product in `consumes[]` with the `exposeId` of its table, and declare that one table as a dbt source. |
@@ -1277,6 +1277,47 @@ Validation Errors:
 | `databricks-job-project-size` | The project and its generated tests are more than 1000 files. | Take files out of the project, or drop rules. The message suggests a Git source, which a build with rules cannot use. |
 
 A selection that forge-cli cannot evaluate (by tag, config or state) is not refused. The run's report then says which tests dbt did not run.
+
+#### Declared rules about valid data
+
+*On forge-cli `main`, not yet in a release ([forge-cli #997](https://github.com/Agenticstiger/forge-cli/pull/997)).*
+
+A `fluidVersion: 0.7.7` contract can declare rules about valid data: invariants, identifier formats, bounded placeholder declarations, shared columns and shared attributes (see [Rules about valid data](../concepts/data-rules.md)). Each one that sits on an expose the build writes becomes one more singular test in the uploaded project, at `<test path>/fluid_dq/<model>/fluid_dq_<id>.sql`, next to the tests of `dq.rules`:
+
+```text
+tests/fluid_dq/orders/fluid_dq_amount_positive.sql
+tests/fluid_dq/orders/fluid_dq_status_known.sql
+```
+
+- **The name** is `fluid_dq_` plus the rule's id in lower case, with each run of characters outside ASCII letters, digits and `_` turned into one `_`, and leading and trailing `_` dropped (`rule` when nothing is left). A name already taken gets `_2`, `_3` and so on. It differs from the `fluid_<id>` name that [`fluid generate dbt-tests`](../cli/generate.md#declared-rules-as-dbt-tests) gives the same rule, so both can sit in one project, because dbt takes a test name once.
+- **The SQL** is Databricks SQL printed from the parsed rule. Every piece of contract text is a Jinja string literal, and each table is a `ref()`. A rule with `unit: percent` compares `100 * violating` with `value * covered`.
+- **The severity** is the rule's: `error` fails the test, and `warning` and `info` give `warn`. The file also sets the tag `fluid_dq` and a `meta` with the rule's id and expose.
+
+```sql
+-- Declared rule fluid_dq_status_known: written by fluid apply from the contract. Change the contract, not this file.
+{{ config(severity="warn", enabled=true, tags=["fluid_dq"], meta={'fluid_rule_id': "status_known", 'fluid_expose_id': "orders"}) }}
+select fluid_counts.*
+from ({{ "SELECT COUNT(*) AS `covered`, COUNT(CASE WHEN (NOT COALESCE((`t`.`status` IN ('NEW', 'SHIPPED')), FALSE)) THEN 1 END) AS `violating` FROM " }}{{ ref("orders") }}{{ " AS `t`" }}) as fluid_counts
+where not ({{ "`violating` = 0" }})
+```
+
+The run's report names each one by that name, with the rule's own text, as it does for the rules above:
+
+```text
+   contract rules as dbt tests: 1 pass, 1 warn
+     ✓ fluid_dq_amount_positive: PASS - amount >= 0 holds, severity error
+     ! fluid_dq_status_known: WARN 3 rows - status IN ('NEW', 'SHIPPED') holds, severity warn
+```
+
+Three things are refused when the build is planned, as any rule the job cannot run is:
+
+- A rule with no exact Databricks SQL (`databricks-job-dq-rule`). The message names the build, the expose and the rule, and gives the reason, such as `FLUID SQL/1 has no pattern matching`. Restate the rule in FLUID SQL/1 that Databricks runs, or remove it.
+- A rule that reads an expose the build does not write (`databricks-job-dq-rule`), for example through a relationship. The dbt project has no model for it. Write those exposes in the same build, or test the rule with `fluid generate dbt-tests` in a project that holds every model it reads.
+
+- A build whose `repository` is a Git URL, when the contract declares such a rule on an expose it writes (`databricks-job-dq-git-source`), as for `dq.rules`.
+- A project that already has a test of the same name, or a file at that path (`databricks-job-dq-name`, where the tests of `dq.rules` give `databricks-job-dq-path` for a file). A rule on a contract below 0.7.7 writes no test, and a placeholder declaration with no bound has nothing to test.
+
+The tests above were rendered and their SQL parsed as Databricks SQL by forge-cli's own tests. They were not run in a Databricks workspace.
 
 #### What `fluid apply` prints for each rule
 
