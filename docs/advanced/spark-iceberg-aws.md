@@ -126,7 +126,7 @@ Bucket names are global: write a bucket you own in place of `commerce-lake`.
 | `clusterId` | EMR on EC2 only: an existing cluster. A transient cluster is refused for now. A cluster that runs on Spot needs the layout in [Running EMR on EC2 on Spot](#running-emr-on-ec2-on-spot). |
 | `virtualClusterId` | EMR on EKS only, and required there: an existing virtual cluster. |
 | `glueVersion` | Glue only. Default `5.0`. |
-| `releaseLabel` | The EMR release, on the EMR runtimes. Default `emr-7.12.0`. *On forge-cli `main`, not yet in a release ([forge-cli #984](https://github.com/Agenticstiger/forge-cli/pull/984)).* Each runtime takes its own form, and the default on EMR on EKS is `emr-7.12.0-latest`: see [Release labels](#release-labels). |
+| `releaseLabel` | The EMR release, on the EMR runtimes. Default `emr-7.12.0`. *(since 0.33.0, [forge-cli #984](https://github.com/Agenticstiger/forge-cli/pull/984))* Each runtime takes its own form, and the default on EMR on EKS is `emr-7.12.0-latest`: see [Release labels](#release-labels). |
 | `executionRoleArn` | An existing role the job runs as. See [Roles](#roles-and-who-lists-what). |
 | `maskKeySecretArn` | The Secrets Manager ARN of the key `maskAtIngest: hash` uses. A mapping that masks a column needs it. |
 | `sparkConf` | Spark settings, limited to sizing and tuning unless the operator lists more. See [Spark settings](#spark-settings). |
@@ -136,7 +136,7 @@ An MSK source needs no broker list: forge looks the brokers up from the cluster 
 
 ### Release labels
 
-*On forge-cli `main`, not yet in a release ([forge-cli #984](https://github.com/Agenticstiger/forge-cli/pull/984)).* Each EMR runtime takes its own form of `releaseLabel`:
+*(since 0.33.0, [forge-cli #984](https://github.com/Agenticstiger/forge-cli/pull/984))* Each EMR runtime takes its own form of `releaseLabel`:
 
 | Runtime | Form | Default | What forge does with it |
 |---|---|---|---|
@@ -566,11 +566,11 @@ Per runtime:
 | `emr-serverless` | With `applicationId`, nothing: the application is the domain's and the contract only names it. Without it, `packaging.containers.emrApplication: isolated` creates one for the product, which stops after 15 idle minutes, is capped at 16 vCPU and 64 GB, and sits in the MSK cluster's subnets and security groups. With neither, the contract is refused (`spark-emr-application-shared`). | The EMR Serverless service, for this account and this application. |
 | `glue` | An `aws_glue_job` (`gluestreaming` or `glueetl`), Glue 5.0 by default, with `--datalake-formats iceberg`, the runner as its script, `--config` pointing at `job.json`, continuous logs to its group, and a `NETWORK` connection in one of the MSK cluster's subnets. | `glue.amazonaws.com`, for this build's own Glue job. |
 | `emr-eks` | Nothing: the virtual cluster is existing. | The IRSA statement that `aws emr-containers update-role-trust-policy` writes. The virtual cluster and its EKS cluster are read at plan time. |
-| `emr-ec2` | No role: a step runs as the cluster's instance profile, so forge emits the job's policy as a managed `aws_iam_policy` for the cluster's owner to attach. *On forge-cli `main`, not yet in a release ([forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005)).* `fluid apply` starts no step until it is attached: see [An EMR on EC2 step starts once its policy is attached](#an-emr-on-ec2-step-starts-once-its-policy-is-attached). | None. |
+| `emr-ec2` | No role: a step runs as the cluster's instance profile, so forge emits the job's policy as a managed `aws_iam_policy` for the cluster's owner to attach. *(since 0.33.0, [forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005))* `fluid apply` starts no step until it is attached: see [An EMR on EC2 step starts once its policy is attached](#an-emr-on-ec2-step-starts-once-its-policy-is-attached). | None. |
 
 ### What the job's role may do in S3
 
-*On forge-cli `main`, not yet in a release ([forge-cli #983](https://github.com/Agenticstiger/forge-cli/pull/983)).* The role forge creates for a Spark build, and the policy it emits for an EMR on EC2 cluster's owner to attach, get S3 access to these prefixes of the output's bucket:
+*(since 0.33.0, [forge-cli #983](https://github.com/Agenticstiger/forge-cli/pull/983))* The role forge creates for a Spark build, and the policy it emits for an EMR on EC2 cluster's owner to attach, get S3 access to these prefixes of the output's bucket:
 
 | Prefix | Access |
 |---|---|
@@ -654,7 +654,7 @@ A stream that reads a registry with a credential also needs the settings of the 
 
 ### Contract SQL and `fluid validate`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990)).* `fluid validate` asks `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` the question `fluid apply` asks, under the same environment, and warns about a build's own `properties.sql` only while apply would refuse it. A bundle is validated the same way. For a batch build with `properties.sql`, `fluid validate --strict` gives:
+*(since 0.33.0, [forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990))* `fluid validate` asks `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` the question `fluid apply` asks, under the same environment, and warns about a build's own `properties.sql` only while apply would refuse it. A bundle is validated the same way. For a batch build with `properties.sql`, `fluid validate --strict` gives:
 
 | The list holds | Warning | `--strict`, when nothing else warns |
 |---|---|---|
@@ -692,7 +692,7 @@ A key with a bad name or value gets its own message, and only a valid key that i
 
 There is no OpenTofu resource for a job run, so runs are started by forge and not by the module.
 
-`fluid plan` lists one `spark.reconcile` action per Spark build. `planDigest` covers it, and it needs no AWS credentials. *On forge-cli `main`, not yet in a release ([forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994)).* For an `emr-ec2` build, `fluid plan` and a non-dry-run `fluid apply` also read the cluster, when they can, to warn about Spot: see [What plan and apply check on the cluster](#what-plan-and-apply-check-on-the-cluster). The action's payload carries the runtime, mode, target, execution role, the artifact locations and a **config hash**: the sha256 of the job config, the runner's sha256 and the run settings (runtime, target, release, role, `sparkConf`, retries, and on Glue the pinned jars it loads). `fluid apply` compiles the runs again and refuses a bound plan whose Spark actions differ (`apply_spark_artifact_mismatch`). A non-dry-run apply of a streaming build also needs the `[aws]` extra (`apply_aws_sdk_missing`). Apply needs the OpenTofu engine (`apply_spark_needs_opentofu`).
+`fluid plan` lists one `spark.reconcile` action per Spark build. `planDigest` covers it, and it needs no AWS credentials. *(since 0.33.0, [forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994))* For an `emr-ec2` build, `fluid plan` and a non-dry-run `fluid apply` also read the cluster, when they can, to warn about Spot: see [What plan and apply check on the cluster](#what-plan-and-apply-check-on-the-cluster). The action's payload carries the runtime, mode, target, execution role, the artifact locations and a **config hash**: the sha256 of the job config, the runner's sha256 and the run settings (runtime, target, release, role, `sparkConf`, retries, and on Glue the pinned jars it loads). `fluid apply` compiles the runs again and refuses a bound plan whose Spark actions differ (`apply_spark_artifact_mismatch`). A non-dry-run apply of a streaming build also needs the `[aws]` extra (`apply_aws_sdk_missing`). Apply needs the OpenTofu engine (`apply_spark_needs_opentofu`).
 
 After `tofu apply`, `fluid apply` reconciles each streaming build:
 
@@ -717,7 +717,7 @@ Per runtime, the start is:
 
 ### An EMR on EC2 step starts once its policy is attached
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005)).*
+*(since 0.33.0, [forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005))*
 
 A step on an `emr-ec2` cluster runs as the role of the cluster's instance profile, which the cluster's owner holds. Forge does not change that role: it belongs to the cluster's owner. `fluid apply` creates the build's least-privilege policy (the managed `aws_iam_policy` in [What forge provisions](#what-forge-provisions)), and the owner attaches it. On 0.32.0 the first `fluid apply` started the stream before anyone could attach the policy, so, unless the role already held the job's permissions, the step failed at once. A stream that failed is not started again with the same config.
 
@@ -743,7 +743,7 @@ The role that runs `fluid apply`, or the scheduler's execution role (the MWAA ro
 |---|---|---|
 | `emr-serverless` | `emr-serverless:StartJobRun`, `GetJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource`, and `ListApplications` when the contract names no `applicationId` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-serverless.amazonaws.com` |
 | `glue` | `glue:StartJobRun`, `GetJobRun`, `GetJobRuns`, `BatchStopJobRun` | |
-| `emr-ec2` | `elasticmapreduce:AddJobFlowSteps`, `ListSteps`, `DescribeStep`, `CancelSteps` | *On forge-cli `main`, not yet in a release ([forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994)).* Also `DescribeCluster`, `ListInstanceGroups` and `ListInstanceFleets`, read-only, for the Spot check at plan and apply; the generated `fluid-<product>-spark-caller` policy includes them. Without them the check prints nothing. *On forge-cli `main`, not yet in a release ([forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005)).* A start also reads the cluster's role, to check that the build's policy is attached to it: `DescribeCluster`, and `iam:GetInstanceProfile` and `iam:ListAttachedRolePolicies` on `arn:aws:iam::<account>:instance-profile/*` and `arn:aws:iam::<account>:role/*`. The generated `fluid-<product>-spark-caller` policy holds `DescribeCluster` in its `Run` statement, scoped to the cluster, and the two IAM reads in a `StepRole` statement. Without them the step starts as before. |
+| `emr-ec2` | `elasticmapreduce:AddJobFlowSteps`, `ListSteps`, `DescribeStep`, `CancelSteps` | *(since 0.33.0, [forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994))* Also `DescribeCluster`, `ListInstanceGroups` and `ListInstanceFleets`, read-only, for the Spot check at plan and apply; the generated `fluid-<product>-spark-caller` policy includes them. Without them the check prints nothing. *(since 0.33.0, [forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005))* A start also reads the cluster's role, to check that the build's policy is attached to it: `DescribeCluster`, and `iam:GetInstanceProfile` and `iam:ListAttachedRolePolicies` on `arn:aws:iam::<account>:instance-profile/*` and `arn:aws:iam::<account>:role/*`. The generated `fluid-<product>-spark-caller` policy holds `DescribeCluster` in its `Run` statement, scoped to the cluster, and the two IAM reads in a `StepRole` statement. Without them the step starts as before. |
 | `emr-eks` | `emr-containers:StartJobRun`, `DescribeJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-containers.amazonaws.com` |
 
 Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a stronger one.
@@ -832,7 +832,7 @@ A cluster that follows items 1 to 3, as the parameters of the EMR `RunJobFlow` c
 
 ### What plan and apply check on the cluster
 
-*On forge-cli `main`, not yet in a release ([forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994)).* For the `clusterId` of each `emr-ec2` build, `fluid plan` and `fluid apply` read the cluster once, however many builds run on it (`DescribeCluster`, then `ListInstanceGroups`, or `ListInstanceFleets` for an instance-fleet cluster), and warn when it breaks item 1 or 3 of the checklist. A warning never refuses the plan or the apply, and none is in `plan.json`. There are three:
+*(since 0.33.0, [forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994))* For the `clusterId` of each `emr-ec2` build, `fluid plan` and `fluid apply` read the cluster once, however many builds run on it (`DescribeCluster`, then `ListInstanceGroups`, or `ListInstanceFleets` for an instance-fleet cluster), and warn when it breaks item 1 or 3 of the checklist. A warning never refuses the plan or the apply, and none is in `plan.json`. There are three:
 
 | Finding | When |
 |---|---|

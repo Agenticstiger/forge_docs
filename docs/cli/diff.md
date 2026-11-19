@@ -209,8 +209,8 @@ Version-diff mode (`--baseline`) needs no provider at all — it is a pure struc
 | `--baseline` | none | Compare against an older revision of the contract: switches `diff` into version-diff mode. |
 | `--fail-on-breaking` | off | In version-diff mode, exit `1` when a breaking change is found. |
 | `--format` | `text` | Version-diff output format: `text`, `json` or `markdown`. |
-| `--impact` | off | *On forge-cli `main`, not yet in a release ([forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981)).* With `--baseline`, add the [impact report](#impact-report-for-a-pull-request). Refused without `--baseline`. |
-| `--plan PLAN_JSON` | none | *On forge-cli `main`, not yet in a release ([forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981)).* The OpenTofu plan the change would run: the `plan.json` of `fluid plan --tofu`, or the output of `tofu show -json`. Implies `--impact`. |
+| `--impact` | off | *(since 0.33.0, [forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981))* With `--baseline`, add the [impact report](#impact-report-for-a-pull-request). Refused without `--baseline`. |
+| `--plan PLAN_JSON` | none | *(since 0.33.0, [forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981))* The OpenTofu plan the change would run: the `plan.json` of `fluid plan --tofu`, or the output of `tofu show -json`. Implies `--impact`. |
 
 Every path argument (`CONTRACT`, `--baseline`, `--state`, `--last-applied`, `--out`) is checked before it is read or written: a relative path containing `..` is refused with `ERR_PATH_TRAVERSAL_DETECTED`.
 
@@ -497,7 +497,7 @@ fluid diff contract.fluid.yaml --baseline /tmp/base/contract.fluid.yaml --fail-o
 
 ## Impact report for a pull request
 
-*On forge-cli `main`, not yet in a release ([forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981)).*
+*(since 0.33.0, [forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981))*
 
 The version diff says what changed in the contract. `--impact` adds what the change reaches, so a reviewer of the pull request sees it next to the changelog:
 
@@ -506,7 +506,7 @@ fluid diff contract.fluid.yaml --baseline /tmp/base/contract.fluid.yaml --impact
 fluid diff contract.fluid.yaml --baseline /tmp/base/contract.fluid.yaml --plan plan.tofu.json --format markdown
 ```
 
-`--plan` implies `--impact`. Without `--baseline`, both are refused with `diff_modes_mutually_exclusive`. Without the flags, the version diff is unchanged. *On forge-cli `main`, not yet in a release ([forge-cli #1000](https://github.com/Agenticstiger/forge-cli/pull/1000)),* the pipeline that `fluid generate ci --system gitlab` writes runs this report on each merge request, as the `fluid-impact` job ([GitLab CI: form, release packet and impact report](../advanced/operating-in-ci.md#gitlab-ci-form-release-packet-and-impact-report)).
+`--plan` implies `--impact`. Without `--baseline`, both are refused with `diff_modes_mutually_exclusive`. Without the flags, the version diff is unchanged. *(since 0.33.0, [forge-cli #1000](https://github.com/Agenticstiger/forge-cli/pull/1000))* The pipeline that `fluid generate ci --system gitlab` writes runs this report on each merge request, as the `fluid-impact` job ([GitLab CI: form, release packet and impact report](../advanced/operating-in-ci.md#gitlab-ci-form-release-packet-and-impact-report)).
 
 The report has three parts. This is the markdown for a change that removes a required column from `orders`, adds a read grant for a whole domain, and moves the partition column, with a plan that replaces the table:
 

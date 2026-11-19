@@ -433,7 +433,7 @@ fluid apply runtime/plan.json --yes
 
 The bundle records the source contract and the environment it was built for
 in its `MANIFEST.json` (see [`fluid bundle`](../cli/bundle.md#manifest-json)).
-*On forge-cli `main`, not yet in a release ([forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985)),*
+*(since 0.33.0, [forge-cli #985](https://github.com/Agenticstiger/forge-cli/pull/985))*
 the MANIFEST keeps the environment, and the source contract's path is in a
 `<bundle>.provenance.json` beside the archive (see
 [the provenance file](../cli/bundle.md#the-provenance-file)). That has two effects:

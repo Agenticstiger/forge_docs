@@ -182,7 +182,7 @@ Each group is checked before it is written, by the [output checks](#what-leaves-
 - A quantile's value must be held by at least 10 records, and the rounded counts must still show it is the quantile, or the group is withheld. Few values of a continuous column, such as amounts in cents, are held by 10 records, so expect its quantiles to be withheld.
 - When one group of a grouped mean or support is withheld, every other group of it is withheld too, under `D` (secondary suppression). The document publishes the column's `count` and `sum`, so subtracting the published groups from them would give the withheld one back. The records a null `groupBy` value leaves out of every group count as one more group here, checked and never written.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965), [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967)).* Four more checks apply to a quantile and to a grouped histogram:
+*(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965), [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967))* Four more checks apply to a quantile and to a grouped histogram:
 
 - A quantile is withheld unless at least 10 records lie below its value and at least 10 lie above it. The records are counted before rounding. The group states how many records lie below its value, and this check keeps that count from being a small one.
 - No record below or above counts as a zero. A group whose value is the smallest or the largest of its records has no record on one side, and `acro-default` withholds a zero, so the group is withheld.
@@ -193,7 +193,7 @@ The `quantiles` metric of a number or timestamp column states values and no rank
 
 What the checks leave readable, on purpose: a grouped statistic lists every group the records form, published or withheld. Each key is a level the bundle declares, because a record whose `groupBy` value the block does not declare is refused, so a key says only that its level holds at least one record. A withheld histogram cell or quantile group is not suppressed in turn: the rounded counts still bound it, somewhere inside 0 to 9 records.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967), [forge-cli #978](https://github.com/Agenticstiger/forge-cli/pull/978)).* One thing changes in that paragraph: a histogram or quantile group withheld for its size now brings secondary suppression, as the checks above say, and its siblings are withheld too. A withheld histogram cell still does not. The checks also leave two more things readable, or open:
+*(since 0.33.0, [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967), [forge-cli #978](https://github.com/Agenticstiger/forge-cli/pull/978))* One thing changes in that paragraph: a histogram or quantile group withheld for its size now brings secondary suppression, as the checks above say, and its siblings are withheld too. A withheld histogram cell still does not. The checks also leave two more things readable, or open:
 
 - A published `min` shows that no record lies below it, and a published `max` that none lies above it. That is a range of no records, and no check withholds a `min` or a `max` for it. A quantile group whose value is the smallest or the largest of its records shows the same, and `acro-default` holds zeros disclosive, so the group is withheld for that.
 - The checks do not close one gap yet. A reader can still subtract one histogram's published counts from another's, or from a level histogram's group size, and read a withheld cell, a zero included, to within the rounding. forge-cli plans to close it with FLUX's `check_edge_counts`, which a flux-stats release has to carry first, and to ship that in a later release.
@@ -222,7 +222,7 @@ One market, DE, holds 3 of the 400 records. Its group of the mean by market is w
 
 Run with flux-sim-engine 0.6.2 against this profile, `fluxsim verify` passes: the three published statistics score within their margins, the three withheld ones score as censored, and `fluxsim ship --profile` packs the run.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965), [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967)).* The summary counts each withheld value by the check that withheld it, because the document no longer names the check for a histogram or a quantile. The line that starts `Withheld, by` now reads `Withheld, by the check (CL_CONF_STATUS code): ...`, where 0.32.0 printed `Withheld, by CL_CONF_STATUS code: ...`, and up to two lines follow it. A bundle of the same shape, with other records, prints:
+*(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965), [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967))* The summary counts each withheld value by the check that withheld it, because the document no longer names the check for a histogram or a quantile. The line that starts `Withheld, by` now reads `Withheld, by the check (CL_CONF_STATUS code): ...`, where 0.32.0 printed `Withheld, by CL_CONF_STATUS code: ...`, and up to two lines follow it. A bundle of the same shape, with other records, prints:
 
 ```text
 Withheld, by the check (CL_CONF_STATUS code): A (small count) 11, D (secondary suppression) 3.
@@ -250,7 +250,7 @@ Every value is checked before the document is written. The checks are ACRO's def
 
 A withheld value keeps its SDMX `CL_CONF_STATUS` code and carries no value: a withheld `mean/1` group holds its code and no `k` or `Sx`, and FLUX scores it as censored, never as zero. Every metric also carries `sampleSize`, the band its number of records lies in. For a withheld count the band is `0` to `9`, and for a published one it is the counts that round to it. Neither says more than the code or the rounded count.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965), [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967)).* A withheld group or cell of a histogram, and a withheld group of a `quantile/1`, is written `C`, whatever withheld it. A code that names the check tells a reader a range: `A` says that a cell holds fewer than 10 records. In the worst case a reader knows the group's total and the exact size of each published cell, and then cells of 10, 9, 9 and 10 records written `F`, `A`, `A` and `F` give both withheld cells as 9. A histogram group with a withheld cell, whose count is `null`, and a withheld quantile group read like this in the document, shown here with spaces added and each object taken from its own `groups` list:
+*(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965), [forge-cli #967](https://github.com/Agenticstiger/forge-cli/pull/967))* A withheld group or cell of a histogram, and a withheld group of a `quantile/1`, is written `C`, whatever withheld it. A code that names the check tells a reader a range: `A` says that a cell holds fewer than 10 records. In the worst case a reader knows the group's total and the exact size of each published cell, and then cells of 10, 9, 9 and 10 records written `F`, `A`, `A` and `F` give both withheld cells as 9. A histogram group with a withheld cell, whose count is `null`, and a withheld quantile group read like this in the document, shown here with spaces added and each object taken from its own `groups` list:
 
 ```text
 {"binCounts": [40, 360, null], "cellStatus": ["F", "F", "C"], "group": "", "k": 400, "status": "F"}
@@ -285,7 +285,7 @@ Pin it in the FLUX Simulation:
   profile: {digest: sha256:32aefe6ed451030bb4961edc5750d8f4cd0ea1b05a741168390abc1faba19285}
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965)).* The second line of this output reads `Withheld, by the check (CL_CONF_STATUS code): A (small count) 3.`
+*(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965))* The second line of this output reads `Withheld, by the check (CL_CONF_STATUS code): A (small count) 3.`
 
 The document is FLUX's profile format `1-0-0` in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
 

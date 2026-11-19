@@ -34,7 +34,7 @@ fluid validate-artifacts ARTIFACTS_DIR
 | **OPDS schema validation** | Files under `opds/` (and the older `odps/` prefix) are validated against the vendored OPDS v4.1 schema. |
 | **Schedule DAG syntax** | `.py` files under `schedule/` are compiled with `python -m py_compile`. Stage 3 writes them to `schedule/<product-id>/`, with an `__<env>` suffix on the directory when you generate with `--env`. |
 | **Policy bindings key-check** | `policy/bindings.json` is loaded and a shallow `provider` / `bindings` key-check runs. |
-| **Spark job config** | *On forge-cli `main`, not yet in a release ([forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979)).* Each `spark/<build id>/job.json` must parse as a JSON object with an integer `configVersion`, a `build` that names its directory, and the keys `product`, `mode` and `sink`. See [Spark job configs](./generate-artifacts.md#spark-job-configs). |
+| **Spark job config** | *(since 0.33.0, [forge-cli #979](https://github.com/Agenticstiger/forge-cli/pull/979))* Each `spark/<build id>/job.json` must parse as a JSON object with an integer `configVersion`, a `build` that names its directory, and the keys `product`, `mode` and `sink`. See [Spark job configs](./generate-artifacts.md#spark-job-configs). |
 | **OPA conftest (optional)** | If `tests/policies/*.rego` exists next to the contract, `conftest test dist/artifacts/policy/bindings.json --policy tests/policies/` runs. Soft-import — no Rego rules → silent skip. |
 | **dbt parse (optional)** | If `<ARTIFACTS_DIR>/dbt/dbt_project.yml` exists, `dbt parse --no-partial-parse` runs on it. When `dbt` is not on `PATH` the check is skipped with an INFO note, or fails with `--strict`. |
 
@@ -136,7 +136,7 @@ An artifact tree that passed stage 4 on `0.14.1` can now fail it **with no contr
 
 ## Reference-only contracts
 
-Stage 4 runs against whatever stage 3 emitted. For `builds[].pattern: hybrid-reference` contracts, stage 3 skips the `schedule` and `policies` emitters through 0.32.0, so stage 4 only validates the catalog artifacts (`odcs/` + `odps-bitol/`) that stage 3 did emit. *On forge-cli `main`, not yet in a release ([forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971)), stage 3 runs for these contracts as for any other: see [Reference-only contracts](./ship.md#reference-only-contracts).* The self-gate on `fileExists('dist/artifacts/MANIFEST.json')` ensures the stage is skipped entirely if stage 3 was turned off.
+Stage 4 runs against whatever stage 3 emitted. For `builds[].pattern: hybrid-reference` contracts, stage 3 skips the `schedule` and `policies` emitters through 0.32.0, so stage 4 only validates the catalog artifacts (`odcs/` + `odps-bitol/`) that stage 3 did emit. *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Stage 3 runs for these contracts as for any other: see [Reference-only contracts](./ship.md#reference-only-contracts). The self-gate on `fileExists('dist/artifacts/MANIFEST.json')` ensures the stage is skipped entirely if stage 3 was turned off.
 
 ## Notes
 

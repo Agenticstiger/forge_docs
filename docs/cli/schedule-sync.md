@@ -35,7 +35,7 @@ Each top-level directory of `--dags-dir` is mirrored into the same-named directo
 
 ## DAG layout
 
-Stage 3 writes `<out>/schedule/<product-id>[__<env>]/<build-id>_dag.py`: one directory per product and environment, one file per DAG: one for each scheduled build, and one for builds that `builds[].dependencies` link, named after the build that carries the trigger (*on forge-cli `main`, not yet in a release, [forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)*; see [Build graphs and dataset triggers](../advanced/airflow.md#build-graphs-and-dataset-triggers)). The environment comes from `--env`, or from `$FLUID_ENV` when `--env` is not given. With no environment the directory is just `<product-id>/`.
+Stage 3 writes `<out>/schedule/<product-id>[__<env>]/<build-id>_dag.py`: one directory per product and environment, one file per DAG: one for each scheduled build, and one for builds that `builds[].dependencies` link, named after the build that carries the trigger (*since 0.33.0, [forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966)*; see [Build graphs and dataset triggers](../advanced/airflow.md#build-graphs-and-dataset-triggers)). The environment comes from `--env`, or from `$FLUID_ENV` when `--env` is not given. With no environment the directory is just `<product-id>/`.
 
 | | With an environment | With no environment |
 | --- | --- | --- |
