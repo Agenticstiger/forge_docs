@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.34.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.35.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.34.0                                                              │
+│ Version: 0.35.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.34.0"
+pip install "data-product-forge[local]==0.35.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.34.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.35.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
