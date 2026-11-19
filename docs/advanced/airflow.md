@@ -251,7 +251,7 @@ A build here depends on these, but no DAG runs them, so no task waits
 for them: stream-raw (a Spark stream that fluid apply keeps running).
 ```
 
-A contract whose only builds are such streams gets `No build needs a DAG` from `fluid generate schedule`, not `No scheduler engine specified`, and no file is written.
+A contract whose only builds are such streams gets `No build needs a DAG` from `fluid generate schedule`, not `No scheduler engine specified`, and no file is written. *(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))* A stream that declares `execution.retries` is the exception on Airflow: it gets a keepalive DAG, and a contract of such streams writes a file. See [Keeping a stream running](#keeping-a-stream-running).
 
 ### Dataset triggers
 
@@ -438,9 +438,85 @@ The build phase of that apply starts one run on EMR Serverless, Glue, EMR on EC2
 
 - **Timeouts.** `execution.runtime.timeout`, an ISO-8601 duration such as `PT2H`, is how long the run may take; six hours when unset. The task's timeout is the three hours every apply DAG gets plus that wait. A value that is not a duration of at least one second is refused before `tofu apply` changes anything (`apply_spark_invalid`).
 - **Retries** come from `execution.retries.maxAttempts`, as for every scheduled build.
-- **A streaming build gets no DAG**, unless its `properties.stream.trigger` is `availableNow: true`. A stream runs continuously, and `fluid apply` keeps it running. *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* A scheduler task can keep it running between applies: it runs `fluid apply <contract> --mode reconcile --build-id <stream> --yes` every few minutes, and starts the stream again when it died, within its restart budget. See [Reconcile mode](../cli/apply.md#reconcile-mode). A build is a stream when `parameters.spark.mode` says so, or when it declares `properties.stream` and sets no mode. *(since 0.33.0, [forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966))* A build that depends on a stream does not wait for it; see [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers).
+- **A streaming build gets no DAG**, unless its `properties.stream.trigger` is `availableNow: true`. A stream runs continuously, and `fluid apply` keeps it running. *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* A scheduler task can keep a stream running between applies: it runs `fluid apply <contract> --mode reconcile --build-id <stream> --yes` every few minutes, and starts the stream again when it died, within its restart budget. See [Reconcile mode](../cli/apply.md#reconcile-mode). *(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))* `fluid generate schedule` writes that task, as a keepalive DAG, for a stream that declares `execution.retries`: see [Keeping a stream running](#keeping-a-stream-running). A build is a stream when `parameters.spark.mode` says so, or when it declares `properties.stream` and sets no mode. *(since 0.33.0, [forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966))* A build that depends on a stream does not wait for it; see [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers).
 - **The worker runs the whole apply**, `tofu` included, so it needs the apply's permissions and the state backend, as for any scheduled build, plus `fluid` with boto3 (`data-product-forge[aws]` in MWAA's `requirements.txt`). The scheduler policy forge emits for a Spark product covers the run only. The operator settings (`FLUID_SPARK_*`) and the run's AWS actions are the ones [Spark to Iceberg on AWS](./spark-iceberg-aws.md#the-caller-s-permissions) lists.
 - A build that is not Spark gets the standard DAG, as before. A contract of dbt and Spark builds gets a DAG for each scheduled build. *(since 0.33.0, [forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966))* Builds that `builds[].dependencies` link share one DAG instead (see [Build graphs and dataset triggers](#build-graphs-and-dataset-triggers)).
+
+### Keeping a stream running
+
+*(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))* A forge Spark stream that declares `execution.retries` gets a small DAG of its own, a keepalive. Its one task runs [`fluid apply --mode reconcile`](../cli/apply.md#reconcile-mode) every few minutes, so a stream that a Spot interruption or a failed driver stopped starts again on its checkpoint, within the restart budget that `execution.retries` sets.
+
+- **Who gets one.** A Spark stream (a build with `properties.stream`) that is not `trigger.availableNow` and not `trigger.type: continuous`, and declares `execution.retries` as an object such as `{maxAttempts: 5}`, on Airflow, the default engine. It is opt-in: a stream without `execution.retries` gets no DAG, although `--mode reconcile` would restart it too (5 restarts per rolling hour when unset). A contract whose only builds are such streams gets this DAG, and no longer `No build needs a DAG`. Prefect, Dagster and [`fluid scaffold-composer`](../cli/scaffold-composer.md) write nothing for a stream, and their messages point at the Airflow keepalive (`--scheduler airflow`, or `fluid generate schedule`). A batch that depends on the stream does not wait for it: the stream is in no build graph. With no `orchestration.engine` in the contract, such a stream makes Airflow the default, as a build with a cron trigger does, and `fluid generate artifacts` (stage 3 of a pipeline) writes its DAG under `schedule/`.
+- **What the DAG is.** A file `<build>_dag.py`, with the `-` of the build id as `_`. Its DAG id is `<product>[__<env>]__<build>`, and its one task is `fluid_keepalive`. The task runs, with the same `env -i` script and environment allowlist as every `fluid apply` task:
+
+  ```text
+  cd "$FLUID_PROJECT_DIR"
+  fluid apply "$FLUID_PROJECT_DIR/$CONTRACT_PATH" --env "$FLUID_ENV_NAME" --mode reconcile --build-id "$BUILD_ID" --yes
+  ```
+
+  `--env` is left out when `FLUID_ENV_NAME` is empty.
+- **Schedule and limits.** It runs every 5 minutes, `*/5 * * * *`, or on the build's `execution.orchestration.airflow.dagConfig.schedule`, which is validated like any DAG's cron. `@once` is refused, because a keepalive has to recur. It runs one run at a time (`max_active_runs=1`), with no catch-up, no Airflow retries and a 30-minute task timeout. The build's `execution.retries` is the restart budget (`maxAttempts` restarts per rolling hour, 5 when unset, at most 10), and `--mode reconcile` applies it. Each wait inside a run is bounded by [`FLUID_SPARK_WAIT_SECONDS`](./environment-variables.md#spark-on-aws-preview), 900 seconds by default.
+- **No outlets.** A stream updates its tables all the time, and an asset event every 5 minutes would start every DAG scheduled on them. A dataset trigger on an expose that only the stream writes is refused, as before.
+- **What a run does.** A healthy stream is a no-op. A stream that died starts again on its checkpoint. A run succeeds (exit `0`) when the stream is unchanged, restarted and still running, left stopped because it was cancelled on purpose, or there is nothing to reconcile. It fails (exit `1`, which Airflow's alerting picks up) when the stream drifted from the contract, nothing is deployed, the job config the last apply deployed cannot be read, the restarts are spent, EMR Serverless's or EMR on EKS's own retries are spent, the EMR on EC2 cluster ended, the restarted run ends at once, or an AWS call fails (a missing permission, say). Where forge restarts (EMR on EC2, Glue and a local build), a spent budget is not final: once the oldest restart is an hour old, the next run restarts the stream, and the runs before it fail.
+- **Stopping it.** A stream cancelled on purpose stays stopped: `--mode reconcile` leaves a cancelled run alone. `fluid apply` starts it again.
+- **The worker.** It needs the settings and the forge release that the CI apply has: the `FLUID_SPARK_*` operator settings (a missing allowlist refuses the build, and a setting that changes the compiled config reads as drift), and the role of the product's `fluid-<product>-spark-caller` policy, which lets it read the stream's job config and runner, and, on EMR on EC2, read the cluster and the step role. See [The caller's permissions](./spark-iceberg-aws.md#the-caller-s-permissions).
+
+For a stream with `execution.retries` and no other build, on Airflow:
+
+```text
+Generated 1 files (airflow scheduler):
+
+  dags/ingest_orders_dag.py
+
+Tip: To regenerate after editing the contract: fluid generate schedule
+```
+
+The DAG's docstring says what a run does:
+
+```text
+Every run reconciles one always-on stream on the Airflow worker, with the
+constants below filled in (`--env` is left out when FLUID_ENV_NAME is empty):
+
+    cd "$FLUID_PROJECT_DIR"
+    fluid apply "$FLUID_PROJECT_DIR/$CONTRACT_PATH" --env "$FLUID_ENV_NAME" \
+        --mode reconcile --build-id "$BUILD_ID" --yes
+
+It runs no tofu apply. When the stream died (a Spot interruption, a failed
+driver), it starts again on its checkpoint, within the restart budget the
+build's execution.retries sets, so the task itself never retries. The run
+fails when the stream cannot be kept running: it drifted from the contract,
+nothing is deployed, the job config the last apply deployed cannot be read,
+its cluster ended, or the restarts are spent. It can also fail when this
+worker's FLUID_SPARK_* settings or forge release differ from the CI apply's.
+A run cancelled on purpose stays stopped until fluid apply starts it. It
+runs on SCHEDULE, one run at a time, with no catch-up. The build's
+execution.orchestration.airflow.dagConfig.schedule sets SCHEDULE.
+```
+
+With `--scheduler prefect` or `--scheduler dagster`, the same contract writes nothing:
+
+```text
+No build needs a DAG: every build runs outside forge-cli (a Flink job, for example), as a stream that fluid apply keeps running, or continuously (trigger.type: continuous), so there is nothing to schedule. No files written.
+A stream that declares execution.retries gets a keepalive DAG on Airflow: fluid generate schedule --scheduler airflow.
+```
+
+`fluid scaffold-composer`, which writes a Cloud Composer DAG, writes nothing for it either:
+
+```text
+Every build runs outside forge-cli (a Flink job, for example), as a stream that
+fluid apply keeps running, or continuously (trigger.type: continuous), so there
+is nothing to schedule. No DAG written.
+A stream that declares execution.retries gets a keepalive DAG from fluid
+generate schedule, which restarts it when it stops.
+```
+
+`@once` as the schedule is refused:
+
+```text
+generate_schedule_invalid_schedule: {'error': "'ingest-orders': execution.orchestration.airflow.dagConfig.schedule: a keepalive DAG reconciles the stream on a recurring cron, and @once is not one"}
+```
+
+These outputs are from the real `fluid generate schedule` and `fluid scaffold-composer` on `main`, on the example stream with `execution: {retries: {maxAttempts: 5}}` added; the DAG file's constants are `SCHEDULE = '*/5 * * * *'`, `RETRIES = 0` and a task timeout of 1800 seconds. No Airflow ran here: forge-cli's own tests load the DAG in a real Airflow 2 and Airflow 3 when one is named.
 
 ## Cloud Composer deployment
 

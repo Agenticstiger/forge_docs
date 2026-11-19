@@ -65,5 +65,7 @@ with DAG(
   (trigger.type: continuous), so there is nothing to schedule. No DAG written.
   ```
 
+  *(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))* A stream that declares `execution.retries` has a keepalive DAG that this command does not write. The command adds a second line, `A stream that declares execution.retries gets a keepalive DAG from fluid generate schedule, which restarts it when it stops.`, and [`fluid generate schedule`](./generate.md#fluid-generate-schedule) writes the DAG: see [Keeping a stream running](../advanced/airflow.md#keeping-a-stream-running).
+
   A DAG the command wrote for the product before stays where it is, and the command prints its path when it finds it under the name it writes now: delete it, and remove it from Cloud Composer if you deployed it there. A file of that name that it did not write is not mentioned.
 - For non-Composer Airflow installs, see [`fluid generate-airflow`](./generate-airflow.md). For Airflow, Dagster and Prefect output from one command, see [`fluid generate schedule`](./generate.md#fluid-generate-schedule).

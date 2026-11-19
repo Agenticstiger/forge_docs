@@ -164,7 +164,7 @@ The Jenkins and 7-system templates from `fluid generate ci` self-gate stage 11 o
 
 1. **Reference-only contract**: stage 3 auto-skipped the schedule emitter.
 2. **Stage 3 was toggled off**: there is no `dist/artifacts/` tree at all.
-3. **Nothing to schedule**: the contract has no `orchestration.engine` and no build with a schedule trigger, so stage 3 emitted no DAG.
+3. **Nothing to schedule**: the contract has no `orchestration.engine` and no build with a schedule trigger, so stage 3 emitted no DAG. *(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))* A Spark stream that declares `execution.retries` counts as a build with a schedule.
 
 Direct callers of `fluid schedule-sync` still get the strict hard-fail (`schedule_sync_dags_dir_missing`, exit `2`), so typos surface loudly.
 

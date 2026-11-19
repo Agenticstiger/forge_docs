@@ -169,6 +169,8 @@ Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0. *
 fluid apply contract.fluid.yaml --env prod --mode reconcile --build-id ingest-orders --yes
 ```
 
+*(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))* `fluid generate schedule` writes that task, as an Airflow DAG, for a stream that declares `execution.retries`: see [Keeping a stream running](../advanced/airflow.md#keeping-a-stream-running).
+
 - **What it reads.** The contract, which goes through the same schema gate, `--build-id` check and apply-time hooks as any apply. A `plan.json` is refused with `apply_reconcile_needs_contract`. On AWS it also reads the job config that the last apply uploaded, from S3, on every run, so a missing `s3:GetObject` shows while the stream is healthy. It reads the runs from the runtime's own history, and keeps no state of its own.
 - **Which streams.** With `--build-id`, that one stream. A build that is not a forge Spark build, a batch, or a stream triggered `availableNow` is refused with `apply_reconcile_not_a_stream`: its scheduler runs it with `--mode amend-and-build --build-id <id>`. Without `--build-id`, every always-on Spark stream of the contract. A contract with none prints `No always-on Spark stream in the contract: nothing to reconcile.` and exits `0`.
 - **What it never does.** It does not replace a config, and it does not stop a build the contract no longer holds: a full `fluid apply` does both. It cancels only a younger second copy of the running config.
