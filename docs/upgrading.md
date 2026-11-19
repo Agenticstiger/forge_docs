@@ -1494,6 +1494,10 @@ These changes are on forge-cli `main`. The pin on this site is 0.33.0, so they a
 
 - **A destroy waits for an EMR Serverless application that is still being created or started.** A `CREATING` or `STARTING` application is waited for until it settles: a created one is deleted as it is, a started one is stopped first, and one still moving after `FLUID_SPARK_WAIT_SECONDS` refuses the apply. The refusal's hint names `iam:ListEntitiesForPolicy`, `emr-serverless:GetApplication` and `emr-serverless:StopApplication`, which the identity that runs the destroy needs beyond the runtime's list and cancel actions. See [When a build leaves the contract](./advanced/spark-iceberg-aws.md#when-a-build-leaves-the-contract).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1012](https://github.com/Agenticstiger/forge-cli/pull/1012)).*
+
+- **An Iceberg table on Glue plans no change after an engine commits to it.** forge emitted the table's location with a trailing slash. Iceberg keeps it without one and writes it back into Glue on every commit, so each `fluid apply` after a commit planned an update (`~1`) for each table that had been written, and sent an `UpdateTable` while a stream kept committing. The location is now emitted as Iceberg keeps it. The first apply after the upgrade updates once, in place, the location of each Iceberg table that Glue still holds with the trailing slash, and a table in a Hive format keeps its trailing slash. See [Iceberg tables in Glue](./providers/aws.md#iceberg-tables-in-glue).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
