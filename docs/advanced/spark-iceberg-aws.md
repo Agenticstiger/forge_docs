@@ -341,7 +341,7 @@ A key with a bad name or value gets its own message, and only a valid key that i
 
 There is no OpenTofu resource for a job run, so runs are started by forge and not by the module.
 
-`fluid plan` lists one `spark.reconcile` action per Spark build. `planDigest` covers it, and it needs no AWS credentials. The action's payload carries the runtime, mode, target, execution role, the artifact locations and a **config hash**: the sha256 of the job config, the runner's sha256 and the run settings (runtime, target, release, role, `sparkConf`, retries, and on Glue the pinned jars it loads). `fluid apply` compiles the runs again and refuses a bound plan whose Spark actions differ (`apply_spark_artifact_mismatch`). A non-dry-run apply of a streaming build also needs the `[aws]` extra (`apply_aws_sdk_missing`). Apply needs the OpenTofu engine (`apply_spark_needs_opentofu`).
+`fluid plan` lists one `spark.reconcile` action per Spark build. `planDigest` covers it, and it needs no AWS credentials. *On forge-cli `main`, not yet in a release ([forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994)).* For an `emr-ec2` build, `fluid plan` and a non-dry-run `fluid apply` also read the cluster, when they can, to warn about Spot: see [What plan and apply check on the cluster](#what-plan-and-apply-check-on-the-cluster). The action's payload carries the runtime, mode, target, execution role, the artifact locations and a **config hash**: the sha256 of the job config, the runner's sha256 and the run settings (runtime, target, release, role, `sparkConf`, retries, and on Glue the pinned jars it loads). `fluid apply` compiles the runs again and refuses a bound plan whose Spark actions differ (`apply_spark_artifact_mismatch`). A non-dry-run apply of a streaming build also needs the `[aws]` extra (`apply_aws_sdk_missing`). Apply needs the OpenTofu engine (`apply_spark_needs_opentofu`).
 
 After `tofu apply`, `fluid apply` reconciles each streaming build:
 
@@ -372,7 +372,7 @@ The role that runs `fluid apply`, or the scheduler's execution role (the MWAA ro
 |---|---|---|
 | `emr-serverless` | `emr-serverless:StartJobRun`, `GetJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource`, and `ListApplications` when the contract names no `applicationId` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-serverless.amazonaws.com` |
 | `glue` | `glue:StartJobRun`, `GetJobRun`, `GetJobRuns`, `BatchStopJobRun` | |
-| `emr-ec2` | `elasticmapreduce:AddJobFlowSteps`, `ListSteps`, `DescribeStep`, `CancelSteps` | |
+| `emr-ec2` | `elasticmapreduce:AddJobFlowSteps`, `ListSteps`, `DescribeStep`, `CancelSteps` | *On forge-cli `main`, not yet in a release ([forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994)).* Also `DescribeCluster`, `ListInstanceGroups` and `ListInstanceFleets`, read-only, for the Spot check at plan and apply. Without them the check prints nothing. |
 | `emr-eks` | `emr-containers:StartJobRun`, `DescribeJobRun`, `ListJobRuns`, `CancelJobRun`, `TagResource` | `iam:PassRole` on the job's role, with `iam:PassedToService` set to `emr-containers.amazonaws.com` |
 
 Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a stronger one.
@@ -458,6 +458,29 @@ A cluster that follows items 1 to 3, as the parameters of the EMR `RunJobFlow` c
 ```
 
 `TimeoutDurationMinutes` and `TimeoutAction` are required with a Spot specification. They apply while the cluster is created: `TERMINATE_CLUSTER` fails the launch when EMR cannot provision the Spot capacity in time, and `SWITCH_TO_ON_DEMAND` buys the rest On-Demand instead. The call also needs `Name`, `Applications` (Spark), `JobFlowRole` and `ServiceRole`, left out here.
+
+### What plan and apply check on the cluster
+
+*On forge-cli `main`, not yet in a release ([forge-cli #994](https://github.com/Agenticstiger/forge-cli/pull/994)).* For each `emr-ec2` build with a `clusterId`, `fluid plan` and `fluid apply` read the cluster once (`DescribeCluster`, then `ListInstanceGroups`, or `ListInstanceFleets` for an instance-fleet cluster) and warn when it breaks item 1 or 3 of the checklist. A warning never refuses the plan or the apply, and none is in `plan.json`. There are three:
+
+| Finding | When |
+|---|---|
+| The primary node runs on Spot | A Spot instance group or fleet holds the primary node. The build's driver runs there, so an interruption ends the cluster and the stream. |
+| Core nodes run on Spot | A Spot instance group or fleet holds the core nodes: an interruption takes their HDFS blocks and the YARN containers they run. |
+| An application master can land on Spot | Core or task nodes run on Spot, and the cluster's `yarn-site` does not keep application masters on On-Demand nodes: `yarn.node-labels.enabled` is `true` and `yarn.node-labels.am.default-node-label-expression` is `ON_DEMAND` (EMR 7.0 and later), or `CORE` while the core nodes are all On-Demand. EMR 5.19 to 5.x start with `CORE`, and 6.x and 7.x with no label. |
+
+Each warning names its fix. On a cluster whose task nodes run on Spot and whose `yarn-site` sets no label, `fluid plan` prints (from forge-cli `main`, run against a stand-in for the EMR API):
+
+```text
+⚠️  EMR cluster j-2AXXXXXXGAPLF (Spark build ingest-orders): YARN can place the build's application master on a Spot node (yarn.node-labels.enabled is unset). A master has to live as long as its job, so a Spot interruption of that node interrupts the job.
+    Fix: set yarn-site yarn.node-labels.enabled=true and yarn.node-labels.am.default-node-label-expression=ON_DEMAND, when the cluster is created or by reconfiguring its primary instance group.
+spark_cluster_posture
+```
+
+- **The fix names `ON_DEMAND` from EMR 7.2 and `CORE` before**, the latter with On-Demand core nodes. For a cluster of fleets it says "primary fleet" for "primary instance group".
+- **Which `yarn-site`.** The cluster's, overridden by the applied configuration of the primary instance group, or for a fleet cluster by the primary fleet's instance types when they agree. When they do not agree, the check says nothing about application masters.
+- **A cluster it cannot read prints nothing.** That covers no credentials, a call AWS refuses, an endpoint that does not answer, and a cluster that is ending or ended. `fluid plan` and `fluid apply` carry on as before, and `fluid apply --dry-run` reads nothing. Each call waits at most 3 seconds to connect and 10 seconds to answer, in two attempts.
+- **Permissions.** The three read actions in [The caller's permissions](#the-caller-s-permissions).
 
 ## Network and packages
 
