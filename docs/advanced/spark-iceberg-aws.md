@@ -1020,7 +1020,23 @@ Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a strong
 
 *On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).* When a plan deletes the resources of a Spark build on AWS, because the build left the contract or the product went, `fluid apply` stops the build's runs before `tofu apply` destroys the role, the artifacts and the log group that they run with. Before this change the apply had no step for this. forge-cli's changelog says that it destroyed those and left the stream going, a writer that nothing reconciles any more, and that a destroy of a whole product failed part way, because EMR Serverless deletes only an application that is stopped or created and IAM deletes no policy that is still attached.
 
-`fluid apply` reads the plan's deletes, and before `tofu apply` it does these:
+*On forge-cli `main`, not yet in a release ([forge-cli #1007](https://github.com/Agenticstiger/forge-cli/pull/1007)).* Removing a build needs no `--allow-data-loss`, unless the build has a dead-letter table. What a Spark build runs with holds no data, so the [data-loss gate](../cli/apply.md#opentofu-data-loss-gate) does not count it: the runner and the job config in the artifact bucket, the copies of the jars that a Glue build loads, the build's log group, its role and the role's policies (for an EMR on EC2 build, its job policy), the Glue job and its connection, the product's own EMR Serverless application, the scheduler policy `fluid-<product>-spark-caller`, the key that encrypts the product's Spark log groups, and the role that a registered Lake Formation location is written through. [What forge provisions](#what-forge-provisions), [Avro on Glue](#avro-on-glue) and [Lake Formation writes](#lake-formation-writes) say which of them a build gets. forge-cli's changelog says that the gate counted all of them as data, so dropping a build from a contract was refused unless the apply was allowed to destroy data, and that allowance let a real data loss in the same plan through.
+
+`fluid plan --tofu`, `fluid apply --dry-run` and `fluid apply` list them as removed and not gated. For the example contract's build on EMR on EC2, the line reads:
+
+```text
+  5 resource(s) a removed build ran with (its artifacts, role, log group and job; no table data lost; not gated; its logs go with them): aws_s3_object.commerce_orders_stream_ingest_orders_spark_runner, aws_s3_object.commerce_orders_stream_ingest_orders_spark_config, aws_cloudwatch_log_group.commerce_orders_stream_ingest_orders_spark, aws_iam_policy.commerce_orders_stream_ingest_orders_spark, aws_kms_key.commerce_orders_stream_spark_logs
+```
+
+What holds data still counts: an output table, a bucket, and a bucket's own key (its address ends in `_kms`). So does the dead-letter table of a stream with `sink: table`: the build adds it, and it goes when the build goes, so removing that build needs the flag. `fluid apply` refuses a plan that removes any of them unless it is given the flag, its `--dry-run` included, and `fluid plan --tofu` warns that it will. The refusal counts those alone. With the output table in the same plan, the five resources of the build are not part of the count:
+
+```text
+  error: plan destroys 1 resource(s); `tofu` does not snapshot data — re-run with --allow-data-loss to proceed
+```
+
+As for every plan, when the plan's per-resource events do not account for all the removals in its summary (an older `tofu`, a truncated stream), the gate counts every removal and the flag is needed.
+
+After the gate, `fluid apply` reads the plan's deletes, and before `tofu apply` it does these:
 
 1. **It refuses when a policy it would destroy is still attached.** forge emits two IAM managed policies that someone else attaches: an EMR on EC2 build's job policy, which the cluster's owner attaches to the cluster's instance-profile role, and the product's scheduler policy `fluid-<product>-spark-caller`, which the platform attaches to the scheduler's role. The apply ends with the error `opentofu_destroy_preparation_failed` and the kind `spark-policy-attached`. Nothing is stopped or destroyed. The error names where the policy is attached and the commands that detach it. Its text and remediation read:
 
@@ -1070,7 +1086,7 @@ The log group of every Spark build, and an EMR on EC2 build's job policy, carry 
 
 Besides the list, get and cancel actions of the runtime that the removed build ran on, which can be a runtime the contract no longer names (see [The caller's permissions](#the-caller-s-permissions)), the identity that runs `fluid apply` needs `iam:ListEntitiesForPolicy`, to tell whether a policy is attached, and, for the product's own EMR Serverless application, `emr-serverless:ListJobRuns`, `GetJobRun` and `CancelJobRun` as well as `emr-serverless:GetApplication` and `emr-serverless:StopApplication`.
 
-The outputs above come from forge-cli's destroy step, the code `fluid apply` calls with the plan's deletes before `tofu apply`, with AWS answered by botocore's test stubs and the plan's deletes built as forge-cli's own tests build them: no AWS account, cluster or application was touched, and the printed account number is a placeholder.
+The outputs above, but the two of the data-loss gate, come from forge-cli's destroy step, the code `fluid apply` calls with the plan's deletes before `tofu apply`, with AWS answered by botocore's test stubs and the plan's deletes built as forge-cli's own tests build them: no AWS account, cluster or application was touched, and the printed account number is a placeholder. The two outputs of the data-loss gate come from forge-cli's plan review, the code that `fluid plan --tofu` and `fluid apply` run on the plan's deletes after `tofu plan`. The deletes given to it are the resources that the example contract's build adds to the module, which a plan deletes when the build is removed, and, for the second output, the contract's output table: no `tofu`, state or AWS call was involved.
 
 ## Running EMR on EC2 on Spot
 
