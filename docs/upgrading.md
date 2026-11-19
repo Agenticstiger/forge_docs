@@ -1511,6 +1511,10 @@ These changes are in 0.35.0.
 - **A plan made from a `fluid ship --release-dir` release can be applied when the contract has a dbt build.** The release now holds `bundle.tgz.provenance.json`, listed in `release.json` `files` and outside `identity`. Through 0.34.0 `fluid apply` refused such a plan with `apply_plan_digest_bundle_mismatch`. `fluid ship` warns `release_provenance_missing` when it cannot write the file. See [Publishing a release](./cli/ship.md#publishing-a-release).
 - **A plan can be applied in another checkout of the same tree.** When the paths the plan records are gone, `fluid apply` finds the contract through the provenance file beside the bundle it verified the plan against. The dbt files must still match the packed copy. See [The dbt project](./cli/apply.md#the-dbt-project).
 
+*(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))*
+
+- **`data-product-forge[profile]` installs flux-stats 0.7.0.** The extra asked for `flux-stats>=0.6.2,<0.7` in 0.34.0 and asks for `flux-stats[yaml]>=0.7.0,<0.8` now. Upgrade the extra with `pip install -U 'data-product-forge[profile]'`. `fluid profile` stops with `profile_statistics_unavailable` on an older flux-stats. See [fluid profile](./cli/profile.md).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
