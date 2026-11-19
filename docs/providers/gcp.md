@@ -214,7 +214,7 @@ Contract types are written as BigQuery types:
 | `string`, `text`, `varchar`, `char`, `uuid` | `STRING` |
 | `integer`, `int`, `bigint`, `smallint` | `INT64` |
 | `float`, `double`, `double precision` | `FLOAT64` |
-| `numeric`, `decimal(p,s)` | `NUMERIC` |
+| `numeric`, `decimal(p,s)` | `NUMERIC`. *On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)).* `NUMERIC(p,s)` or `BIGNUMERIC(p,s)`: see [Decimal precision and scale](#decimal-precision-and-scale) |
 | `boolean` | `BOOL` |
 | `timestamp`, `timestamptz`, `timestamp with time zone` | `TIMESTAMP` |
 | `datetime` | `DATETIME` |
@@ -251,12 +251,12 @@ One function decides for those three commands, so a contract that passes `fluid 
 | `json`, `jsonb`, `variant`, `super` | `JSON` |
 | `geography`, `point` | `GEOGRAPHY` |
 
-BigQuery decimal precision and scale are still not emitted: `decimal(p,s)` is `NUMERIC` whatever it declares.
+Through 0.32.0, BigQuery decimal precision and scale were not emitted: `decimal(p,s)` was `NUMERIC` whatever it declared. *On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)),* they are: see [Decimal precision and scale](#decimal-precision-and-scale).
 
 **Warned.** `fluid validate` warns, and the column is written as shown:
 
 - `geometry` and `geom` become `GEOGRAPHY`. They are planar and `GEOGRAPHY` is spherical, so the same coordinates mean other shapes and distances. Declare `geography` if the coordinates are on the sphere.
-- A `decimal(p,s)`, `numeric(p,s)`, `dec(p,s)` or `number(p,s)` wider than a `NUMERIC` holds, which is 29 integer and 9 fractional digits, becomes `NUMERIC` and would overflow at load. Declare `bignumeric` if the values need that range.
+- A `decimal(p,s)`, `numeric(p,s)`, `dec(p,s)` or `number(p,s)` wider than a `NUMERIC` holds, which is 29 integer and 9 fractional digits, becomes `NUMERIC` and would overflow at load. Declare `bignumeric` if the values need that range. *On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)),* a decimal that a `BIGNUMERIC` holds becomes `BIGNUMERIC(p,s)` with no warning, and one wider than that is written as a bare `BIGNUMERIC` with a warning that advises a decimal within that range, or `string`.
 
 ```text
 expose '<exposeId>': column '<column>' is declared 'geometry', which is planar, and BigQuery has only the spherical GEOGRAPHY; it is written as 'GEOGRAPHY'. Declare geography if the coordinates are on the sphere.
@@ -342,6 +342,32 @@ expose 'orders': column 'scores' is declared 'array', where scores may be NULL, 
 **What is refused**, naming the field: an array of arrays, a map whose `key` is not a required string, a struct nested more than 15 levels deep, a leaf type BigQuery cannot hold, and a column restriction on a RECORD column (BigQuery puts policy tags on leaf fields only). A bare `array`, `struct` or `map` is still refused; its fix now says to declare the shape (`element`, `fields`, or `key` and `value`), or to declare `json` or `string`.
 
 `fluid verify` compares a nested column with the type and mode `fluid apply` wrote, and `fluid diff` reads a map as it reads an array and every spelling of a struct (`struct`, `record`, `row`) as the RECORD BigQuery reports.
+
+#### Decimal precision and scale
+
+*On forge-cli `main`, not yet in a release ([forge-cli #988](https://github.com/Agenticstiger/forge-cli/pull/988)).*
+
+`decimal(p,s)` (and `numeric(p,s)`, `dec(p,s)` and `number(p,s)`) is written with its precision and scale, so the table matches what dbt writes as `numeric(p,s)`. Through 0.32.0 it was a bare `NUMERIC`, which BigQuery reads as `NUMERIC(38,9)`, and each dbt rebuild and each apply changed the column back.
+
+| Contract type | BigQuery type |
+| --- | --- |
+| `decimal(12,2)` | `NUMERIC(12,2)` |
+| `decimal(12,0)` | `NUMERIC(12)`, a scale of 0 left out |
+| `decimal(40,20)` | `BIGNUMERIC(40,20)`, because only a `BIGNUMERIC` holds that range |
+| `decimal(70,10)` | `BIGNUMERIC`, with a warning: it is wider than a `BIGNUMERIC` holds |
+| `decimal`, `numeric` | `NUMERIC` |
+| `bignumeric` | `BIGNUMERIC` |
+
+A `BIGNUMERIC(p,s)` is written where the scale is at most 38 and the precision at most the scale plus 38. The precision and the scale reach the API as strings, as it returns them, in a `RECORD` field and in a policy-tagged schema too. `fluid validate`, `fluid generate iac` and `fluid apply` refuse a decimal with a precision of 0, a scale above its precision, or arguments that are not digits, as an `unsupported_binding` error of kind `column-type`:
+
+```text
+expose 'orders': BigQuery cannot hold its columns as declared: 'd' is declared 'decimal(0,0)', whose precision and scale are not a decimal's; 'e' is declared 'decimal(5,9)', whose precision and scale are not a decimal's; 'f' is declared 'decimal(1;drop table x)', whose arguments are not a precision and an optional scale in digits.
+Columns 'd', 'e': Declare decimal(p,s) with p of at least 1 and s no larger than p. Column 'f': Declare decimal(p) or decimal(p,s) in digits, for example decimal(18,4).
+```
+
+**The first plan replaces live tables.** BigQuery cannot give an existing `NUMERIC` column a precision, and the provider plans that change as an update in place, which BigQuery refuses at apply. So forge makes the plan a replacement instead: the first plan after this change replaces each live table that declares a decimal with a precision, once. `fluid apply` refuses it without `--allow-data-loss`, as for any plan that destroys a data-bearing resource. To keep a table as it is, declare the column `decimal` with no arguments. A table adopted into an empty state is replaced the same way, as a partitioned table already is.
+
+Each contract with a BigQuery table gains one `terraform_data` resource, named after the product id, as `gold_shop_orders_decimal_parameters` for `gold.shop.orders`, with `_decimal_parameters` added, that records this, so that plan adds one more resource. Every table that declares a parameterised decimal names it in `replace_triggered_by`. After it, a new decimal column, a changed precision and a decimal made bare are planned in place, and a move from `NUMERIC` to `BIGNUMERIC` is planned as a replacement, which `fluid apply` refuses without `--allow-data-loss`.
 
 ### Not emitted
 
