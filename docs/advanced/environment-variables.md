@@ -15,7 +15,7 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 ::: warning Where you set it matters
 Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may hold credentials but not a setting that widens a sandbox, moves where the CLI reads trusted configuration, changes authentication or trust, changes where data and credentials are sent, or chooses which program runs. `fluid` names what it ignored and runs without it. Export those in your shell, your CI job, or a `FLUID_SECRETS_FILE` you export — see [What a project's `.env` may set](./project-dotenv-trust.md). 
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1004](https://github.com/Agenticstiger/forge-cli/pull/1004)).* A project file can no longer set a name that is not a shell identifier, a name that starts with `BASH_FUNC_`, `BASH_XTRACEFD`, `ZDOTDIR`, `FPATH`, `NULLCMD` or `READNULLCMD` either.
+*On forge-cli `main`, not yet in a release ([forge-cli #1004](https://github.com/Agenticstiger/forge-cli/pull/1004)).* A project file can no longer set a name that is not a shell identifier, a name that starts with `BASH_FUNC_`, `BASH_XTRACEFD`, `ZDOTDIR`, `FPATH`, `NULLCMD` or `READNULLCMD` either. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* Nor can it set a name that starts with `SPARK_`, `PYSPARK_`, `HADOOP_` or `YARN_`.
 :::
 
 ## CLI behaviour
@@ -90,7 +90,7 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 
 | Variable | Effect |
 |---|---|
-| `FLUID_SPARK_TARGET_ALLOWLIST` | The existing runtimes a contract may name (`emr-serverless:<applicationId>`, `emr-ec2:<clusterId>`, `emr-eks:<virtualClusterId>`) and the MSK clusters it may read (`msk:<cluster ARN>`). |
+| `FLUID_SPARK_TARGET_ALLOWLIST` | The existing runtimes a contract may name (`emr-serverless:<applicationId>`, `emr-ec2:<clusterId>`, `emr-eks:<virtualClusterId>`) and the MSK clusters it may read (`msk:<cluster ARN>`). *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* It also lists the topic a stream's dead letters go to: `msk-write:<cluster ARN>/<topic>`, or `kafka-write:<host:port>/<topic>` for each broker a `bootstrapServers` cluster lists. See [Listing the topic](./spark-iceberg-aws.md#listing-the-topic). |
 | `FLUID_SPARK_EXECUTION_ROLE_ALLOWLIST` | The roles `parameters.spark.executionRoleArn` may name: a role ARN, or an ARN prefix ending in `/`. |
 | `FLUID_SPARK_CONF_ALLOWLIST` | `sparkConf` keys beyond the built-in tuning keys: a key, or a prefix ending in `*`. A key that loads code, sets credentials or moves the catalog or checkpoint is refused even when listed. |
 | `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` a Spark job may run: `<product>`, `<product>/<build>`, or `<product>/<build>@sha256:<digest>`. *On forge-cli `main`, not yet in a release ([forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990)).* `fluid validate` reads it too, and warns only about a build it does not approve: see [Contract SQL and `fluid validate`](./spark-iceberg-aws.md#contract-sql-and-fluid-validate). |

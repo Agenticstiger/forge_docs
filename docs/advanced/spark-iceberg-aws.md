@@ -170,6 +170,355 @@ An `emr-eks` build with no `releaseLabel` gets a new config hash, because its de
 | `checkpoint` | An `s3://` prefix. It defaults to `s3://<bucket>/_checkpoints/<product>/<build>/`, at the bucket root and never under the table, where Iceberg's orphan-file cleanup would delete it. When forge creates the job's role, a declared checkpoint must sit under `s3://<bucket>/_checkpoints/<product>/`; one outside it is refused (`spark-checkpoint-scope`). |
 | `startingOffsets` | `earliest` or `latest`, for a stream with no checkpoint yet. |
 | `registry` | The schema registry of an `avro-confluent` stream. On a forge Spark build only `kind: confluent` is accepted: `kind: glue` is refused. Its `auth` takes `env://` or `aws-sm://` references only. See [Schema registry](./schema-registry.md). |
+| `deadLetter` | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* Where a record the stream cannot land goes, instead of failing the stream: a table beside the output (`sink: table`, the default) or a Kafka topic (`sink: topic`), with `maxRecordsBeforeAbort` (default 10000) and `alertOn: [schema_violation]`. An Avro stream is refused. See [Dead letters](#dead-letters). |
+
+### Dead letters
+
+*(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A Spark stream can send the records it cannot land to a dead-letter table or a Kafka topic, and keep running until a limit you set. A record whose value or key is not the declared JSON, or that lacks a required field, no longer fails the stream by itself: the stream stops only past `maxRecordsBeforeAbort` (see [When the stream stops](#when-the-stream-stops)). Without `properties.stream.deadLetter`, or with `enabled: false`, the first such record fails the stream.
+
+#### What a dead letter is
+
+The job decodes the value, and a key declared as `json`, in Spark's permissive mode, and keeps the text of a record it cannot decode in a field named `fluid_corrupt_record`. A stream that declares a field of that name is refused. Each record gets the first reason that applies, checked in this order: the value's decoding, the key's decoding, then the required fields in the order of the output's source query.
+
+| Reason | When |
+|---|---|
+| `the value is not JSON of the declared fields and types` | The value does not decode as the declared fields and types. |
+| `the key is not JSON of the declared fields and types` | The same for a key declared as `json`. |
+| `required field <name> is null` | A field declared `required: true` is null. `<name>` is the field's dotted path, such as `customer.email`; `[]` stands for an array element or a map value, as in `items[].sku`; the name of a key field starts with `key `. A field inside a struct counts only when the struct is there. |
+
+A reason is fixed text built from field names. It holds no value from the record. A record without a reason goes to the output as it did before, through the output's own query, which reads only those records. An Avro stream's dead letters are refused for now: the decoder's permissive mode would also turn a schema registry outage into dead letters.
+
+#### Settings
+
+The contract in [Declaring the build](#declaring-the-build) reads Avro, so a `deadLetter` block in it is refused. With `format: json` and no `registry`, the same build takes this block under `properties.stream`:
+
+```yaml
+        deadLetter:
+          sink: table
+          maxRecordsBeforeAbort: 1000
+          alertOn: [schema_violation]
+```
+
+| Field | Meaning |
+|---|---|
+| `enabled` | `true` by default. `false` turns the dead letters off, and a record that cannot land fails the stream. An overlay can set it per environment. |
+| `sink` | `table` (the default) or `topic`. An empty block, `deadLetter: {}`, is a table sink with the defaults. |
+| `table` | A table sink only. The table's name in the output's database: a letter or an underscore first, then letters, digits and underscores, at most 255 characters. It defaults to `<output table>__dead_letter`. The output's own table name is refused. |
+| `topic` | A topic sink only, and required there. The topic's name, on the cluster the stream reads: 1 to 249 characters of letters, digits, `.`, `_` and `-`, and not `.` or `..`. The topic must exist: the job writes to it and creates nothing. The stream's own topic is refused. |
+| `maxRecordsBeforeAbort` | A whole number from 0. Default `10000`. The stream stops once it has sent more dead letters than this since the job started: see [When the stream stops](#when-the-stream-stops). |
+| `alertOn` | A list of distinct values. `schema_violation` is the one value: the job logs a `dead_letter_alert` line for each micro-batch that sends any dead letter. Default none. |
+
+Any other field is refused, as is a `topic` sink with no `topic` or with a `table`, and a `topic` on a table sink. The page's contract with `format: json`, no `registry` and this block passes `fluid validate` with no warning, with the operator settings of [Roles and who lists what](#roles-and-who-lists-what). The compiled settings are in `job.json`, which `fluid generate artifacts --emit spark` writes. `raw` is `false` here because the contract masks a column: see [Masked builds](#masked-builds). The dead letters' checkpoint is inside the stream's.
+
+```bash
+jq '{deadLetter, check: .sql.check, value: .source.value}' artifacts/spark/ingest-orders/job.json
+```
+
+```text
+{
+  "deadLetter": {
+    "alertOn": [
+      "schema_violation"
+    ],
+    "checkpoint": "s3://commerce-lake/_checkpoints/commerce.orders-stream/ingest-orders/dead-letter/",
+    "maxRecordsBeforeAbort": 1000,
+    "raw": false,
+    "sink": "table",
+    "table": "commerce.orders__dead_letter"
+  },
+  "check": "SELECT *,\n  CASE\n    WHEN `value`.`fluid_corrupt_record` IS NOT NULL THEN 'the value is not JSON of the declared fields and types'\n    WHEN `value`.`order_id` IS NULL THEN 'required field order_id is null'\n  END AS `fluid_error`\nFROM `kafka_records_decoded`",
+  "value": {
+    "corruptRecord": "fluid_corrupt_record",
+    "format": "json",
+    "schema": "`order_id` STRING, `customer_email` STRING, `amount` DECIMAL(18,2), `event_time` TIMESTAMP, `fluid_corrupt_record` STRING"
+  }
+}
+```
+
+0.32.0 refuses the block, run on the contract with this block (`orders.fluid.yaml`):
+
+```bash
+fluid validate orders.fluid.yaml
+```
+
+```text
+❌ Invalid FLUID contract (2 error(s)) (schema v0.7.7)
+Validation completed in 0.013s
+
+Validation Errors:
+==================
+ 1. builds[0].properties.stream: Additional properties are not allowed ('deadLetter' was unexpected)
+ 2. Spark: Spark build ingest-orders: properties.stream: unsupported field(s) ['deadLetter']
+```
+
+The `deadLetter` block is part of the config hash, so adding, changing or removing it restarts a running stream on its checkpoint, as any other change does: see [Starting and reconciling runs](#starting-and-reconciling-runs). A stream with `enabled: false` compiles to the job config it had without the block.
+
+#### The table
+
+A table sink writes an Iceberg v2 table in the output's database, with these columns:
+
+| Column | Type | Holds |
+|---|---|---|
+| `error` | string | The reason. |
+| `raw_value` | binary | The record's value as it was read. Null for a build that masks fields. |
+| `raw_key` | binary | The record's key as it was read. Null for a build that masks fields. |
+| `kafka_topic` | string | The record's topic. |
+| `kafka_partition` | int | Its partition. |
+| `kafka_offset` | bigint | Its offset. |
+| `kafka_timestamp` | timestamp | Its Kafka timestamp. |
+| `dead_lettered_at` | timestamp | `current_timestamp()` when the dead-letter query ran. |
+
+The table is not partitioned. Its location is beside the output's, not inside it: the output's parent prefix and the table's name, so `iceberg/commerce/orders/` has `iceberg/commerce/orders__dead_letter/` beside it. Inside the output's location, an Iceberg orphan-file cleanup of the output would delete the files of the dead-letter table.
+
+#### The topic
+
+A topic sink sends each dead letter to a topic on the cluster the stream reads, with the stream's own connection settings. The record's key is `raw_key` and its value is `raw_value`. It carries these headers, each value as text:
+
+| Header | Value |
+|---|---|
+| `__connect.errors.topic` | The record's topic. |
+| `__connect.errors.partition` | Its partition. |
+| `__connect.errors.offset` | Its offset. |
+| `__connect.errors.connector.name` | `<product>/<build>`. |
+| `__connect.errors.stage` | `VALUE_CONVERTER` when the reason starts with `the value`, `KEY_CONVERTER` when it starts with `the key`, and `TRANSFORMATION` otherwise. |
+| `__connect.errors.exception.message` | The reason. |
+
+The record's Kafka timestamp and `dead_lettered_at` are not sent. A topic receives each batch at least once.
+
+#### How the records land
+
+- **The output keeps its own query.** It reads the records that have no reason and writes them with Iceberg's streaming sink, as without dead letters.
+- **The dead letters are a second query.** It reads the topic through a source of its own, with the stream's trigger, and has its own checkpoint, `dead-letter/` inside the stream's checkpoint prefix. The job's role already reads and writes that prefix: see [What the job's role may do in S3](#what-the-job-s-role-may-do-in-s3).
+- **A table gets each batch once.** The job appends a batch with the dead-letter query's id and the batch id in the snapshot's summary. A batch the job replays after a failure finds its own snapshot and is not appended again. The query id is kept in the checkpoint, so a new checkpoint is a new id. The check reads the table's retained snapshots, so when `expire_snapshots` removes the snapshot of a batch between its failure and its replay, the replay appends the batch again. Iceberg's own streaming sink has the same limit: it looks for the last batch its query committed in the table's retained snapshots (read in the source of Iceberg 1.10.0, `SparkWrite`).
+- **Dead letters added to a stream that exists start where the output resumes.** The new query has no checkpoint, so it starts at the end of the output's last committed batch, or where the output's source started when no batch is committed. A partition the topic gained since is read from its start. A record that had stopped the stream is therefore a dead letter once the block is added: the output refuses it and the dead letters take it. When the output has no checkpoint either, the job waits for the output's source to write its starting offsets. If the output's query ends, or 300 seconds pass, before it writes them, the dead letters start from `startingOffsets` and the job logs `dead_letters_start_unknown`. A dead-letter checkpoint that exists is resumed as it is.
+
+#### When the stream stops
+
+The job counts the dead letters it sends. After it has landed a batch, it fails when the count is more than `maxRecordsBeforeAbort`, so the batch that crossed the limit is in the table or the topic before the stream stops. With `0`, the first dead letter stops the stream, after it has landed. The count belongs to the job: it starts at 0 each time the job starts. The job fails with this message, raised as `DeadLetterAbort`, where the numbers are the job's:
+
+```text
+1001 records went to the dead letters since the stream started, past maxRecordsBeforeAbort 1000; the stream is stopped
+```
+
+With `alertOn: [schema_violation]`, the job writes a line like this one to its standard output for each batch that sends dead letters:
+
+```text
+{"forge_spark_runner": "dead_letter_alert", "reason": "schema_violation", "records": 600}
+```
+
+`fluid apply` treats the stopped job as a failed run, like any other (on EMR Serverless, after the retries that [the reconcile table](#starting-and-reconciling-runs) describes). With the same config hash it does not start the job again. It names the run and its state, and the message says: `It is not started again with the same config, which would fail the same way: fix the cause and change the build, and fluid apply starts the new config`. A change to the build is a change to the config hash, and a new `maxRecordsBeforeAbort` is one: `fluid plan` writes a new `configHash` for it in the plan's `spark.reconcile` action. The next `fluid apply` then starts the job on the same checkpoint.
+
+#### Masked builds
+
+A build that masks a column at ingest (`maskAtIngest`, see [`maskAtIngest: hash`](#maskatingest-hash)) keeps no raw bytes, because they would hold the masked fields in clear. Its dead letters store the reason, the record's topic, partition, offset and timestamp, and `dead_lettered_at`, and `raw_value` and `raw_key` are null. A topic sink reads the same two columns, so the key and the value it sends are null, and the headers carry the rest. The topic, partition and offset find the record in Kafka while the topic still retains it.
+
+#### What is refused
+
+`fluid validate` refuses the first group:
+
+| Case | Message |
+|---|---|
+| An Avro `value` or `key` | `properties.stream.deadLetter: an Avro stream's dead letters are not supported yet: the decoder's permissive mode would also turn a schema registry outage into dead letters` |
+| `topic` equal to the stream's own | `properties.stream.deadLetter.topic: the stream's own topic; the stream would read its dead letters again` |
+| `table` equal to the output's table | `properties.stream.deadLetter.table: the dead letters need a table of their own` |
+| A `topic` sink that names a `table` | `properties.stream.deadLetter: a topic sink names its topic, and no table` |
+| A declared field named `fluid_corrupt_record` | `properties.stream.deadLetter: the stream declares a field named fluid_corrupt_record, which the runner keeps a record's undecoded text in; rename it` |
+| The [managed Flink lane](./managed-flink-iceberg.md) | `properties.stream: unsupported field(s) ['deadLetter']` |
+
+The messages are printed after `Spark build <id>: `, or `Flink build <id>: ` for the Flink lane. A `sink` that is not `table` or `topic`, an `alertOn` value other than `schema_violation`, a negative `maxRecordsBeforeAbort` and an unknown field fail the schema check, which names the field. An Avro stream, as `fluid validate` prints it with the registry's own two warnings silenced by its two operator variables:
+
+```bash
+FLUID_ACQUISITION_DEPLOYMENT_HOST_ALLOWLIST=schema-registry.example.internal FLUID_ACQUISITION_SECRET_REF_ALLOWLIST=SCHEMA_REGISTRY_AUTH@schema-registry.example.internal fluid validate orders-avro.fluid.yaml
+```
+
+```text
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.7)
+Validation completed in 0.035s
+
+Validation Errors:
+==================
+ 1. Spark: Spark build ingest-orders: properties.stream.deadLetter: an Avro stream's dead letters are not supported yet: the decoder's permissive mode would also turn a schema registry outage into dead letters
+```
+
+`fluid validate` passes the next group, and `fluid generate iac` refuses it, with the error kind `spark-dead-letters-table-unsupported` (`ERR_UNSUPPORTED_BINDING`). It concerns a table sink only, because the table needs a place and a rule of its own:
+
+| Case | What the message says |
+|---|---|
+| The output's location is its bucket's root | `the output's location is its bucket's root, and a table of the dead letters' own would sit inside it` |
+| `registerLocation: true` on a location forge registers with Lake Formation | `forge registers the output's location with Lake Formation (registerLocation), and the dead letters' location would need a registration of its own, which forge does not emit yet` |
+| The expose's `lifecycle` has `expire: true` | `the output's lifecycle expires its objects, and the rule would not reach the dead letters' table, which holds the records' raw bytes` |
+
+Each carries the remediation `Send the dead letters to a topic (deadLetter.sink: topic), whose retention is the topic's.` In forge-cli's tests, an output with no `bucket` (the account's shared bucket, which forge does not register) keeps its table. For the bucket root:
+
+```bash
+fluid generate iac bucket-root.fluid.yaml --out iac-x 2>/dev/null
+```
+
+```text
+❌ unsupported_binding  [ERR_UNSUPPORTED_BINDING]
+  kind: spark-dead-letters-table-unsupported
+  error: Spark build ingest-orders: properties.stream.deadLetter writes a table of its own beside the output, and the output's location is its bucket's root, and a table of the dead letters' own would sit inside it.
+  remediation: ["Send the dead letters to a topic (deadLetter.sink: topic), whose retention is the topic's."]
+```
+
+`fluid validate` passes two builds that name one dead-letter table, and `fluid generate iac` and `fluid apply` refuse them with `spark-address-conflict`: `properties.stream.deadLetter.table commerce.orders__dead_letter is another Spark build's dead-letter table.` Give each build's dead letters a table of its own.
+
+#### What OpenTofu emits for dead letters
+
+For a table sink on AWS, `fluid generate iac` emits an `aws_glue_catalog_table` for the dead-letter table, an Iceberg v2 table in the output's Glue database, at the location beside the output's:
+
+```bash
+jq '.resource.aws_glue_catalog_table | to_entries[] | select(.key | endswith("__dead_letter")) | .value | {name, location: .storage_descriptor.location, open_table_format_input}' iac/main.tf.json
+```
+
+```text
+{
+  "name": "orders__dead_letter",
+  "location": "s3://commerce-lake/iceberg/commerce/orders__dead_letter/",
+  "open_table_format_input": {
+    "iceberg_input": {
+      "metadata_operation": "CREATE",
+      "version": "2"
+    }
+  }
+}
+```
+
+The job's role gets what writing it takes. These statements are from the contract above, run on forge-cli `main`:
+
+- **S3.** The table's prefix gets the same permissions as the output's prefix: see [What the job's role may do in S3](#what-the-job-s-role-may-do-in-s3). The `ReadWrite0` statement lists the output's prefix, the table's prefix and the checkpoint.
+- **Glue.** The `GlueTable` statement lists the dead-letter table beside the output's.
+
+```bash
+jq '.data.aws_iam_policy_document | to_entries[] | select(.key | endswith("_access")) | .value.statement[] | select(.sid | IN("ReadWrite0", "GlueTable"))' iac/main.tf.json
+```
+
+```text
+{
+  "actions": [
+    "s3:AbortMultipartUpload",
+    "s3:DeleteObject",
+    "s3:GetObject",
+    "s3:PutObject"
+  ],
+  "effect": "Allow",
+  "resources": [
+    "arn:aws:s3:::commerce-lake/iceberg/commerce/orders/*",
+    "arn:aws:s3:::commerce-lake/iceberg/commerce/orders__dead_letter/*",
+    "arn:aws:s3:::commerce-lake/_checkpoints/commerce.orders-stream/ingest-orders/*"
+  ],
+  "sid": "ReadWrite0"
+}
+{
+  "actions": [
+    "glue:GetDatabase",
+    "glue:GetTable",
+    "glue:UpdateTable"
+  ],
+  "effect": "Allow",
+  "resources": [
+    "arn:aws:glue:eu-west-1:${data.aws_caller_identity.fluid_lf_caller.account_id}:catalog",
+    "arn:aws:glue:eu-west-1:${data.aws_caller_identity.fluid_lf_caller.account_id}:database/commerce",
+    "arn:aws:glue:eu-west-1:${data.aws_caller_identity.fluid_lf_caller.account_id}:table/commerce/orders",
+    "arn:aws:glue:eu-west-1:${data.aws_caller_identity.fluid_lf_caller.account_id}:table/commerce/orders__dead_letter"
+  ],
+  "sid": "GlueTable"
+}
+```
+
+When `binding.governance.lakeFormation` governs the output, the role also gets Lake Formation permissions on the dead-letter table: `ALTER`, `DESCRIBE`, `INSERT` and `SELECT`, and not `DELETE`, which [Lake Formation writes](#lake-formation-writes) grants for a batch overwrite. On `emr-ec2` forge emits the policy for the cluster's owner to attach and no role, so it emits no Lake Formation permission there. From `fluid generate iac` on the contract with `governance: {lakeFormation: {grants: []}}`:
+
+```bash
+jq '.resource.aws_lakeformation_permissions | with_entries(select(.key | contains("dead_letters")))' iac-governed/main.tf.json
+```
+
+```text
+{
+  "commerce_orders_stream_lf_spark_dead_letters_ingest_orders": {
+    "permissions": [
+      "ALTER",
+      "DESCRIBE",
+      "INSERT",
+      "SELECT"
+    ],
+    "principal": "${aws_iam_role.commerce_orders_stream_ingest_orders_spark.arn}",
+    "table": [
+      {
+        "database_name": "${aws_glue_catalog_table.commerce_orders_stream_commerce_orders__dead_letter.database_name}",
+        "name": "${aws_glue_catalog_table.commerce_orders_stream_commerce_orders__dead_letter.name}"
+      }
+    ]
+  }
+}
+```
+
+A topic sink emits no table. On MSK with `auth: msk-iam`, the role gets two statements beside its read of the source topic: `kafka-cluster:DescribeTopic` and `kafka-cluster:WriteData` on the dead-letter topic, and `kafka-cluster:WriteDataIdempotently` on the cluster. A Kafka producer is idempotent by default, and MSK authorizes that on the cluster and not on a topic. With `auth: none` forge emits neither statement, and the operator still lists the write.
+
+```bash
+jq '.data.aws_iam_policy_document | to_entries[] | select(.key | endswith("_access")) | .value.statement[] | select(.sid | IN("MskDeadLetterTopic", "MskIdempotentWrite"))' iac-topic/main.tf.json
+```
+
+```text
+{
+  "actions": [
+    "kafka-cluster:DescribeTopic",
+    "kafka-cluster:WriteData"
+  ],
+  "effect": "Allow",
+  "resources": [
+    "arn:aws:kafka:eu-west-1:000000000001:topic/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1/commerce.orders.dlq"
+  ],
+  "sid": "MskDeadLetterTopic"
+}
+{
+  "actions": [
+    "kafka-cluster:WriteDataIdempotently"
+  ],
+  "effect": "Allow",
+  "resources": [
+    "arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1"
+  ],
+  "sid": "MskIdempotentWrite"
+}
+```
+
+#### Listing the topic
+
+A topic sink writes to the topic the contract names, on the cluster it reads, so forge writes it only once the operator lists it in `FLUID_SPARK_TARGET_ALLOWLIST`, in the real environment (see [Roles and who lists what](#roles-and-who-lists-what)). The entry is matched exactly:
+
+| The cluster is named by | Entry |
+|---|---|
+| `mskClusterArn` | `msk-write:<cluster ARN>/<topic>` |
+| `bootstrapServers` | `kafka-write:<host:port>/<topic>`, one for each broker the list names |
+
+Listing one broker does not list the cluster, because any of them may take the write. The entry is needed on every runtime, `local` included, and for a broker at a private address too. The read of the cluster keeps its own entry, `msk:<cluster ARN>`. An unset list allows none. Without the entry, `fluid validate` warns:
+
+```bash
+fluid validate orders-topic.fluid.yaml
+```
+
+```text
+✅ Valid FLUID contract (schema v0.7.7)
+⚠️  1 warning(s)
+Validation completed in 0.024s
+
+Validation Warnings:
+====================
+ 1. Spark build ingest-orders: properties.stream.deadLetter.topic commerce.orders.dlq is not in FLUID_SPARK_TARGET_ALLOWLIST (as msk-write:arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1/commerce.orders.dlq); the job would write it; the IaC is refused at generate and apply until the operator lists it
+```
+
+`fluid generate iac` and `fluid apply` refuse the build. The refusal of `fluid apply` comes before `tofu apply` and prints the whole `export` line, your current list with the entry added:
+
+```bash
+fluid apply orders-topic.fluid.yaml --dry-run --yes 2>&1 | tail -n +2
+```
+
+```text
+CLI command error
+❌ apply_spark_refused  [ERR_APPLY_SPARK_REFUSED]
+  error: Spark build 'ingest-orders' writes dead letters to a topic the operator has not listed. properties.stream.deadLetter.topic commerce.orders.dlq is not in FLUID_SPARK_TARGET_ALLOWLIST (as msk-write:arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1/commerce.orders.dlq). The job writes the topic its contract names, on the cluster it reads, so a contract could write into another team's topic there. A write needs its entry on every runtime, a broker at a private address included; an unset list allows none.
+  hint: If this topic is the product's, have the operator list it in the OPERATOR environment (not a project .env): export FLUID_SPARK_TARGET_ALLOWLIST="emr-serverless:00fexampleapp0001,msk:arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1,msk-write:arn:aws:kafka:eu-west-1:000000000001:cluster/commerce-events/0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d-1/commerce.orders.dlq"
+```
 
 ### Batch builds
 
@@ -185,7 +534,7 @@ The mapping is the one the Flink lane takes, so the same `properties.mapping` co
 - **Built structs** use `named_struct`, with the same null rule as Flink: a built struct is null when its parent is.
 - **Types** use Spark's names: `timestamp_ltz` is `TIMESTAMP` and `timestamp` is `TIMESTAMP_NTZ`.
 - **Structs are read by field name.** Spark casts structs by position, so an Avro writer schema with a different field order would otherwise swap values.
-- **A required field that arrives null fails the job.** Flink fails a `NOT NULL` column the same way. On Spark the job stops with `fluid: required field <name> is null in a Kafka record`.
+- **A required field that arrives null fails the job.** Flink fails a `NOT NULL` column the same way. On Spark the job stops with `fluid: required field <name> is null in a Kafka record`. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* With [`deadLetter`](#dead-letters), the record goes to the dead letters and the job keeps running, until more than `maxRecordsBeforeAbort` have gone there.
 - **Kafka metadata** (`topic`, `partition`, `offset`, `timestamp`, `timestamp-type`, `headers`) maps to the Spark Kafka source's columns. `leader-epoch` is refused, because Spark does not read it.
 - **Literals** for map keys and struct field names are refused if they hold `'`, `\`, a control character or `${`, because `spark.sql()` substitutes `${env:...}`.
 
@@ -207,6 +556,7 @@ A mapped column can set `maskAtIngest: hash`. The column is the HMAC-SHA256 of i
 | Artifacts | `aws_s3_object` in the output's bucket. `job.json` at `_fluid/spark/<product>/<build>/job.json`, and the runner at `_fluid/spark/<product>/<build>/runner/<16 hex digits of its sha256>/forge_spark_runner.py`. A new runner is a new key. |
 | Logs | A CloudWatch log group `/aws/fluid/spark/<product>/<build>`, encrypted with a per-product KMS key that only CloudWatch Logs may use, for this product's groups. |
 | The job's role | Unless the contract names one. Least privilege: S3 read and write on the data and checkpoint prefixes, read on the artifacts, the Glue calls on the output, KMS through S3 and Secrets Manager only, MSK IAM on the cluster, topic and consumer group, `lakeformation:GetDataAccess`, the mask key and a registry secret, and its log group. |
+| A dead-letter table | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* For a stream with `deadLetter` and `sink: table`: an Iceberg v2 `aws_glue_catalog_table` beside the output's table, with its S3 prefix, Glue table and, when Lake Formation governs the output, Lake Formation permissions added to the job's role. A `sink: topic` emits no table: on MSK with IAM the job's role gets the permissions to write the topic. See [What OpenTofu emits for dead letters](#what-opentofu-emits-for-dead-letters). |
 | A caller policy | For a build that runs to completion (batch, or a stream with `availableNow`): the managed policy `fluid-<product>-spark-caller`, for the platform to attach to the scheduler's role. |
 
 Per runtime:
@@ -225,6 +575,7 @@ Per runtime:
 | Prefix | Access |
 |---|---|
 | The output's `binding.location.path` | Read, write and delete |
+| *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* The dead-letter table's location, for a stream with `deadLetter` and `sink: table`: the output's parent prefix and the table's name, such as `iceberg/commerce/orders__dead_letter/` | Read, write and delete |
 | The checkpoint: `_checkpoints/<product>/<build>/`, or the one the contract declares under `_checkpoints/<product>/` | Read, write and delete |
 | On Glue, `tmp/` under the build's artifacts prefix | Read, write and delete |
 | The build's artifacts, `_fluid/spark/<product>/<build>/` | Read |
@@ -291,7 +642,7 @@ Without the entries, `fluid validate` warns, and `fluid generate iac` and `fluid
 
 | Variable | What it lists or sets |
 |---|---|
-| `FLUID_SPARK_TARGET_ALLOWLIST` | The existing runtimes a contract may name, as `<runtime>:<id>` (`emr-serverless:<applicationId>`, `emr-ec2:<clusterId>`, `emr-eks:<virtualClusterId>`), and the MSK clusters it may read, as `msk:<cluster ARN>`, matched exactly. The job's role trusts the runtime and the caller policy may start, cancel and add steps there, so naming another team's cluster would reach it. An isolated application of the product needs no entry. |
+| `FLUID_SPARK_TARGET_ALLOWLIST` | The existing runtimes a contract may name, as `<runtime>:<id>` (`emr-serverless:<applicationId>`, `emr-ec2:<clusterId>`, `emr-eks:<virtualClusterId>`), and the MSK clusters it may read, as `msk:<cluster ARN>`, matched exactly. The job's role trusts the runtime and the caller policy may start, cancel and add steps there, so naming another team's cluster would reach it. An isolated application of the product needs no entry. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* It also lists the topic a stream's dead letters go to, as `msk-write:<cluster ARN>/<topic>`, or as `kafka-write:<host:port>/<topic>` for each broker a `bootstrapServers` cluster lists, on every runtime: see [Listing the topic](#listing-the-topic). |
 | `FLUID_SPARK_EXECUTION_ROLE_ALLOWLIST` | The roles a contract's `executionRoleArn` may name: an exact role ARN, or an ARN prefix ending in `/` (a role path). |
 | `FLUID_SPARK_CONF_ALLOWLIST` | `sparkConf` keys beyond the tuning ones: a key, or a prefix ending in `*`. See [Spark settings](#spark-settings). |
 | `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` | The builds whose own `properties.sql` the job may run. An entry is `<product>`, `<product>/<build>` or `<product>/<build>@sha256:<digest of the reviewed SQL>`, the last being the one to use. A contract's own SQL runs inside the job with its role, so it can read any table that role can read. A build with a `properties.mapping` needs no entry, because forge compiles a query that reads only the stream. |
@@ -413,7 +764,7 @@ The checklist:
 2. **Spot task fleets, with `price-capacity-optimized` allocation and diverse instance types.** Use instance fleets, and set the task fleet's Spot `AllocationStrategy` to `price-capacity-optimized`: AWS recommends it, and it is the default from EMR 6.10.0. List several instance types: when EC2 reclaims a Spot instance, EMR tries to replace it with any type on the list. Offer subnets in several Availability Zones too. EMR picks the zone it judges best for the fleet when it creates the cluster, and the cluster's instances then run in that one zone.
 3. **YARN application masters pinned to On-Demand (EMR 7.2.0 and later).** In the cluster's `yarn-site` classification, set `yarn.node-labels.enabled` to `true` and `yarn.node-labels.am.default-node-label-expression` to `ON_DEMAND`. AWS warns that an application master on a Spot node can mean "immediate shutdown of the entire YARN application". Set it when you create the cluster: EMR does not add node labels when you reconfigure a running one. AWS describes this setting for clusters that use managed scaling, and its blog post shows instance groups. The example below uses instance fleets and no managed scaling, so check on the running cluster that YARN lists an `ON_DEMAND` node label. Settings that start with `spark.yarn.` are refused in `sparkConf` even when the operator lists them, so this belongs to the cluster and not to the contract.
 4. **A minimum On-Demand executor baseline for streams.** Size the On-Demand capacity (the core nodes, and any On-Demand part of a task fleet) for the executors the stream needs to keep committing batches when every Spot node is gone, and tell Spark that number in `sparkConf`: `spark.dynamicAllocation.minExecutors` with dynamic allocation, or `spark.executor.instances` without it. Both are allowed without an operator entry, and both fix a count, not where the executors run. When Spot nodes are reclaimed, YARN can place a replacement executor only on the nodes that remain. Where YARN puts executors while Spot nodes exist depends on the cluster's node labels, so look at where they ran in the interruption test (item 6).
-5. **Kafka retention at least as long as the longest downtime you tolerate.** A restarted stream resumes from the offsets in its checkpoint, so the topic must still hold them. Count the whole outage: detecting the loss, replacing the cluster, starting the step, and catching up. Set the topic's `retention.ms` (Kafka's default is 7 days) to at least that, and leave `retention.bytes` unset (`-1`) or size it for the same window, because a topic discards a segment at whichever limit it reaches first. forge's runner leaves Spark's Kafka option `failOnDataLoss` at its default, `true`, so a stream whose checkpointed offsets have aged out fails and does not skip records.
+5. **Kafka retention at least as long as the longest downtime you tolerate.** A restarted stream resumes from the offsets in its checkpoint, so the topic must still hold them. Count the whole outage: detecting the loss, replacing the cluster, starting the step, and catching up. Set the topic's `retention.ms` (Kafka's default is 7 days) to at least that, and leave `retention.bytes` unset (`-1`) or size it for the same window, because a topic discards a segment at whichever limit it reaches first. forge's runner leaves Spark's Kafka option `failOnDataLoss` at its default, `true`, so a stream whose checkpointed offsets have aged out fails and does not skip records. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* The same holds for a batch that a restart replays into a [dead-letter table](#how-the-records-land) or into the output through Iceberg's streaming sink: each is appended only once while the snapshot that records the batch is still in the table, so run `expire_snapshots` with a retention longer than the longest downtime you tolerate.
 6. **Spark decommissioning only after a measured interruption test.** Leave Spark's own decommissioning off until a test shows that it helps.
    - **What is already there.** EC2 sends a Spot interruption notice two minutes before it reclaims an instance, on a best-effort basis. EMR on EC2 has its own decommissioning for Spark, built on YARN's. Spark schedules no new tasks on a node that YARN is decommissioning, and lets the running tasks finish (`spark.blacklist.decommissioning.enabled`, `true` by default). `spark.decommissioning.timeout.threshold` (20 seconds by default, EMR 5.11.0 and later) is for Spot: a Spot instance decommissions within 20 seconds whatever the YARN decommissioning timeout is, and a node that will decommission within the threshold is deny-listed and cleaned up without waiting.
    - **What is separate.** Spark's own `spark.decommission.enabled` (`false` by default since Spark 3.1.0) and its `spark.storage.decommission.*` settings. A contract may set them only when the operator lists them in `FLUID_SPARK_CONF_ALLOWLIST`.
@@ -551,6 +902,7 @@ The setting is protected: a project `.env` cannot set it, and the contract never
 - Each writer's role is granted `ALTER`, `DESCRIBE`, `INSERT` and `SELECT` on the table, and `DELETE` for a batch overwrite. It is not granted `DATA_LOCATION_ACCESS`, because the table exists.
 - A registered location that a Spark job writes must be one named, resolved prefix: no bucket root and no unresolved template. It gets one role per location.
 - Without a Spark writer, the registration is unchanged.
+- **A dead-letter table.** *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* When `binding.governance.lakeFormation` governs the output, a stream's dead-letter table gets the writer's role `ALTER`, `DESCRIBE`, `INSERT` and `SELECT`, without `DELETE`. A dead-letter table beside a location forge registers is refused: see [What is refused](#what-is-refused).
 - **The apply role needs `iam:PassRole`** on the registration role, because `lakeformation:RegisterResource` passes it.
 - **Moving a registered location from the service-linked role to the new role re-registers it.** While that runs, Lake Formation vends no credentials for the location, so jobs that are running on it may fail for that short window.
 
@@ -563,6 +915,8 @@ In the account's `<account>-fluid-data` fallback bucket, and in a `shared` packa
 | `spark-emr-application-shared` | An EMR Serverless build with no `applicationId` and no `emrApplication: isolated` |
 | `spark-checkpoint-scope` | A declared checkpoint outside `s3://<bucket>/_checkpoints/<product>/`, while forge creates the role |
 | `spark-glue-jars-unset`, `spark-glue-jars-url` | A Glue Avro build, and `FLUID_SPARK_GLUE_JARS_URL` is unset or malformed |
+| `spark-dead-letters-table-unsupported` | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A `deadLetter` table sink beside an output at its bucket's root, beside a location forge registers with Lake Formation, or beside an output whose lifecycle expires its objects. See [What is refused](#what-is-refused). |
+| `apply_spark_refused` | `fluid apply` refuses a Spark build before `tofu apply` changes anything when an operator's list does not allow what the build names: an MSK cluster that `FLUID_SPARK_TARGET_ALLOWLIST` does not list, a host, or a secret reference. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* It also refuses a `deadLetter` topic that `FLUID_SPARK_TARGET_ALLOWLIST` does not list: see [Listing the topic](#listing-the-topic). |
 | `apply_spark_artifact_mismatch` | The bound plan lists other Spark runs than apply compiles |
 | `apply_aws_sdk_missing` | boto3 is not installed: `pip install 'data-product-forge[aws]'` |
 | `apply_spark_needs_opentofu` | The contract's apply engine is not OpenTofu |
