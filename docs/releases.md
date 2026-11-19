@@ -5,7 +5,7 @@ description: Every forge-cli release, newest first, with what changed and where 
 
 # Releases
 
-These docs are verified against CLI `0.33.0`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
+These docs are verified against CLI `0.34.0`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
 Each version links to its upgrade steps, its release notes, or the forge-cli CHANGELOG.
 
 For what `fluid version`, `fluidVersion` and the schema versions mean, see [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
