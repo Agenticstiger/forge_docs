@@ -305,7 +305,7 @@ A stream that reads a registry with a credential also needs the settings of the 
 
 *On forge-cli `main`, not yet in a release ([forge-cli #990](https://github.com/Agenticstiger/forge-cli/pull/990)).* `fluid validate` asks `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST` the question `fluid apply` asks, under the same environment, and warns about a build's own `properties.sql` only while apply would refuse it. A bundle is validated the same way. For a batch build with `properties.sql`, `fluid validate --strict` gives:
 
-| The list holds | Warning | `--strict` |
+| The list holds | Warning | `--strict`, when nothing else warns |
 |---|---|---|
 | Nothing, or an entry for another build or product | Yes: the operator lists the product in this variable | Exit 1 |
 | `<product>/<build>@sha256:<digest>` for other SQL | Yes, and it adds that the entry listed for the build approves other SQL (it changed after review) | Exit 1 |
@@ -321,7 +321,7 @@ The warning for an entry that pins other SQL, from forge-cli `main`:
 ❌ Validation failed: warnings treated as errors (--strict)
 ```
 
-The digest is the sha256 of the SQL with its leading and trailing whitespace stripped. When `fluid apply` refuses a build it prints the entry to list. Set the variable in the environment of the job that runs `fluid validate` as well as the one that runs apply: it is read from the real environment, so a validate job without it keeps the warning, and a pipeline whose stage 2 runs `fluid validate --strict` fails on it.
+The digest is the sha256 of the SQL with its leading and trailing whitespace stripped. When `fluid apply` refuses a build it prints the whole `export` line: your current list with the build's pinned entry added. Set the variable in the environment of the job that runs `fluid validate` as well as the one that runs apply: it is read from the real environment, so a validate job without it keeps the warning, and a pipeline whose stage 2 runs `fluid validate --strict` fails on it.
 
 In 0.32.0 and earlier the warning was printed for every build with `properties.sql`, whatever the list held, so `fluid validate --strict` failed such a build even after the operator listed it. The managed Flink lane follows the same rule with `FLUID_FLINK_CONTRACT_SQL_ALLOWLIST`: see [A build's own SQL](./managed-flink-iceberg.md#a-build-s-own-sql).
 
