@@ -1502,6 +1502,15 @@ These changes are in 0.34.0.
 
 - **`fluid generate schedule` writes a keepalive DAG for an always-on stream that declares `execution.retries`.** On Airflow, a Spark stream that is not `trigger.availableNow` and not `trigger.type: continuous` gets a DAG whose one task, `fluid_keepalive`, runs `fluid apply <contract> --mode reconcile --build-id <stream> --yes` every 5 minutes, or on the build's `execution.orchestration.airflow.dagConfig.schedule`. A stream that died starts again on its checkpoint, within the restart budget that `execution.retries` sets, and a run fails when the stream cannot be kept running. A stream that already declares `execution.retries` gets the DAG from its next `fluid generate schedule` or `fluid generate artifacts`. A stream without `execution.retries` gets no DAG, as before. A contract whose only builds are such streams gets this DAG instead of `No build needs a DAG`; Prefect, Dagster and `fluid scaffold-composer` still write nothing for it. The worker needs the `FLUID_SPARK_*` settings and the forge release that the CI apply has. See [Keeping a stream running](./advanced/airflow.md#keeping-a-stream-running).
 
+## Changes in 0.35.0
+
+These changes are in 0.35.0.
+
+*(since 0.35.0, [forge-cli #1022](https://github.com/Agenticstiger/forge-cli/pull/1022))*
+
+- **A plan made from a `fluid ship --release-dir` release can be applied when the contract has a dbt build.** The release now holds `bundle.tgz.provenance.json`, listed in `release.json` `files` and outside `identity`. Through 0.34.0 `fluid apply` refused such a plan with `apply_plan_digest_bundle_mismatch`. `fluid ship` warns `release_provenance_missing` when it cannot write the file. See [Publishing a release](./cli/ship.md#publishing-a-release).
+- **A plan can be applied in another checkout of the same tree.** When the paths the plan records are gone, `fluid apply` finds the contract through the provenance file beside the bundle it verified the plan against. The dbt files must still match the packed copy. See [The dbt project](./cli/apply.md#the-dbt-project).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

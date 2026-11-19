@@ -433,6 +433,7 @@ Without a usable file, `fluid plan` and `fluid apply` log
 `source_contract_unresolved` and anchor relative paths at the bundle's own
 directory. Copy the bundle together with its provenance file, to a place where
 the recorded relative path still reaches the contract, or expect that.
+*(since 0.35.0, [forge-cli #1022](https://github.com/Agenticstiger/forge-cli/pull/1022))* `fluid ship --release-dir` writes one into the release, for the contract relative to the release directory.
 For a bundle that packs a dbt project it is stricter: the checkout to compare
 against cannot be found, and `fluid apply` refuses with
 `apply_plan_digest_bundle_mismatch`, saying the bundle does not record a source

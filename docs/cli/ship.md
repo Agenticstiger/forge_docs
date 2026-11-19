@@ -230,12 +230,13 @@ The run stages into a new `DIR.partial-<run-id>-*` beside `DIR`. It copies the b
 releases/orders-1/
 ├── artifacts/        the files artifacts/MANIFEST.json lists, with the MANIFEST
 ├── bundle.tgz
+├── bundle.tgz.provenance.json   (since 0.35.0, when the bundle names a source contract)
 ├── plan.json
 ├── release.json
 └── reports/          ship-report.json, ship-junit.xml, and each stage's report
 ```
 
-A run that fails, or is interrupted, publishes nothing. Its reports stay in `runtime/` and in the staging directory, and `ship-report.json` names the stage that stopped it. `DIR` does not exist after a failed run. A release run first removes the stage reports in `runtime/`, so only this run's are published. The release directory holds the bundle but does not copy the bundle's `.provenance.json` file (see [The provenance file](./bundle.md#the-provenance-file)); the release's `identity` does not need it. A release run reads only local files: it opens no network connection of its own.
+A run that fails, or is interrupted, publishes nothing. Its reports stay in `runtime/` and in the staging directory, and `ship-report.json` names the stage that stopped it. `DIR` does not exist after a failed run. A release run first removes the stage reports in `runtime/`, so only this run's are published. Through 0.34.0 the release directory held the bundle but not its `.provenance.json` file, so a plan made from the release's bundle recorded no source contract and `fluid apply` refused a contract with a dbt build. *(since 0.35.0, [forge-cli #1022](https://github.com/Agenticstiger/forge-cli/pull/1022))* The release holds `bundle.tgz.provenance.json`, written for the release's own place: the same source contract, relative to the release directory (see [The provenance file](./bundle.md#the-provenance-file)). `release.json` lists it in `files` with its sha256, and it stays out of `identity`. A bundle that names no source contract gets no file, and neither does a release on another drive. `fluid ship` then warns `release_provenance_missing`. The file names the contract relative to where the release was published, so keep the release at the same place in the checkout, as CI artifacts restored into the same layout are. A release run reads only local files: it opens no network connection of its own.
 
 **Rules.** `DIR` must not exist, and stages 1 to 4 must run in the invocation. Otherwise ship refuses with exit `2`, and `--explain` says why:
 
