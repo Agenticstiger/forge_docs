@@ -187,13 +187,15 @@ The identity comes from the module's `provider` block where forge sets one (the 
 | Provider | Field | Read from |
 | --- | --- | --- |
 | `aws` | `account` | STS `GetCallerIdentity` with the run's credentials. It needs no IAM permission, and it needs `boto3` (`pip install 'data-product-forge[aws]'`) |
-| `aws` | `region` | `provider.aws.region`, else `AWS_REGION`, else `AWS_DEFAULT_REGION` |
+| `aws` | `region` | `provider.aws.region`, else `AWS_REGION`, else `AWS_DEFAULT_REGION`, else *(on `main`, [forge-cli #1002](https://github.com/Agenticstiger/forge-cli/pull/1002))* the `region` of the profile in the shared config file (needs `boto3`) |
 | `gcp` | `project` | `GOOGLE_PROJECT`, `GOOGLE_CLOUD_PROJECT`, `GCLOUD_PROJECT` or `CLOUDSDK_CORE_PROJECT`, in that order. The project of the credentials is not read |
 | `gcp` | `region` | `GOOGLE_REGION`, `GCLOUD_REGION` or `CLOUDSDK_COMPUTE_REGION`, in that order. A missing region is not named as unread |
 | `snowflake` | `organization`, `account` | `SNOWFLAKE_ORGANIZATION_NAME` and `SNOWFLAKE_ACCOUNT_NAME`. Forge sets both from `SNOWFLAKE_ACCOUNT` when it has the `<organization>-<account>` form, and a bare account locator leaves both unread. Stored in upper case |
 | `databricks` | `host` | `DATABRICKS_HOST`. Stored in lower case, without a trailing `/` |
 
-An identity field the run cannot read, such as the AWS account without `boto3` or credentials, is left out of `identity`, and the plan prints it, for example `account not bound: boto3 is not installed (pip install 'data-product-forge[aws]')`. A provider with no row here, `confluent` for one, binds no identity field, and still binds the backend and the `tofu` and provider versions. [Applying a saved OpenTofu plan](./apply.md#applying-a-saved-opentofu-plan) lists what `fluid apply` refuses.
+An identity field the run cannot read, such as the AWS account without `boto3` or credentials, is left out of `identity`, and the plan prints it, for example `account not bound: boto3 is not installed (pip install 'data-product-forge[aws]')`. A provider with no row here, `confluent` or a plugin installed through an entry point for one, binds no identity field, and still binds the backend and the `tofu` and provider versions. *On forge-cli `main`, not yet in a release ([forge-cli #1002](https://github.com/Agenticstiger/forge-cli/pull/1002)).* The plan then prints `target: forge reads no account, project or host for <provider>, so the saved plan is not bound to one`, and logs it at WARNING as `plan_tofu_target_provider_unbound`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1002](https://github.com/Agenticstiger/forge-cli/pull/1002)).* The AWS profile is `AWS_PROFILE`, else `AWS_DEFAULT_PROFILE`, the order of the SDK that the `hashicorp/aws` provider is built on. With neither set, the profile is `default`. It is the profile for the account lookup and for the region fallback in the row above. [Applying a saved OpenTofu plan](./apply.md#applying-a-saved-opentofu-plan) lists what `fluid apply` refuses.
 
 **Brownfield adoption.** A saved plan carries the state it was made from, so planning must leave the state as it was. Adoption runs `tofu import` to confirm each resource exists, hands the import back with `state rm`, and puts it into the plan as an `import` block. The reviewer sees the resource listed as to be imported, and the apply does the import. If the hand-back fails, the plan stops with `plan_tofu_adoption_not_released` and prints the `tofu state rm` command to run.
 
