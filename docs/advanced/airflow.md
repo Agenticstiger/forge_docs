@@ -78,6 +78,20 @@ In practice:
 - Set `FLUID_PROJECT_DIR` on the worker. Without it the task fails with `set FLUID_PROJECT_DIR on the Airflow worker to the directory that holds the product checkout`. The contract path is the path you gave the generator, relative to the working directory, or `--contract-path` when the worker's layout differs.
 - Put the credentials the apply needs in the worker environment. The DAG starts `fluid` with an empty environment plus the names above, so a variable that is neither on the list nor named by a `{{ env.NAME }}` or `${NAME}` placeholder in the contract, nor an `env://NAME` `secretRef`, does not arrive. Add one with `FLUID_DAG_ENV_PASSTHROUGH="NAME1 NAME2"`.
 - A DAG uses `max_active_runs=1` and `catchup=False`, retries from the build's `execution.retries.maxAttempts` (attempts minus one), and sets a three-hour execution timeout.
+- *On forge-cli `main`, not yet in a release ([forge-cli #1009](https://github.com/Agenticstiger/forge-cli/pull/1009)).* The task's `fluid apply` runs a dbt or Python build once, whichever of these its `trigger.type` is: `schedule`, `dataset`, `schedule_and_dataset`, `event`, `dependency` or `timetable`. The apply runs the build once. What decides when is the DAG for `schedule`, `dataset` and `schedule_and_dataset`, the DAG of the builds it depends on for `dependency`, and another scheduler or an event for `event` and `timetable`, which get no DAG. In 0.33.0 only `schedule` ran: a dbt or Python build of any other of these types failed with `Unknown trigger type` and exit code `1`, so the task of a `dataset` or `schedule_and_dataset` build, which this page generates a DAG for, failed. A `manual` build keeps its `iterations`, `continuous` is refused, and a `trigger.type` that is none of the names the schema knows fails with `Unknown trigger type` and the list `manual, dataset, dependency, event, schedule, schedule_and_dataset, timetable`. On 0.33.0 a `schedule_and_dataset` build printed this, and on `main` it runs once:
+
+  ```text
+     Trigger: schedule_and_dataset
+     Command: dbt build
+     ❌ Unknown trigger type: schedule_and_dataset
+     Supported types: manual, schedule
+  ```
+
+  ```text
+     Trigger: schedule_and_dataset (manual apply override)
+     Command: dbt build
+     Iterations: 1
+  ```
 - The same product on two clouds needs a directory each (`<product>` with no env, `<product>__<env>` with one), so each [schedule sync](#pushing-dags-to-the-scheduler) mirrors only its own DAGs.
 
 ## Build graphs and dataset triggers
