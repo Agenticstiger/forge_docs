@@ -13,7 +13,9 @@ There is no single rule. Some variables accept only `1`, some accept `1`/`true`/
 :::
 
 ::: warning Where you set it matters
-Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may hold credentials but not a setting that widens a sandbox, moves where the CLI reads trusted configuration, changes authentication or trust, changes where data and credentials are sent, or chooses which program runs. `fluid` names what it ignored and runs without it. Export those in your shell, your CI job, or a `FLUID_SECRETS_FILE` you export — see [What a project's `.env` may set](./project-dotenv-trust.md).
+Since `0.20.0`, a project's `.env`, `.env.<environment>` and `.env.local` may hold credentials but not a setting that widens a sandbox, moves where the CLI reads trusted configuration, changes authentication or trust, changes where data and credentials are sent, or chooses which program runs. `fluid` names what it ignored and runs without it. Export those in your shell, your CI job, or a `FLUID_SECRETS_FILE` you export — see [What a project's `.env` may set](./project-dotenv-trust.md). 
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1004](https://github.com/Agenticstiger/forge-cli/pull/1004)).* A project file can no longer set a name that is not a shell identifier, a name that starts with `BASH_FUNC_`, `BASH_XTRACEFD`, `ZDOTDIR`, `FPATH`, `NULLCMD` or `READNULLCMD` either.
 :::
 
 ## CLI behaviour
@@ -114,6 +116,18 @@ fluid apply runtime/plan.json --bundle runtime/bundle.tgz --env aws --yes
 | `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` | A `catalogAuth` variable, as `NAME@host`, for each host that receives it or a token minted from it. Read by managed Flink and by the Kafka Connect and embedded Debezium Iceberg sinks ([Operator allowlists](./source-aligned-acquisition.md#operator-allowlists)); acquisition sources use it for their `secretRef`. A bare `NAME` allows every host. *(since 0.31.0, [forge-cli #893](https://github.com/Agenticstiger/forge-cli/pull/893))* It now covers a `secretRef` of every scheme, with more entry forms: see [Secret references](#secret-references). |
 
 The two `FLUID_ACQUISITION_*` variables are not new: acquisition deployments read them too. *(since 0.27.0, [forge-cli #818](https://github.com/Agenticstiger/forge-cli/pull/818))* The Kafka Connect and embedded Debezium Iceberg sinks read them as well, and a project `.env` cannot set either.
+
+## Lakekeeper grants (`fluid policy apply`)
+
+*On forge-cli `main`, not yet in a release ([forge-cli #993](https://github.com/Agenticstiger/forge-cli/pull/993)).* The operator sets these in the real environment of the job that runs `fluid policy apply`: a project `.env` cannot set them. See [Lakekeeper tables](../cli/policy-apply.md#lakekeeper-tables).
+
+| Variable | Effect |
+|---|---|
+| `FLUID_LAKEKEEPER_CREDENTIAL_REF` | A secret reference to `client_id:client_secret`, for an OAuth2 client-credentials token. Needs `FLUID_LAKEKEEPER_OAUTH2_SERVER_URI` and `FLUID_LAKEKEEPER_SCOPE`. |
+| `FLUID_LAKEKEEPER_OAUTH2_SERVER_URI` | The token endpoint, an `https://` URL. |
+| `FLUID_LAKEKEEPER_SCOPE` | The scope to ask the token endpoint for. |
+| `FLUID_LAKEKEEPER_TOKEN_REF` | A secret reference to a bearer token, used as it is. Set this or `FLUID_LAKEKEEPER_CREDENTIAL_REF`, not both. |
+| `FLUID_LAKEKEEPER_NAMESPACE_ALLOWLIST` | The namespaces whose tables stage 8 may change: comma-separated `<warehouse>/<namespace prefix>` entries, matched on whole dotted levels. Unset allows none, and `--mode enforce` then refuses every Lakekeeper table. |
 
 ## Command Center
 

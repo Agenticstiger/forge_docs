@@ -77,6 +77,20 @@ project file has nothing to supply there. The full list is
 
 *(since 0.28.0, [forge-cli #833](https://github.com/Agenticstiger/forge-cli/pull/833))* The embedded Debezium Server inherits the environment `fluid apply` loads, and its SmallRye Config reads a variable over `application.properties`. Its JVM reads `-D` system properties, which outrank both, from `JDK_JAVA_OPTIONS` or the launcher's `JAVA_OPTS`. So a project file could send a `sink.catalogAuth` credential to a catalog the operator never paired with it, change the source database, load another config file, or start another `java`. A project dotenv file can no longer set `DEBEZIUM_*`, `QUARKUS_*`, `SMALLRYE_*` or `MP_CONFIG_*` variables in the forms SmallRye Config matches, profile forms included (`debezium.sink.iceberg.uri`, `_PROD_DEBEZIUM_...`, `%prod....`), nor `JDK_JAVA_OPTIONS`, `JAVA_OPTS`, `JAVA_HOME`, or the launcher's `EXTRA_CONNECTOR`, `JMX_HOST`, `JMX_PORT`, `JMX_EXPORTER_PORT`, `JMX_EXPORTER_CONFIG` and `OTEL_JAVAAGENT_*`. Each is ignored with the usual warning. Set it in the shell or CI instead.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1004](https://github.com/Agenticstiger/forge-cli/pull/1004)).* Bash reads an environment variable named `BASH_FUNC_<name>%%` as the definition of the function `<name>`. The CLI starts programs with your environment and credentials, Debezium Server's `run.sh` launcher among them, and a program can be a bash script. So a project file could replace a command, or the `exec` builtin, inside such a script. A project dotenv file can no longer set:
+
+- **a name that is not a shell identifier.** A name has to match `[A-Za-z_][A-Za-z0-9_]*` from its first character to its last. That refuses every `BASH_FUNC_<name>%%`, and `a.b`, `A-B`, `1ABC` and a quoted name with a space in it (`'MY KEY'=...`).
+- **a name that starts with `BASH_FUNC_`**, in any letter case, with or without the `%%`.
+- **`BASH_XTRACEFD`, `ZDOTDIR`, `FPATH`, `NULLCMD` and `READNULLCMD`.** They join `BASH_ENV`, `ENV`, `SHELLOPTS`, `BASHOPTS`, `PS4`, `IFS`, `CDPATH` and `GLOBIGNORE`, which were already refused: each is something a shell reads before or around its own commands.
+
+Each is ignored with the usual warning, which names the variable and the file and never a value. On 0.32.0 none of the names in these three items, apart from those eight, was ignored: the project file set them in the CLI's environment. A dotenv file with the names above and one credential, run on forge-cli `main`:
+
+```text
+Ignored 10 settings from project dotenv files: 1ABC (.env), A-B (.env), BASH_FUNC_X (.env), BASH_FUNC_exec%% (.env), BASH_XTRACEFD (.env), FPATH (.env), NULLCMD (.env), READNULLCMD (.env), ZDOTDIR (.env), a.b (.env). A project file may hold credentials, but not settings that widen a sandbox, change authentication or trust, or change where data and credentials are sent. If you meant to set them, export them in your shell or CI environment instead.
+```
+
+The credential in that file, `WAREHOUSE_PASSWORD`, loaded as before. A name that starts with a letter or an underscore, holds only letters, digits and underscores, and is on no list loads as it always did. If you need one of the refused names, set it in the shell or in the environment of the CI job.
+
 ::: tip Two more since `0.23.0`
 `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`, which allows an acquisition source's `env://`
 reference against a remote host, and `TESTCONTAINERS_HOST_OVERRIDE`, which rewrites a
