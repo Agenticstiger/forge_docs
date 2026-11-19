@@ -79,7 +79,7 @@ When `schedule` is requested and the contract has nothing to schedule, the run l
 
 | Event | Cause |
 | --- | --- |
-| `generate_artifacts_skip_schedule_no_engine` | No `orchestration.engine`, and no build with a schedule trigger. |
+| `generate_artifacts_skip_schedule_no_engine` | No `orchestration.engine`, and no build with a schedule trigger. *(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))* A Spark stream that declares `execution.retries` counts as a build with a schedule, so it does not log this event. |
 | `generate_artifacts_skip_schedule_engine_none` | `orchestration.engine: none`. |
 | `generate_artifacts_skip_schedule_unreadable` | The contract file cannot be read at all. |
 
@@ -115,7 +115,7 @@ dist/artifacts/schedule/<product-id>__aws/ingest_subscriptions_dag.py
 The `schedule` key writes DAGs when either holds:
 
 - `orchestration.engine` is set to anything except `none`.
-- No `orchestration.engine` is set, and a build declares `execution.trigger.schedule` (or `cron`) with trigger `type: schedule` or no type. *(since 0.33.0, [forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966))* A `dataset` or `schedule_and_dataset` trigger counts too. The engine then defaults to Airflow. The file does nothing until `schedule-sync` delivers it, and stage 11 names the scheduler (`airflow`, `mwaa`, `composer` and `astronomer` run Airflow DAGs), so the default decides the file format only.
+- No `orchestration.engine` is set, and a build declares `execution.trigger.schedule` (or `cron`) with trigger `type: schedule` or no type. *(since 0.33.0, [forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966))* A `dataset` or `schedule_and_dataset` trigger counts too. The engine then defaults to Airflow. The file does nothing until `schedule-sync` delivers it, and stage 11 names the scheduler (`airflow`, `mwaa`, `composer` and `astronomer` run Airflow DAGs), so the default decides the file format only. *(since 0.34.0, [forge-cli #1018](https://github.com/Agenticstiger/forge-cli/pull/1018))* A forge Spark stream that declares `execution.retries` counts as such a build too: it gets a keepalive DAG, and the engine defaults to Airflow.
 
 Each such build gets its own DAG that runs `fluid apply`, unless the contract hand-declares `orchestration.tasks`, which keep their declared operators. *(since 0.33.0, [forge-cli #966](https://github.com/Agenticstiger/forge-cli/pull/966))* Builds that `builds[].dependencies` link share one DAG, with a task for each build. A build is left out when its own `execution.orchestration.engine` is `none` or not Airflow, or when its trigger is `event`, `manual` or `timetable`, which a DAG on a cron or on datasets cannot express. A `dataset` or `schedule_and_dataset` build gets a DAG: see [Build graphs and dataset triggers](../advanced/airflow.md#build-graphs-and-dataset-triggers). In 0.32.0 and earlier, those two were left out too, and a contract with no `orchestration.engine` whose only trigger was `dataset` logged `generate_artifacts_skip_schedule_no_engine` and wrote no DAG. *(since 0.22.0, [forge-cli #734](https://github.com/Agenticstiger/forge-cli/pull/734))* A `continuous` build, or one that runs outside forge-cli, gets no DAG and no task at all (see [Continuous builds](../concepts/builds-exposes-bindings.md#continuous-builds-trigger-type-continuous)).
 
