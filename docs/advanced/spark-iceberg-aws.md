@@ -346,7 +346,7 @@ With `alertOn: [schema_violation]`, the job writes a line like this one to its s
 {"forge_spark_runner": "dead_letter_alert", "reason": "schema_violation", "records": 600}
 ```
 
-`fluid apply` treats the stopped job as a failed run, like any other (on EMR Serverless, after the retries that [the reconcile table](#starting-and-reconciling-runs) describes). With the same config hash it does not start the job again. It names the run and its state, and the message says: `It is not started again with the same config, which would fail the same way: fix the cause and change the build, and fluid apply starts the new config`. A change to the build is a change to the config hash, and a new `maxRecordsBeforeAbort` is one: `fluid plan` writes a new `configHash` for it in the plan's `spark.reconcile` action. The next `fluid apply` then starts the job on the same checkpoint.
+`fluid apply` treats the stopped job as a failed run, like any other (on EMR Serverless, after the retries that [the reconcile table](#starting-and-reconciling-runs) describes). With the same config hash it does not start the job again. It names the run and its state, and the message says: `It is not started again with the same config, which would fail the same way: fix the cause and change the build, and fluid apply starts the new config`. A change to the build is a change to the config hash, and a new `maxRecordsBeforeAbort` is one: `fluid plan` writes a new `configHash` for it in the plan's `spark.reconcile` action. The next `fluid apply` then starts the job on the same checkpoint. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* On EMR on EC2, Glue and a local build, a job that stopped at the limit is a stream that died, and `fluid apply` and `--mode reconcile` start it again on its checkpoint within the [restart budget](#the-restart-budget). The count belongs to the job, so it starts at 0 again in each restart, and the budget bounds the restarts.
 
 #### Masked builds
 
@@ -601,7 +601,7 @@ A mapped column can set `maskAtIngest: hash`. The column is the HMAC-SHA256 of i
 | Logs | A CloudWatch log group `/aws/fluid/spark/<product>/<build>`, encrypted with a per-product KMS key that only CloudWatch Logs may use, for this product's groups. |
 | The job's role | Unless the contract names one. Least privilege: S3 read and write on the data and checkpoint prefixes, read on the artifacts, the Glue calls on the output, KMS through S3 and Secrets Manager only, MSK IAM on the cluster, topic and consumer group, `lakeformation:GetDataAccess`, the mask key and a registry secret, and its log group. |
 | A dead-letter table | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* For a stream with `deadLetter` and `sink: table`: an Iceberg v2 `aws_glue_catalog_table` beside the output's table, with its S3 prefix, Glue table and, when Lake Formation governs the output, Lake Formation permissions added to the job's role. *On forge-cli `main`, not yet in a release ([forge-cli #1010](https://github.com/Agenticstiger/forge-cli/pull/1010)).* Without a `governance.lakeFormation` block, those permissions are added where the account's Lake Formation settings govern new tables: see [A job's grant on its own table](#a-job-s-grant-on-its-own-table). A `sink: topic` emits no table: on MSK with IAM the job's role gets the permissions to write the topic. See [What OpenTofu emits for dead letters](#what-opentofu-emits-for-dead-letters). |
-| A caller policy | For a build that runs to completion (batch, or a stream with `availableNow`): the managed policy `fluid-<product>-spark-caller`, for the platform to attach to the scheduler's role. |
+| A caller policy | For a build that runs to completion (batch, or a stream with `availableNow`): the managed policy `fluid-<product>-spark-caller`, for the platform to attach to the scheduler's role. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* A stream that runs continuously gets it too, so that a keepalive can run `fluid apply --mode reconcile` from the scheduler's role. |
 
 Per runtime:
 
@@ -882,6 +882,8 @@ A local stream follows the `spark.reconcile` action of [Starting and reconciling
 | A stream that failed with this config | An error that names the run and its log, and no new start. Change the build, and apply starts the new config. |
 | A stream of a build that the contract no longer declares | Stops it: `stopped run <run id> CANCELLED`. A build moved to an AWS runtime keeps its local runs, because an apply of AWS builds never stops them. |
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* The rows about a stream stopped from outside forge and a stream that failed change. A stream that failed, one whose supervisor got a signal from outside forge (a shutdown of the machine, say), and one whose processes ended without recording how (`ended LOST`) are a death: `fluid apply` and `--mode reconcile` start it again on its checkpoint within the [restart budget](#the-restart-budget), and count each restart. A spent budget is the error. Only a run that was cancelled through forge is left stopped, and only by `--mode reconcile`.
+
 A stop sends SIGTERM to the run's process group, and SIGKILL after a grace period of 60 seconds. forge waits for the run to end for as long as `FLUID_SPARK_WAIT_SECONDS` says. A new topic or cluster on a checkpoint that an earlier run read is refused before anything is stopped, as on AWS.
 
 A run whose processes ended without recording how, because the machine restarted or something killed them with SIGKILL, did not fail. The next apply starts the same config again and says that the run stopped without recording its end (forge-cli's tests).
@@ -901,6 +903,8 @@ Spark ingest-orders (local): failed run 20261119T060909Z-89c3a970 FAILED on this
 ```
 
 The two lines of that message, `the stream failed` and the exit code, come from a stand-in `spark-submit` that exits 1; the path is shortened to `<project>`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* A failed stream is started again on its checkpoint, within the [restart budget](#the-restart-budget), and a message like the one above is the error for a spent budget. It ends with the same second way: `when the cause was this machine's (spark-submit, its properties file), remove <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs (the build's run history here) and fluid apply starts it again`. The run directory it names is the whole history, which is what the budget is counted from.
 
 **A dry run.** `fluid apply --dry-run` starts and stops nothing and creates no run directory. It prints `would be reconciled to config <first 12 hex digits of the hash>` for a stream, and `would stop <run id>` for a run the contract no longer runs here:
 
@@ -1015,8 +1019,8 @@ After `tofu apply`, `fluid apply` reconciles each streaming build:
 | A running job with this hash | Nothing. |
 | A running job with another hash | Cancels it, waits for it to stop, and starts the new config on the **same checkpoint**, so it resumes where the old one stopped. |
 | A new topic or cluster, with a checkpoint an earlier run read | Refuses, before cancelling anything. A checkpoint holds the offsets of one topic on one cluster. To read the new stream, move `properties.stream.checkpoint` to a new prefix: the job then starts from `startingOffsets`. |
-| No running job | Starts one, unless the last run with this hash failed. |
-| A last run that failed | An error that names the run and its reason. On EMR Serverless a streaming job retries until it fails more than `maxFailedAttemptsPerHour` times in an hour, and then stops, so starting it again would fail the same way. Fix the cause, then change the build: `fluid apply` starts it with the new config. |
+| No running job | Starts one, unless the last run with this hash failed. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* Unless it failed where the service's own retries are spent (EMR Serverless and EMR on EKS) or the [restart budget](#the-restart-budget) is spent: see the next row. |
+| A last run that failed | An error that names the run and its reason. On EMR Serverless a streaming job retries until it fails more than `maxFailedAttemptsPerHour` times in an hour, and then stops, so starting it again would fail the same way. Fix the cause, then change the build: `fluid apply` starts it with the new config. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* On EMR on EC2, Glue and a local build the stream is started again on its checkpoint within the [restart budget](#the-restart-budget), and the error is for a spent budget. EMR Serverless and EMR on EKS keep the error, as their own retries come first. |
 | A second active copy of the current config | Cancels it. |
 | A stream moved to `trigger.availableNow` | Cancels its old continuous job. Its scheduler starts it from now on. |
 
@@ -1030,11 +1034,72 @@ Per runtime, the start is:
 - **EMR on EKS:** `StartJobRun` on `virtualClusterId`.
 - **Local:** *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* `spark-submit --deploy-mode client` on this machine, under a detached supervisor: see [Running a build on this machine](#running-a-build-on-this-machine).
 
+### The restart budget
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* A stream that died is started again on its checkpoint, within a budget of restarts per rolling hour. A plain `fluid apply` follows the rule, and so does [`fluid apply --mode reconcile`](../cli/apply.md#reconcile-mode), which a keepalive runs. In 0.33.0 a stream whose last run ended `FAILED` was an error until the build changed, and `--mode reconcile` did not exist.
+
+- **The budget** is `execution.retries.maxAttempts` restarts per rolling hour: 5 when it is unset, and at most 10, the numbers that EMR Serverless applies to its own streaming retries.
+- **A death** is a run that ended `FAILED` or `INTERRUPTED` (an EMR step that died with its node), was lost with its machine, node or cluster, or was stopped by a signal from outside forge (a local run that was killed, or whose machine shut down), and a stream that stopped by itself. A local run whose supervisor got a signal from outside forge, a shutdown of the machine say, reads as failed now, and counts as a death: 0.33.0 read it as cancelled and started it again. A job killed on its own (`FAILED (exit -9)`) was failed in 0.33.0 too.
+- **A cancel is not a death.** A run that was cancelled through the runtime (`aws emr cancel-steps`, `CancelJobRun`, `BatchStopJobRun`, or forge's own cancel of a local run) was stopped on purpose. `--mode reconcile` leaves it stopped, and a plain `fluid apply` starts it again, as the operator who applies asks, without counting a restart. To stop a stream on purpose, cancel its run: `--mode reconcile` leaves it stopped, and a plain `fluid apply` starts it again. A step that a terminating cluster cancelled while it was pending is not an operator's stop: the reconcile reports the ended cluster.
+- **Who restarts.** forge restarts a stream on EMR on EC2, on Glue, whose job forge emits with `MaxRetries` 0, and on a local build: none of them has a service that retries. EMR Serverless and EMR on EKS retry a failed run themselves, from `execution.retries`. A run that ended `FAILED` there has spent those retries, and forge starts nothing on top of them; a stream there that stopped without failing restarts within the budget.
+- **The count.** Each restart carries `--fluid-restart-of <run id>` in the runner's arguments, where the EMR console shows it in the step's arguments, and the budget is counted from the runtime's own run history (the `ListSteps` of EMR on EC2 reaches back an hour). forge keeps no state. A restart that was cancelled afterwards does not count.
+- **A spent budget** starts nothing and is an error. It names the budget, the restarts and when the next one is allowed, and it is not final: once fewer restarts than the budget are under an hour old, the next apply or reconcile restarts the stream. To start it sooner, fix the cause and change the build, and `fluid apply` starts the new config.
+- **`execution.retries` is no longer part of the config hash on EMR on EC2 and Glue**, and a local build has none: none of them takes a retry setting, so a new budget restarts nothing. A stream there that already declares `execution.retries` restarts once on its next apply.
+- **Two at once.** When two reconciles start the same dead stream at once, say a keepalive tick and a CI apply, the older run is kept and the younger cancels its own start. Of two copies of one config, the older is kept, where 0.33.0 kept the newer.
+
+On EMR on EC2, a stream whose last step died is started again with `--fluid-restart-of` naming it. This is the end of the new step's arguments, and the line `fluid apply` prints:
+
+```text
+--fluid-checkpoint 1a04314328989295 --fluid-job-sha256 5316fc870295d2ff984b6d407947d73ec4d316fdab2f0f48b3f34ba483d1d9dd --fluid-restart-of s-1
+```
+
+```text
+Spark ingest-orders (emr-ec2): restarted run s-2 RUNNING on EMR cluster j-1ABCDEF. run s-1 ended FAILED: Driver exited with code 1; started again on the same checkpoint (restart 1 of 5 allowed per rolling hour)
+```
+
+With five restarts of the last hour already, it starts nothing, exits `1`, and says when the next restart is allowed:
+
+```text
+Spark ingest-orders (emr-ec2): failed run s-r4 FAILED on EMR cluster j-1ABCDEF. run s-r4 ended FAILED: Driver exited with code 1. Not started again: its budget of 5 restarts per rolling hour (execution.retries.maxAttempts, 5 when unset) is spent: s-r0 at 2026-11-19T07:06:11Z, s-r1 at 2026-11-19T07:14:11Z, s-r2 at 2026-11-19T07:22:11Z, s-r3 at 2026-11-19T07:30:11Z, s-r4 at 2026-11-19T07:38:11Z. It can restart from 2026-11-19T08:06:11Z, when fewer than 5 of them are under an hour old; to start it sooner, fix the cause and change the build, and fluid apply starts the new config. Earlier: run s-r3 ended FAILED: Driver exited with code 1; run s-r2 ended FAILED: Driver exited with code 1; run s-r1 ended FAILED: Driver exited with code 1
+```
+
+A cluster that ended takes no new step, so the stream cannot start there again. The error names the cluster's state and reason:
+
+```text
+Spark ingest-orders (emr-ec2): failed. EMR cluster j-1ABCDEF is TERMINATED_WITH_ERRORS (INTERNAL_ERROR: The master instance was lost) and takes no new step, so the stream cannot start there again. Point parameters.spark.clusterId at a running cluster and run fluid apply: the stream resumes from its checkpoint
+```
+
+On EMR Serverless a stream gets a retry policy of `execution.retries.maxAttempts` attempts per hour (5 when unset), so a run that ended `FAILED` has spent them. This is what `fluid apply` says then, for the default of 5:
+
+```text
+run jr-1 ended FAILED: Job failed: OutOfMemoryError. EMR Serverless retries a failed stream (retryPolicy.maxFailedAttemptsPerHour) from execution.retries (5), and it stopped retrying: forge does not start it again on top of the service's own retries, which would fail the same way; fix the cause and change the build, and fluid apply starts the new config
+```
+
+On EMR on EKS the service retries only as often as `execution.retries` says. A build that sets none is not retried, and the error says so:
+
+```text
+run jr-1 ended FAILED: Job failed: OutOfMemoryError. EMR on EKS retries a failed driver (retryPolicyConfiguration.maxAttempts) only as often as execution.retries says, and this build sets none, so it was not retried: forge does not start a failed run there again. Set execution.retries, or fix the cause and change the build, and fluid apply starts the new config
+```
+
+On a local build the same rules hold on this machine. When the cause was the machine's, say `spark-submit` or its properties file, the budget error names the run directory to remove: removing `.fluid/<product>/runtime/spark/<build>/runs` resets the build's history, and with it the budget. This is a plain `fluid apply` on a stream whose job fails at once, on 0.33.0's code and on `main` (the paths are shortened to `<project>`):
+
+```text
+Spark ingest-orders (local): failed run 20261119T075156Z-3449d58d FAILED on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders). run 20261119T075156Z-3449d58d ended FAILED (exit 1): log <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/20261119T075156Z-3449d58d/driver.log: the stream failed. It is not started again with the same config, which would fail the same way: fix the cause and change the build, and fluid apply starts the new config; when the cause was this machine's (spark-submit, its properties file), remove <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/20261119T075156Z-3449d58d and fluid apply starts it again
+```
+
+```text
+Spark ingest-orders (local): restarted run 20261119T075203Z-c2b31396 FAILED on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders). run 20261119T075200Z-104292e4 ended FAILED (exit 1): log <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/20261119T075200Z-104292e4/driver.log: the stream failed; started again on the same checkpoint (restart 1 of 5 allowed per rolling hour); run 20261119T075203Z-c2b31396 ended FAILED (exit 1): log <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/20261119T075203Z-c2b31396/driver.log: the stream failed
+```
+
+The second run ended at once as well, so that apply exits `1`: a restart is not a recovery, and the next apply restarts it again until the budget is spent.
+
+The outputs are from forge-cli's reconcile step. The EMR on EC2 ones are the code `fluid apply` runs after `tofu apply`, with AWS answered by botocore's test stubs: no cluster was touched. The EMR Serverless and EMR on EKS ones are the texts of the same code for a run that ended `FAILED`. The local ones are the real `fluid apply` with a stand-in `spark-submit`.
+
 ### An EMR on EC2 step starts once its policy is attached
 
 *(since 0.33.0, [forge-cli #1005](https://github.com/Agenticstiger/forge-cli/pull/1005))*
 
-A step on an `emr-ec2` cluster runs as the role of the cluster's instance profile, which the cluster's owner holds. Forge does not change that role: it belongs to the cluster's owner. `fluid apply` creates the build's least-privilege policy (the managed `aws_iam_policy` in [What forge provisions](#what-forge-provisions)), and the owner attaches it. On 0.32.0 the first `fluid apply` started the stream before anyone could attach the policy, so, unless the role already held the job's permissions, the step failed at once. A stream that failed is not started again with the same config.
+A step on an `emr-ec2` cluster runs as the role of the cluster's instance profile, which the cluster's owner holds. Forge does not change that role: it belongs to the cluster's owner. `fluid apply` creates the build's least-privilege policy (the managed `aws_iam_policy` in [What forge provisions](#what-forge-provisions)), and the owner attaches it. On 0.32.0 the first `fluid apply` started the stream before anyone could attach the policy, so, unless the role already held the job's permissions, the step failed at once. In 0.33.0 a stream that failed is not started again with the same config. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* It is started again on its checkpoint, within the [restart budget](#the-restart-budget).
 
 Before it starts a step, `fluid apply` now reads the cluster's instance profile and the policies attached to the role in it, and starts nothing until the build's policy is among them. The refusal is the build's error and `fluid apply` ends with exit code `1`. The infrastructure is applied by then, so the policy exists, and the line gives the command that attaches it:
 
@@ -1103,6 +1168,8 @@ Scope `iam:PassRole` to the forge roles, so that a contract cannot pass a strong
 
 *On forge-cli `main`, not yet in a release ([forge-cli #1014](https://github.com/Agenticstiger/forge-cli/pull/1014)).* A start on AWS also reads the build's job config and runner from S3, so the role needs `s3:GetObject` on both objects: see [A run starts only on the config this apply compiled](#a-run-starts-only-on-the-config-this-apply-compiled). The generated `fluid-<product>-spark-caller` policy holds it in an `Artifacts` statement, and holds no `kms:Decrypt`.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* The policy also covers the product's always-on streams: it lets a role start, watch and stop their runs and read their job config and runner, so that a keepalive can run [`fluid apply --mode reconcile`](../cli/apply.md#reconcile-mode) from the scheduler's role (the MWAA role, say). It has one statement for each runtime, named `Run<Runtime>`, that lists the runtime's actions once for every target of the product's builds on it, one `PassRole<Runtime>` statement for each runtime that passes a role (EMR Serverless and EMR on EKS), and one `Artifacts` statement. Two more appear where they apply: `StepRoleEmrEc2`, the two IAM reads of an EMR on EC2 start, and `FindApplication`, `emr-serverless:ListApplications` on `*`, for an EMR Serverless build that names no `applicationId`. A managed policy holds at most 6,144 characters, and a statement for each build reached that limit at about six builds. Each build's target, role and artifacts are still named in them. A bucket that encrypts the artifacts with a KMS key also needs `kms:Decrypt` on its key for the scheduler's role, which forge does not grant. `--mode reconcile` reads the uploaded job config on every run, so a role that lacks `s3:GetObject` on it fails while the stream is healthy.
+
 ### When a build leaves the contract
 
 *On forge-cli `main`, not yet in a release ([forge-cli #1008](https://github.com/Agenticstiger/forge-cli/pull/1008)).* When a plan deletes the resources of a Spark build on AWS, because the build left the contract or the product went, `fluid apply` stops the build's runs before `tofu apply` destroys the role, the artifacts and the log group that they run with. Before this change the apply had no step for this. forge-cli's changelog says that it destroyed those and left the stream going, a writer that nothing reconciles any more, and that a destroy of a whole product failed part way, because EMR Serverless deletes only an application that is stopped or created and IAM deletes no policy that is still attached.
@@ -1139,7 +1206,7 @@ After the gate, `fluid apply` reads the plan's deletes, and before `tofu apply` 
      Spark ingest-orders (emr-ec2): stopped on EMR cluster j-1ABCDEF. cancelled s-1 before the apply destroys what it runs with
    ```
 
-3. **It empties and stops the product's own EMR Serverless application, when that goes.** Every active run in it is cancelled, whichever build started it, and then the application is stopped and waited for, unless it is already stopped or created. An application that the contract only names is not one the plan deletes, so it is left as it is.
+3. **It empties and stops the product's own EMR Serverless application, when that goes.** Every active run in it is cancelled, whichever build started it, and then the application is stopped and waited for, unless it is already stopped or created. *On forge-cli `main`, not yet in a release ([forge-cli #1017](https://github.com/Agenticstiger/forge-cli/pull/1017)).* An application that is still `CREATING` or `STARTING` is waited for until it settles first: one that has been created is deleted as it is, and one that has started is stopped. One still moving after the wait refuses the apply. An application that the contract only names is not one the plan deletes, so it is left as it is.
 
    ```text
      EMR Serverless application fluid-commerce.orders-stream-spark (00fabc123def): cancelled jr1 before the apply destroys what it runs with; stopped the application.
@@ -1152,7 +1219,7 @@ A run that is still going after the wait, an application that has not stopped af
 ```text
 Spark ingest-orders (emr-ec2): run s-1 was cancelled but is still CANCEL_PENDING after 3 s (FLUID_SPARK_WAIT_SECONDS). The plan destroys what these runs run with, so nothing was destroyed.
 Run fluid apply again once the runs have stopped, or stop them yourself.
-The identity running fluid apply needs the runtime's list and cancel actions (as for starting runs).
+The identity running fluid apply needs the runtime's list and cancel actions (as for starting runs), iam:ListEntitiesForPolicy for a policy it destroys, and emr-serverless:GetApplication and emr-serverless:StopApplication for the product's own EMR Serverless application.
 ```
 
 With `--dry-run`, the apply reads the policies and the runs, changes nothing, and says what it would do. A policy that is still attached refuses a dry run too, with the same error and exit code 1. An AWS error while it reads the runs is then a note and not a refusal:
@@ -1183,7 +1250,7 @@ What forge does with the cluster decides what the layout must protect:
 
 - **The driver is the step's own process.** forge starts the stream with `spark-submit --deploy-mode client`, so that cancelling the step stops the job. AWS's Spark step guide says client mode launches the driver on the cluster's primary instance.
 - **The checkpoint is in S3, not on the cluster.** It defaults to `s3://<bucket>/_checkpoints/<product>/<build>/`, so losing nodes loses no offsets.
-- **A step that ends `FAILED` or `INTERRUPTED` counts as failed, and `fluid apply` does not start it again with the same config.** It names the run and its state and starts nothing, because the same config would fail the same way (see [Starting and reconciling runs](#starting-and-reconciling-runs)). To bring the stream back, change the build. After a lost cluster, launch a replacement with forge's policy attached to its instance-profile role, and set `clusterId` to it, with its `emr-ec2:<clusterId>` entry in `FLUID_SPARK_TARGET_ALLOWLIST`: the target is part of the config hash, so `fluid apply` starts the stream on the same checkpoint.
+- **A step that ends `FAILED` or `INTERRUPTED` counts as failed, and `fluid apply` does not start it again with the same config.** It names the run and its state and starts nothing, because the same config would fail the same way (see [Starting and reconciling runs](#starting-and-reconciling-runs)). To bring the stream back, change the build. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* `fluid apply` and `--mode reconcile` start such a step again on the stream's checkpoint, within the [restart budget](#the-restart-budget): an `INTERRUPTED` step, which died with its node, is a restart like any other, and the error is for a spent budget. After a lost cluster, launch a replacement with forge's policy attached to its instance-profile role, and set `clusterId` to it, with its `emr-ec2:<clusterId>` entry in `FLUID_SPARK_TARGET_ALLOWLIST`: the target is part of the config hash, so `fluid apply` starts the stream on the same checkpoint.
 
 The checklist:
 

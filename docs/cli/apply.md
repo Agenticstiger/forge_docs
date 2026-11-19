@@ -136,6 +136,7 @@ Two things differ between the engines, and the rest of this page says which one 
 | `amend-and-build` | Same as `amend`, then run the contract's `builds[]` (the build runner). |
 | `replace` | Destructive. Requires `--allow-data-loss`. |
 | `replace-and-build` | Same as `replace`, then the builds with a full refresh. Destructive. |
+| `reconcile` | *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* Deploys nothing: keeps the contract's always-on Spark streams running. See [Reconcile mode](#reconcile-mode). |
 
 What each engine does with the mode:
 
@@ -152,11 +153,74 @@ The build-augmented modes (`amend-and-build`, `replace-and-build`) run the confi
 amend-and-build (or replace-and-build) to run that build, or drop --build-id.
 ```
 
-Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0.
+Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* `--build-id` is accepted with `--mode reconcile` too, where it names the stream to keep running, and the hint of this refusal adds `--mode reconcile to keep that stream running`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1009](https://github.com/Agenticstiger/forge-cli/pull/1009)).* A dbt or Python build runs once under `--mode amend-and-build` whatever its `execution.trigger.type`, `manual` and `continuous` aside: see [What the DAG does](../advanced/airflow.md#what-the-dag-does). Which dbt a dbt build runs on, and what the container fallback installs, are in [Which dbt `fluid apply` runs](./generate.md#which-dbt-fluid-apply-runs).
 
 *(since 0.30.0, [forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861))* On Databricks, a dbt build with `execution.runtime.platform: databricks` runs as the job the apply provisions. The build phase starts a run of the job and waits for it to end, and a failed run fails the apply. See [Running the job from `fluid apply`](../providers/databricks.md#running-the-job-from-fluid-apply).
 
 *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* A build with `engine: lakeflow` runs as the Lakeflow pipeline the apply provisions. The build phase starts an update of the pipeline and waits for it to end, and a failed update fails the apply. A continuous pipeline is not started: only its table's tags are set. See [Running it from `fluid apply`](../providers/databricks.md#running-it-from-fluid-apply).
+
+### Reconcile mode
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* `--mode reconcile` keeps the contract's always-on Spark streams running, and deploys nothing: it runs no `tofu`, no DDL and no build, and it takes no plan. A stream that died is started again on its checkpoint, within its [restart budget](../advanced/spark-iceberg-aws.md#the-restart-budget), when what the last `fluid apply` deployed is what the contract compiles to. A scheduler task that runs it every few minutes, a keepalive, keeps a stream going between applies:
+
+```bash
+fluid apply contract.fluid.yaml --env prod --mode reconcile --build-id ingest-orders --yes
+```
+
+- **What it reads.** The contract, which goes through the same schema gate, `--build-id` check and apply-time hooks as any apply. A `plan.json` is refused with `apply_reconcile_needs_contract`. On AWS it also reads the job config that the last apply uploaded, from S3, on every run, so a missing `s3:GetObject` shows while the stream is healthy. It reads the runs from the runtime's own history, and keeps no state of its own.
+- **Which streams.** With `--build-id`, that one stream. A build that is not a forge Spark build, a batch, or a stream triggered `availableNow` is refused with `apply_reconcile_not_a_stream`: its scheduler runs it with `--mode amend-and-build --build-id <id>`. Without `--build-id`, every always-on Spark stream of the contract. A contract with none prints `No always-on Spark stream in the contract: nothing to reconcile.` and exits `0`.
+- **What it never does.** It does not replace a config, and it does not stop a build the contract no longer holds: a full `fluid apply` does both. It cancels only a younger second copy of the running config.
+- **`--dry-run`** reads the same state and starts nothing. On a terminal, without `--yes`, it asks before it starts or cancels a run. An empty or a closed answer is a no: it starts or cancels nothing, says so (`declined`), and exits `0`.
+- **The settings of the apply** reach it too: the operator's lists (`FLUID_SPARK_TARGET_ALLOWLIST`, which also lists a dead-letter topic, `FLUID_SPARK_CONTRACT_SQL_ALLOWLIST`, `FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST` for a `runtime: local` stream, and the host allowlists) gate every reconcile, and a refused build is an error, `apply_spark_refused`. A keepalive's environment needs the ones the CI apply has. [`FLUID_SPARK_WAIT_SECONDS`](../advanced/environment-variables.md#spark-on-aws-preview), 900 seconds by default, bounds how long it waits for a started run to leave its pending states and for a cancelled one to stop.
+
+For each stream it finds one of these, and exits `1` when any stream is an error:
+
+| It finds | It does | Shown as | Exit |
+|---|---|---|---|
+| A run of the deployed config going | Nothing. | `unchanged` | `0` |
+| The last run died: it ended `FAILED` or `INTERRUPTED`, was lost with its machine, node or cluster, was stopped by a signal from outside forge, or the stream stopped by itself | Starts it again on the same checkpoint, within the budget. | `restarted` | `0`, or `1` when the new run ends at once |
+| The budget is spent | Starts nothing. It names the budget, the restarts and when the next one is allowed. | `failed` | `1` |
+| The last run was cancelled through the runtime, or is being stopped | Leaves it stopped. A plain `fluid apply` starts a cancelled stream again. | `left-stopped` | `0` |
+| What is deployed is not the contract: the uploaded job config differs, the last run ran another config, another config is running, nothing is deployed, or no run is recorded | Starts nothing, and says to run `fluid apply`. | `refused` | `1` |
+| A younger second copy of the running config | Cancels it, and keeps the older run. | `unchanged` | `0` |
+| The last run ended `FAILED` on EMR Serverless or EMR on EKS | Starts nothing: the service's own retries are spent. | `failed` | `1` |
+| An EMR on EC2 cluster that ended | Starts nothing, and names the cluster's state and reason. | `failed` | `1` |
+| A topic or a cluster other than the one that the stream's checkpoint was written for | Starts nothing: a checkpoint holds the offsets of one topic on one cluster. See [Starting and reconciling runs](../advanced/spark-iceberg-aws.md#starting-and-reconciling-runs). | `refused` | `1` |
+| An AWS error while it reads the runs or starts one | Says what failed, and what it had done before it. | `failed` | `1` |
+
+A stream of a local build on this machine, killed from outside, then reconciled, from a real run (the paths are shortened to `<project>`):
+
+```text
+Spark ingest-orders (local): unchanged run 20261119T075039Z-181dd129 RUNNING on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders)
+```
+
+```text
+Spark ingest-orders (local): restarted run 20261119T075054Z-157881b9 RUNNING on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders). run 20261119T075039Z-181dd129 ended FAILED (exit -9): log <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/20261119T075039Z-181dd129/driver.log: stand-in spark-submit; started again on the same checkpoint (restart 1 of 5 allowed per rolling hour)
+```
+
+With the contract changed since the last apply, it starts nothing and exits `1`:
+
+```text
+Spark ingest-orders (local): refused on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders). the last run 20261119T075106Z-5dd7554c ran config b2daa0daab82, and the contract compiles to f79cf67ae81e. --mode reconcile changes no config: run fluid apply to start the new config
+```
+
+`--dry-run` on a stream that died:
+
+```text
+Spark ingest-orders (local): planned on this machine (.fluid/commerce.orders-stream/runtime/spark/ingest-orders). would start it again on the same checkpoint: run 20261119T075129Z-cc92dd21 ended FAILED (exit -9): log <project>/.fluid/commerce.orders-stream/runtime/spark/ingest-orders/runs/20261119T075129Z-cc92dd21/driver.log: stand-in spark-submit (restart 1 of 5 allowed per rolling hour)
+```
+
+A plan is not a contract:
+
+```text
+❌ apply_reconcile_needs_contract  [ERR_APPLY_RECONCILE_NEEDS_CONTRACT]
+  path: <project>/plan.json
+  hint: --mode reconcile applies no plan: it reads the contract, what the last fluid apply deployed and how the runs are doing. Pass the contract (contract.fluid.yaml).
+```
+
+These outputs are from the real `fluid apply` on `main`, on a stream of `runtime: local` with a stand-in `spark-submit` that sleeps, killed with `kill -9`: no Spark, no cloud and no AWS call. The runs on AWS go through the same code with the runtime's own history: [the restart budget](../advanced/spark-iceberg-aws.md#the-restart-budget) shows them with AWS answered by botocore's test stubs.
 
 ## Contract validation
 
@@ -720,7 +784,7 @@ Options marked *native* are read only by the native engine. As of 0.18.1 the Ope
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--mode` | `amend` | One of `dry-run`, `create-only`, `amend`, `amend-and-build`, `replace`, `replace-and-build`. |
+| `--mode` | `amend` | One of `dry-run`, `create-only`, `amend`, `amend-and-build`, `replace`, `replace-and-build`. *On forge-cli `main`, not yet in a release ([forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013)).* Also `reconcile`: see [Reconcile mode](#reconcile-mode). |
 | `--yes` | off | Skip confirmation. |
 | `--dry-run` | off | Alias for `--mode dry-run`. |
 | `--ensure-opentofu` | off | *(since 0.8.8)* If the `tofu` binary is missing, provision a **pinned, SHA-256-verified** OpenTofu build before a cloud apply — **no root, gpg, cosign, curl, or unzip needed** (Python stdlib only). Idempotent (a usable `tofu` at/above the engine floor is left untouched) and a no-op for native / `local` applies. Pin via `FLUID_OPENTOFU_VERSION`. `fluid generate ci` bakes this into the generated apply stage so cloud applies work on locked-down / non-root runners. |
