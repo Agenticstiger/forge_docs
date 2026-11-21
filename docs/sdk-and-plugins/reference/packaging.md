@@ -182,6 +182,8 @@ As of SDK 0.10.0 each of the four roles has a matching `*TestHarness` — subcla
 
 Add your plugin-specific scenarios as additional methods on the same class. They run alongside the inherited tests.
 
+The harnesses check a plugin class on its own. To run a plugin inside the real `fluid apply`, `fluid providers` or `fluid generate iac`, with the entry point installed for the test, use the [test kit](./testing-kit.md): `run_fluid`, `isolated_env`, `installed_plugin` and `FakeHttpServer` ship in `data-product-forge`.
+
 ## CI / GitHub Actions template
 
 A minimal CI workflow for an SDK plugin:

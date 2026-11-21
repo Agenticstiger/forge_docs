@@ -8,6 +8,7 @@ Code-first reference for the SDK + plugin system. Skim the table, jump to what y
 | [Entry points](./entry-points.md) | Wiring your plugin into the CLI. The entry-point groups (CLI hooks + role-level, all wired as of 0.10.0), their signatures, failure model. |
 | [Trust model](./trust-model.md) | What the CLI guarantees about plugin execution. What it deliberately doesn't defend against. How to think about plugin trust in your org. |
 | [Packaging](./packaging.md) | `pyproject.toml` template, `py.typed`, conformance harness, publishing to PyPI via trusted publishing. |
+| [Test kit](./testing-kit.md) | Testing a plugin through the real `fluid` CLI: `run_fluid`, `isolated_env`, `installed_plugin` and `FakeHttpServer`, with no third-party imports. |
 | [Companion packages](./companion-packages.md) | What's on PyPI (CLI + SDK + custom-scaffold), version pinning, dual-naming, upgrade compatibility. |
 
 If you're new, **read the [quickstart](../quickstart.md) first**. The reference assumes you've built one working plugin and want to look something up.

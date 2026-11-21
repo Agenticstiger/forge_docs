@@ -1299,6 +1299,10 @@ These changes are in 0.32.0. Two change what a contract or a generated file look
 
 - **`fluid generate transformation` keeps contract values as data in the Glue, Dataflow and Spark job scripts.** A column name or type, the expose id, the contract name, a stage name or embedded SQL that held a quote, a line break or `"""` could end its place in the script and add a statement that runs with it. Each value is now written as a string literal, a one-line comment or an escaped block. Regenerate and review the diff: the string literals these scripts write now use single quotes, the Glue script's SQL summary comment is one line, and two stages whose names sanitise alike, such as `a-b` and `a.b`, get two functions, `stage_a_b` and `stage_a_b_2`, where the second used to replace the first.
 
+*(since 0.32.0, [forge-cli #957](https://github.com/Agenticstiger/forge-cli/pull/957))*
+
+- **New, opt-in: `fluid_build.testing`, a test kit for packages that plug into `fluid`.** It holds `run_fluid`, `isolated_env`, `installed_plugin` and `FakeHttpServer`, with no third-party imports, and nothing in the CLI imports it. Nothing changes until a plugin's tests use it. See [Test kit](./sdk-and-plugins/reference/testing-kit.md).
+
 *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))*
 
 - **`fluid profile --bundle DIR` answers a Simulation's fidelity block.** The profile then carries the statistic each declared property is compared with, grouped means, histograms, supports and quantiles among them, so the engine scores every property but a correlation. Without `--bundle`, a profile holds what it held before. The `[profile]` extra needs flux-stats 0.6.2 or newer, which `pip install -U 'data-product-forge[profile]'` brings. See [Answering a fidelity block](./cli/profile.md#answering-a-fidelity-block-bundle).

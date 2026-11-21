@@ -230,7 +230,7 @@ Two other signals are still available, and are what a hook that has to keep the 
 
 ### Example
 
-The [apply-hook-prod-key-guard example](../examples/apply-hook-prod-key-guard.md) is a fully-runnable hook. The [apply-hook journey](../journeys/apply-hook.md) is the full walkthrough.
+The [apply-hook-prod-key-guard example](../examples/apply-hook-prod-key-guard.md) is a fully-runnable hook. The [apply-hook journey](../journeys/apply-hook.md) is the full walkthrough. To test a hook through the real `fluid apply`, with the hook installed as an entry point and a fake service behind it, see [the test kit](./testing-kit.md#an-example-testing-an-apply-hook).
 
 ## The role-level groups (for plugin classes)
 
@@ -286,6 +286,7 @@ The target is a class (instantiated with no arguments) or an instance that imple
 - **Retired names can never be granted.** `redshift` and `datamesh-manager` are skipped whatever the allowlist says.
 - **Two distributions shipping one name are both refused.** For a name that is not reserved, a WARNING `iac_provider_name_ambiguous` names both and neither is imported; block the name with `FLUID_PLUGINS_BLOCKLIST` or uninstall one.
 - **Names compare case-insensitively, with `-` equal to `_`**, in the allow and block lists and in the platform name.
+- **Testing it.** `installed_plugin` from the [test kit](./testing-kit.md#providers-and-iac-emitters) registers the entry point for one test and resets the IaC registry on the way in and out, so `fluid generate iac` finds the plugin inside the test and not after it.
 
 ## Several groups from one package
 
