@@ -3,7 +3,7 @@
 Two things live here: the `secretRef` references a contract uses to name a secret, with the command that checks them (`fluid secrets check`) and the operator's policy that decides which of them may resolve; and the keychain commands (`login`, `verify`, `rotate`) that store a named secret in the OS keychain. It sits under its own umbrella so it doesn't collide with `fluid auth` (cloud-provider auth) or `fluid ai setup` (LLM credentials).
 
 ::: tip Arrived from a secret error?
-Start with the section that matches the message: [What is refused](#what-is-refused) for `is not a valid secret reference`, [The operator's policy](#the-operator-s-policy) for `is not enabled`, `outside the prefixes`, `may not fetch secret values` or `would send ... to host`, [Vault and OpenBao](#vault-and-openbao) for `no store token was found` or a store that cannot be reached, and [The run-secrets file](#the-run-secrets-file) for `was not handed to this run` or `the run-secrets file ... cannot be used`.
+Start with the section that matches the message: [What is refused](#what-is-refused) for `is not a valid secret reference`, [The operator's policy](#the-operator-s-policy) for `is not enabled`, `outside the prefixes`, `may not fetch secret values`, `would send ... to host`, `connection.host is empty` or `which only fluid apply knows`, [Vault and OpenBao](#vault-and-openbao) for `no store token was found`, a store that cannot be reached or a `BAO_TOKEN` or `VAULT_TOKEN` that was ignored, and [The run-secrets file](#the-run-secrets-file) for `was not handed to this run` or `the run-secrets file ... cannot be used`.
 :::
 
 ::: tip Available in 0.8.3
@@ -63,11 +63,13 @@ A refused reference prints what is wrong, why, and the setting that allows it. T
 $ FLUID_SECRET_SCHEMES=env,file fluid secrets check contract.fluid.yaml
 ✅ builds[0].properties.source.connection.secretRef: env://PGPASSWORD
 ❌ builds[1].properties.source.connection.secretRef: vault://kv/orders/pg#db_pass
-   vault://kv/orders/pg#db_pass: the vault:// scheme is not enabled
+   vault://kv/orders/pg#db_pass cannot resolve, because the vault:// scheme is not enabled
    why: The operator decides which secret stores a contract may read from.
    fix: Set it in the operator environment (a shell or CI variable, not a project .env): FLUID_SECRET_SCHEMES="env,file,vault".
 1 of 2 secret references need attention.
 ```
+
+*(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* A refusal names the reference and goes on with `cannot resolve, because ...` or `was not fetched, because ...`. Through 0.32.0 it put a colon after the reference, as in `vault://kv/orders/pg#db_pass: the vault:// scheme is not enabled`.
 
 With `--resolve`, each reference that passed the policy also says whether it exists. This run has `PGPASSWORD` set, `PG_MISSING` unset, one file present and one absent:
 
@@ -93,7 +95,7 @@ A store that cannot answer is reported as `cannot tell`, and counts as a failure
 
 A reference that is not in the grammar is shown as written, unless it may be a secret pasted in its place; see [What is refused](#what-is-refused). A contract with no `secretRef` prints `No secret references in <contract>.` and exits 0.
 
-`--json` prints one object. `ok` is `false` when any reference failed, and each reference carries its `pointer`, the canonical `reference`, its `scheme` and `ok`. A refused reference adds `code`, `what`, `why` and `fix`. With `--resolve`, a reference adds `exists` (`true`, `false` or `null`) and `detail`.
+`--json` prints one object. `ok` is `false` when any reference failed, and each reference carries its `pointer`, the canonical `reference`, its `scheme` and `ok`. A refused reference adds `code`, `what`, `why` and `fix`. *(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* A reference whose host only `fluid apply` can read (see [A placeholder or an empty host](#a-placeholder-or-an-empty-host)) stays `ok` and adds `deferred`, the text of its warning. With `--resolve`, a reference adds `exists` (`true`, `false` or `null`) and `detail`.
 
 ```json
 {
@@ -231,9 +233,40 @@ builds:
 
 A remote host needs the operator's say-so, so this contract passes the default policy only when the operator sets `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST=PGPASSWORD@db.example.com` (see [the allowlist](#fluid-acquisition-secret-ref-allowlist)). A loopback host such as `localhost` needs no entry.
 
-A `{{ env.NAME }}` placeholder in `host` is judged twice, and differently. `fluid validate` and `fluid secrets check` read the host as written, so `{{ env.PGHOST }}` is refused unless the allowlist holds an entry with that exact text, such as `PGPASSWORD@{{ env.PGHOST }}`. `fluid apply` renders the placeholder before the build runs and judges the rendered host: with `PGHOST=db.example.com` it needs `PGPASSWORD@db.example.com`, and the placeholder entry matches nothing there. A contract with a placeholder host therefore needs both entries, so write the literal host where you can.
+A `host` that is a `{{ env.NAME }}` placeholder, and a `host` that is empty, are judged differently: see [A placeholder or an empty host](#a-placeholder-or-an-empty-host).
 
 A literal `password` in the same `connection` block wins over `secretRef`, and then the reference is never read. A contract that [`fluid init --discover`](./init.md) wrote, which carries the URI's password in `connection.password`, needs that line deleted when you add the `secretRef`. A password typed into a command-line URI also lands in shell history and in `ps` output; keep it out of the URI where you can.
+
+### A placeholder or an empty host
+
+`fluid apply` renders every `{{ env.NAME }}` placeholder from the environment it runs in before the build runs, and judges the host that results. With `PGHOST=db.example.com`, a connection that says `host: "{{ env.PGHOST }}"` needs `PGPASSWORD@db.example.com`. An allowlist entry that names the placeholder, such as `PGPASSWORD@{{ env.PGHOST }}`, matches nothing, at apply or anywhere else, so remove it.
+
+*(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* `fluid validate` and `fluid secrets check` never read your environment, so they cannot tell what a placeholder renders to. They leave that destination to `fluid apply` and print a warning, not an error. Through 0.32.0 they refused the placeholder text unless an entry named it, so a contract with a placeholder host needed that entry as well as the one for the rendered host.
+
+```text
+$ fluid secrets check contract.fluid.yaml
+✅ builds[0].properties.source.connection.secretRef: env://PGPASSWORD
+   ⚠️  env://PGPASSWORD is sent to whatever host connection.host ('{{ env.PGHOST }}') renders to, which only fluid apply knows. Unless it renders to a loopback host, allow that host in the OPERATOR environment (a shell or CI variable, not a project .env, which is ignored for this setting) where fluid apply runs: FLUID_ACQUISITION_SECRET_REF_ALLOWLIST="PGPASSWORD@<host>", with <host> the host it renders to there (with PGHOST as set there), without a port.
+All 1 secret references pass.
+```
+
+- **Only a placeholder that decides the host waits.** That is a placeholder anywhere in `host`, and in the scheme or the host part of a URI field (`uri`, `instance_url`, `connection_string`, `server`, `endpoint`), its port included. A placeholder in a user name, a password or a path does not, so `postgresql://db.example.com/{{ env.DB }}` is judged as written.
+- **A field waits whole, and the rest is still judged.** A host list in a URI, such as `postgresql://h1.example.com,{{ env.H }}/db`, waits as one, and `fluid apply` judges every host it renders to. A destination written without a placeholder is judged now: a literal `uri` that names a remote host, beside a placeholder `host`, is refused as usual.
+- **Two things do not wait.** An object-store URI such as `s3://{{ env.BUCKET }}/raw` names a bucket, which this check does not judge. Text that does not read as a URI scheme plus a host list, such as the keyword string `Server={{ env.PGHOST }};Database=d`, is judged as written, as before.
+- **No warning when the operator allows the reference for any host.** That is a bare `PGPASSWORD` for `env://PGPASSWORD`, or `<reference>@*`. `fluid apply` then clears whatever the placeholder renders to, and `fluid validate --strict` stays green. An entry for one host does not silence the warning, because the lint cannot tell whether the placeholder renders to that host.
+- **The warning quotes only your contract.** It never prints a value from the environment. Of a URI it quotes the scheme and the hosts without their ports, never a login or a path, and it names the variables the host uses.
+
+*(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* **An empty host is refused.** A `connection.host` that is present and empty (`host: ""` or `host: null`) names no host, and a database client given none picks one itself: libpq reads `PGHOST`, which a project `.env` may set. The check cannot tell where the value would go, so it refuses unless the operator has allowed the reference for any host. A placeholder whose variable is not set where `fluid apply` runs renders to an empty host, and `fluid apply` refuses it the same way:
+
+```text
+the contract would send environment variable 'PGPASSWORD' as a credential to a host the client picks itself, because connection.host is empty
+why: A database client given no host picks one on its own: libpq reads PGHOST, which a project .env file may set. So this check cannot tell where the value goes, and a destination it cannot read is not one it can clear.
+fix: Name the host in connection.host. A placeholder such as {{ env.PGHOST }} renders empty when the variable is not set where fluid apply runs, so set it there. To send the value to any host instead, set it in the OPERATOR environment (a shell or CI variable, not a project .env, which is ignored for this setting): FLUID_ACQUISITION_SECRET_REF_ALLOWLIST="PGPASSWORD".
+```
+
+A connection that names no destination at all, or only empty `uri`, `server`, `endpoint`, `instance_url` or `connection_string` fields, is refused as `a host that could not be determined`. Through 0.32.0 an empty destination field passed. Only a connection whose one destination is an object-store URI has no host to judge, and it passes.
+
+The DuckDB runner also hides `PGHOST` and `PGHOSTADDR` while it attaches a Postgres source, with the ambient credentials it already hides ([Changes in 0.23.0](../upgrading.md#changes-in-0-23-0)). A connection with no host then reaches only libpq's default local socket, and never a host a project `.env` set. `fluid init --discover` keeps both variables, because there you name the server.
 
 ### Schemes
 
@@ -336,7 +369,7 @@ Each refusal below is printed by `fluid validate`, `fluid secrets check` and the
 - **Refusal:** a reference whose scheme is not listed.
 
 ```text
-vault://kv/orders/pg#db_pass: the vault:// scheme is not enabled
+vault://kv/orders/pg#db_pass cannot resolve, because the vault:// scheme is not enabled
 why: The operator decides which secret stores a contract may read from.
 fix: Set it in the operator environment (a shell or CI variable, not a project .env): FLUID_SECRET_SCHEMES="env,file,vault".
 ```
@@ -351,7 +384,7 @@ The fix is the current list plus the scheme: add it to the variable.
 - **Refusal:** a locator outside every prefix of its scheme. The locator of a `file` reference is its absolute path, and of a `vault` reference `<mount>/<path>`.
 
 ```text
-vault://kv/orders/pg#db_pass: the locator is outside the prefixes allowed for vault://
+vault://kv/orders/pg#db_pass cannot resolve, because its locator is outside the prefixes allowed for vault://
 why: The operator allows vault:// references under: vault://kv/other/.
 fix: If this is intended, add a prefix in the operator environment: FLUID_SECRET_PREFIXES="vault://<prefix>/" (comma-separated, one per entry).
 ```
@@ -366,12 +399,12 @@ The default for `file` follows the model of Kafka Connect's `FileConfigProvider`
 - **Refusal:** a stage that is not listed asks for a value.
 
 ```text
-env://PGPASSWORD: the verify stage may not fetch secret values
+env://PGPASSWORD was not fetched, because the verify stage may not fetch secret values
 why: The operator lets these stages fetch values: apply.
 fix: If verify must send this value, set it in the operator environment: FLUID_SECRET_STAGES="apply,verify".
 ```
 
-A stage that never fetches gives a different refusal, which has nothing to change: `` `fluid plan` never fetches a secret value ``, with the note that the value is read when `fluid apply` runs. A lookup made outside every stage is refused too, and the message says to run the stage that uses the secret.
+A stage that never fetches gives a different refusal, which has nothing to change: `` env://PGPASSWORD was not fetched, because `fluid plan` never fetches a secret value ``, with the note that the value is read when `fluid apply` runs. A lookup made outside every stage is refused too, and the message says to run the stage that uses the secret.
 
 ### `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`
 
@@ -388,7 +421,7 @@ A stage that never fetches gives a different refusal, which has nothing to chang
 
   The `@<host>` part is required in the reference forms, because a Secrets Manager name may itself contain `@`. A reference is compared in its canonical form, so `aws://x` and `aws-sm://x` are one. A host written with a port never matches: leave the port off. A malformed entry grants nothing.
 - **Example:** `export FLUID_ACQUISITION_SECRET_REF_ALLOWLIST="PGPASSWORD@db.example.com,vault://kv/orders/pg#db_pass@*,aws-sm://fluid/orders/*@db.example.com"`
-- **Refusal:** a destination that leaves this machine and has no entry. Every host of a connection counts, a host list included, and a port that is not a number counts as a host that cannot be read.
+- **Refusal:** a destination that leaves this machine and has no entry. Every host of a connection counts, a host list included, and a port that is not a number counts as a host that cannot be read. *(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* So does an empty `host`, which only an entry for any host clears: see [A placeholder or an empty host](#a-placeholder-or-an-empty-host).
 
 ```text
 the contract would send environment variable 'PGPASSWORD' to host 'db.example.com' as a credential
@@ -413,7 +446,15 @@ The address, namespace and CA bundle each have a `BAO_` and a `VAULT_` name. for
 | CA bundle | `BAO_CACERT`, `VAULT_CACERT` | A PEM file that signed the store's certificate. |
 | Token | `BAO_TOKEN`, `VAULT_TOKEN` | See the order below. Not operator-only: see the note under the table. |
 
-The address, the namespace, the CA bundle and every `FLUID_VAULT_` variable are operator-only: a project `.env` cannot set them. `BAO_TOKEN` and `VAULT_TOKEN` are not on that list, because a token is a credential and a project's `.env` may carry credentials. A command that loads the project's `.env`, such as `fluid apply`, exports each of the two from it that is not already set in your real environment, even to an empty value, or in a `FLUID_SECRETS_FILE` you exported. The check is per variable, and `BAO_TOKEN` is read first: if you export only `VAULT_TOKEN`, or rely on `~/.vault-token`, a project `.env` that sets `BAO_TOKEN` supplies the token. To keep a project file from choosing the token, export both variables (empty ones, `BAO_TOKEN= VAULT_TOKEN=`, when you rely on the helper file), or use `FLUID_VAULT_JWT_ROLE` or a wrapped token, which come before both and which a `.env` cannot set.
+The address, the namespace, the CA bundle and every `FLUID_VAULT_` variable are operator-only: a project `.env` cannot set them. `BAO_TOKEN` and `VAULT_TOKEN` are not on that list, because a token is a credential and a project's `.env` may carry credentials. A command that loads the project's `.env`, such as `fluid apply`, exports each of the two from it, unless that name is already set in your real environment (even to an empty value) or in a `FLUID_SECRETS_FILE` you exported.
+
+*(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* A project's token also yields to yours. While you have a token of your own, a project `.env`'s `BAO_TOKEN` and `VAULT_TOKEN` do not load at all. You have one when `BAO_TOKEN` or `VAULT_TOKEN` holds a value in your real environment or in a `FLUID_SECRETS_FILE`, or when `~/.vault-token` holds a token (a regular file, not a link, and on Linux and macOS one that you own). A value you set counts as yours even when it equals the project file's. For each variable it drops that you did not set yourself, the CLI warns, naming the variable and the file and never a value:
+
+```text
+Ignored BAO_TOKEN (.env) from project dotenv files: you have an OpenBao/Vault token of your own (VAULT_TOKEN), and the project's would be read in its place to reach your store. To use the project's token instead, export it in your shell or CI environment.
+```
+
+A project's token loads only when you have none of your own, as for a local dev store whose token its `.env` holds. Through 0.32.0 the check was per variable, and `BAO_TOKEN` is read first, so a project `.env` that set `BAO_TOKEN` supplied the token even when you had exported `VAULT_TOKEN` or relied on `~/.vault-token`. The way to stop that was to export both variables, empty. `FLUID_VAULT_JWT_ROLE` and a wrapped token come before both variables, and a `.env` cannot set them.
 
 ### Which token is used
 
