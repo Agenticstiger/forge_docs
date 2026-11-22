@@ -6,7 +6,7 @@ Stage 5 of the 11-stage pipeline. Detect drift between the contract and what is 
 
 ```bash
 fluid diff CONTRACT [--env ENV] [--exit-on-drift] [--last-applied PLAN] [--out PATH]
-fluid diff CONTRACT --baseline OLD_CONTRACT [--fail-on-breaking] [--format FORMAT]
+fluid diff CONTRACT --baseline OLD_CONTRACT [--fail-on-breaking] [--fail-on-id-change] [--format FORMAT]
 fluid diff CONTRACT --baseline OLD_CONTRACT --impact [--plan PLAN_JSON] [--format FORMAT]
 ```
 
@@ -207,7 +207,8 @@ Version-diff mode (`--baseline`) needs no provider at all — it is a pure struc
 | `--no-state-drift` | state check on | Compare the live targets only, not the apply's state. |
 | `--ensure-opentofu` | off | If the apply's state is reachable and `tofu` is missing, provision the pinned, SHA-256-verified build. |
 | `--baseline` | none | Compare against an older revision of the contract: switches `diff` into version-diff mode. |
-| `--fail-on-breaking` | off | In version-diff mode, exit `1` when a breaking change is found. |
+| `--fail-on-breaking` | off | In version-diff mode, exit `1` when a breaking change is found. A changed product id is a breaking change, so it fails too. |
+| `--fail-on-id-change` | off | *(since 0.37.0)* In version-diff mode, exit `1` with `ERR_PRODUCT_ID_CHANGED` when the product id differs from the baseline's, and on nothing else. See [A changed product id](#a-changed-product-id). |
 | `--format` | `text` | Version-diff output format: `text`, `json` or `markdown`. |
 | `--impact` | off | *(since 0.33.0, [forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981))* With `--baseline`, add the [impact report](#impact-report-for-a-pull-request). Refused without `--baseline`. |
 | `--plan PLAN_JSON` | none | *(since 0.33.0, [forge-cli #981](https://github.com/Agenticstiger/forge-cli/pull/981))* The OpenTofu plan the change would run: the `plan.json` of `fluid plan --tofu`, or the output of `tofu show -json`. Implies `--impact`. |
@@ -329,6 +330,26 @@ Through 0.26.0, the text and JSON on stdout were wrapped at the terminal width, 
 
 From 0.27.0, `fluid diff --baseline` reads the columns of a 0.7.x contract, applies the type rules below and reports a name declared twice. A pipeline that runs `fluid diff --baseline --fail-on-breaking` and passes on 0.26.0 can exit `1` after the upgrade, on a contract nobody changed. A contract that declares a column twice exits `1` even when it is compared with an identical copy of itself (measured). [Both contracts must be valid](#both-contracts-must-be-valid) describes another way a gate can start failing. Run the gate once on the contract you release from, and read what it reports, before it blocks a merge.
 :::
+
+### A changed product id
+
+*(since 0.37.0)* The product id is the product's identity. A contract whose `id` differs from the baseline's describes another product, not a new version of it. Consumers (`consumes[].productId`), the catalog, `fluid apply` state and run cursors all name the product by its id.
+
+The changelog gains a breaking `product_id_changed` change, first in the report. The comparison is exact, so a change of case counts. `--impact` lists the change once, from the changelog.
+
+- Without a gate flag the diff only reports.
+- `--fail-on-breaking` now also fails on an id change, with no typed message.
+- `--fail-on-id-change` fails on an id change and looks at nothing else, so a migration can require the id to stay while every other change is free. It exits 1 with `ERR_PRODUCT_ID_CHANGED` after the report is printed and written to `--out`. With `--format json`, stdout holds the report, then the error text; `--out` holds the complete document.
+
+```bash
+fluid diff migrated/contract.fluid.yaml --baseline committed/contract.fluid.yaml --fail-on-id-change
+```
+
+If it fails, keep the baseline's id. A new id is a second product:
+
+- the old catalog entry stays;
+- `fluid apply` state and run cursors start over;
+- `consumes[].productId` entries keep naming the old id.
 
 ### Which column changes are breaking
 

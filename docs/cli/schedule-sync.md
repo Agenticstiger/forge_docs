@@ -80,6 +80,101 @@ Airflow keys run history on the `dag_id`, so a DAG that moves to an environment-
 | `--timeout SECONDS` | Per-subprocess timeout. Default 600, hard cap 3600. |
 | `--report PATH` | Write a JSON result summary. See [The report](#the-report). |
 
+## Waiting for Airflow to parse the files (since 0.37.0)
+
+A push only puts files in place. Airflow reads them later, and a file with an import error never becomes a DAG. With `--airflow-url`, stage 11 waits until Airflow has parsed every pushed file, on Airflow 2 and Airflow 3, and fails the stage when one does not import.
+
+```bash
+fluid schedule-sync \
+  --scheduler airflow \
+  --dags-dir dist/artifacts/schedule/ \
+  --destination s3://my-airflow-dags/team-x/ \
+  --airflow-url https://airflow.example.org
+```
+
+To check files your own deploy already put in place, push nothing:
+
+```bash
+fluid schedule-sync --scheduler airflow --dags-dir dist/artifacts/schedule/ --check-only \
+  --airflow-url https://airflow.example.org
+```
+
+The check works with `--scheduler airflow`, `astronomer` and `composer`. MWAA, Prefect and Dagster are refused with `--airflow-url` (`schedule_sync_airflow_unsupported_scheduler`, exit `2`). Without `--airflow-url` the stage behaves as before.
+
+### Flags
+
+| Option | Description |
+| --- | --- |
+| `--airflow-url URL` | The Airflow API server (on Airflow 2, the webserver). `https`, or `http` to a loopback host. The URL holds no user name, password, query or fragment. |
+| `--airflow-api {auto,v1,v2}` | The REST dialect: `v2` for Airflow 3 (`/api/v2`), `v1` for Airflow 2 (`/api/v1`). Default `auto` detects it. |
+| `--airflow-wait SECONDS` | How long to wait for the parse. Default 600, at most 3600. No request outlives it. Airflow lists new files every `dag_dir_list_interval` (Airflow 2) or `refresh_interval` (Airflow 3), 300 seconds by default, so keep it above that. |
+| `--airflow-bundle NAME` | Airflow 3: the DAG bundle the files belong to. DAGs and import errors of other bundles are ignored. |
+| `--airflow-bundle-version VERSION` | Airflow 3, a versioned bundle: wait until the pushed DAGs report this version. A commit may be abbreviated to 7 or more hex digits. Default: the commit a `git+ssh` push made, where the bundle is versioned. |
+| `--check-only` | Push nothing. Check the files under `--dags-dir` in Airflow. |
+
+`--airflow-bundle` and `--airflow-bundle-version` need Airflow 3.
+
+### Credentials
+
+Give the credential as a secret reference in the operator environment. A project `.env` file cannot set these variables. Set one, not both.
+
+| Variable | Holds | Sent as |
+| --- | --- | --- |
+| `FLUID_AIRFLOW_TOKEN_REF` | An API token | A bearer token, on both majors |
+| `FLUID_AIRFLOW_CREDENTIAL_REF` | `user:password` | HTTP Basic on Airflow 2. On Airflow 3, exchanged for a token at `POST /auth/token`. |
+
+A reference is `env://NAME`, `file://`, `vault://` or `aws-sm://`. Run [`fluid secrets check`](./secrets.md) to see why one does not resolve. The Airflow user needs read access to DAGs and import errors (the Viewer role). To compare the source Airflow stores with the pushed file, it also needs to read DAG code.
+
+Plain HTTP is refused for any host but loopback, unless `FLUID_AIRFLOW_ALLOW_INSECURE_HTTP` is set to `true` where plain HTTP is intended. A request to a loopback host never goes through a proxy. A redirect is never followed.
+
+### What the check does
+
+1. Before anything is pushed, it reads the Airflow version, signs in, and reads import errors and DAGs. A check that cannot run leaves nothing pushed.
+2. It pushes the files (unless `--check-only`).
+3. It waits, up to `--airflow-wait`, until every pushed file is parsed with no import error.
+
+What counts as parsed:
+
+- On an Airflow 3 Git DAG bundle, the file's DAGs must report the commit the `git+ssh` push made (or `--airflow-bundle-version`).
+- Elsewhere, the source Airflow stores for the file must be the pushed file, and Airflow must then save two clean parses of it, the later at least 60 seconds after the parse it showed when the source first matched. A parse already running when the files landed read the old file.
+- A user who may not read DAG code gets a pass marked not proven after two clean parses 60 seconds apart.
+- A failure counts from two stamps of the file's import error and stands once they are 60 seconds apart.
+- A DAG that never appears is reported as not parsed. On Airflow 3, an import error of a file with no registered DAG is shown only to a user who may read all import errors.
+- A file whose DAG ids forge cannot read holds the wait until Airflow lists a DAG from it or shows its import error. A helper module is not waited for (its import makes no call and it never names `globals`), but an import error Airflow shows for it fails the check.
+
+### The result
+
+| Result | Exit | Code |
+| --- | --- | --- |
+| Every file parsed, no import error | `0` | |
+| Parsed, but not proven (the user may not read DAG code) | `0` | `schedule_sync_airflow_unproven` |
+| A file fails to import | `1` | `schedule_sync_airflow_import_errors` |
+| A file is not parsed in time | `1` | `schedule_sync_airflow_not_parsed` |
+
+The [report](#the-report) holds an `airflow_check` block that names each file and its result.
+
+### Errors
+
+| Code | Cause and fix |
+| --- | --- |
+| `schedule_sync_airflow_flags` | An `--airflow-*` flag or `--check-only` without `--airflow-url`, or a bundle flag on Airflow 2. Exit `2`. |
+| `schedule_sync_airflow_unsupported_scheduler` | `--airflow-url` with `mwaa`, `prefect` or `dagster`. Exit `2`. |
+| `schedule_sync_airflow_no_dag_files` | `--dags-dir` holds no `.py` file Airflow would parse. Exit `2`. |
+| `schedule_sync_airflow_bad_url` | Pass `https://<host>[/<prefix>]` with no credentials, query or fragment. |
+| `schedule_sync_airflow_insecure_url` | Use `https`, or set `FLUID_AIRFLOW_ALLOW_INSECURE_HTTP=true`. |
+| `schedule_sync_airflow_credentials` | Set exactly one of the two credential variables to a secret reference. |
+| `schedule_sync_airflow_unreachable` | The server did not answer. A restarting server answers 502 or 503 for a while: raise `--airflow-wait` or re-run. |
+| `schedule_sync_airflow_api_not_found` | Pass the root URL of the API server, with the path prefix it is served under. |
+| `schedule_sync_airflow_api_mismatch` | Leave `--airflow-api` at `auto`, or pass `v2` for Airflow 3 and `v1` for Airflow 2. |
+| `schedule_sync_airflow_unsupported_version` | The URL is not an Airflow 2.x or 3.x API server. |
+| `schedule_sync_airflow_auth_failed` | The credential was refused. Airflow 2 takes a password only with the `basic_auth` API backend enabled; Airflow 3 issues a token at `POST /auth/token`. |
+| `schedule_sync_airflow_forbidden` | Give the Airflow user read access to DAGs and import errors. |
+| `schedule_sync_airflow_redirect` | Pass the URL the redirect points at. A sign-in page means a proxy sits in front of Airflow. |
+| `schedule_sync_airflow_bad_response` | The URL points at another service, not Airflow's API server. |
+| `schedule_sync_airflow_import_errors` | Fix the import error the report names, then re-run. Parse the DAG locally against the same Airflow major before pushing. |
+| `schedule_sync_airflow_not_parsed` | Raise `--airflow-wait`. On an Airflow 3 Git bundle, check that the bundle tracks the branch the push went to. |
+| `schedule_sync_airflow_unproven` | Let the Airflow user read DAG code so the check can compare the stored source with the pushed file. Exit `0`. |
+
 ## What gets deleted
 
 `--delete-scope` decides which files the sync may remove at the destination.
@@ -128,7 +223,7 @@ With `--delete-scope destination` on a transport that deletes, the whole-destina
 
 *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* When stage 11 of [`fluid ship`](./ship.md) runs, it passes `--report runtime/schedule-sync-report.json`, so a generated pipeline keeps this report there.
 
-`--report PATH` writes a JSON summary with these keys: `command`, `scheduler`, `env`, `dags_dir`, `delete_scope`, `dry_run`, `overall_exit`, `results` and `superseded_scopes`. Each entry of `results` has `argv`, `dry_run`, `duration_s`, `exit_code`, `stdout_tail` and `stderr_tail`. Each entry of `superseded_scopes` names an environment directory that replaced an old one:
+`--report PATH` writes a JSON summary with these keys: `command`, `scheduler`, `env`, `dags_dir`, `delete_scope`, `dry_run`, `overall_exit`, `results` and `superseded_scopes`. *(since 0.37.0)* With `--airflow-url` it also holds `airflow_check`. Each entry of `results` has `argv`, `dry_run`, `duration_s`, `exit_code`, `stdout_tail` and `stderr_tail`. Each entry of `superseded_scopes` names an environment directory that replaced an old one:
 
 ```json
 "superseded_scopes": [

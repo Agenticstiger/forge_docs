@@ -1,11 +1,11 @@
 # `fluid odcs`
 
-Convert between FLUID contracts and the Open Data Contract Standard (ODCS) v3.1.0 from Bitol.io, in either direction.
+Convert between FLUID contracts and the Open Data Contract Standard (ODCS) from Bitol.io, in either direction. The exporter writes v3.1.0 (default) or, *(since 0.37.0)*, v3.2.0.
 
 ## Syntax
 
 ```bash
-fluid odcs export CONTRACT [--output PATH] [--format FMT] [--no-quality] [--no-sla]
+fluid odcs export CONTRACT [--output PATH] [--format FMT] [--no-quality] [--no-sla] [--odcs-version VERSION]
 fluid odcs import ODCS_FILE [--output PATH] [--format FMT]
 fluid odcs validate ODCS_FILE [--report PATH] [--roundtrip] [--no-vowl]
 fluid odcs info
@@ -22,6 +22,7 @@ fluid odcs info
 | `--format`, `-f` | Output format: `yaml` or `json`. Default `yaml`. |
 | `--no-quality` | Exclude quality checks from the output. |
 | `--no-sla` | Exclude SLA properties from the output. |
+| `--odcs-version` | `3.1.0` (default) or `3.2.0`. *(since 0.37.0)* See [ODCS versions](#odcs-versions). Any other value is `ERR_ODCS_VERSION_UNSUPPORTED` (exit 2). |
 
 ### `odcs import`
 
@@ -35,14 +36,14 @@ fluid odcs info
 
 | Option | Description |
 | --- | --- |
-| `ODCS_FILE` | Path to an ODCS file to validate against the v3.1.0 JSON schema. |
+| `ODCS_FILE` | Path to an ODCS file to validate against the JSON schema of the version its `apiVersion` declares (v3.1.0 or v3.2.0). *(since 0.37.0)* |
 | `--report PATH` | Write a structured JSON validation report to this path (for CI gates). *(since 0.21.0, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* A file that is not valid YAML, or that the [YAML limits](./validate.md#yaml-limits) refuse, is reported too, as a failed `parse` pass. |
 | `--roundtrip` | Also verify the contract round-trips losslessly through `OdcsProvider.import_contract` → `render` and report any diff. Requires `deepdiff`, which ships only in the `dev` extra — without it the pass reports `ModuleNotFoundError`. |
 | `--no-vowl` | Skip the vowl second-pass even if installed. |
 
 ### `odcs info`
 
-No options. Prints exporter info (version, spec URL, schema status).
+No options. Prints exporter info: the default version, the versions it writes (`--odcs-version`, *since 0.37.0*), the spec URL and schema status.
 
 ## Examples
 
@@ -51,7 +52,52 @@ fluid odcs export contract.fluid.yaml
 fluid odcs export contract.fluid.yaml -o contract.json -f json --no-sla
 fluid odcs import third-party-contract.yaml -o my-contract.fluid.yaml
 fluid odcs validate contract.odcs.yaml
+fluid odcs export contract.fluid.yaml --odcs-version 3.2.0
 ```
+
+## ODCS versions
+
+*(since 0.37.0)* The exporter writes v3.1.0 by default and v3.2.0 on request. `--odcs-version 3.1.0|3.2.0` is accepted by:
+
+- `fluid odcs export`;
+- [`fluid generate standard --format odcs`](./generate.md) (an error with any other format);
+- [`fluid datamesh-manager publish`](./datamesh-manager.md), for the per-port contracts `--with-contract` sends.
+
+`fluid odcs info` lists the versions. `fluid odcs validate`, an import and the round-trip check read the document's own `apiVersion` and hold it to that version's schema. A version the exporter does not write is `ERR_ODCS_VERSION_UNSUPPORTED`, which names the ones it does. It exits 2 for every command, including `fluid odcs export`, where it is a usage error.
+
+v3.1.0 stays the default everywhere because a v3.1.0 validator refuses `apiVersion: v3.2.0` and a server type outside its closed list. Entropy Data validates each document against the schema of the version it declares, and an organization can pin v3.1.0, so `fluid datamesh-manager publish` stays on v3.1.0 unless you ask for 3.2.0.
+
+### The `iceberg` server
+
+Under v3.2.0, an expose bound to an Iceberg table is written as an `iceberg` server when the catalog is known:
+
+- Glue: `location.catalog: glue`, or the default on `aws` and `confluent`.
+- A REST-family catalog the binding names (`location.catalog` of `rest`, `lakekeeper`, `polaris` or `unity`) or locates (`location.uri`).
+
+| Server field | Value |
+| --- | --- |
+| `catalog` | The warehouse name for Lakekeeper, Polaris and Unity; otherwise the catalog kind. |
+| `catalogUrl` | The binding's `location.uri`; for Glue, the regional endpoint `https://glue.<region>.amazonaws.com/iceberg`; otherwise the placeholder `${ICEBERG_CATALOG_URL}`. |
+| `namespace` | The database or dataset. |
+| `warehouse` | `location.warehouse`; for Glue, the table's S3 base. |
+
+Catalog rules:
+
+- An Iceberg table in a warehouse's own catalog (Snowflake-managed, BigQuery) keeps its platform server. So does an Iceberg binding that names no catalog on `gcp`, `azure`, `databricks` or `local`.
+- Glue's regional endpoint is written for commercial regions only (`xx-name-N`). `cn-*`, `us-gov-*` and `us-iso-*` regions get the `${ICEBERG_CATALOG_URL}` placeholder, because those partitions use other endpoints.
+- `catalogUrl` never carries a user or password. They are cut from the text, so a URL with a bad port loses them too. A `uri` that still has an `@` after the cut is not written, and the placeholder takes its place.
+
+### Limits
+
+- A document imported from ODCS 3.2.0 and exported at the default 3.1.0 keeps its servers as they were. An `iceberg` server is invalid under 3.1.0: export it with `--odcs-version 3.2.0`.
+- `fluid generate artifacts --emit odcs` and `fluid ship` write v3.1.0. They take no version flag.
+- The other v3.2.0 additions are not written: map and vector types, `semanticType`, `context`, `synonyms`, `deprecated`, `enum` and nine more server types.
+- `status` is optional in v3.2.0, and the exporter still writes it.
+- `fluid odcs validate` and `ODCS_VOWL_VALIDATE=true` skip the optional vowl pass, and say so, for a version the installed vowl does not read (vowl 0.0.2 reads up to v3.1.0). The JSON schema pass is the check for v3.2.0 meanwhile.
+
+::: warning Do not put credentials in a binding
+The `fluidExtras` custom property carries a binding verbatim, at 3.1.0 too, `location.uri` included. Keep any credential out of a binding. The Iceberg sink preflight already refuses one in a catalog URL.
+:::
 
 ## Quality rules in the export
 
@@ -159,7 +205,7 @@ gross is ROUND(net * (1 + tax_rate), 2). Not executable here: its binding is aws
 ## Notes
 
 - ODCS is bidirectional: `export` goes FLUID -> ODCS, `import` goes ODCS -> FLUID. The underlying exporter was modularised under `providers/odcs/` in `v0.8.3` with paired `to_fluid()` / `to_odcs()` mappers and per-level `odcs_passthrough` buckets for lossless round-trip. As of `0.10.0`, ODCS is a spec exporter (surfaced by [`fluid exporters`](./exporters.md)), not a registered cloud provider — it is not listed by [`fluid providers`](./providers.md).
-- Validation uses the bundled ODCS v3.1.0 JSON Schema from Bitol.io. Validation runs by default on every export (`ODCS_VALIDATE=true`); failures warn rather than raise. Hard-fail via `ODCS_VALIDATE_STRICT=true`. *(since 0.15.0)* That schema is now validated with the 2019-09 dialect it declares rather than with Draft 7, which **ignored** the nine `unevaluatedProperties: false` guards it carries — so an export that validated clean on `0.14.1` may now warn. Same change, same cause, as [`fluid validate-artifacts` → Schema dialect](./validate-artifacts.md#schema-dialect-since-0-15-0).
+- Validation uses the bundled ODCS JSON Schema for the version in use (v3.1.0 by default) from Bitol.io. Validation runs by default on every export (`ODCS_VALIDATE=true`); failures warn rather than raise. Hard-fail via `ODCS_VALIDATE_STRICT=true`. *(since 0.15.0)* That schema is now validated with the 2019-09 dialect it declares rather than with Draft 7, which **ignored** the nine `unevaluatedProperties: false` guards it carries — so an export that validated clean on `0.14.1` may now warn. Same change, same cause, as [`fluid validate-artifacts` → Schema dialect](./validate-artifacts.md#schema-dialect-since-0-15-0).
 - **`description` field mapping.** ODCS models `description` as an object of string fields (`purpose`, `limitations`, `usage`); FLUID models it as a single string, so converting needs a type check in both directions. *(since 0.15.0)* The exporter mirrors the importer: a mapping passes through as siblings under `description`, a string is still wrapped as `{purpose: <string>}`, and an empty mapping emits no `description` key at all. Previously the exporter wrapped **unconditionally**, so a mapping came out as `description.purpose: {purpose: …, limitations: …, usage: …}` — an object where the schema declares a string, i.e. invalid ODCS written with only a warning (or, on installs carrying the optional `vowl` validator via `data-product-forge[odcs-strict]`, an aborted `fluid generate artifacts` that wrote no artifacts at all). Round-trips never saw it, because the import path stashes the original object in metadata passthrough and the exporter reads it back; only a caller rendering a document it had not imported reached the broken branch. The old shape was already schema-invalid, so only a consumer written against the bug breaks.
 - *(since 0.21.0, [forge-cli #725](https://github.com/Agenticstiger/forge-cli/pull/725))* `validate` and `import` read YAML through the same [limits](./validate.md#yaml-limits) as FLUID contracts, and report a file they refuse, or one that is not valid YAML, as a failed validation or import with exit 1. A `.YAML` or `.YML` suffix in upper case is read as YAML.
 - The unified [`fluid odps`](./odps-bitol.md#unified-fluid-odps-since-v0-8-3) command also accepts a lone ODCS file under `fluid odps import` — useful when you want one entry point for both spec families.

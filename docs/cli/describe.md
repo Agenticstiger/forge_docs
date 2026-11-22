@@ -6,9 +6,10 @@ Describe the installed CLI as data: its version, the contract schema it validate
 
 ```bash
 fluid describe --self [--json]
+fluid describe --commands
 ```
 
-`--self` is required. Without it, `fluid describe` prints a usage line and exits `1`, with or without `--json`:
+`--self` or `--commands` is required. Without one, `fluid describe` prints a usage line and exits `1`, with or without `--json`:
 
 ```bash
 fluid describe
@@ -69,6 +70,7 @@ fluid describe --self --json | jq -e '.provider_engine_compatibility.gcp | index
 | Option | Description |
 | --- | --- |
 | `--self` | Describe this installation. Required. |
+| `--commands` | *(since 0.37.0)* Print every command, flag and plugin-added command or importer as JSON. See [`--commands`](#every-command-as-json). |
 | `--json`, `-j` | Emit JSON instead of the human-readable summary. |
 
 ## Output reference
@@ -103,7 +105,26 @@ fluid describe --self --json | jq -e '.provider_engine_compatibility.gcp | index
 }
 ```
 
+*(since 0.37.0)* Each option record in `describe --self --json` also carries `type` and `nargs`.
+
 A positional argument has an empty `names` list and `"positional": true`. A UI can render a form for a command from this shape without keeping its own copy of the CLI's flags.
+
+## Every command as JSON
+
+*(since 0.37.0)* `fluid describe --commands` prints one JSON document that describes every command, for a script or a coding tool that needs the full surface.
+
+```bash
+fluid describe --commands
+```
+
+| Key | What it holds |
+| --- | --- |
+| `schema_version` | The version of this document's shape. Currently `1`. |
+| `fluid_version` | The installed CLI release. |
+| `commands` | The command tree. Each command lists its aliases, its positional arguments and its flags. Each flag has its names, `type`, `choices`, `default`, `nargs` and `help`. |
+| `importers` | The importers `fluid import` offers: the built-in ones and those added by `fluid_build.importers` plugins. Each has a `name` and a `source`. |
+
+Commands added by `fluid_build.commands` plugins are loaded for this call, under the allow and block policy (`FLUID_PLUGINS_ALLOWLIST`, `FLUID_PLUGINS_BLOCKLIST`), and carry a `plugin` key. Importer plugins are read from entry-point metadata without loading them. Plain `--help` and every other command still load no plugin.
 
 ## Notes
 

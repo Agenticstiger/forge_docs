@@ -689,7 +689,7 @@ What never passes:
 
 *(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* An IaC plugin that lives outside forge declares what its provider reads: exact names in `credential_env_vars` and whole families in `credential_env_prefixes` (for example `("MYCLOUD_",)`). A plugin that declares no prefixes is warned about once, with `tofu_env_plugin_undeclared`, and gets only its `credential_env_vars` and the basics. A job that relied on a variable the allowlist now drops needs it declared there, or set another way.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* The `tofu --version` check, which runs before a cloud apply and before `fluid diff`, gets a shorter list still: `PATH`, `HOME`, `SYSTEMROOT`, `USERPROFILE` and `PATHEXT` for Windows, and `TOFU_CLI_PATH` and `GITHUB_OUTPUT`. A version check needs no credential, proxy or OpenTofu setting. Through 0.36.0 that one call ran with the whole environment of the job.
+*(since 0.37.0, [forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042))* The `tofu --version` check, which runs before a cloud apply and before `fluid diff`, gets a shorter list still: `PATH`, `HOME`, `SYSTEMROOT`, `USERPROFILE` and `PATHEXT` for Windows, and `TOFU_CLI_PATH` and `GITHUB_OUTPUT`. A version check needs no credential, proxy or OpenTofu setting. Through 0.36.0 that one call ran with the whole environment of the job.
 
 ## Reporting to the Command Center (since 0.17.0)
 
@@ -771,6 +771,95 @@ The printed `tofu state rm` commands include `-chdir` pointing at the per-contra
 
 Structured `packaging_transition_blocked` / `packaging_adoption_override` events are emitted for CI log scrapers. This guard runs **earlier** than, and is independent of, the data-loss gate — that gate remains the unconditional last line.
 
+## Adopting existing Glue tables (since 0.37.0)
+
+*(since 0.37.0)* On AWS, a Glue table that the contract names, that already exists and that the OpenTofu state does not hold is not taken over unless you ask. Without `--adopt-tables`, `fluid apply` refuses before the plan, names each table, and writes nothing (`table_adoption_requires_flag`). Before 0.37.0 such a table was imported and rewritten to the contract on every apply.
+
+A table forge made for the same product is re-attached as before when its state was lost or is kept nowhere, so an apply that starts from an empty state on every run keeps working. forge's module marks every Glue table it creates with the parameter `managed_by: fluid` and the product id in the parameter `fluid_product_id`, whatever the contract's size. A table made before that is matched by the id in the contract it records (`fluid_contract`, which is dropped for a contract over 50 KB). A table with neither, or with another product's id, needs the flag. S3 buckets, Glue databases, Kinesis streams and the other brownfield resources are adopted as before.
+
+### Take over a table
+
+Plan with the flag, review the plan, then apply it:
+
+```bash
+fluid plan contract.fluid.yaml --tofu --adopt-tables --out runtime/plan.json
+fluid apply runtime/plan.json --yes
+```
+
+Or in one step:
+
+```bash
+fluid apply contract.fluid.yaml --adopt-tables --yes
+```
+
+`fluid ship --adopt-tables` passes the flag to its apply stage.
+
+What the flag does:
+
+- It finds the tables the contract names that already exist and that the state does not hold, and plans each through an OpenTofu `import` block. The plan shows the import and writes no state before the apply.
+- It reads the saved plan back with `tofu show -json` before the data-loss gate. A table that matches is imported unreplaced, and its Lake Formation permissions are kept.
+- It prints what the table holds of its own that the contract does not declare: a description, an owner, column comments, a column name's case, the columns of older Iceberg schemas Glue lists. An Iceberg table keeps it, because adoption never updates an Iceberg table in place. The plan is made again with that left alone and must import the table with no change. A Hive table is updated in place.
+- It checks the match when the plan is made. A saved plan applies what it planned.
+- The run that applies the take-over logs `table_adoption_accepted` at WARNING for the audit trail. A dry run or a refusal does not.
+- The saved plan records the adopted tables in `opentofuPlan.adoptedTables`, under `planDigest`, and `fluid apply plan.json` names them.
+
+### What a mismatch looks like
+
+A table that differs from the contract refuses the run with `table_adoption_mismatch`. Nothing is imported or applied. The message names each difference:
+
+- A column that is missing, added, of another type (spacing aside, as the data-loss gate reads types) or in another order.
+- A property that differs: location, Iceberg or not, input and output format, SerDe and storage parameters, partition keys, table type or any other storage setting.
+- A replace that OpenTofu would plan for the table.
+
+Change the contract to match the table, or change the table, then plan again.
+
+### Limits and errors
+
+| Code | Meaning and fix |
+| --- | --- |
+| `table_adoption_requires_flag` | An existing table is not managed by forge for this product. Add `--adopt-tables` after checking the table is yours. |
+| `table_adoption_mismatch` | The table differs from the contract. See above. |
+| `table_adoption_unavailable` | With the flag, a table could not be looked for because there is no AWS account id. Set the account (for example through your AWS credentials) and run again. |
+| `plan_adopt_tables_needs_tofu` | `fluid plan --adopt-tables` without `--tofu`. Add `--tofu`. |
+| `table_adoption_accepted` | An audit event at WARNING, not an error: the run took the tables over. |
+
+- With the flag, a look-up that fails for any reason except "no such object" stops the run.
+- A partitioned Hive table cannot be adopted yet. Its partition trigger is new to the state, so OpenTofu plans its replacement, and the run is refused saying so.
+
+### A table made from a contract over 50 KB
+
+A table made by an earlier release from a contract over 50 KB has no `fluid_contract` parameter and no `fluid_product_id`, so `fluid apply` refuses it with `table_adoption_requires_flag`. If the table is that product's, add the table parameter `fluid_product_id=<product id>` once. Pause the table's writers first. Use `aws glue update-table` with `--version-id` from a fresh `aws glue get-table`, so a concurrent commit fails the update instead of being reverted.
+
+Where the run can pass flags and keeps its state, `--adopt-tables` once also works. Adopting does not write the id, so a run that keeps no state needs the parameter.
+
+## Live Iceberg tables are not updated in place
+
+A contract change, or drift, that would update a live Iceberg Glue table in place leaves the table as it is. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+
+The AWS provider updates a Glue table with a call that carries no version id, after it re-reads the table's metadata location. A commit an Iceberg writer made during the apply could be reverted, and its data dropped from the table. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+
+What the run does:
+
+- It makes the plan again with the table's description, owner, retention and storage descriptor left alone. The plan must leave the table with no change. This holds whatever brought the table into the plan: a table the state holds, one a fresh state re-attaches, or one `--adopt-tables` adopts. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- It prints what the contract wanted and how to apply it, and logs `iceberg_table_update_held` at WARNING. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- Hive tables keep their in-place updates. A replace stays with the [data-loss gate](#opentofu-data-loss-gate). *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+
+To apply the change, choose one:
+
+- Change the table through its Iceberg catalog, for example `ALTER TABLE ... SET TBLPROPERTIES ('comment' = '...')` or `ALTER TABLE ... ALTER COLUMN ... COMMENT '...'` in Spark. Its commit writes Glue with the version it read. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- Pause the table's writers and run `fluid apply` with `--allow-iceberg-update` once. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+
+`--allow-iceberg-update` is accepted on `fluid apply`, `fluid plan --tofu` and `fluid ship`. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+
+- The update is audited at WARNING as `iceberg_table_update_accepted`. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- `fluid plan --tofu` records those tables in `opentofuPlan.icebergUpdates`, under `planDigest`, and `fluid apply plan.json` updates only them. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- Under `--no-verify-plan-binding` nothing binds that record to the reviewed plan, so it is ignored and logged at WARNING as `iceberg_table_update_record_ignored`. Only the apply's own `--allow-iceberg-update` lets such an update through. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- Any other in-place update of a live Iceberg table left in a plan is refused with `iceberg_table_update_in_place`. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- `fluid plan --allow-iceberg-update` without `--tofu` is refused with `plan_allow_iceberg_update_needs_tofu`. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- A table whose Iceberg schema changed outside the contract (a column a writer added, or a dropped one Iceberg keeps listing) gets the note on every apply while the two differ. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- A saved plan made before this change that updates a live Iceberg table in place is refused by `fluid apply plan.json`. Make the plan again. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- On AWS, a plan that `tofu show -json` cannot read back is refused when it changes anything in place, even with `--allow-data-loss`. Make the plan again. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+
 ## Options
 
 Options marked *native* are read only by the native engine. As of 0.18.1 the OpenTofu engine does not read them: `--project`, `--region`, `--provider-config`, `--config-override` and `--state-file`, the reporting options, and the options that shape a native orchestration plan. For example, `--region us-east-1` on an apply whose binding names `eu-west-1` still emitted a module pinned to `eu-west-1`. The region comes from the contract's bindings.
@@ -806,6 +895,7 @@ Options marked *native* are read only by the native engine. As of 0.18.1 the Ope
 | `--validate-dependencies` | off | Accepted. Nothing in 0.18.1 reads it. |
 | `--force-pattern-drift` | off | Override apply-time plugin hooks that detect drift (for example a scaffold-bundle digest mismatch). Use with care: drift normally means the inputs have changed and a fresh generate is needed. |
 | `--allow-skipped-builds` | off | Exit 0 from a build-augmented mode even when every build was skipped (missing dbt project or driver script). Without this the apply exits 1, because DDL-only success on an empty table is a broken deployment reported green. |
+| `--adopt-tables` | off | *(since 0.37.0)* Take over existing Glue tables that match the contract. Without it, an existing table forge did not make for this product is refused. See [Adopting existing Glue tables](#adopting-existing-glue-tables-since-0-37-0). |
 
 ### Reporting
 
@@ -865,6 +955,8 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `opentofu_data_loss_gate` | An OpenTofu plan destroys a resource and `--allow-data-loss` is not set. *(since 0.27.0, [forge-cli #793](https://github.com/Agenticstiger/forge-cli/pull/793))* Also a plan that changes the column types of a Glue table in place. |
 | `opentofu_plan_failed` | `tofu plan` failed. *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* A plan that failed on a held state lock suggests `tofu force-unlock <id>`. |
 | `opentofu_apply_failed` | `tofu apply` failed. See [A failed OpenTofu apply](#a-failed-opentofu-apply). |
+| `table_adoption_requires_flag`, `table_adoption_mismatch`, `table_adoption_unavailable` | *(since 0.37.0)* An existing Glue table is not taken over without `--adopt-tables`, differs from the contract, or cannot be looked for. See [Adopting existing Glue tables](#adopting-existing-glue-tables-since-0-37-0). |
+| `iceberg_table_update_in_place` | A live Iceberg table would be updated in place. See [Live Iceberg tables are not updated in place](#live-iceberg-tables-are-not-updated-in-place). *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).* |
 | `opentofu_region_moved` | State holds the contract's resources in another region than its bindings name. |
 | `packaging_transition_blocked` | A container's ownership flips under existing state. See [Packaging modes](#packaging-modes). |
 | `iceberg_catalog_move_blocked` | *(since 0.20.0, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707))* State holds Glue resources an earlier release created for an AWS Iceberg table that now lives in another catalog. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), since 0.20.0)* Or it holds the Snowflake EXTERNAL VOLUME an earlier release created for a Snowflake Iceberg table in an external catalog. See [Iceberg catalog-move guard](#iceberg-catalog-move-guard). |

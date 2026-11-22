@@ -96,7 +96,7 @@ Flink <build>: <status>; snapshot <snapshot id>; checkpoint <checkpoint id>; row
 | --- | --- |
 | `format: csv`, `parquet`, `pq` or `local`, or no format, with no cloud binding | [Local file](#local-files) |
 | `format: bigquery_table`, or a `gcp` binding that provisions a BigQuery table or view | [BigQuery](#bigquery) |
-| `platform: aws`, `format: parquet` (or no format), with `location.database`, `table` and `bucket` | [S3 and Glue](#s3-and-glue-athena) |
+| `platform: aws`, `format: parquet` (or no format), or `format: iceberg` cataloged in Glue *(since 0.37.0)*, with `location.database`, `table` and `bucket` | [S3 and Glue](#s3-and-glue-athena) |
 | `format: snowflake_table` or `snowflake_view` | [Snowflake](#snowflake) |
 | `platform: databricks` | [Databricks](#databricks) |
 | Another `gcp` binding (a GCS bucket, a Pub/Sub topic, an Iceberg warehouse) | `unsupported` |
@@ -109,7 +109,7 @@ Flink <build>: <status>; snapshot <snapshot id>; checkpoint <checkpoint id>; row
 | --- | --- |
 | Local file | Columns (`schema_structure`); masked columns hold treated values. The row count is reported, not compared. |
 | BigQuery | Structure, types, constraints and location; `row_count`; masking; retention, encryption and `columnRestrictions` (policy tags) when the expose declares them. |
-| S3 and Glue (Athena) | Table, columns, prefix and an Athena read; row count; masking; retention, encryption and Lake Formation column restrictions when the expose declares them. |
+| S3 and Glue (Athena) | Table, columns, prefix and an Athena read; row count; masking; retention, encryption and Lake Formation column restrictions when the expose declares them. An Iceberg table also gets [`freshness`](#freshness-of-an-iceberg-table) when the expose declares `qos.freshnessSLO`. |
 | Snowflake | Structure, types and constraints. |
 | Databricks | Structure, types and constraints; `USE CATALOG` for every reader; each dbt job exists exactly once. Since 0.27.0: the workspace's region against `binding.location.region`, the governance tags, and the bound column masks and row filter; with [forge-cli #801](https://github.com/Agenticstiger/forge-cli/pull/801), the Delta history against `lifecycle.expire`. |
 
@@ -138,6 +138,7 @@ This table lists the dimensions each verifier reports. A blank cell means the di
 | `retention` | | yes | yes | |
 | `encryption` | | yes | yes | |
 | `columnRestrictions` | | yes | yes | |
+| `freshness` (Iceberg on AWS, with `qos.freshnessSLO`) | | | yes | |
 
 `retention`, `encryption` and `columnRestrictions` run only when the expose declares the matching field. Each one reads the live platform, so a check that cannot run is an error: it fails `fluid verify` with or without `--strict`.
 
@@ -255,6 +256,65 @@ The identity running `fluid verify` needs:
 - For a prefix registered with Lake Formation, `lakeformation:GetDataAccess` and a Lake Formation `SELECT` grant on the table.
 
 boto3 comes from the `aws` extra. Without it, the check is an error that names the extra.
+
+**Troubleshooting.** `Athena could not read the snapshots of db.table` is the freshness query failing:
+
+- `TABLE_NOT_FOUND` on `$snapshots` means the table is not an Iceberg table, or is not cataloged in Glue.
+- `AccessDenied` means Lake Formation row or cell filters, a principal that cannot see every column, or missing Glue or S3 access.
+
+### Freshness of an Iceberg table
+
+*(since 0.37.0)* An AWS binding with `format: iceberg` cataloged in Glue (the default on AWS) goes through the Glue and Athena checks above: columns, location, row count, masking and storage policies. Before 0.37.0 it was skipped. Parquet tables are unchanged. An Iceberg table that was skipped before is checked now, so it can fail where Glue or Athena access is not set up.
+
+When the expose declares `exposes[].qos.freshnessSLO`, a second Athena query reads the table's `$snapshots` metadata table. A `freshness` dimension in the `--out` report holds the age of the newest write to that objective.
+
+```yaml
+exposes:
+  - exposeId: orders
+    qos:
+      freshnessSLO: PT6H
+```
+
+**The objective.** `freshnessSLO` is an ISO 8601 duration of weeks, days, hours, minutes and seconds. A month or a year has no fixed length, so `P1M` and `P1Y` are reported as not checked.
+
+**What counts as a write.** A snapshot with the `replace` operation (compaction, `OPTIMIZE`, `rewrite_data_files`) is not a write, so rewriting files never makes a stale table look fresh. Every other operation, and a snapshot with no operation, is a write.
+
+**The age.** Athena's `current_timestamp` minus the newest counted `committed_at`, so this machine's clock is not in it. It is the writer's clock that stamped the commit. A commit dated in the future counts as age zero.
+
+**The report.** `dimensions.freshness` carries:
+
+| Key | Meaning |
+| --- | --- |
+| `status` | `pass`, `fail`, `skip` or `error` |
+| `objective`, `objective_seconds` | The declared duration and its length in seconds |
+| `age_seconds` | The age of the newest counted write |
+| `last_commit` | Its commit time |
+| `snapshot_id`, `operation` | The snapshot it came from |
+| `snapshots_counted` | How many snapshots counted as writes |
+| `message`, `fix` | What was found, and what to do (`fix` on a `fail`) |
+| `query` | The facts of the Athena query that read the snapshots |
+
+`age_seconds`, `last_commit`, `snapshot_id` and `operation` are absent when no snapshot counts as a write, and for a `skip` or `error`.
+
+**Verdicts.**
+
+| Case | Result |
+| --- | --- |
+| The age is within the objective, the limit included | `pass` |
+| The age is over the objective | `fail`, CRITICAL: `--strict` fails; `--warn-only` grades it WARNING; `--fail-on-warning` still fails on it |
+| No snapshot counts as a write | `fail`, with the reason. In a reference-only contract the check is skipped. |
+| An objective with no fixed length (`P1M`, `P1Y`), or one that is not a duration | `skip`, reported as not checked |
+| The expose declares `freshnessSLO` and the table is Parquet | Not read: no `freshness` dimension |
+| The Glue table is not an Iceberg table (its `table_type` is not `ICEBERG`) | `error` for the expose, before any freshness query |
+| The Iceberg table is in a catalog other than Glue | `unsupported`: no freshness dimension, no other check |
+| The query cannot run | `error`, as for a storage policy: it fails the run with or without `--strict` |
+
+**Limits.**
+
+- Snapshot expiry (`VACUUM`) can leave no counted snapshot, and the table then fails with that reason.
+- Branches and rolled-back snapshots are not separated. That is the limit of reading `$snapshots` alone.
+
+**IAM and Lake Formation.** Athena does not evaluate Lake Formation for an Iceberg table's metadata tables. It refuses the `$snapshots` table when the base table has row or cell filters, or when the principal cannot see every column. Run verify as a principal that can read the whole table. The error says so. The metadata files are under the table location, which the data grant already covers, so no further grant is needed for them.
 
 ### Row counts and run records
 

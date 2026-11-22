@@ -235,6 +235,8 @@ The state refusals (`state_shared_with_another_provider`, `state_migration_ambig
 
 *(since 0.30.0, [forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861))* `apply_databricks_sdk_missing` is not catalogued either: its own `hint` line gives the fix. [Running the job from `fluid apply`](../providers/databricks.md#running-the-job-from-fluid-apply) explains it.
 
+*(since 0.37.0)* `spark_release_rolled_back`, `apply_spark_rollback_unsafe`, `apply_spark_no_known_good_config`, `apply_spark_release_failed_earlier` and `apply_spark_artifact_read_denied` are not catalogued either: the outcome or error names the run, the config and the grants. [Rolling back a failed release](./spark-iceberg-aws.md#rolling-back-a-failed-release) says what each means and what to do.
+
 ### planner_failed
 
 `ERR_PLANNER_FAILED`. The documentation link lands on [Production troubleshooting](./production-troubleshooting.md).

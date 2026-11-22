@@ -9,7 +9,9 @@ Publish FLUID data products and contracts to Entropy Data / Data Mesh Manager, a
 ## Syntax
 
 ```bash
-fluid datamesh-manager publish CONTRACT [options]
+fluid datamesh-manager publish CONTRACT [CONTRACT ...] [options]
+fluid datamesh-manager promote [CONTRACT ...] [--id PRODUCT_ID] [options]
+fluid datamesh-manager status CONTRACT [CONTRACT ...] [options]
 fluid datamesh-manager list [--format FMT]
 fluid datamesh-manager get PRODUCT_ID
 fluid datamesh-manager delete PRODUCT_ID [--yes]
@@ -28,12 +30,15 @@ A short alias `fluid dmm` is registered for the same command group.
 
 | Option | Description |
 | --- | --- |
-| `CONTRACT` | Path to FLUID contract file. |
+| `CONTRACT` | FLUID contract file, glob pattern or folder. A folder is searched for `*.fluid.yaml`, `*.fluid.yml` and `*.fluid.json` at any depth. One file is a single publish; a folder, a glob or several contracts publish as a [batch](#publishing-a-batch). *(since 0.37.0)* |
 | `--overlay`, `-o` | Path to overlay file. |
 | `--team-id` | Team ID. Default derived from contract owner. |
 | `--dry-run` | Preview the request payload without publishing. |
 | `--with-contract` | Also publish a companion data contract per expose. *(since 0.31.0, [forge-cli #914](https://github.com/Agenticstiger/forge-cli/pull/914))* No umbrella contract is sent, and every contract carries its expose's `version`. See [Contracts](#contracts-and-their-retirement). |
 | `--no-create-team` | Do not auto-create the team if it is missing. |
+| `--odcs-version` | ODCS version of the per-port contracts `--with-contract` sends: `3.1.0` (default) or `3.2.0`. Keep the default for a catalog that validates v3.1.0 only. See [ODCS versions](./odcs.md#odcs-versions). *(since 0.37.0)* |
+| `--status` | `draft` or `active`: send this status instead of the contract's own. A status only moves forward. See [Publishing a batch](#publishing-a-batch). *(since 0.37.0)* |
+| `--format`, `-f` | `text` (default) or `json`. `json` prints one report: the batch report for a batch, the provider's result for one file. *(since 0.37.0)* |
 | `--contract-format` | `odcs` (Open Data Contract Standard v3.1.0, default) or `dcs` (Data Contract Specification 0.9.3, deprecated). |
 | `--data-product-spec` | Override `dataProductSpecification` value sent to Entropy Data (e.g. `odps` or `0.0.1`). |
 | `--odps-lineage-mode` | `contract` (default) or `source-system`. `source-system` also writes `customProperties[sourceSystem]` (the upstream product id) on each consume's input port. `fluid publish --target datamesh-manager` ignores it and warns. *(since 0.31.0, [forge-cli #908](https://github.com/Agenticstiger/forge-cli/pull/908))* |
@@ -44,6 +49,32 @@ A short alias `fluid dmm` is registered for the same command group.
 | `--fail-on-contract-error` | Exit non-zero if any ODCS contract publish fails. |
 | `--api-key` | Entropy Data API key. Falls back to `DMM_API_KEY` env var. |
 | `--api-url` | API base URL. Default `https://api.entropy-data.com`. |
+
+### `promote`
+
+*(since 0.37.0)* Moves draft products to active. See [Promoting drafts](#promoting-drafts).
+
+| Option | Description |
+| --- | --- |
+| `CONTRACT` | Contract file, glob or folder whose products to promote. Optional when `--id` is given. |
+| `--id` | A data product id in Entropy Data. Repeatable. |
+| `--verify-report` | A `fluid verify --out` report, or a folder of them. Repeatable. Promotes a product only when its newest report is clean. |
+| `--overlay`, `-o` | Environment overlay the contracts are read with, as `fluid verify --env` reads them. |
+| `--dry-run` | Read each product and say what would be promoted. |
+| `--format`, `-f` | `text` (default) or `json`. |
+| `--api-key`, `--api-url` | As for `publish`. |
+
+### `status`
+
+*(since 0.37.0)* Reports where each product stands in Entropy Data. See [Status of a migration](#status-of-a-migration).
+
+| Option | Description |
+| --- | --- |
+| `CONTRACT` | Contract file, glob or folder. At least one. |
+| `--overlay`, `-o` | Environment overlay the contracts are read with. |
+| `--strict` | Exit 1 unless every product is active. |
+| `--format`, `-f` | `text` (default) or `json`. |
+| `--api-key`, `--api-url` | As for `publish`. |
 
 ### `list`, `teams`
 
@@ -99,6 +130,11 @@ fluid datamesh-manager publish contract.fluid.yaml --dry-run
 fluid datamesh-manager publish contract.fluid.yaml --with-contract --validation-mode strict
 fluid dmm publish contract.fluid.yaml --auto-approve-access
 
+# Publish a folder of contracts as drafts, then promote and check
+fluid datamesh-manager publish products/ --status draft
+fluid datamesh-manager promote products/ --verify-report reports/
+fluid datamesh-manager status products/ --strict
+
 # Read / list
 fluid dmm list --format json
 fluid dmm list-contracts --format json
@@ -112,6 +148,102 @@ fluid dmm delete-contract my-org.customer360-contract --yes
 fluid dmm wipe --yes
 fluid dmm delete-contract my-org.customer360-contract --yes   # contracts are separate
 ```
+
+## Publishing a batch
+
+*(since 0.37.0)* `publish` takes contract files, glob patterns and folders. One file named outright is a single publish, as before. A folder, a glob or several contracts publish as one batch:
+
+- **Order.** Each product is sent after the products it consumes (`consumes[].productId`), in a stable order.
+- **One read of the product list.** The list is read once for the batch, and the access-agreement pre-flight reuses it.
+- **A failure blocks only its consumers.** A product that fails, or fails `--validation-mode strict`, blocks the products that consume it. The others go on, and a re-run resumes.
+- **Refused before anything is sent:** a folder with no contract, two files that declare one product id, and a loop of products that consume each other. Each has an [error code](#troubleshooting).
+- **`--status draft|active`** sends that status instead of the contract's own. A status only moves forward: `draft` never demotes a product Entropy already holds as active, a deprecated product keeps its status, and a retired product is skipped in a batch, because Entropy keeps it retired. Naming one retired contract outright is an error instead.
+- **`--dry-run`** reads the product list and says what the real run would skip or keep.
+- **`--format json`** prints one report.
+- Entropy's product list is read whole or not at all. A list that cannot be read is an error, never a guess.
+
+A publish without `--status` behaves as before. On the single-publish path, a contract the loader cannot read now shows the CLI's typed error (code and next steps) with that error's own exit code, instead of `Error: <event>`.
+
+## Promoting drafts
+
+*(since 0.37.0)* `promote` moves draft products to active. Name them by contract (file, glob or folder), with `--id`, or both.
+
+```bash
+fluid datamesh-manager promote products/ --dry-run
+fluid datamesh-manager promote --id gold.customer360_v1
+fluid datamesh-manager promote products/ --verify-report reports/ --format json
+```
+
+An active product is left as it is. A deprecated or retired product is never promoted.
+
+With `--verify-report`, a product is promoted only when the newest [`fluid verify --out`](./verify.md) report for it is clean, and the rest are held back. The command then exits 1. A report is clean when:
+
+- it has no error or mismatch;
+- no port is left unverified under `--require-every-port`;
+- at least one port was checked;
+- every output port the contract declares is covered;
+- the reconcile, state-drift and lineage sections show no drift and no failed refresh.
+
+## Status of a migration
+
+*(since 0.37.0)* `status` reads Entropy's product list once, writes nothing, and prints one row per product the contracts declare.
+
+| Row | Meaning |
+| --- | --- |
+| `active`, `draft`, `deprecated`, `retired` | The status Entropy holds. Any other status Entropy returns is shown as it wrote it, lower case, with each run of characters outside `a-z 0-9 _ . -` replaced by one hyphen and cut at 40 characters. A server status spelled `missing`, `unreadable` or `unnamed` is shown as `status-missing` and so on, so it never reads as a row `status` decided itself. |
+| `unknown` | Listed, with no status. |
+| `missing` | Not in the list. Entropy ids are case-sensitive, so a product held only as written is missing, and the row says so. |
+| `unreadable` | The contract could not be read. The row's `detail` is the reader's message. |
+| `unnamed` | The contract declares no id, or an id that is not a string. |
+
+A contract that cannot be read is a row of its own, so a report over a folder shows the file that is wrong beside the ones that are not. Rows come in the order the contracts are met. The last line is `Summary: active N of M (...)`, and the parentheses list the other statuses and their counts, alphabetically. `--strict` exits 1 unless every product is active. Without it, the command exits 0 whatever the rows say.
+
+```text
+  active     gold.a_v1
+  draft      gold.b_v1
+  missing    gold.c_v1 - Entropy Data holds 'Gold.C_V1' as written; forge publishes it as 'gold.c_v1'
+  missing    gold.d_v1 - not in Entropy Data
+Summary: active 1 of 4 (1 draft, 2 missing).
+```
+
+`--format json` prints one row per product, in the same order, and a summary. A row has `contract`, `product_id` and `status`, and a `detail` when there is something to say. `product_id` is `null` when no id could be read from the contract:
+
+```json
+{
+  "products": [
+    {"contract": "products/a.fluid.yaml", "product_id": "gold.a_v1", "status": "active"},
+    {"contract": "products/c.fluid.yaml", "product_id": "gold.c_v1", "status": "missing",
+     "detail": "Entropy Data holds 'Gold.C_V1' as written; forge publishes it as 'gold.c_v1'"},
+    {"contract": "products/x.fluid.yaml", "product_id": null, "status": "unnamed",
+     "detail": "the contract declares no id"}
+  ],
+  "summary": {"total": 3, "active": 1, "by_status": {"active": 1, "missing": 1, "unnamed": 1}}
+}
+```
+
+(The real output is indented one key per line.) `by_status` counts every status, `active` included. A missing API key, or a product list that cannot be read, exits 1 with the provider's error (the key, the URL): a report that called every product missing because the server did not answer would be wrong, so the list is read whole or the command fails.
+
+## Migrating a catalog
+
+To move many products into Entropy Data and switch them on only once they verify:
+
+1. Publish everything as drafts: `fluid datamesh-manager publish products/ --status draft`.
+2. Verify each product and keep the report: `fluid verify <contract> --out reports/<product>.json`.
+3. Promote the products whose report is clean: `fluid datamesh-manager promote products/ --verify-report reports/`.
+4. Make `fluid datamesh-manager status products/ --strict` the last CI step. The migration is done when it exits 0.
+
+Keep each product's id across the migration: see [`fluid diff --baseline`](./diff.md#a-changed-product-id).
+
+## Troubleshooting
+
+| Code | Meaning and fix |
+| --- | --- |
+| `ERR_DMM_BATCH_NO_CONTRACTS` | Exit 1. A folder holds no `*.fluid.yaml`, `*.fluid.yml` or `*.fluid.json` at any depth (a symlink, or a folder such as `.git`, `node_modules` or `.venv`, is not searched). Check the folder path, or name the files or a glob. A glob that matches nothing, or a file that does not exist, is `contract_file_not_found` instead. Also raised by `status`. |
+| `ERR_DMM_BATCH_DUPLICATE_PRODUCT` | Exit 1. Two files declare one product id. Ids are compared as forge publishes them (lower case, spaces and `/` as `-`), so `Gold.A` and `gold.a` clash. Remove or fix one. Also raised by `status`. |
+| `ERR_DMM_BATCH_DEPENDENCY_CYCLE` | Exit 1. Products in the batch consume each other in a loop; the error names it. An upstream outside the batch is not part of the loop. Break the loop in `consumes[]`. |
+| `ERR_DMM_VERIFY_REPORT_UNREADABLE` | Exit 1. A `--verify-report` file named outright cannot be read as a `fluid verify --out` report: it is not JSON, is larger than 16 MiB, or has no `contract_id` and `summary`. A file inside a report folder that is not a report is skipped, not an error. A path that does not exist is refused by the path check with its own error. |
+| `ERR_DMM_PROMOTE_NOTHING_NAMED` | Exit 2. `promote` got no contract and no `--id`. Name at least one product. |
+| `ERR_DMM_PROMOTE_CONTRACT_WITHOUT_ID` | Exit 1. A contract given to `promote` has no top-level `id`, or one that is not a string. |
 
 ## Configuration
 

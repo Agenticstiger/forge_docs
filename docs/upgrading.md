@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.35.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.37.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.35.0                                                              │
+│ Version: 0.37.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.35.0"
+pip install "data-product-forge[local]==0.37.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.35.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.37.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -1526,19 +1526,19 @@ These changes are in 0.35.0.
 
 - **`data-product-forge[profile]` installs flux-stats 0.7.0.** The extra asked for `flux-stats>=0.6.2,<0.7` in 0.34.0 and asks for `flux-stats[yaml]>=0.7.0,<0.8` now. Upgrade the extra with `pip install -U 'data-product-forge[profile]'`. `fluid profile` stops with `profile_statistics_unavailable` on an older flux-stats. See [fluid profile](./cli/profile.md).
 
-## Not in a release yet
+## Changes in 0.37.0
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043), [forge-cli #1049](https://github.com/Agenticstiger/forge-cli/pull/1049)).*
+*(since 0.37.0, [forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043), [forge-cli #1049](https://github.com/Agenticstiger/forge-cli/pull/1049))*
 
-- **A contract that applies on 0.36.0 can be refused on `main`.** Beside a `secretRef`, every host the `connection` block names is now judged against `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`, so the first `fluid apply` or CI run after an upgrade can stop at a host nobody listed. The hosts that are new are one in a query string or a query mapping, a URI that names a host anywhere in the block (`api_url: https://api.example.com`, say), a field named for a host under another setting (`options.host`), and an SSH tunnel in use. Before you upgrade a pipeline, run [`fluid secrets check`](./cli/secrets.md#fluid-secrets-check) on its contracts with the new release, which fetches nothing, and act on what it prints. A refusal that names a host, such as `to host 'api.example.com' (connection.api_url)`, takes an entry for that host in the operator's `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` (a shell or CI variable, not a project `.env`): `NAME@host` for an `env://NAME` reference, `<reference>@host` for another. A refusal that says `which this check does not read`, `more than a database name` or `could not be determined` names no host that an entry could match. For a host in a query string or a query mapping, move it into the URI's host part or the connection's `host` field, where an entry judges it; for the others, write a plain URI or the database's own name. An entry for any host (`NAME@*`, a bare `NAME`, `<reference>@*`) clears all of them, and then nothing is judged. The check reports one host per reference at a time, so run it again after each change. See [Hosts a connection can name another way](./cli/secrets.md#hosts-a-connection-can-name-another-way) and [Hosts a connector takes from its own settings](./cli/secrets.md#hosts-a-connector-takes-from-its-own-settings).
+- **A contract that applies on 0.36.0 can be refused on 0.37.0.** Beside a `secretRef`, every host the `connection` block names is now judged against `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST`, so the first `fluid apply` or CI run after an upgrade can stop at a host nobody listed. The hosts that are new are one in a query string or a query mapping, a URI that names a host anywhere in the block (`api_url: https://api.example.com`, say), a field named for a host under another setting (`options.host`), and an SSH tunnel in use. Before you upgrade a pipeline, run [`fluid secrets check`](./cli/secrets.md#fluid-secrets-check) on its contracts with the new release, which fetches nothing, and act on what it prints. A refusal that names a host, such as `to host 'api.example.com' (connection.api_url)`, takes an entry for that host in the operator's `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` (a shell or CI variable, not a project `.env`): `NAME@host` for an `env://NAME` reference, `<reference>@host` for another. A refusal that says `which this check does not read`, `more than a database name` or `could not be determined` names no host that an entry could match. For a host in a query string or a query mapping, move it into the URI's host part or the connection's `host` field, where an entry judges it; for the others, write a plain URI or the database's own name. An entry for any host (`NAME@*`, a bare `NAME`, `<reference>@*`) clears all of them, and then nothing is judged. The check reports one host per reference at a time, so run it again after each change. See [Hosts a connection can name another way](./cli/secrets.md#hosts-a-connection-can-name-another-way) and [Hosts a connector takes from its own settings](./cli/secrets.md#hosts-a-connector-takes-from-its-own-settings).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1051](https://github.com/Agenticstiger/forge-cli/pull/1051)).*
+*(since 0.37.0, [forge-cli #1051](https://github.com/Agenticstiger/forge-cli/pull/1051))*
 
 - **A Debezium or Kafka Connect build fails on a `${...}` expression in contract text.** The source, `properties.debezium`, `properties.kafka-connect` and the sink's config may no longer hold `${`, in a value of any type or in a key. The build fails before it reads a secret, writes a file or makes a REST call, with `<path> holds a ${...} expression (the value is not shown)`. That includes a config-provider reference such as `${file:/path:key}` on a Kafka Connect build, and a Java replacement such as `transforms.route.replacement: "${tbl}"` in an `extra_config`; `$1` still works. A contract that validates and applies on 0.36.0 can fail on `main`, because `fluid validate` does not check this. Write the value itself, and a secret as a `secretRef`. See [Contract text a connector expands](./advanced/source-aligned-acquisition.md#contract-text-a-connector-expands).
 - **A credential that holds `${` is refused for embedded Debezium Server.** The operator's secret counts: `debezium config entry <key> holds ${ in its value (the value is not shown)`. Change the credential. A Kafka Connect build does not check a resolved secret.
 - **A connection block of more than 10,000 values has a refusal of its own.** `... over a connection block that holds more than 10,000 values, more than this check reads`, where it read `a host that could not be determined` before.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).*
+*(since 0.37.0, [forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043))*
 
 - **The secret destination check reads more than `host`.** Beside a `secretRef`, `fluid validate` and `fluid apply` now refuse a query string that names a host (`host`, `hostaddr` and others, in a URI field or in `jdbc_url_params`), URL syntax in `database` or `dbname`, a URI whose authority a database client could read as another host, the host of an SSH tunnel in use, a host with an IPv6 zone id, and a host in `sqlalchemy_url` that has no entry. The operator can allow a reference for any host. A tunnel needs an entry for its host, and a loopback database host behind it needs `NAME@localhost`. A Debezium `extra_config` that sets `database.port`, `database.dbname`, `database.names` or `connector.class` is refused whatever the allowlist says. See [Hosts a connection can name another way](./cli/secrets.md#hosts-a-connection-can-name-another-way).
 - **A runner keeps each connection field in its own part of the URL.** dlt's `sql_database` source, the Kafka Connect JDBC source and Debezium fail the build, with or without a secret, when `host` or `database` holds URL syntax or a port is not a number. dlt's `drivername` has to be `dialect[+driver]`, such as `postgresql+psycopg`.
@@ -1546,7 +1546,7 @@ These changes are in 0.35.0.
 - **Refusals name the field they judged and print no value from the environment.** A refusal reads `... to host 'db.example.com' (connection.host) as a credential`. At `fluid apply`, a host that came from a placeholder appears as `the host '{{ env.PGHOST }}' renders to (connection.host)`, where it used to show the value it rendered to, and a keyword string shows its host part and not the password beside it. A script that matches the old wording can match `would send` and `as a credential`, which are in both. A URI whose query names a host no longer waits for `fluid apply` when its host part is a placeholder, and a placeholder that names a tunnel host waits as `host` does.
 - **An OpenBao or Vault address with an IPv6 zone id is not loopback.** `http://[::1%25lo0]:8200` needs `https` now.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).*
+*(since 0.37.0, [forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042))*
 
 - **`fluid ship` opens a wrapped store token once and hands it to every stage.** A response-wrapped OpenBao or Vault token (`FLUID_VAULT_WRAPPED_TOKEN`) opens once, and ship runs each stage as its own process, so only the first stage that reached the store could use it: with OpenBao state encryption, `diff` spent it and `apply` failed. A ship of two or more stages now opens it before the first stage, hands each stage the token through a pipe (`FLUID_VAULT_SHIP_TOKEN_FD` names it, and `FLUID_VAULT_SHIP_TOKEN` carries the token on Windows) and revokes it when the run ends. dbt, a project's build steps and the stage's other child processes never see the token, and `tofu` gets it only for OpenBao state encryption. A wrapper that cannot be opened stops the run before any stage, with exit 2. A wrapper serves one `fluid ship` invocation, so a run split over several invocations needs one for each. A ship of one stage works as before. See [A wrapped store token](./cli/ship.md#a-wrapped-store-token).
 - **A `fluid ship` stage no longer imports modules from the checkout.** A `yaml.py` or a `fluid_build/` in the contract's directory used to run inside every stage, before the CLI started, with your environment. See [Where it runs](./cli/ship.md#where-it-runs).
@@ -1554,12 +1554,31 @@ These changes are in 0.35.0.
 - **`fluid doctor` reports the auth method `ship-token`** in a process that `fluid ship` handed its store token to.
 - **`tofu --version` runs with a short environment.** The check that runs before a cloud apply and before `fluid diff` used to get every variable of the job. It now gets `PATH`, `HOME`, what a Go program needs on Windows, and `TOFU_CLI_PATH` and `GITHUB_OUTPUT`. See [What `tofu` gets from the environment](./cli/apply.md#what-tofu-gets-from-the-environment).
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1049](https://github.com/Agenticstiger/forge-cli/pull/1049)).*
+*(since 0.37.0, [forge-cli #1049](https://github.com/Agenticstiger/forge-cli/pull/1049))*
 
 - **The secret destination check reads the settings a connector takes a host from.** Beside a `secretRef`, `fluid validate` and `fluid apply` refuse a host key in a mapping a connector reads as query parameters or driver arguments (`sqlalchemy_url_query`, `sqlalchemy_options`, `connect_args` under `sqlalchemy_eng_params`, any `*_query` mapping, `jdbc_url_params` as a mapping), `socketFactory`, `socketFactoryClass` and `FILEDSN`, a parameter name that holds connection-string syntax, a `connect_args` value that holds `;`, `{` or `}`, a URI or a field named for a host under any other setting of the block, a JDBC URL that is not an embedded database, and a block of more than 10,000 values. The operator can allow a reference for any host. See [Hosts a connector takes from its own settings](./cli/secrets.md#hosts-a-connector-takes-from-its-own-settings).
 - **Some setups need no entry.** An absolute socket path in a query's `host` or `unix_socket` names this machine. A Singer tap's `ssh_tunnel` is off when its `enable` is absent, false or empty, and Airbyte's `tunnel_method` is off when it is `NO_TUNNEL` in any letter case, so neither needs an entry for its host. A `#` in a query string ends no parameter.
 - **A Debezium `extra_config` may not set more.** Under `database.` or `driver.`, `hostname`, `port`, `dbname`, `names`, `url`, `password` and `protocol` are refused whatever the allowlist says, and so are a driver property that names a host (`failoverPartner`, `serverName`, `PGHOST`, `socksProxyHost`, `socketFactory`) and Oracle's `rac.nodes`.
 - **A refusal quotes less.** A keyword connection string shows its host only when the host comes before a key that may hold a secret, and a host that is not a plain name or address (`user:password@host`, a path) is not quoted: `the host in connection.host`. At `fluid apply` a host is quoted as written only when the `connection` block the contract wrote holds it in that field, and a refusal for a rendered database name says `holds a character`.
+
+## Also in 0.37.0
+
+Features: `fluid import pyspark` and `fluid import airflow` ([guide](./advanced/importing-existing-pipelines.md)), `fluid generate pyspark-schema` ([page](./cli/generate-pyspark-schema.md)), `fluid datamesh-manager` batch `publish`, `promote` and `status` ([page](./cli/datamesh-manager.md)), the `freshness` dimension in `fluid verify` ([page](./cli/verify.md#freshness-of-an-iceberg-table)), `--odcs-version 3.2.0` ([page](./cli/odcs.md)), `fluid runs status --release-dir` ([page](./cli/runs.md)), `--adopt-tables` ([page](./cli/apply.md)), prebuilt PySpark package builds and Iceberg commit stamps ([page](./advanced/spark-iceberg-aws.md)), `fluid schedule-sync --airflow-url` ([page](./cli/schedule-sync.md)), `fluid describe --commands` ([page](./cli/describe.md)).
+
+What to do when you upgrade:
+
+- **An existing Glue table forge did not make is no longer taken over silently.** `fluid apply` refuses it with `table_adoption_requires_flag`. Pass `--adopt-tables` after reviewing the match. A table forge made for the same product is re-attached as before. A table forge made from a contract over 50 KB before 0.37.0 has no product id: add the table parameter `fluid_product_id=<product id>` once, with the writers paused, using `aws glue update-table` with `--version-id` from a fresh `aws glue get-table`. See [Adopting existing Glue tables](./cli/apply.md).
+- **`--fail-on-breaking` fails on a changed product id.** A contract that only changed its id passed before. Keep the id, or see [A changed product id](./cli/diff.md).
+- **Every running Spark stream is replaced once** by the first `fluid apply` after the upgrade, by a cancel. A plan made before the upgrade is refused with `apply_spark_artifact_mismatch`: plan again.
+- **`fluid apply` waits on a released Spark stream** for up to `FLUID_SPARK_RELEASE_PROBATION_SECONDS` (300 by default, `0` turns it off). A run that fails in that time is rolled back and the apply fails. Set it to `0` where a scheduler's timeout is shorter. See [Rolling back a failed release](./advanced/spark-iceberg-aws.md).
+- **A scheduled run has its own run id.** Under a scheduler the run id comes from the scheduler's job and run, no longer from `.fluid/run-id.txt`. `FLUID_RUN_ID` still wins.
+- **Entropy Data's product list is read whole or not at all.** A bad page is now a typed error.
+
+## On forge-cli `main` since 0.37.0 (not yet released)
+
+- **A live Iceberg table in Glue is not updated in place by `fluid apply`.** A change to its description, column comments or columns is held, and the run prints what waits. To apply it, change the table through its Iceberg catalog, or pause the writers and use `--allow-iceberg-update` once. A saved plan made before this change that updates a live Iceberg table in place is refused: plan again. A plan that `tofu show -json` cannot read is refused when it changes anything in place, even with `--allow-data-loss`. See [Live Iceberg tables are not updated in place](./cli/apply.md#live-iceberg-tables-are-not-updated-in-place). *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- **Generated Airflow DAGs can alert on failure, retry, success and a missed SLA.** A contract with no `alerts` block renders the same file as before. See [Alerts](./advanced/airflow.md#alerts). *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+- **`fluid import airflow` follows Python tasks.** A `PythonOperator` or `@task` function is read for the Spark jobs it submits, and the conventions file gains `submit_helpers`. A dict key written before a `**` spread that does not fold is no longer taken as known, so what it names is reported as not read. See [Importing existing pipelines](./advanced/importing-existing-pipelines.md). *On forge-cli `main`, not yet in a release ([forge-cli #1055](https://github.com/Agenticstiger/forge-cli/pull/1055)).*
 
 ## Older releases
 

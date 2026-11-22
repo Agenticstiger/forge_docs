@@ -52,6 +52,7 @@ fluid plan CONTRACT [--env ENV] [--mode MODE] [--out PATH]
 | `--tofu` | *(since 0.31.0, [forge-cli #898](https://github.com/Agenticstiger/forge-cli/pull/898))* Also run `tofu plan` as `fluid apply` would, for the providers that apply through OpenTofu, and bind the saved plan into `plan.json`. `fluid apply plan.json` then applies exactly that plan. See [Saving the OpenTofu plan](#saving-the-opentofu-plan-tofu). |
 | `--state-backend` | With `--tofu`: the OpenTofu state `fluid apply` will use, as on [`fluid apply`](./apply.md#remote-state). It belongs to `--tofu`. |
 | `--adopt-shared-container` | With `--tofu`: as on apply, confirm taking ownership of a shared pool. Audited. |
+| `--adopt-tables` | *(since 0.37.0)* With `--tofu`: plan the take-over of existing Glue tables that match the contract, each through an `import` block. Without `--tofu` the command exits with `plan_adopt_tables_needs_tofu`. See [Adopting existing tables](./apply.md#adopting-existing-glue-tables-since-0-37-0). |
 | `--ensure-opentofu` | With `--tofu`: provision a pinned, verified `tofu` if it is missing, as on apply. |
 | `--html` | Generate an HTML visualization with a mermaid-rendered action DAG (colour-coded by mode: blue=amend, red=replace, grey=skipped). Optional path argument; defaults to `plan.html` in the current directory. |
 

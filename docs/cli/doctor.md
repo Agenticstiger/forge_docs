@@ -319,7 +319,7 @@ pip install --force-reinstall data-product-forge
 
 `fluid doctor --json` carries the same facts under `secrets`: `schemes_enabled`, `prefixes`, `stages_that_resolve`, `stages_that_never_resolve`, `destination_entries`, `run_secrets_file`, `credential_store`, `vault` (address, auth method, reachability, token TTL), `aws_sm` and `packs`. The report never prints a value, never unwraps a wrapped token and never makes a JWT login. [`fluid secrets`](./secrets.md#fluid-doctor) explains each setting.
 
-The auth method says where the store token comes from. It is the first of `wrapped-token`, `jwt`, `token:BAO_TOKEN`, `token:VAULT_TOKEN` and `token-helper-file` (the `~/.vault-token` file) that applies, in the order [Which token is used](./secrets.md#which-token-is-used) lists them, or `none`. *On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* In a process that `fluid ship` handed its token to, it is `ship-token`, which comes before all of them.
+The auth method says where the store token comes from. It is the first of `wrapped-token`, `jwt`, `token:BAO_TOKEN`, `token:VAULT_TOKEN` and `token-helper-file` (the `~/.vault-token` file) that applies, in the order [Which token is used](./secrets.md#which-token-is-used) lists them, or `none`. *(since 0.37.0, [forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042))* In a process that `fluid ship` handed its token to, it is `ship-token`, which comes before all of them.
 
 ## Notes
 
