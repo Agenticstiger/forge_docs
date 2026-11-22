@@ -1542,6 +1542,7 @@ These changes are in 0.35.0.
 - **A `fluid ship` stage no longer imports modules from the checkout.** A `yaml.py` or a `fluid_build/` in the contract's directory used to run inside every stage, before the CLI started, with your environment. See [Where it runs](./cli/ship.md#where-it-runs).
 - **Generated GitHub Actions workflows pin newer commits of four actions.** `actions/checkout` v4.4.0, `google/osv-scanner-action` v2.7.1, `github/codeql-action/upload-sarif` v3.39.4 and `anchore/sbom-action` v0.24.3. A workflow you generated keeps its old commits until you run `fluid generate ci` again. See [What each system gets](./advanced/operating-in-ci.md#what-each-system-gets).
 - **`fluid doctor` reports the auth method `ship-token`** in a process that `fluid ship` handed its store token to.
+- **`tofu --version` runs with a short environment.** The check that runs before a cloud apply and before `fluid diff` used to get every variable of the job. It now gets `PATH`, `HOME`, what a Go program needs on Windows, and `TOFU_CLI_PATH` and `GITHUB_OUTPUT`. See [What `tofu` gets from the environment](./cli/apply.md#what-tofu-gets-from-the-environment).
 
 ## Older releases
 
