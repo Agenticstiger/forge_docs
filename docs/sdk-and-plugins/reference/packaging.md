@@ -33,7 +33,7 @@ classifiers = [
     "Topic :: Software Development :: Code Generators",
     "Typing :: Typed",
 ]
-dependencies = ["data-product-forge-sdk>=0.10,<1"]
+dependencies = ["data-product-forge-sdk>=0.11,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff", "black"]
@@ -71,7 +71,7 @@ Things to change for your plugin:
 
 1. **`name`** — your PyPI package name (kebab-case, globally unique on PyPI).
 2. **`version`** — Semantic Versioning. Start at `0.1.0`.
-3. **`dependencies`** — `data-product-forge-sdk>=0.10,<1` is the only mandatory one (target the current SDK for the new roles, typed domains, and conformance harnesses; the `<1` ceiling is unchanged). Add `data-product-forge-custom-scaffold` if your plugin is consumed via the custom-scaffold engine (most CustomScaffold plugins).
+3. **`dependencies`** — `data-product-forge-sdk>=0.11,<1` is the only mandatory one (target the current SDK for the new roles, typed domains, and conformance harnesses; the `<1` ceiling is unchanged). Add `data-product-forge-custom-scaffold` if your plugin is consumed via the custom-scaffold engine (most CustomScaffold plugins).
 4. **`[project.entry-points."<group>"]`** — pick the right group per [entry-points reference](./entry-points.md). The **key** is the user-facing name; the **value** is `module:Symbol`.
 5. **`[project.urls]`** — your real GitHub/GitLab URLs.
 
@@ -300,7 +300,7 @@ Semantic versioning. For SDK plugins specifically:
 - **`0.x.y`** — pre-1.0; minor versions can break the API. Pin the upper bound (`>=0.x,<0.<x+1>`).
 - **`1.x.y`** — stable. Minor versions add features; patch versions fix bugs; major versions break the API.
 
-For the SDK dependency, pin to `data-product-forge-sdk>=0.10,<1` (until the SDK ships 1.0; bump the upper bound when it does).
+For the SDK dependency, pin to `data-product-forge-sdk>=0.11,<1` (until the SDK ships 1.0; bump the upper bound when it does).
 
 For the CLI dependency (if your plugin needs runtime CLI features), pin the minor line you tested against, for example `data-product-forge>=0.18.1,<0.19`, and test each new minor before widening the bound. Only the `fluid_build.api` surface carries a SemVer promise ([API stability](../../advanced/api-stability.md)); CLI behaviour has changed on purpose inside a minor line, and the [upgrade guide](../../upgrading.md) and each release's notes list those changes (for example the [0.18.0 release notes](../../RELEASE_NOTES_0.18.0.md)).
 

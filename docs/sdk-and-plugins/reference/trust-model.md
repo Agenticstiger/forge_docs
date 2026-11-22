@@ -178,8 +178,8 @@ Plugins are tested, scanned, and approved by your platform team before showing u
 ```toml
 # In your deploy environment's pyproject.toml or requirements:
 data-product-forge==0.37.0
-data-product-forge-sdk==0.10.0
-data-product-forge-custom-scaffold==0.4.1
+data-product-forge-sdk==0.11.0
+data-product-forge-custom-scaffold==0.5.0
 my-org-validators==1.2.0
 # That's it. No other forge plugins.
 ```
@@ -196,7 +196,7 @@ The CLI does not depend on which policy you pick. The defences above apply under
 
 If you're publishing a plugin to public PyPI:
 
-- **Pin your own dependencies** with upper bounds. `data-product-forge-sdk>=0.10,<1` not `>=0.10`.
+- **Pin your own dependencies** with upper bounds. `data-product-forge-sdk>=0.11,<1` not `>=0.11`.
 - **Test on the supported Python matrix** (3.10–3.14).
 - **Document any non-stdlib dependency** in your README — surprising network calls or filesystem access deserve a heads-up.
 - **Scrub credentials** before logging or raising. The CLI's redactor is a safety net, not your first line of defense.

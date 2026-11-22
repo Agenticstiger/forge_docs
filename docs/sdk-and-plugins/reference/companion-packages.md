@@ -7,8 +7,8 @@ Three packages ship together as one platform. End users only need the CLI; plugi
 | Package | Version | PyPI | Import path | What you reach for it for |
 |---|---|---|---|---|
 | **`data-product-forge`** | `0.18.1` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle, and the `fluid forge` copilot. Plugin governance (`FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`) and the `fluid plugins` / `fluid exporters` commands |
-| **`data-product-forge-sdk`** | `0.10.0` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, `InfraProvider`, `CatalogAdapter`) + typed value domains (`Severity` / `ActionStatus` / `Phase`) + SDK↔CLI compat declaration + three role conformance harnesses + `iter_extension_schemas()` discovery helper. Plugin authors only. |
-| **`data-product-forge-custom-scaffold`** | `0.4.1` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine; it registers the `fluid custom-scaffold` command. Use it when your plugin distributes templates via a git bundle. 0.4.0 adds copier-parity reproducibility: a `fluid-scaffold.lock` lockfile, `--pin` (byte-reproducible re-render at the locked commit), and `--update [--target REF]` (3-way re-render onto your working tree). White-label spec dialects (`ScaffoldDialect`) shipped in 0.1.1. |
+| **`data-product-forge-sdk`** | `0.11.0` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, `InfraProvider`, `CatalogAdapter`) + typed value domains (`Severity` / `ActionStatus` / `Phase`) + SDK↔CLI compat declaration + three role conformance harnesses + `iter_extension_schemas()` discovery helper. Plugin authors only. |
+| **`data-product-forge-custom-scaffold`** | `0.5.0` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine; it registers the `fluid custom-scaffold` command. Use it when your plugin distributes templates via a git bundle. 0.4.0 adds copier-parity reproducibility: a `fluid-scaffold.lock` lockfile, `--pin` (byte-reproducible re-render at the locked commit), and `--update [--target REF]` (3-way re-render onto your working tree). White-label spec dialects (`ScaffoldDialect`) shipped in 0.1.1. 0.5.0 adds a `generate()` library entry point and needs the operator to allow a git source's `auth`. |
 
 ## Who installs what
 
@@ -58,7 +58,7 @@ Pin exactly (`==`) for CI and production. For development, a bound such as `>=0.
 
 ```toml
 dependencies = [
-    "data-product-forge-sdk>=0.10,<1",   # upper bound is important
+    "data-product-forge-sdk>=0.11,<1",   # upper bound is important
 ]
 ```
 
@@ -68,8 +68,8 @@ For the custom-scaffold engine (if you're shipping bundles that ride on it):
 
 ```toml
 dependencies = [
-    "data-product-forge-sdk>=0.10,<1",
-    "data-product-forge-custom-scaffold>=0.4,<0.5",
+    "data-product-forge-sdk>=0.11,<1",
+    "data-product-forge-custom-scaffold>=0.5,<1",
 ]
 ```
 
@@ -92,14 +92,19 @@ Best practice:
 
 ### `data-product-forge-sdk`
 
-- **Currently 0.10.0, with a Beta classifier.**
+- **Currently 0.11.0, with a Beta classifier.**
+- **0.11.0** is a security fix, with one new conformance check. The reference `CustomScaffold.apply()` staged each file at the predictable name `<target>.tmp~`, so a symlink planted there (a checked-out repository can carry one) sent the write and the `chmod` to a file outside `output_root`, and the final rename turned the output file into a symlink while `apply()` reported success. It now writes through a temp file that `tempfile.mkstemp` creates exclusively in the target's directory, so no pre-existing name is ever reused. A planned setuid or setgid bit is applied as planned, and a `write_file` path that names `output_root` itself is rejected before anything is created. File content, the planned mode, the path guard and the result shapes are unchanged; an OS-level failure message now names the random temp file. The new conformance check `CustomScaffoldTestHarness.test_apply_does_not_write_through_planted_symlinks` plants a symlink at the common staging names (`<name>.tmp~`, `.tmp`, `~`, `.part`, `.new`, `.<name>.tmp`, `<stem>.tmp`; extend the class attribute `planted_temp_names`) and fails when `apply()` writes through one. A plugin that overrides `apply()` and stages files under one of those names now fails it: stage through `tempfile.mkstemp`, as the inherited `apply()` does.
 - **0.10.0** is additive in practice (still pin the upper bound `<1`). It adds: four real role ABCs — `InfraProvider` (role `"provider"`) and `CatalogAdapter` (role `"catalog"`) are now first-class roles whose `apply` is abstract on purpose (a plugin that forgets to implement it fails loud, never a silent no-op), each with an action builder (`provision_action` / `catalog_entry_action`); typed value domains `Severity` / `ActionStatus` / `Phase` plus `FAILING_SEVERITIES`, with a fail-safe `Severity.coerce` (an unrecognised severity counts as ERROR, never silently passes); `PluginCapabilities` + `BasePlugin.capabilities()` for typed plugin self-description; an SDK↔CLI compat declaration (`SDK_PROTOCOL_VERSION` / `MIN_CLI_VERSION` / `cli_requirement()` / `PluginMetadata.requires_cli`) — the SDK declares, the CLI gates; and three role conformance harnesses (`ValidatorTestHarness`, `InfraProviderTestHarness`, `CatalogAdapterTestHarness`).
 - **0.9.1** added `iter_extension_schemas()` and the `fluid_build.extension_schemas` group — additive, no breaking change.
-- Minor versions (0.9 → 0.10) may break the API; 0.10.0 did not. Pin the upper bound (`<1`).
+- Minor versions (0.9 → 0.10 → 0.11) may break the API; 0.10.0 and 0.11.0 did not. Pin the upper bound (`<1`).
 
 ### `data-product-forge-custom-scaffold`
 
-- **Currently 0.4.1, with a Beta classifier.**
+- **Currently 0.5.0, with a Beta classifier.**
+- **0.5.0** needs `data-product-forge-sdk` 0.11.0 or later (the floor was 0.9), so a bundle's output is written through the SDK's symlink-safe `apply()`. It adds `generate(contract, out_dir, *, contract_dir=None, dry_run=False, pattern_filter=None, library_filter=None, pin=False, dialect=DEFAULT_DIALECT)`, a public library entry point that runs what `fluid custom-scaffold` runs and returns every file it wrote as `GeneratedFile(path, sha256, size)`, sorted by path, the lock included. A dry run writes nothing. `EngineError` gains typed subclasses (`ContractError`, `BundleError`, `PlanError`, `ApplyError`, `OutputError`, `UnsafePathError`), and `EngineRunResult.lock_text` carries the lock's text.
+- **0.5.0 breaks a `git` source that sets `auth`.** The contract only asks; the operator decides, in the process environment. `FLUID_CUSTOM_SCAFFOLD_AUTH_HOSTS` lists the hosts a credential may be sent to, comma-separated, each `host` or `host:port` (a bare `host` means port 443). Unset or empty, a source with `auth` is refused. `auth.secret_ref` must name a variable that starts with `FLUID_SCAFFOLD_`, or with a prefix listed in `FLUID_CUSTOM_SCAFFOLD_SECRET_PREFIXES` (at least four characters, and not starting with `GIT_`). `auth` goes only with a plain `https://host[:port]/path` url, and a url that carries a user part is refused. To migrate, rename the variable (`GITHUB_TOKEN` to `FLUID_SCAFFOLD_GITHUB_TOKEN`, in the contract and in the environment), set `FLUID_CUSTOM_SCAFFOLD_AUTH_HOSTS=github.com`, and remove any `user@` from the url.
+- **0.5.0 keeps the token off every command line and out of the cache.** The token reaches git as an `http.<url>.extraHeader` in the environment, scoped to the source's url, and git does not follow a redirect from it. This needs git 2.31 or newer. A cached clone that an earlier version made with credentials in it is cleaned or deleted before it is reused.
+- **0.5.0 confines planned output paths before `apply()`**, on a dry run too, and refuses a path that resolves outside the output directory. A Python plugin whose plan escapes it is refused at plan time: `fluid custom-scaffold` prints `error: plan failed ...` and exits `2`. `fluid-scaffold.lock` is no longer written through a symlink, is created owner-only (`0o600`) and is written with LF newlines on every platform. git and ssh never wait for a prompt: an unknown host key or a key whose passphrase is not in `ssh-agent` is now an error that says how to fix it.
 - **0.4.0** adds copier-parity reproducibility — a deterministic, credential-free `fluid-scaffold.lock` written to the output root after a successful (non-dry-run) generation (records the resolved git commit); `--pin` to resolve git sources to the locked commit (npm-ci / poetry-frozen semantics, byte-reproducible); `--update [--target REF]` to re-render at the locked base plus a new ref and 3-way-merge onto your working tree via `git merge-file` (conflict markers + exit code 4 on overlap, the lock advancing on a clean merge); a fix for `git@<full-commit-sha>` source pinning; and real enforcement of a bundle's `variables_schema` (JSON Schema Draft 7) at plan time plus `supportedProductTypes` vs `metadata.productType` (the `when` / `environments` pattern fields remain RESERVED). All additive.
 - **0.1.1** shipped the `customScaffold` JSON-Schema as a real package artifact, advertised it to the `fluid forge` copilot via `fluid_build.extension_schemas`, and added **white-label spec dialects** (`ScaffoldDialect` + `make_validator()` / `make_register()` factories) so a third party can reuse the engine under their own `apiVersion`, `extensions.<key>`, and subcommand.
 - The bundle manifest format is **`fluid.dev/custom-scaffold.v1`**; a bundle declares it in `apiVersion`.
@@ -119,8 +124,10 @@ Issues, PRs, and discussions all happen on the upstream repos. The `examples/` d
 | You're upgrading | From → To | What might break |
 |---|---|---|
 | CLI | 0.9.0 → 0.10.0 | Released. Additive — adds plugin governance (`FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`), the `fluid plugins` / `fluid exporters` commands, and wires the `Validator` / `CatalogAdapter` / IaC-provider roles end-to-end. (odps/odcs were reclassified from providers to exporters; the export commands are unchanged.) |
+| SDK | 0.10 → 0.11 | Released. A fix to the reference `CustomScaffold.apply()`: it no longer writes through a symlink planted at its temp file name. A plugin that overrides `apply()` and stages files at a predictable name fails the new conformance check; stage through `tempfile.mkstemp`. Keep the upper bound (`<1`). |
 | SDK | 0.9 → 0.10 | Released. Additive in practice — new first-class roles (`InfraProvider` / `CatalogAdapter`), typed value domains, `PluginCapabilities`, the SDK↔CLI compat declaration, and three role harnesses. Keep the upper bound (`<1`). |
-| Custom-scaffold | 0.1.x → 0.4.0 | Released. Additive — new `--pin` / `--update` flags and a new `fluid-scaffold.lock` lockfile; bundle manifest format unchanged (`v1`). Bump the upper bound (`>=0.4,<0.5`). |
+| Custom-scaffold | 0.4.x → 0.5.0 | Released. **Breaking for a `git` source that sets `auth`:** the operator must set `FLUID_CUSTOM_SCAFFOLD_AUTH_HOSTS`, and `secret_ref` must name a `FLUID_SCAFFOLD_` variable (see above). Requires `data-product-forge-sdk` 0.11.0 or later. The bundle manifest format is unchanged (`v1`). Use `>=0.5,<1`. |
+| Custom-scaffold | 0.1.x → 0.4.0 | Released. Additive — new `--pin` / `--update` flags and a new `fluid-scaffold.lock` lockfile; bundle manifest format unchanged (`v1`). |
 
 ## Reference
 
