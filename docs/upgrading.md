@@ -125,6 +125,12 @@ when they apply.
 | `0.29.x` | [Changes in 0.30.0](#changes-in-0-30-0) |
 | `0.30.0` | [Changes in 0.30.1](#changes-in-0-30-1) and [Changes in 0.31.0](#changes-in-0-31-0) |
 | `0.30.1` | [Changes in 0.31.0](#changes-in-0-31-0) |
+| `0.31.x` | [Changes in 0.32.0](#changes-in-0-32-0) |
+| `0.32.x` | [Changes in 0.33.0](#changes-in-0-33-0) |
+| `0.33.x` | [Changes in 0.34.0](#changes-in-0-34-0) |
+| `0.34.x` | [Changes in 0.35.0](#changes-in-0-35-0) |
+| `0.35.x` | [Changes in 0.36.0](#changes-in-0-36-0) |
+| `0.36.x` | [Changes in 0.37.0](#changes-in-0-37-0) |
 | Anything before `0.24.0`, if you read forge's ODCS or ODPS output | [Read this first if you consume the exported artifacts](#read-this-first-if-you-consume-the-exported-artifacts) (`0.23.0` and `0.24.0`) |
 | Anything before `0.23.0`, and any DuckDB upgrade | [DuckDB 1.x to 2.x](#duckdb-1-x-to-2-x) (`0.22.0` and `0.23.0`) |
 
@@ -1525,6 +1531,21 @@ These changes are in 0.35.0.
 *(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))*
 
 - **`data-product-forge[profile]` installs flux-stats 0.7.0.** The extra asked for `flux-stats>=0.6.2,<0.7` in 0.34.0 and asks for `flux-stats[yaml]>=0.7.0,<0.8` now. Upgrade the extra with `pip install -U 'data-product-forge[profile]'`. `fluid profile` stops with `profile_statistics_unavailable` on an older flux-stats. See [fluid profile](./cli/profile.md).
+
+## Changes in 0.36.0
+
+These changes are in 0.36.0. They all concern `fluid profile` and FLUID SQL/1. A profile you pin by digest changes bytes, and a profile run can now be refused where it was not: read them before you re-profile.
+
+*(since 0.36.0, [forge-cli #1024](https://github.com/Agenticstiger/forge-cli/pull/1024))*
+
+- **Without `--bundle`, `fluid profile` declares a fidelity block from the contract and answers it.** Every `enum(...)` column gets a level histogram over every declared level. A number whose `validationRules` declare both ends of a range, each inside its type, gets a marginal histogram of about ten bins. Any other number of a bounded type, and every date and timestamp, gets quantiles at 0.25, 0.5 and 0.75. Each categorical `semantics.dimensions` entry on an `enum` column groups the other `enum` columns' level histograms by its levels; a column's groupings hold at most 10,000 cells together, and a grouping past that is left out and named. A number with neither a two-ended range nor a bounded type, such as a `decimal` without `(p,s)`, gets no such statistic, and the summary says so.
+- **A profile that holds a quantile names format `1-1-0`.** flux-stats reads it from 0.7. A profile without `--bundle` of a contract with a bounded number, a date or a timestamp is now a `1-1-0` document with new bytes and a new digest, so a Simulation that pins the old digest has to pin the new one.
+- **A record outside what the contract declares refuses the profile.** A level its type does not list, a value outside its type or its declared range, a strict bound included, stops the run with `profile_record_outside_declared_domain`. The refusal names the column and the row and never the value. Fix the data or the contract before you re-profile.
+- **`fluid profile` profiles a whole data product in one call.** `--expose` repeats, and each expose takes its records as `--source <exposeId>=<location>`, with a database's table as `--table <exposeId>=<table>`. With no `--expose`, every expose a source names is profiled, in the contract's order. The result is one profile document whose `tables` hold every expose, written to `<contract id>.profile.json` unless `--out` names it. One `--expose` with one bare `--source` works as before. A source that pairs with no expose, an expose without a source, a source no `--expose` names and a second source for one expose are refused before any record is read, and a database source's password is masked in every refusal.
+- **Several `--expose` flags used to keep only the last.** `--expose org --expose account --source org.csv` profiled `org.csv` as the `account` expose. Each flag now needs its own `--source <exposeId>=<location>`, and without one the run is refused with `profile_source_unpaired`; an expose named twice is `profile_expose_repeated`. Check a script that repeats `--expose`: what it profiled before was the wrong expose's records.
+- **A CSV date column is read.** A column the contract types `date` reads a `YYYY-MM-DD` text as that day's midnight in UTC, as a Parquet date always read. It used to be refused. Anything but a calendar day written `YYYY-MM-DD` is refused as before.
+- **A grouped statistic's `sampleSize` counts only non-null records.** It used to band the records its groups hold, which gave back how many records hold a value and a null `groupBy` key. It now bands the column's non-null records, as the column's ungrouped statistics do. Three further ways a count table could pin a small count are closed: a column's `distinctCount` is withheld under `D` when a level histogram counts the column or a grouped statistic groups by it, a number with a default histogram withholds its exact `sum`, `min`, `max`, `quantiles` and `distinctCount` under `D` and has no `mean/1`, and a column gets a histogram or quantiles on the same bins, not both.
+- **FLUID SQL/1 moves a date by whole days, months and years.** `ADD_DAYS(d, n)`, `ADD_MONTHS(d, n)` and `ADD_YEARS(d, n)` take a date and a count of scale 0 and give a date. A month or year move keeps the day of the month or clamps it to the last day of a shorter month, so 31 January plus one month is 28 or 29 February. A NULL argument gives NULL, and a result outside 0001-01-01 to 9999-12-31 is NULL, never an error. Every dialect renders them with a guarded count, and Snowflake gets `DATEADD`, never its own `ADD_MONTHS`, which keeps month ends. The conformance vectors are version 1.1.0. See [fluid profile](./cli/profile.md).
 
 ## Changes in 0.37.0
 

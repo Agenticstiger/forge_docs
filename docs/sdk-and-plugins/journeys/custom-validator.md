@@ -108,7 +108,7 @@ name = "my-org-validators"
 version = "0.1.0"
 description = "Data-governance validators for my-org"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.10,<1"]
+dependencies = ["data-product-forge-sdk>=0.11,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]

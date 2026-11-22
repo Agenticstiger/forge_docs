@@ -3,8 +3,8 @@
   "supportedCliInstallSpec": "data-product-forge==0.37.0",
   "supportedFluidContractVersion": "0.7.6",
   "quickstartScaffoldVersion": "0.7.5",
-  "supportedSdkVersion": "0.10.0",
-  "supportedSdkInstallSpec": "data-product-forge-sdk>=0.10,<1",
-  "supportedCustomScaffoldVersion": "0.4.1",
-  "supportedCustomScaffoldInstallSpec": "data-product-forge-custom-scaffold>=0.4,<0.5"
+  "supportedSdkVersion": "0.11.0",
+  "supportedSdkInstallSpec": "data-product-forge-sdk>=0.11,<1",
+  "supportedCustomScaffoldVersion": "0.5.0",
+  "supportedCustomScaffoldInstallSpec": "data-product-forge-custom-scaffold>=0.5,<1"
 }

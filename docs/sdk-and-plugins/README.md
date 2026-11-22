@@ -80,7 +80,7 @@ build-backend = "setuptools.build_meta"
 name = "hello-scaffold"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.10,<1"]
+dependencies = ["data-product-forge-sdk>=0.11,<1"]
 
 [project.entry-points."fluid_build.custom_scaffolds"]
 hello = "hello_scaffold.scaffold:HelloScaffold"
@@ -136,10 +136,10 @@ Each guide opens with the real problem you might have, then walks you to a worki
 | Package | Version | What it does | Install |
 |---|---|---|---|
 | [`data-product-forge`](https://pypi.org/project/data-product-forge/) | 0.18.1 | The CLI (this docs set) | `pip install data-product-forge` |
-| [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) | 0.10.0 | Plugin SDK — zero-dependency ABCs for the four roles (`CustomScaffold` / `Validator` / `InfraProvider` / `CatalogAdapter`) + per-role conformance harnesses | `pip install data-product-forge-sdk` (import: `from fluid_sdk import …`) |
-| [`data-product-forge-custom-scaffold`](https://pypi.org/project/data-product-forge-custom-scaffold/) | 0.4.1 | Reference custom-scaffold engine (Jinja+YAML or Python plugins); 0.4.0 adds reproducible builds — `fluid-scaffold.lock` + `--pin` / `--update` | `pip install data-product-forge-custom-scaffold` |
+| [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) | 0.11.0 | Plugin SDK — zero-dependency ABCs for the four roles (`CustomScaffold` / `Validator` / `InfraProvider` / `CatalogAdapter`) + per-role conformance harnesses | `pip install data-product-forge-sdk` (import: `from fluid_sdk import …`) |
+| [`data-product-forge-custom-scaffold`](https://pypi.org/project/data-product-forge-custom-scaffold/) | 0.5.0 | Reference custom-scaffold engine (Jinja+YAML or Python plugins); 0.4.0 adds reproducible builds — `fluid-scaffold.lock` + `--pin` / `--update`; 0.5.0 adds a `generate()` library entry point and requires an operator allowlist for a git source's `auth` | `pip install data-product-forge-custom-scaffold` |
 
-The SDK and scaffold ship as standalone packages on their own version lines, both pre-1.0 as of this writing (SDK 0.10.0, scaffold engine 0.4.1). Pin the upper bound, as the examples do. See [Companion Packages](./reference/companion-packages.md) for the dual-naming details (PyPI: `data-product-forge-sdk`, import path: `fluid_sdk`).
+The SDK and scaffold ship as standalone packages on their own version lines, both pre-1.0 as of this writing (SDK 0.11.0, scaffold engine 0.5.0). Pin the upper bound, as the examples do. See [Companion Packages](./reference/companion-packages.md) for the dual-naming details (PyPI: `data-product-forge-sdk`, import path: `fluid_sdk`).
 
 ## What about security?
 
