@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.37.0                                                              │
+│ Version: 0.38.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.37.0"
+pip install "data-product-forge[local]==0.38.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.37.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.38.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -131,6 +131,7 @@ when they apply.
 | `0.34.x` | [Changes in 0.35.0](#changes-in-0-35-0) |
 | `0.35.x` | [Changes in 0.36.0](#changes-in-0-36-0) |
 | `0.36.x` | [Changes in 0.37.0](#changes-in-0-37-0) |
+| `0.37.x` | [Changes in 0.38.0](#changes-in-0-38-0) |
 | Anything before `0.24.0`, if you read forge's ODCS or ODPS output | [Read this first if you consume the exported artifacts](#read-this-first-if-you-consume-the-exported-artifacts) (`0.23.0` and `0.24.0`) |
 | Anything before `0.23.0`, and any DuckDB upgrade | [DuckDB 1.x to 2.x](#duckdb-1-x-to-2-x) (`0.22.0` and `0.23.0`) |
 
@@ -1595,11 +1596,38 @@ What to do when you upgrade:
 - **A scheduled run has its own run id.** Under a scheduler the run id comes from the scheduler's job and run, no longer from `.fluid/run-id.txt`. `FLUID_RUN_ID` still wins.
 - **Entropy Data's product list is read whole or not at all.** A bad page is now a typed error.
 
-## On forge-cli `main` since 0.37.0 (not yet released)
+## Changes in 0.38.0
 
-- **A live Iceberg table in Glue is not updated in place by `fluid apply`.** A change to its description, column comments or columns is held, and the run prints what waits. To apply it, change the table through its Iceberg catalog, or pause the writers and use `--allow-iceberg-update` once. A saved plan made before this change that updates a live Iceberg table in place is refused: plan again. A plan that `tofu show -json` cannot read is refused when it changes anything in place, even with `--allow-data-loss`. See [Live Iceberg tables are not updated in place](./cli/apply.md#live-iceberg-tables-are-not-updated-in-place). *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- **Generated Airflow DAGs can alert on failure, retry, success and a missed SLA.** A contract with no `alerts` block renders the same file as before. See [Alerts](./advanced/airflow.md#alerts). *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- **`fluid import airflow` follows Python tasks.** A `PythonOperator` or `@task` function is read for the Spark jobs it submits, and the conventions file gains `submit_helpers`. A dict key written before a `**` spread that does not fold is no longer taken as known, so what it names is reported as not read. See [Importing existing pipelines](./advanced/importing-existing-pipelines.md). *On forge-cli `main`, not yet in a release ([forge-cli #1055](https://github.com/Agenticstiger/forge-cli/pull/1055)).*
+These changes are in 0.38.0. Four need an action before you upgrade a pipeline: a stream's identity needs `s3:ListBucket`, a secret may not sit in a maintenance option, a live Iceberg table in Glue is no longer updated in place, and short credentials are now masked in output.
+
+### Steps to take
+
+1. **Grant `s3:ListBucket` on the release prefix to the identity that runs `fluid apply` for a Spark stream.** Limit it to the build's prefix, `_fluid/spark/<product>/<build>`, and nothing wider. Without it S3 answers a missing key with 403, so forge cannot tell a missing failed-release marker from a refused one. *(since 0.38.0, [forge-cli #1062](https://github.com/Agenticstiger/forge-cli/pull/1062))* When the job config reads but the marker read is refused, the start now fails closed with `apply_spark_artifact_read_denied`, and the error names the marker's key; in 0.37.0 forge read the marker as missing, with a warning. A throttle or a timeout while reading the job config beside the marker is reported as a read failure, not as a denial. `FLUID_SPARK_ACCEPT_FAILED_RELEASE=1` lets one apply start through, but it also skips a real failed-release marker, so never set it permanently, a keepalive's environment least of all. See [Rolling back a failed release](./advanced/spark-iceberg-aws.md#rolling-back-a-failed-release).
+2. **Move a secret out of a maintenance action option.** An option whose key names a credential (`api_key`, `password` and the like) is refused by `fluid validate`, `fluid plan` and `fluid apply`, whatever its value, and the message does not show the value. Before, such a value reached `plan.json` and the deployed job config. Put the secret in a connection or a secret reference the action's package reads itself. *(since 0.38.0, [forge-cli #1063](https://github.com/Agenticstiger/forge-cli/pull/1063))* See [Iceberg table maintenance](./advanced/spark-iceberg-aws.md#iceberg-table-maintenance).
+3. **Expect short credentials to be masked.** A password or a token under a credential-named key is now replaced by `***REDACTED***` in logs and output (`[REDACTED]` in the Snowflake provider's logs) even when it is short. Before, a short value was left as it was unless it had a known shape. A script that reads such a value out of a log line stops finding it. *(since 0.38.0, [forge-cli #1063](https://github.com/Agenticstiger/forge-cli/pull/1063))*
+4. **Plan again after upgrading if you hold a saved plan that updates a live Iceberg table in place.** `fluid apply plan.json` refuses it. See the first item below.
+
+### What changed
+
+- **A live Iceberg table in Glue is not updated in place by `fluid apply`.** A change to its description, column comments or columns is held, and the run prints what waits. To apply it, change the table through its Iceberg catalog (`ALTER TABLE ... SET TBLPROPERTIES ('comment' = '...')`, or `ALTER TABLE ... ALTER COLUMN ... COMMENT '...'`, in Spark), whose commit writes Glue with the version it read; or pause the table's writers and run `fluid apply --allow-iceberg-update` once. A table whose Iceberg schema changed outside the contract gets the note on every apply while the two differ. A saved plan made before this release that updates a live Iceberg table in place is refused by `fluid apply plan.json`: plan again. A plan that `tofu show -json` cannot read back is refused when it changes anything in place, even with `--allow-data-loss`. See [Live Iceberg tables are not updated in place](./cli/apply.md#live-iceberg-tables-are-not-updated-in-place). *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- **A contract declares each Iceberg table's maintenance, and forge runs it beside the table's stream (schema 0.7.7).** `exposes[].iceberg.maintenance` takes compaction, manifest rewrites, snapshot expiry, orphan-file removal and a package's own actions. `fluid plan` lists a `spark.maintain` action, `fluid generate schedule` writes a maintenance DAG, and `fluid apply --mode maintain --expose-id <expose>` runs it. The change is additive: a contract without the block behaves as before. See [Iceberg table maintenance](./advanced/spark-iceberg-aws.md#iceberg-table-maintenance). *(since 0.38.0, [forge-cli #1057](https://github.com/Agenticstiger/forge-cli/pull/1057))*
+- **Generated Airflow DAGs can alert on failure, retry, success and a missed SLA.** A contract with no `alerts` block renders the same file as before. `fluid plan` and `fluid apply` now run the same alert-route checks as `fluid validate`, and a schema error under `alerts` no longer quotes the field's value. See [Alerts](./advanced/airflow.md#alerts). *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- **Generated Airflow DAGs can serialize the writers of a table.** With `orchestration.airflow.poolPerOutputTable: true` (0.7.7), each task that writes an output table runs in a one-slot pool named after the table. It is off by default. A build that writes more than one table is refused, so declare one output per build. `fluid schedule-sync --airflow-url` creates the pools Airflow lacks and never changes one that exists; without `--airflow-url`, `fluid generate schedule` and `fluid schedule-sync` print the `airflow pools set` lines. See [Writer pools](./advanced/airflow.md#writer-pools). *(since 0.38.0, [forge-cli #1062](https://github.com/Agenticstiger/forge-cli/pull/1062))*
+- **The DAGs `fluid generate schedule` writes for AWS, GCP and Snowflake set `max_active_runs=1`**, as the `fluid apply` DAGs already did, so two runs of one DAG never write the same tables at the same time. A DAG that relied on overlapping runs now queues the second run. *(since 0.38.0, [forge-cli #1062](https://github.com/Agenticstiger/forge-cli/pull/1062))*
+- **In the 0.7.7 preview, `airflowOrchestration.dagId` is optional and takes Airflow's own spelling.** `dagId` and `airflowTask.taskId` follow Airflow's rule for these ids (ASCII letters of either case, digits, underscore, dot and dash, at most 250 characters), so every id the lowercase rule took is still taken. `fluid validate` refuses an empty id, a space, a slash and an id over 250 characters. The schemas for 0.7.6 and older are unchanged: a contract written for them keeps lowercase ids. *(since 0.38.0, [forge-cli #1059](https://github.com/Agenticstiger/forge-cli/pull/1059))*
+- **`fluid import airflow` follows Python tasks.** A `PythonOperator` or `@task` function is read for the Spark jobs it submits, and the conventions file gains `submit_helpers`. A dict key written before a `**` spread that does not fold is no longer taken as known, so what it names is reported as not read. A DAG or task id with capitals is now kept, recorded under the importer's identifier of it. See [Importing existing pipelines](./advanced/importing-existing-pipelines.md). *(since 0.38.0, [forge-cli #1055](https://github.com/Agenticstiger/forge-cli/pull/1055), [forge-cli #1058](https://github.com/Agenticstiger/forge-cli/pull/1058))*
+- **`fluid profile` answers a FLUX profile request, profiles boolean columns and can release a table under differential privacy.** `--request FILE` measures what a request lists and nothing else, and names each item it cannot answer as `Not measured`, with the reason. `--privacy-unit` with `--rho` and `--release-record` releases a table under zero-concentrated differential privacy (profile format 1-2-0); it needs the `[privacy]` extra only when a selection runs. A column typed `boolean`, `bool` or `bit` is read as the category `false` or `true`. A histogram over a declared range now ends at the column's maximum, so a bundle written from the profile no longer reads a maximum the contract never declared. The `[profile]` extra takes flux-stats `>=0.9,<1`; a flux-stats below 0.9 is replaced when the extra is installed. See [fluid profile](./cli/profile.md). *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))*
+- **`fluid datamesh-manager publish|promote|status --format json` print a typed error on stderr**, so stdout stays one JSON document.
+
+### Security
+
+- **Both redaction layers mask more.** A short credential under a credential-named key, a token of 16 or more characters that is the only user info of a URL, AWS SigV4 `Authorization` values, camelCase alert keys (`routingKey`, `integrationKey`, `genieKey`), Teams and Discord webhook URLs, the `sig=` of a signed URL, a credential key spelled with hyphens (`x-api-key`) and a log argument that is an object. The Zenduty, Opsgenie and PagerDuty connection values of an alert route are masked too. *(since 0.38.0, [forge-cli #1063](https://github.com/Agenticstiger/forge-cli/pull/1063))*
+- **The importer's command-line scrubber masks `--login user/pw`, a split `--conf <secret.key> <value>` and a provider token in a path segment.** An exported ODCS `catalogUrl` never carries a password, and a Data Mesh Manager error body that echoes the API key no longer shows it. *(since 0.38.0, [forge-cli #1063](https://github.com/Agenticstiger/forge-cli/pull/1063))*
+- **A `.` or `..` segment in an object-store binding location, or in a Data Mesh Manager product id, is refused.** *(since 0.38.0, [forge-cli #1063](https://github.com/Agenticstiger/forge-cli/pull/1063))*
+
+### Also in 0.38.0
+
+A Jenkins `GENERATE_EMIT` default that includes `opds`; GitHub Actions uploads that keep their dot folders; a `parquet_variant` column read as a variant by the live `fluid diff` of a DuckDB table; an Airflow client that bounds the whole time it takes to read an answer; generated DAG file names that differ only in case are refused; and a generated Glue table helper that leaves Iceberg tables alone. The full list is in the forge-cli [CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md).
 
 ## Older releases
 

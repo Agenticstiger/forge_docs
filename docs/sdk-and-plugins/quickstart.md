@@ -121,7 +121,7 @@ build-backend = "setuptools.build_meta"
 name = "hello-scaffold"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.11,<1"]
+dependencies = ["data-product-forge-sdk>=0.12,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]

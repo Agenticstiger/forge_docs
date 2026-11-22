@@ -6,7 +6,7 @@ Profile one expose's records where they live, and write a profile document of ou
 
 FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
 
-The `[profile]` extra installs DuckDB and `flux-stats` from PyPI: `flux-stats>=0.6.2,<0.7` through 0.34.0 and, *(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))*, `flux-stats[yaml]>=0.7.0,<0.8`. Without flux-stats, `fluid profile` stops before it reads anything and says what to install:
+The `[profile]` extra installs DuckDB and `flux-stats` from PyPI: `flux-stats>=0.6.2,<0.7` through 0.34.0 and, *(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))*, `flux-stats[yaml]>=0.7.0,<0.8` through 0.37.0 and, *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))*, `flux-stats[yaml]>=0.9,<1`: from 0.9 flux-stats is versioned by its own formats and API, so a minor release no longer renames what the profiler imports. 0.9.0 is the first release that holds the profile request reader, a boolean read as a category and profile format 1-2-0, and a flux-stats below 0.9 is replaced when the extra is installed. Without flux-stats, `fluid profile` stops before it reads anything and says what to install:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
@@ -38,7 +38,9 @@ The profiler is the one part of FLUX that reads records. It runs inside the envi
 ## Syntax
 
 ```bash
-fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE] [--fractional-bits N] [--bundle DIR] [--env ENV]
+fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE] [--fractional-bits N] [--bundle DIR] [--request FILE] [--env ENV]
+               [--privacy-unit EXPOSE --rho R --release-record PATH [--release-table EXPOSE] [--unit-key COL[,COL]]
+                [--max-rows-per-unit N] [--max-rows-per-cell K] [--rederive]]
 ```
 
 | Argument | What it does |
@@ -50,6 +52,8 @@ fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE]
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory. |
 | `--fractional-bits` | The grid [`mean/1`](#the-mean-1-statistic) is formed on, in steps of 2^-N: 0 to 128, default 16. Set it to the fidelity block's `encoding.fractionalBits`. |
 | `--bundle` | *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* A FLUX bundle directory: the profile answers the fidelity block its one Simulation declares for the expose, on the block's grid, and a different `--fractional-bits` is refused. See [Answering a fidelity block](#answering-a-fidelity-block-bundle). |
+| `--request` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* A profile request that `fluxsim init --contract` wrote. See [Answering a profile request](#answering-a-profile-request-request). |
+| `--privacy-unit`, `--rho`, `--release-record` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* Release one table under differential privacy. See [Releasing a table under differential privacy](#releasing-a-table-under-differential-privacy). `--release-table`, `--unit-key`, `--max-rows-per-unit`, `--max-rows-per-cell` and `--rederive` refine it. |
 | `--env` | An environment overlay to apply to the contract first. |
 
 Install the extra, which adds DuckDB and flux-stats:
@@ -88,6 +92,7 @@ For each column whose FLUID type has a profile domain, the document holds the se
 | `number` | `integer`, `bigint`, `decimal(p,s)`, `numeric`, `number`, `money`, `year`, ... | `count`, `nullCount`, `distinctCount`, `sum`, `min`, `max`, `quantiles` (0.25, 0.5, 0.75) |
 | `timestamp` | `timestamp`, `timestamptz`, `datetime`, `date`, ... | the same, without `sum` (values in milliseconds since the epoch) |
 | `category` | `string`, `varchar(n)`, `uuid`, `enum`, ... | `count`, `nullCount`, `distinctCount` |
+| `category` | *(since 0.38.0)* `boolean`, `bool`, `bit` | The same. The value is read as the category `false` or `true`. |
 
 These columns are left out and named in the output:
 - binary floating point (`float`, `double`, `real`), which FLUX keeps out of every exact path;
@@ -96,7 +101,7 @@ These columns are left out and named in the output:
 - a bare time of day;
 - intervals;
 - geospatial values;
-- booleans, which FLUX's reader does not read yet.
+
 
 ## The `mean/1` statistic
 
@@ -237,6 +242,27 @@ The document writes C for every withheld group and cell of a histogram or a quan
 ```
 
 The `Withheld histogram cells` line counts the histogram cells withheld inside groups that were published: here the empty top bin and the market that holds 3 records. It appears only when there are such cells. The last line appears when any histogram cell, or any group of a histogram or a quantile, is withheld.
+
+## Answering a profile request: `--request`
+
+*(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* `--request FILE` takes the list of statistics, column metrics and relationships that `fluxsim init --contract` writes for a contract. The profile measures what the request lists and nothing else, under the same output checks: per listed table only the listed columns, metrics and statistics, the row count only when asked, and children per parent only for a listed relationship the contract declares. The request's grid is the profile's. Each listed item the profile cannot answer is named in the report as `Not measured`, with its reason, for example a histogram over a number with no declared range. A listed fact, a rule of the contract's `invariants`, is measured as the rows the rule covers that do not and do satisfy it, and the profile is then format 1-2-0. A rule over an aggregate, a dependency or a related row is reported as not measured.
+
+A request is refused before any record is read, each with its own event code, when it is used beside `--bundle`, `--env` or `--expose`, when the contract is a stage-1 bundle archive, when the request file is not a regular file, is too large, is not UTF-8 or is refused by flux-stats, when its contract digest is not the contract file's (run `fluxsim init` again), when a table, column or domain is not shared by the contract and the profile, when `--fractional-bits` differs from the request's, and when a listed table has no `--source` or a `--source` names a table the request does not list.
+
+## Releasing a table under differential privacy
+
+*(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* With `--privacy-unit`, `--request`, `--rho` and `--release-record`, the profile is a release of one table's requested statistics under zero-concentrated differential privacy, a profile of format 1-2-0. It holds a noisy level histogram of each required `enum` column the request lists, a noisy histogram of each required number, date or timestamp column on public bins, and noisy clique marginals over categorical columns, chosen with OpenDP's AIM. The selection needs the `[privacy]` extra, `pip install 'data-product-forge[profile,privacy]'`, and only when a selection runs.
+
+```bash
+fluid profile contract.fluid.yaml --request orders.request.json \
+  --source orders=./orders.csv --privacy-unit orders --unit-key customer_id \
+  --max-rows-per-unit 3 --rho 1 --release-record orders.release-record.json
+```
+
+- **The privacy unit is an entity.** One row of `--privacy-unit`, or with `--release-table` a child table through one declared relationship, or with `--unit-key COL[,COL]` the rows of one table that share a key. Each entity contributes at most `--max-rows-per-unit` rows and counts at most `--max-rows-per-cell` in one cell, so the stated loss holds for each entity and for each row of it.
+- **The budget.** A tenth of `rho` chooses the cliques, and the rest is split equally over the count tables. The report names the unit, the loss and its split, each table's noise scale, the cliques, an informational conversion to (epsilon, delta), and every requested item that is not released, with the reason.
+- **The release record.** The noise is drawn from a seeded randomness source that is recorded in `--release-record`, created readable by its owner alone, and the file must not exist for a new release. Keep it inside the data owner's boundary: with the record and the profile, the noise can be taken off. `--rederive` with the existing record draws the release again and writes the profile only when its digest is the recorded one.
+- **Nothing that depends on the records** is printed, logged or recorded outside the noise. A refusal names a column and a row, never a value or a count.
 
 ## What leaves: the output checks
 

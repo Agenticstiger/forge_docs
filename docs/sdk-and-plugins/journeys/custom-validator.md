@@ -108,7 +108,7 @@ name = "my-org-validators"
 version = "0.1.0"
 description = "Data-governance validators for my-org"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.11,<1"]
+dependencies = ["data-product-forge-sdk>=0.12,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
@@ -459,7 +459,7 @@ Three places this typically gets installed:
    ```
 3. **CI** — the bundle from [your-own-ci](./your-own-ci.md) already has a `validate` stage. Add `my-org-validators` to the `pip install` line:
    ```yaml
-   - run: pip install --index-url "<your-private-index-url>" "data-product-forge==0.37.0" "my-org-validators==<version>"
+   - run: pip install --index-url "<your-private-index-url>" "data-product-forge==0.38.0" "my-org-validators==<version>"
    - run: fluid validate contract.fluid.yaml --strict
      env:
        FLUID_PLUGINS_ALLOWLIST: "steward-required,cost-center-required,classification-from-vocab,local"

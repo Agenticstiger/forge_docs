@@ -45,7 +45,7 @@ version = "0.1.0"
 description = "Minimal FLUID CustomScaffold example — emits one README.md from any contract"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
-dependencies = ["data-product-forge-sdk>=0.11,<1"]
+dependencies = ["data-product-forge-sdk>=0.12,<1"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]

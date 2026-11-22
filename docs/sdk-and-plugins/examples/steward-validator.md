@@ -71,7 +71,7 @@ name = "steward-validator"
 version = "0.1.0"
 description = "FLUID Validator example — fails contracts that don't declare a data steward"
 requires-python = ">=3.10"
-dependencies = ["data-product-forge-sdk>=0.11,<1"]
+dependencies = ["data-product-forge-sdk>=0.12,<1"]
 
 # Note the entry-point GROUP — different from CustomScaffold's:
 [project.entry-points."fluid_build.validators"]

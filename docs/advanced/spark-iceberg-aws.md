@@ -1219,7 +1219,7 @@ Forge then cancels the run if it is still going, starts the previous job config 
 | `apply_spark_rollback_unsafe` | The checkpoint moved and the old config writes the same table. The failed run is cancelled and the stream is down. | Applying the previous contract again is the deliberate way back. It expects those records twice. |
 | `apply_spark_no_known_good_config` | The config being replaced was not a known good one (its last run failed or was cancelled before the apply), and the release failed too. The stream is down. | Fix the contract and apply again. |
 | `apply_spark_release_failed_earlier` | This config failed a probation before. Every such config is marked (`releases/<digest16>/failed`), so no later `fluid apply` or `--mode reconcile` starts it as it stands. The error comes before a running config is stopped. | Change the contract. To start it anyway for one apply, set `FLUID_SPARK_ACCEPT_FAILED_RELEASE=1`. A project `.env` cannot set it. |
-| `apply_spark_artifact_read_denied` | The marker or record prefix cannot be read. | Grant the identity `s3:GetObject` and `s3:ListBucket` on `_fluid/spark/<product>/<build>/`. The error names the grants. Where `s3:ListBucket` is missing and the job config beside the marker reads, a missing marker is read as missing, with a warning that names the grant. |
+| `apply_spark_artifact_read_denied` | The marker or record prefix cannot be read. *(since 0.38.0, [forge-cli #1062](https://github.com/Agenticstiger/forge-cli/pull/1062))* When the job config reads but the marker read is refused, the start fails closed, and the error names the marker's key. Without `s3:ListBucket`, S3 answers a missing key with 403, so a refused marker cannot be told from a missing one. A throttle or a timeout while reading the job config beside the marker is reported as a read failure, not as a denial. | Grant the identity `s3:GetObject` on `_fluid/spark/<product>/<build>/` and `s3:ListBucket` limited to that release prefix, and nothing wider. The error names the grants. `FLUID_SPARK_ACCEPT_FAILED_RELEASE=1` starts one apply through, but it also skips a real failed-release marker: never set it permanently, a keepalive's environment least of all. |
 | `apply_spark_artifact_mismatch` | A plan made before the upgrade. | Plan again with the new version. |
 | An outcome that says the old config cannot be started again | The previous run started before 0.37.0 and has no release record. The failing run is left as it is. | Fix the contract and apply again. |
 
@@ -1419,6 +1419,84 @@ spark_cluster_posture
 - **Which `yarn-site`.** The cluster's, overridden by the applied configuration of the primary instance group, or for a fleet cluster by the primary fleet's instance types when they agree. When they do not agree, the check says nothing about application masters.
 - **A cluster it cannot read prints nothing.** That covers a missing `[aws]` extra (boto3), no credentials, a call AWS refuses, an endpoint that does not answer, and a cluster that is ending or ended. `fluid plan` and `fluid apply` carry on as before, and `fluid apply --dry-run` reads nothing. Each call waits at most 3 seconds to connect and 10 seconds to answer, in two attempts.
 - **Permissions.** The three read actions in [The caller's permissions](#the-caller-s-permissions).
+
+## Iceberg table maintenance
+
+*(since 0.38.0, [forge-cli #1057](https://github.com/Agenticstiger/forge-cli/pull/1057))* A contract declares each Iceberg table's maintenance in `exposes[].iceberg.maintenance` (schema 0.7.7), and forge runs it beside the table's stream. The block is additive: a table without it is maintained as before, by whatever you run yourself. A stream appends all day, so a table that nobody compacts collects small files, snapshots and orphan files.
+
+```yaml
+exposes:
+  - exposeId: orders
+    kind: table
+    iceberg:
+      maintenance:
+        schedule: "0 3 * * *"
+        compaction: {}
+        expireSnapshots:
+          olderThan: P7D
+          retainLast: 5
+        removeOrphanFiles:
+          olderThan: P3D
+    binding:
+      platform: aws
+      format: iceberg
+      # ...
+```
+
+On the contract from [Declaring the build](#declaring-the-build) with this block, 0.38.0 validates it, and `fluid plan` lists one more action beside the build's own:
+
+```text
+1. provision_orders (provisionDataset)
+2. schedule_ingest-orders (scheduleTask)
+3. spark_ingest-orders (spark.reconcile)
+4. spark_maintain_orders (spark.maintain)
+```
+
+- **The steps** run in this order: a package's `actions`, `compaction` (Iceberg's `rewrite_data_files`), `rewriteManifests`, `expireSnapshots` (`olderThan`, `retainLast`) and `removeOrphanFiles` (`olderThan`). `expireSnapshots.olderThan` and `removeOrphanFiles.olderThan` are ISO 8601 durations of at least `P1D`. `iceberg.compaction.targetFileSizeMb` and `iceberg.snapshotRetention` give compaction and expiry their defaults. An `enabled: false` on a step declares the block and runs nothing. Every field is in the [0.7.7 reference](../reference/contract-0.7.7-preview.md).
+- **`backend: spark`** (the default) runs the steps with forge's Spark runner, on the runtime, and as the role, of the `engine: spark` build that writes the table. Name the build with `build` when more than one writes it. `schedule` is required, and `timezone` defaults to `UTC`. A writer on AWS Glue is refused, because its one job runs one run at a time, and so is an EMR on EC2 cluster that runs one step at a time while another step runs.
+- **`fluid plan`** lists a `spark.maintain` action for each table, which `planDigest` covers, and **`fluid apply`** uploads its job config beside the build's.
+- **`fluid generate schedule`** writes a maintenance DAG for each table, `maintain_<expose>_dag.py`, on the table's `schedule` and `timezone`. Its one task runs [`fluid apply --mode maintain --expose-id <expose>`](../cli/apply.md#maintain-mode), with no Airflow retries: the next scheduled run is the retry.
+- **Safe to run beside the stream.** Every commit a run makes carries the runner's [stamps](#commit-stamps) and `fluid.maintenance`, the step's name. Compaction commits with partial progress, so the stream keeps appending: a file group that a concurrent commit conflicts with fails alone, and the next run takes it again.
+- **`removeOrphanFiles` deletes** every file under the table's location that no snapshot of it references. `fluid validate` therefore refuses it on a bucket root, on a location that holds, or sits inside, another expose's (compared segment by segment), on a location with a `.` or `..` segment, and when the location holds a table outside the contract. The Spark runner also refuses a location that holds `#`, `?` or a control character.
+- **`backend: glue`** provisions the Glue Data Catalog's table optimizers instead (`aws_glue_catalog_table_optimizer`: compaction, retention and orphan file deletion), run as `roleArn`. A non-default compaction strategy, `minInputFiles` or `deleteFileThreshold` needs hashicorp/aws 6.58.0, and `runEveryHours` needs 6.13.0.
+- **Checks.** `fluid validate` runs `contract_iceberg_maintenance`, and in its plugin phase `contract_maintenance_actions`.
+
+### A package's maintenance action
+
+An `actions` entry names a `kind` from the `fluid_build.maintenance_actions` entry-point group, such as a GDPR erasure that an organisation ships as a package, and gives it `options`:
+
+```yaml
+actions:
+  - name: erase
+    kind: gdpr
+    options:
+      reason: erasure-request
+```
+
+A kind is read by name and loaded only when a contract names it, under [`FLUID_PLUGINS_ALLOWLIST` and `FLUID_PLUGINS_BLOCKLIST`](../cli/plugins.md#operator-governance). Its statements are asked for when the config is compiled. Each must be one `DELETE`, `UPDATE` or `MERGE` whose target is the table, with no comment and no backslash, and what ships is sqlglot's own rendering of the statement it checked, as part of the job config that the plan binds. To write one, use `MaintenanceAction` from [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) 0.12.0 and later: see [Alert, maintenance and command plugins](../sdk-and-plugins/reference/roles.md#alertnotifier-maintenanceaction-and-commandplugin).
+
+*(since 0.38.0, [forge-cli #1063](https://github.com/Agenticstiger/forge-cli/pull/1063))* **An option whose key names a credential is refused**, whatever its value, by `fluid validate`, `fluid plan` and `fluid apply`:
+
+```text
+exposes[orders].iceberg.maintenance.actions[0].options.api_key is named like a secret; a plugin reads its secrets itself, never from the contract (value not shown)
+```
+
+Move the secret into a connection or a secret reference that the package reads itself. Before 0.38.0 such a value reached `plan.json` and the deployed job config.
+
+### Running a maintenance step by hand
+
+```bash
+fluid apply contract.fluid.yaml --mode maintain --expose-id orders --dry-run --yes
+```
+
+```text
+Iceberg orders maintenance (build ingest-orders, emr-serverless): would start one run and wait up to 21600 s for it to end, which would:
+  compact fluid.commerce.orders (binpack; partial-progress.enabled=true, partial-progress.max-commits=10)
+  expire the snapshots of fluid.commerce.orders older than 7 days, keeping the last 5, and delete the files only they held
+  delete the files under s3://commerce-lake/iceberg/commerce/orders/ that no snapshot of fluid.commerce.orders references, older than 3 days
+```
+
+Without `--dry-run` it starts one run with the config the last `fluid apply` deployed, refused unless that is the one the contract compiles to now, and waits for it. It deploys nothing and runs no `tofu`. See [Maintain mode](../cli/apply.md#maintain-mode).
 
 ## Commit stamps
 

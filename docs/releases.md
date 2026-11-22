@@ -5,13 +5,14 @@ description: Every forge-cli release, newest first, with what changed and where 
 
 # Releases
 
-These docs are verified against CLI `0.37.0`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
+These docs are verified against CLI `0.38.0`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
 Each version links to its upgrade steps, its release notes, or the forge-cli CHANGELOG.
 
 For what `fluid version`, `fluidVersion` and the schema versions mean, see [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
 
 | Version | Date | What changed |
 | --- | --- | --- |
+| [`0.38.0`](./upgrading.md#changes-in-0-38-0) | 2026-11-22 | Per-table Iceberg maintenance that forge runs beside the stream, Airflow alerts and writer pools in generated DAGs, `fluid profile` answers a FLUX profile request and can release a table under differential privacy, and a live Iceberg table in Glue is no longer updated in place. |
 | [`0.37.0`](./upgrading.md#changes-in-0-37-0) | 2026-11-22 | A secret may only travel to a host the operator allowed, whichever way a connection names it, and `fluid import airflow` and `fluid import pyspark` read estates whose code builds its commands in loops. |
 | [`0.36.0`](./upgrading.md#changes-in-0-36-0) | 2026-11-19 | `fluid profile` publishes default statistics without a bundle and profiles a whole data product in one call; FLUID SQL/1 adds `ADD_DAYS`, `ADD_MONTHS` and `ADD_YEARS`. |
 | [`0.35.0`](./upgrading.md#changes-in-0-35-0) | 2026-11-19 | A plan made from a `fluid ship --release-dir` release applies when the contract has a dbt build, and the `[profile]` extra installs flux-stats 0.7. |
