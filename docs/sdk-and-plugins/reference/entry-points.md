@@ -5,6 +5,8 @@
 | Group | Walked by |
 |---|---|
 | `fluid_build.commands` | `cli/bootstrap.py` (lazily: a plugin is imported when its command runs) |
+| `fluid_build.alert_notifiers`, `fluid_build.alert_defaults` | *(since 0.38.0)* The DAG renderers and `fluid validate`, by name, when a route names the kind or a contract is rendered. See [`AlertNotifier`](./roles.md#alertnotifier-maintenanceaction-and-commandplugin). |
+| `fluid_build.maintenance_actions` | *(since 0.38.0)* `fluid plan`, `fluid apply` and `fluid validate`, by name, when a contract's `iceberg.maintenance.actions` names the kind. See [`MaintenanceAction`](./roles.md#alertnotifier-maintenanceaction-and-commandplugin). |
 | `fluid_build.extension_validators` | `cli/validate.py` |
 | `fluid_build.extension_schemas` | `fluid_build/extension_schemas.py` (the `fluid forge` copilot) |
 | `fluid_build.apply_hooks` | `cli/apply.py` |

@@ -7,7 +7,7 @@ Three packages ship together as one platform. End users only need the CLI; plugi
 | Package | Version | PyPI | Import path | What you reach for it for |
 |---|---|---|---|---|
 | **`data-product-forge`** | `0.18.1` | [pypi.org/project/data-product-forge](https://pypi.org/project/data-product-forge/) | `import fluid_build` | The CLI itself — `fluid` command, all built-in providers, the `fluid generate`/`validate`/`apply`/`publish` lifecycle, and the `fluid forge` copilot. Plugin governance (`FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`) and the `fluid plugins` / `fluid exporters` commands |
-| **`data-product-forge-sdk`** | `0.11.0` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, `InfraProvider`, `CatalogAdapter`) + typed value domains (`Severity` / `ActionStatus` / `Phase`) + SDK↔CLI compat declaration + three role conformance harnesses + `iter_extension_schemas()` discovery helper. Plugin authors only. |
+| **`data-product-forge-sdk`** | `0.12.0` | [pypi.org/project/data-product-forge-sdk](https://pypi.org/project/data-product-forge-sdk/) | `from fluid_sdk import …` | Zero-dependency ABCs (`BasePlugin`, `CustomScaffold`, `Validator`, `InfraProvider`, `CatalogAdapter`) + typed value domains (`Severity` / `ActionStatus` / `Phase`) + SDK↔CLI compat declaration + three role conformance harnesses + `iter_extension_schemas()` discovery helper. Plugin authors only. |
 | **`data-product-forge-custom-scaffold`** | `0.5.0` | [pypi.org/project/data-product-forge-custom-scaffold](https://pypi.org/project/data-product-forge-custom-scaffold/) | `from data_product_forge_custom_scaffold import …` | Reference Jinja+YAML bundle engine; it registers the `fluid custom-scaffold` command. Use it when your plugin distributes templates via a git bundle. 0.4.0 adds copier-parity reproducibility: a `fluid-scaffold.lock` lockfile, `--pin` (byte-reproducible re-render at the locked commit), and `--update [--target REF]` (3-way re-render onto your working tree). White-label spec dialects (`ScaffoldDialect`) shipped in 0.1.1. 0.5.0 adds a `generate()` library entry point and needs the operator to allow a git source's `auth`. |
 
 ## Who installs what
@@ -48,7 +48,7 @@ The PyPI name reflects the product brand (`data-product-forge`). The import path
 
 ```toml
 dependencies = [
-    "data-product-forge==0.37.0",  # pin exact for reproducibility
+    "data-product-forge==0.38.0",  # pin exact for reproducibility
 ]
 ```
 
@@ -58,7 +58,7 @@ Pin exactly (`==`) for CI and production. For development, a bound such as `>=0.
 
 ```toml
 dependencies = [
-    "data-product-forge-sdk>=0.11,<1",   # upper bound is important
+    "data-product-forge-sdk>=0.12,<1",   # upper bound is important
 ]
 ```
 
@@ -68,7 +68,7 @@ For the custom-scaffold engine (if you're shipping bundles that ride on it):
 
 ```toml
 dependencies = [
-    "data-product-forge-sdk>=0.11,<1",
+    "data-product-forge-sdk>=0.12,<1",
     "data-product-forge-custom-scaffold>=0.5,<1",
 ]
 ```
@@ -92,11 +92,12 @@ Best practice:
 
 ### `data-product-forge-sdk`
 
-- **Currently 0.11.0, with a Beta classifier.**
+- **Currently 0.12.0, with a Beta classifier.**
+- **0.12.0** adds three roles for plugin groups that have no `plan` / `apply`, each with a conformance harness in `fluid_sdk.testing`. `AlertNotifier` (and the `alert_route` / `check_alert_route` helpers for default routes) is a route kind for the alerts of generated Airflow DAGs, read from `fluid_build.alert_notifiers` and `fluid_build.alert_defaults`. `MaintenanceAction` is a step of an Iceberg table's maintenance that returns SQL, read from `fluid_build.maintenance_actions`, with `sql_literal` and `statement_problem`. `CommandPlugin` is a `fluid <name>` subcommand, read from `fluid_build.commands`. The alert and maintenance groups are first read by forge-cli 0.38.0: a plugin for them registers nothing on an older CLI. The new classes do not subclass `BasePlugin`, so `SDK_PROTOCOL_VERSION` stays 1 and `MIN_CLI_VERSION` stays 0.7.0. See [Alert, maintenance and command plugins](./roles.md#alertnotifier-maintenanceaction-and-commandplugin), and the SDK's own [plugin groups reference](https://github.com/Agenticstiger/forge-cli-sdk/blob/main/docs/reference/plugin-groups.md).
 - **0.11.0** is a security fix, with one new conformance check. The reference `CustomScaffold.apply()` staged each file at the predictable name `<target>.tmp~`, so a symlink planted there (a checked-out repository can carry one) sent the write and the `chmod` to a file outside `output_root`, and the final rename turned the output file into a symlink while `apply()` reported success. It now writes through a temp file that `tempfile.mkstemp` creates exclusively in the target's directory, so no pre-existing name is ever reused. A planned setuid or setgid bit is applied as planned, and a `write_file` path that names `output_root` itself is rejected before anything is created. File content, the planned mode, the path guard and the result shapes are unchanged; an OS-level failure message now names the random temp file. The new conformance check `CustomScaffoldTestHarness.test_apply_does_not_write_through_planted_symlinks` plants a symlink at the common staging names (`<name>.tmp~`, `.tmp`, `~`, `.part`, `.new`, `.<name>.tmp`, `<stem>.tmp`; extend the class attribute `planted_temp_names`) and fails when `apply()` writes through one. A plugin that overrides `apply()` and stages files under one of those names now fails it: stage through `tempfile.mkstemp`, as the inherited `apply()` does.
 - **0.10.0** is additive in practice (still pin the upper bound `<1`). It adds: four real role ABCs — `InfraProvider` (role `"provider"`) and `CatalogAdapter` (role `"catalog"`) are now first-class roles whose `apply` is abstract on purpose (a plugin that forgets to implement it fails loud, never a silent no-op), each with an action builder (`provision_action` / `catalog_entry_action`); typed value domains `Severity` / `ActionStatus` / `Phase` plus `FAILING_SEVERITIES`, with a fail-safe `Severity.coerce` (an unrecognised severity counts as ERROR, never silently passes); `PluginCapabilities` + `BasePlugin.capabilities()` for typed plugin self-description; an SDK↔CLI compat declaration (`SDK_PROTOCOL_VERSION` / `MIN_CLI_VERSION` / `cli_requirement()` / `PluginMetadata.requires_cli`) — the SDK declares, the CLI gates; and three role conformance harnesses (`ValidatorTestHarness`, `InfraProviderTestHarness`, `CatalogAdapterTestHarness`).
 - **0.9.1** added `iter_extension_schemas()` and the `fluid_build.extension_schemas` group — additive, no breaking change.
-- Minor versions (0.9 → 0.10 → 0.11) may break the API; 0.10.0 and 0.11.0 did not. Pin the upper bound (`<1`).
+- Minor versions (0.9 → 0.10 → 0.11 → 0.12) may break the API; 0.10.0, 0.11.0 and 0.12.0 did not. Pin the upper bound (`<1`).
 
 ### `data-product-forge-custom-scaffold`
 
@@ -124,6 +125,7 @@ Issues, PRs, and discussions all happen on the upstream repos. The `examples/` d
 | You're upgrading | From → To | What might break |
 |---|---|---|
 | CLI | 0.9.0 → 0.10.0 | Released. Additive — adds plugin governance (`FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`), the `fluid plugins` / `fluid exporters` commands, and wires the `Validator` / `CatalogAdapter` / IaC-provider roles end-to-end. (odps/odcs were reclassified from providers to exporters; the export commands are unchanged.) |
+| SDK | 0.11 → 0.12 | Released. Additive: the `AlertNotifier`, `MaintenanceAction` and `CommandPlugin` roles and their harnesses. Nothing existing changes. Keep the upper bound (`<1`). |
 | SDK | 0.10 → 0.11 | Released. A fix to the reference `CustomScaffold.apply()`: it no longer writes through a symlink planted at its temp file name. A plugin that overrides `apply()` and stages files at a predictable name fails the new conformance check; stage through `tempfile.mkstemp`. Keep the upper bound (`<1`). |
 | SDK | 0.9 → 0.10 | Released. Additive in practice — new first-class roles (`InfraProvider` / `CatalogAdapter`), typed value domains, `PluginCapabilities`, the SDK↔CLI compat declaration, and three role harnesses. Keep the upper bound (`<1`). |
 | Custom-scaffold | 0.4.x → 0.5.0 | Released. **Breaking for a `git` source that sets `auth`:** the operator must set `FLUID_CUSTOM_SCAFFOLD_AUTH_HOSTS`, and `secret_ref` must name a `FLUID_SCAFFOLD_` variable (see above). Requires `data-product-forge-sdk` 0.11.0 or later. The bundle manifest format is unchanged (`v1`). Use `>=0.5,<1`. |

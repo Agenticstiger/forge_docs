@@ -1,6 +1,6 @@
 # Roles reference
 
-Four built-in roles, all subclasses of `BasePlugin`. Pick by what you're producing.
+Four built-in roles, all subclasses of `BasePlugin`. Pick by what you're producing. Three more roles, added in SDK 0.12.0, are plain classes for plugin groups with no `plan` / `apply`: see [`AlertNotifier`, `MaintenanceAction` and `CommandPlugin`](#alertnotifier-maintenanceaction-and-commandplugin).
 
 | Role | Role tag | What it produces | Default `apply()` does |
 |---|---|---|---|
@@ -245,6 +245,96 @@ class MyCatalog(CatalogAdapter):
 ### Examples
 
 - The CLI's Data Mesh Manager and `marketplace` publishers under `fluid_build/providers/` are the closest in-tree analogs. A standalone `CatalogAdapter` plugin on PyPI hasn't been published yet — when one ships, it'll be linked here.
+
+## `AlertNotifier`, `MaintenanceAction` and `CommandPlugin`
+
+*(SDK 0.12.0)* Three more roles describe plugin groups that have no `plan` / `apply` lifecycle. forge-cli reads a few attributes, or calls one method, on whatever an entry point loads. None of the three subclasses `BasePlugin`, and forge-cli does not require the SDK: a package may write the same attributes by hand and register it the same way. The SDK gives each a typed class with forge-cli's own names and signatures, and a conformance harness that applies the rules forge-cli applies when it loads the entry point. forge-cli stays the authority: it has rules a zero-dependency SDK cannot carry and may refuse more.
+
+| Role | Entry-point group | First read by | What it adds |
+|---|---|---|---|
+| `AlertNotifier` | `fluid_build.alert_notifiers` | forge-cli 0.38.0 | A route kind for the [alerts](../../advanced/airflow.md#alerts) of generated Airflow DAGs |
+| `alert_route` helper | `fluid_build.alert_defaults` | forge-cli 0.38.0 | An organisation's default alert routes |
+| `MaintenanceAction` | `fluid_build.maintenance_actions` | forge-cli 0.38.0 | A step of an [Iceberg table's maintenance](../../advanced/spark-iceberg-aws.md#iceberg-table-maintenance) that returns SQL |
+| `CommandPlugin` | `fluid_build.commands` | forge-cli 0.8.3 | An extra `fluid <name>` subcommand |
+
+The alert groups and the maintenance group follow the operator's plugin policy from their first release: an entry point is read by name, never imported by `fluid --help` or by listing plugins, and `FLUID_PLUGINS_ALLOWLIST` and `FLUID_PLUGINS_BLOCKLIST` apply to the entry-point name before anything is imported. A plugin that fails to load is reported by exception type only. A built-in kind's name cannot be taken, and two packages that ship one name are both refused.
+
+### `AlertNotifier`
+
+A route's `kind` is `email`, `slack`, `webhook`, `pagerduty`, or the name of an entry point in `fluid_build.alert_notifiers`. A kind names an Airflow notifier (a `BaseNotifier` subclass the workers can import) and builds its keyword arguments for one alert; the DAG instantiates it when the event happens, and forge-cli never runs it.
+
+```python
+from fluid_sdk import Alert, AlertNotifier, AlertRoute
+
+class ChatNotifier(AlertNotifier):
+    notifier = "acme_alerts.notifiers:ChatNotifier"   # what the DAG imports
+    requirements = ("acme-chat-alerts>=0.1",)         # what Airflow must install
+    requires_connection = False
+    default_connection = "acme_chat_default"
+
+    def check(self, route: AlertRoute):
+        return []   # problems with the route, each a sentence
+
+    def kwargs(self, route: AlertRoute, alert: Alert):
+        return {"message": alert.title, "chat_conn_id": route.connection or self.default_connection}
+```
+
+```toml
+[project.entry-points."fluid_build.alert_notifiers"]
+acme-chat = "acme_alerts.forge:ChatNotifier"
+```
+
+`kwargs` returns literals only, keyed by Python identifiers, and never `context`. A route never carries a secret: `connection` names the Airflow connection that holds the URL or key, and `check` must not quote a route value. `alert_route(...)` builds a default route for `fluid_build.alert_defaults` and raises `ValueError` for a shape forge-cli refuses, never quoting a value; `check_alert_route` returns the problems as a list. Test with `AlertNotifierTestHarness`.
+
+### `MaintenanceAction`
+
+An action's `kind` is the name of an entry point in `fluid_build.maintenance_actions`. `check(options)` returns the problems with the options, and `statements(table, options)` returns the SQL, each statement one `DELETE`, `UPDATE` or `MERGE` on the action's own table. forge-cli compiles them into the job config the plan binds, and its Spark runner runs them before compaction.
+
+```python
+from fluid_sdk import MaintenanceAction, sql_literal
+
+class ErasePurpose(MaintenanceAction):
+    def check(self, options):
+        return [] if isinstance(options.get("purpose"), str) else ["options.purpose must be a string"]
+
+    def statements(self, table, options):
+        return [f"DELETE FROM {table} WHERE purpose = {sql_literal(options['purpose'])}"]
+```
+
+```toml
+[project.entry-points."fluid_build.maintenance_actions"]
+erase-purpose = "acme_pack.maintenance:ErasePurpose"
+```
+
+A statement holds no `${...}`, comment, backslash or control character, and `statements` is deterministic, because the statements are part of the plan. `sql_literal` writes a string as a literal that passes. A contract that names an option whose key looks like a secret is refused, so a kind reads its own secrets. Test with `MaintenanceActionTestHarness`.
+
+### `CommandPlugin`
+
+Set `name` and `help`, override `configure(parser)` and `run(args, logger)`, and name an **instance** in the entry point: forge-cli calls the loaded object with the CLI's subparsers, so the class itself is not callable that way.
+
+```python
+from fluid_sdk import CommandPlugin
+
+class HelloCommand(CommandPlugin):
+    name = "acme-hello"
+    help = "Print a greeting"
+
+    def configure(self, parser):
+        parser.add_argument("--who", default="world")
+
+    def run(self, args, logger):
+        print(f"hello {args.who}")
+        return 0
+
+command = HelloCommand()
+```
+
+```toml
+[project.entry-points."fluid_build.commands"]
+acme = "acme_cli.command:command"
+```
+
+Test with `CommandPluginTestHarness`. The SDK's [plugin groups reference](https://github.com/Agenticstiger/forge-cli-sdk/blob/main/docs/reference/plugin-groups.md) has every attribute, the rules forge-cli applies, and runnable example packages (`acme-chat-alerts`, `acme-erasure-action`, `acme-hello-command`). Install the SDK from [PyPI](https://pypi.org/project/data-product-forge-sdk/): `pip install 'data-product-forge-sdk>=0.12,<1'`.
 
 ## Shared concepts across roles
 

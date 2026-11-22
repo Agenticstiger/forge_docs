@@ -21,7 +21,7 @@
   ],
   "repo": "Agenticstiger/forge-cli",
   "changelogUrl": "https://raw.githubusercontent.com/Agenticstiger/forge-cli/main/CHANGELOG.md",
-  "reviewedThroughRelease": "0.37.0",
+  "reviewedThroughRelease": "0.38.0",
   "releaseOfPr": {
     "707": "0.20.0",
     "709": "0.20.0",
@@ -92,6 +92,10 @@
     "1042": "0.37.0",
     "1043": "0.37.0",
     "1049": "0.37.0",
-    "1051": "0.37.0"
+    "1051": "0.37.0",
+    "1054": "0.38.0",
+    "1055": "0.38.0",
+    "1056": "0.38.0",
+    "1058": "0.38.0"
   }
 }

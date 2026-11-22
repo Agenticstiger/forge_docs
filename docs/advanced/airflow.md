@@ -364,9 +364,35 @@ fluid schedule-sync --scheduler airflow --dags-dir dist/artifacts/schedule --des
 
 *(since 0.37.0)* Add `--airflow-url` and the push waits until Airflow (2 or 3) has parsed every pushed file, and fails the stage on an import error. See [Waiting for Airflow to parse the files](../cli/schedule-sync.md#waiting-for-airflow-to-parse-the-files-since-0-37-0).
 
+## Writer pools
+
+*(since 0.38.0, [forge-cli #1062](https://github.com/Agenticstiger/forge-cli/pull/1062))* Two DAGs that write the same table can run together, because Airflow knows nothing about the table. `orchestration.airflow.poolPerOutputTable: true` (contract 0.7.7 preview) makes each task of a `fluid apply` DAG that writes an output table run in a one-slot Airflow pool named after that table, so the writers of one table take turns, across DAGs and across products. It is off by default, and a DAG changes only when the contract sets it.
+
+```yaml
+fluidVersion: "0.7.7"
+orchestration:
+  engine: airflow
+  airflow:
+    poolPerOutputTable: true
+```
+
+- **One output per build.** A build that writes more than one table is refused, by `fluid validate` and by the DAG renderer, because a task has one pool. Declare one table in `builds[].outputs`, or split the build. A build with no `outputs` writes every expose.
+- **`dagId` is optional.** `orchestration.airflow.dagId` is optional in the 0.7.7 preview, so a contract can set `poolPerOutputTable` without a placeholder id. A `dagId` that is given is still checked.
+- **What the DAG holds.** A `FLUID_TABLE_POOLS` constant maps each pool name to its description, and the task carries `pool` and `pool_slots=1`. The pool name is `fluid_tbl_` followed by the table's location and a short digest, so two products that write one table share a pool.
+- **Creating the pools.** `fluid generate schedule` and `fluid schedule-sync` print one line for each pool when they cannot create it:
+
+  ```text
+  1 one-slot Airflow pool(s) serialize the writers of each output table.
+  `fluid schedule-sync --airflow-url ...` creates the ones Airflow lacks; or run:
+    airflow pools set fluid_tbl_s3_commerce_lake_iceberg_commerce_orders_545531cb83 1 "fluid: one writer at a time for s3_commerce_lake_iceberg_commerce_orders"
+  ```
+
+  With [`--airflow-url`](../cli/schedule-sync.md#waiting-for-airflow-to-parse-the-files-since-0-37-0), `fluid schedule-sync` creates the pools Airflow lacks before it pushes any DAG, and never changes a pool that already exists. The user or token needs permission to create pools (Airflow's Op role has it); a 403 is reported with the `airflow pools set` lines as the fallback. Without `--airflow-url`, `fluid schedule-sync` prints the same lines as `[schedule-sync] pool: ...`.
+- **Concurrency.** *(since 0.38.0, [forge-cli #1062](https://github.com/Agenticstiger/forge-cli/pull/1062))* The DAGs `fluid generate schedule` writes for AWS, GCP and Snowflake set `max_active_runs=1`, as the `fluid apply` DAGs already did, so two runs of one DAG never write the same tables at the same time.
+
 ## Alerts
 
-The DAGs forge generates can alert on a failure, a retry, a success and a missed SLA, through Airflow's own notifiers. The contract declares the routes in a top-level `alerts` block (contract 0.7.7 preview). *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+The DAGs forge generates can alert on a failure, a retry, a success and a missed SLA, through Airflow's own notifiers. The contract declares the routes in a top-level `alerts` block (contract 0.7.7 preview). *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
 ```yaml
 fluidVersion: "0.7.7"
@@ -389,61 +415,63 @@ alerts:
       events: [failure, sla_miss, success]
 ```
 
-Run [`fluid generate schedule`](../cli/generate.md) or [`fluid generate artifacts`](../cli/generate-artifacts.md) as usual. The DAG files carry the alerts. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+Run [`fluid generate schedule`](../cli/generate.md) or [`fluid generate artifacts`](../cli/generate-artifacts.md) as usual. The DAG files carry the alerts. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
 ### Routes
 
-- A route has a `name` (letters, digits, `_` and `-`, at most 64, unique in the contract) and a `kind`. `connection` is the id of the Airflow connection that holds the address, URL or key. It is required for `webhook` and for a plugin kind that asks for one. `email`, `slack` and `pagerduty` use `smtp_default`, `slack_default` and `pagerduty_events_default` when it is left out. A key a route does not read is refused. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `events` is a list of distinct events and picks what the route sends: `failure` (the default: a task failed for good), `retry` (a task failed and will retry), `success` (the run succeeded) and `sla_miss`. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `alerts.sla` is the SLA: an ISO 8601 duration from `PT1S` to `P30D`, in weeks, days, hours, minutes and seconds (`PT4H`, `P1DT6H`), never months or years. A route that names `sla_miss` without it is refused. An `alerts.sla` that no route uses for `sla_miss` is a warning. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `severity` is `critical`, `error`, `warning` or `info`. Without it a `failure` alerts as `critical` and a `retry` or `sla_miss` as `warning`; a `success` is always `info`. Each service gets it in its own terms (PagerDuty's severity, Zenduty's `alert_type`, Opsgenie's `priority` from P1 to P5). `options` passes settings to a plugin kind, and the built-in kinds refuse it. `to` and `from` belong to `email` routes and `format` to `webhook` routes. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `alerts.defaults: false` leaves out the routes an organisation's pack adds to every product (see [Extending alerts](#extending-alerts)). A contract replaces such a route by giving a route the same `name`. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- A product may have at most 20 routes, its own and the pack's defaults together. More is refused at `fluid validate` and when the DAG is rendered, not cut to 20. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+- A route has a `name` (letters, digits, `_` and `-`, at most 64, unique in the contract) and a `kind`. `connection` is the id of the Airflow connection that holds the address, URL or key. It is required for `webhook` and for a plugin kind that asks for one. `email`, `slack` and `pagerduty` use `smtp_default`, `slack_default` and `pagerduty_events_default` when it is left out. A key a route does not read is refused. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `events` is a list of distinct events and picks what the route sends: `failure` (the default: a task failed for good), `retry` (a task failed and will retry), `success` (the run succeeded) and `sla_miss`. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `alerts.sla` is the SLA: an ISO 8601 duration from `PT1S` to `P30D`, in weeks, days, hours, minutes and seconds (`PT4H`, `P1DT6H`), never months or years. A route that names `sla_miss` without it is refused. An `alerts.sla` that no route uses for `sla_miss` is a warning. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `severity` is `critical`, `error`, `warning` or `info`. Without it a `failure` alerts as `critical` and a `retry` or `sla_miss` as `warning`; a `success` is always `info`. Each service gets it in its own terms (PagerDuty's severity, Zenduty's `alert_type`, Opsgenie's `priority` from P1 to P5). `options` passes settings to a plugin kind, and the built-in kinds refuse it. `to` and `from` belong to `email` routes and `format` to `webhook` routes. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `alerts.defaults: false` leaves out the routes an organisation's pack adds to every product (see [Extending alerts](#extending-alerts)). A contract replaces such a route by giving a route the same `name`. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- A product may have at most 20 routes, its own and the pack's defaults together. More is refused at `fluid validate` and when the DAG is rendered, not cut to 20. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
 ### Kinds and their connections
 
-- `email` uses Airflow's `SmtpNotifier`. `to` is required: a list of one to 50 addresses. Set `from` if the connection's default sender is not what you want. The connection is an SMTP connection. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `slack` uses `SlackWebhookNotifier`. The connection is a Slack incoming-webhook connection: it holds the webhook, and so fixes the channel. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `webhook` uses `HttpNotifier` and needs the Airflow `http` provider 5.5.0 or newer. `format` picks the body. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-  - `generic` (the default) sends forge's own JSON. The connection's host is the whole URL. A header the service wants, such as a key, goes in the connection's extra, which Airflow sends as request headers. If the URL itself holds a key, put it in the connection's password too: Airflow's secrets masker does not hide a host, and a failed delivery can quote the URL. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-  - `zenduty` sends a Generic Integration event. Set the integration URL as the HTTP connection's host. `success` sends `alert_type: resolved`. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-  - `opsgenie` sends an Alert API request. Set the alerts URL as the host, and put `{"Authorization": "GenieKey <key>"}` in the connection's extra, which Airflow sends as headers. `success` closes the alert by its alias. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `pagerduty` uses `PagerdutyNotifier`. The connection holds the routing key. It is its own kind because Events API v2 puts the routing key in the request body, and a generic webhook would have written it into the DAG. `success` resolves the incident. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `success` resolves the incident in Zenduty, Opsgenie and PagerDuty. One dedup key is used per DAG. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- A plugin adds more kinds (see [Extending alerts](#extending-alerts)). *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+- `email` uses Airflow's `SmtpNotifier`. `to` is required: a list of one to 50 addresses. Set `from` if the connection's default sender is not what you want. The connection is an SMTP connection. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `slack` uses `SlackWebhookNotifier`. The connection is a Slack incoming-webhook connection: it holds the webhook, and so fixes the channel. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `webhook` uses `HttpNotifier` and needs the Airflow `http` provider 5.5.0 or newer. `format` picks the body. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+  - `generic` (the default) sends forge's own JSON. The connection's host is the whole URL. A header the service wants, such as a key, goes in the connection's extra, which Airflow sends as request headers. If the URL itself holds a key, put it in the connection's password too: Airflow's secrets masker does not hide a host, and a failed delivery can quote the URL. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+  - `zenduty` sends a Generic Integration event. Set the integration URL as the HTTP connection's host. `success` sends `alert_type: resolved`. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+  - `opsgenie` sends an Alert API request. Set the alerts URL as the host, and put `{"Authorization": "GenieKey <key>"}` in the connection's extra, which Airflow sends as headers. `success` closes the alert by its alias. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `pagerduty` uses `PagerdutyNotifier`. The connection holds the routing key. It is its own kind because Events API v2 puts the routing key in the request body, and a generic webhook would have written it into the DAG. `success` resolves the incident. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `success` resolves the incident in Zenduty, Opsgenie and PagerDuty. One dedup key is used per DAG. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- A plugin adds more kinds (see [Extending alerts](#extending-alerts)). *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
-Install the provider each kind needs on the Airflow side. The floors are `smtp` 1.2.0, `slack` 8.1.0, `pagerduty` 3.3.0 and `http` 5.5.0. For an `sla_miss` alert on Airflow 3.1 and newer, which runs the notifier in the triggerer, the floors are `smtp` 2.3.0, `slack` 9.2.0, `pagerduty` 5.1.0 and `http` 5.5.0. The DAG's documentation lists what its routes need. An import error from a missing provider shows up in the [parse check](#pushing-dags-to-the-scheduler) of `fluid schedule-sync`. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+Install the provider each kind needs on the Airflow side. The floors are `smtp` 1.2.0, `slack` 8.1.0, `pagerduty` 3.3.0 and `http` 5.5.0. For an `sla_miss` alert on Airflow 3.1 and newer, which runs the notifier in the triggerer, the floors are `smtp` 2.3.0, `slack` 9.2.0, `pagerduty` 5.1.0 and `http` 5.5.0. The DAG's documentation lists what its routes need. An import error from a missing provider shows up in the [parse check](#pushing-dags-to-the-scheduler) of `fluid schedule-sync`. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
 ### What each Airflow version does
 
-- `failure`, `retry` and `success` work on Airflow 2 and 3. A `failure` or `retry` alert names the task and carries the run id, the try number and the log URL, from Airflow's own context. A `success` alert carries the run id. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `sla_miss` on Airflow 2.7 and newer sets every task's `sla`, measured from the end of the run's data interval, and the DAG's `sla_miss_callback`. Airflow 2.6 gets no SLA wiring, because its notifiers cannot take the callback's arguments. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- `sla_miss` on Airflow 3.1 and newer, which has no SLAs, adds a `DeadlineAlert` per route that fires `alerts.sla` after the run was queued. Its callback runs the notifier in the triggerer. Airflow's deadline API is experimental, so the DAG builds it inside a `try`: if a later Airflow changes it, the DAG loses its deadline alerts and still imports. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- Airflow 3.0 has neither SLAs nor deadlines, so a missed SLA alerts no one there. The DAG's documentation says so. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- A plugin kind whose notifier has no `async_notify` cannot run in the triggerer, so its `sla_miss` route alerts on Airflow 2 only. `fluid validate` warns about it. The built-in kinds all have it. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+- `failure`, `retry` and `success` work on Airflow 2 and 3. A `failure` or `retry` alert names the task and carries the run id, the try number and the log URL, from Airflow's own context. A `success` alert carries the run id. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `sla_miss` on Airflow 2.7 and newer sets every task's `sla`, measured from the end of the run's data interval, and the DAG's `sla_miss_callback`. Airflow 2.6 gets no SLA wiring, because its notifiers cannot take the callback's arguments. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `sla_miss` on Airflow 3.1 and newer, which has no SLAs, adds a `DeadlineAlert` per route that fires `alerts.sla` after the run was queued. Its callback runs the notifier in the triggerer. Airflow's deadline API is experimental, so the DAG builds it inside a `try`: if a later Airflow changes it, the DAG loses its deadline alerts and still imports. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- Airflow 3.0 has neither SLAs nor deadlines, so a missed SLA alerts no one there. The DAG's documentation says so. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- A plugin kind whose notifier has no `async_notify` cannot run in the triggerer, so its `sla_miss` route alerts on Airflow 2 only. `fluid validate` warns about it. The built-in kinds all have it. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
 ### No secret in a contract or a DAG
 
-A route never holds a secret. The secret stays in the Airflow connection, which your secrets backend can serve. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+A route never holds a secret. The secret stays in the Airflow connection, which your secrets backend can serve. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
-- `connection` takes only the characters of an Airflow connection id. A URL, an address with a password, or a key-shaped value (a long hex string, a UUID, a random token) is refused at `fluid validate` and when the DAG is rendered. The value is not shown in the message. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- Every string a route gives holds no `{` or `}` (Airflow renders notifier fields as templates), no URL, and nothing the redactor masks. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- A plugin route's option named like a secret (`api_key`, `password`, `routingKey`) is refused whatever its value. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- Both redaction layers mask Zenduty and PagerDuty integration URLs, Opsgenie `GenieKey` values and `routing_key` / `integration_key`, in case one reaches a log. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+- `connection` takes only the characters of an Airflow connection id. A URL, an address with a password, or a key-shaped value (a long hex string, a UUID, a random token) is refused at `fluid validate` and when the DAG is rendered. The value is not shown in the message. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- Every string a route gives holds no `{` or `}` (Airflow renders notifier fields as templates), no URL, and nothing the redactor masks. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- A plugin route's option named like a secret (`api_key`, `password`, `routingKey`) is refused whatever its value. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- Both redaction layers mask Zenduty and PagerDuty integration URLs, Opsgenie `GenieKey` values and `routing_key` / `integration_key`, in case one reaches a log. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
 ### Extending alerts
 
-- An organisation's pack adds default routes to every product through the `fluid_build.alert_defaults` entry point group. A contract replaces one by its `name`, or leaves them all out with `alerts.defaults: false`. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- A package adds a route kind through the `fluid_build.alert_notifiers` entry point group. The kind is a subclass of `fluid_build.alerts.AlertNotifier`, or any object with its attributes, so a pack needs no forge import. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- A kind is read by name and loaded only when a route names it. `FLUID_PLUGINS_ALLOWLIST` and `FLUID_PLUGINS_BLOCKLIST` apply before the import. A built-in kind name is reserved, and two distributions of one name are both refused. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- A kind that is missing or fails refuses the route (the message names only the exception type). It never drops the route silently. An installed pack the allow or block policy leaves out is named. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- [`fluid plugins`](../cli/plugins.md) lists both groups without importing them. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+- An organisation's pack adds default routes to every product through the `fluid_build.alert_defaults` entry point group. A contract replaces one by its `name`, or leaves them all out with `alerts.defaults: false`. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- A package adds a route kind through the `fluid_build.alert_notifiers` entry point group. The kind is a subclass of `fluid_build.alerts.AlertNotifier`, or any object with its attributes, so a pack needs no forge import. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- A kind is read by name and loaded only when a route names it. `FLUID_PLUGINS_ALLOWLIST` and `FLUID_PLUGINS_BLOCKLIST` apply before the import. A built-in kind name is reserved, and two distributions of one name are both refused. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- A kind that is missing or fails refuses the route (the message names only the exception type). It never drops the route silently. An installed pack the allow or block policy leaves out is named. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- [`fluid plugins`](../cli/plugins.md) lists both groups without importing them. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- To write a kind or a set of default routes, use the SDK: `AlertNotifier` and `alert_route` in [`data-product-forge-sdk`](https://pypi.org/project/data-product-forge-sdk/) 0.12.0 and later, with a conformance harness. See [Alert, maintenance and command plugins](../sdk-and-plugins/reference/roles.md#alertnotifier-maintenanceaction-and-commandplugin).
 
 ### Checks and limits
 
-- `fluid validate` runs `contract_alerts`, and in its plugin phase `contract_alert_plugins`, so a contract that passes renders. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- A contract without routes renders the same DAG as before. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
-- The acquisition DAGs that [`fluid schedule-sync`](../cli/schedule-sync.md) writes carry no alerts, and the run warns about it. *On forge-cli `main`, not yet in a release ([forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056)).*
+- `fluid validate` runs `contract_alerts`, and in its plugin phase `contract_alert_plugins`, so a contract that passes renders. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- `fluid plan` and `fluid apply` run the same route checks, so a route that names a URL, an address or a key as its `connection` stops the plan before any file is written. A schema error under `alerts` does not quote the field's value. *(since 0.38.0, [forge-cli #1063](https://github.com/Agenticstiger/forge-cli/pull/1063))*
+- A contract without routes renders the same DAG as before. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
+- The acquisition DAGs that [`fluid schedule-sync`](../cli/schedule-sync.md) writes carry no alerts, and the run warns about it. *(since 0.38.0, [forge-cli #1056](https://github.com/Agenticstiger/forge-cli/pull/1056))*
 
 ## MWAA on AWS
 

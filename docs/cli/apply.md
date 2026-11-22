@@ -136,6 +136,7 @@ Two things differ between the engines, and the rest of this page says which one 
 | `amend-and-build` | Same as `amend`, then run the contract's `builds[]` (the build runner). |
 | `replace` | Destructive. Requires `--allow-data-loss`. |
 | `replace-and-build` | Same as `replace`, then the builds with a full refresh. Destructive. |
+| `maintain` | *(since 0.38.0, [forge-cli #1057](https://github.com/Agenticstiger/forge-cli/pull/1057)) Deploys nothing: runs the maintenance an Iceberg table declares, once. See [Maintain mode](#maintain-mode). |
 | `reconcile` | *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* Deploys nothing: keeps the contract's always-on Spark streams running. See [Reconcile mode](#reconcile-mode). |
 
 What each engine does with the mode:
@@ -160,6 +161,18 @@ Before 0.16.3 the flag was accepted and dropped, so a DDL-only apply exited 0. *
 *(since 0.30.0, [forge-cli #861](https://github.com/Agenticstiger/forge-cli/pull/861))* On Databricks, a dbt build with `execution.runtime.platform: databricks` runs as the job the apply provisions. The build phase starts a run of the job and waits for it to end, and a failed run fails the apply. See [Running the job from `fluid apply`](../providers/databricks.md#running-the-job-from-fluid-apply).
 
 *(since 0.30.0, [forge-cli #872](https://github.com/Agenticstiger/forge-cli/pull/872))* A build with `engine: lakeflow` runs as the Lakeflow pipeline the apply provisions. The build phase starts an update of the pipeline and waits for it to end, and a failed update fails the apply. A continuous pipeline is not started: only its table's tags are set. See [Running it from `fluid apply`](../providers/databricks.md#running-it-from-fluid-apply).
+
+### Maintain mode
+
+*(since 0.38.0, [forge-cli #1057](https://github.com/Agenticstiger/forge-cli/pull/1057))* `--mode maintain --expose-id <expose>` runs the maintenance that an Iceberg table declares in `exposes[].iceberg.maintenance` (`backend: spark`), once, and deploys nothing. It runs no `tofu`, no DDL and no build, and it takes no plan. It starts one run of forge's Spark runner on the runtime of the build that writes the table, with the job config the last `fluid apply` deployed, refused unless that is the config the contract compiles to now, and waits for it. The exit code follows the run. A scheduler task runs it on the table's schedule: see [Iceberg table maintenance](../advanced/spark-iceberg-aws.md#iceberg-table-maintenance).
+
+```bash
+fluid apply contract.fluid.yaml --mode maintain --expose-id orders --yes
+```
+
+- **`--expose-id` names the table.** Without it, the maintenance of every table that declares it runs. With another mode it is refused with `apply_expose_id_requires_maintain_mode`, and an expose that declares no maintenance with `apply_maintain_not_declared`. A `plan.json` is refused with `apply_maintain_needs_contract`.
+- **`--dry-run`** lists each step and what it would delete, and starts nothing.
+- **A table with `backend: glue`** has nothing to start: Glue's optimizers run it, and the run says so.
 
 ### Reconcile mode
 
@@ -834,31 +847,31 @@ Where the run can pass flags and keeps its state, `--adopt-tables` once also wor
 
 ## Live Iceberg tables are not updated in place
 
-A contract change, or drift, that would update a live Iceberg Glue table in place leaves the table as it is. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+A contract change, or drift, that would update a live Iceberg Glue table in place leaves the table as it is. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
 
-The AWS provider updates a Glue table with a call that carries no version id, after it re-reads the table's metadata location. A commit an Iceberg writer made during the apply could be reverted, and its data dropped from the table. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+The AWS provider updates a Glue table with a call that carries no version id, after it re-reads the table's metadata location. A commit an Iceberg writer made during the apply could be reverted, and its data dropped from the table. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
 
 What the run does:
 
-- It makes the plan again with the table's description, owner, retention and storage descriptor left alone. The plan must leave the table with no change. This holds whatever brought the table into the plan: a table the state holds, one a fresh state re-attaches, or one `--adopt-tables` adopts. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- It prints what the contract wanted and how to apply it, and logs `iceberg_table_update_held` at WARNING. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- Hive tables keep their in-place updates. A replace stays with the [data-loss gate](#opentofu-data-loss-gate). *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- It makes the plan again with the table's description, owner, retention and storage descriptor left alone. The plan must leave the table with no change. This holds whatever brought the table into the plan: a table the state holds, one a fresh state re-attaches, or one `--adopt-tables` adopts. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- It prints what the contract wanted and how to apply it, and logs `iceberg_table_update_held` at WARNING. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- Hive tables keep their in-place updates. A replace stays with the [data-loss gate](#opentofu-data-loss-gate). *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
 
 To apply the change, choose one:
 
-- Change the table through its Iceberg catalog, for example `ALTER TABLE ... SET TBLPROPERTIES ('comment' = '...')` or `ALTER TABLE ... ALTER COLUMN ... COMMENT '...'` in Spark. Its commit writes Glue with the version it read. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- Pause the table's writers and run `fluid apply` with `--allow-iceberg-update` once. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- Change the table through its Iceberg catalog, for example `ALTER TABLE ... SET TBLPROPERTIES ('comment' = '...')` or `ALTER TABLE ... ALTER COLUMN ... COMMENT '...'` in Spark. Its commit writes Glue with the version it read. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- Pause the table's writers and run `fluid apply` with `--allow-iceberg-update` once. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
 
-`--allow-iceberg-update` is accepted on `fluid apply`, `fluid plan --tofu` and `fluid ship`. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+`--allow-iceberg-update` is accepted on `fluid apply`, `fluid plan --tofu` and `fluid ship`. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
 
-- The update is audited at WARNING as `iceberg_table_update_accepted`. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- `fluid plan --tofu` records those tables in `opentofuPlan.icebergUpdates`, under `planDigest`, and `fluid apply plan.json` updates only them. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- Under `--no-verify-plan-binding` nothing binds that record to the reviewed plan, so it is ignored and logged at WARNING as `iceberg_table_update_record_ignored`. Only the apply's own `--allow-iceberg-update` lets such an update through. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- Any other in-place update of a live Iceberg table left in a plan is refused with `iceberg_table_update_in_place`. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- `fluid plan --allow-iceberg-update` without `--tofu` is refused with `plan_allow_iceberg_update_needs_tofu`. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- A table whose Iceberg schema changed outside the contract (a column a writer added, or a dropped one Iceberg keeps listing) gets the note on every apply while the two differ. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- A saved plan made before this change that updates a live Iceberg table in place is refused by `fluid apply plan.json`. Make the plan again. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
-- On AWS, a plan that `tofu show -json` cannot read back is refused when it changes anything in place, even with `--allow-data-loss`. Make the plan again. *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).*
+- The update is audited at WARNING as `iceberg_table_update_accepted`. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- `fluid plan --tofu` records those tables in `opentofuPlan.icebergUpdates`, under `planDigest`, and `fluid apply plan.json` updates only them. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- Under `--no-verify-plan-binding` nothing binds that record to the reviewed plan, so it is ignored and logged at WARNING as `iceberg_table_update_record_ignored`. Only the apply's own `--allow-iceberg-update` lets such an update through. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- Any other in-place update of a live Iceberg table left in a plan is refused with `iceberg_table_update_in_place`. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- `fluid plan --allow-iceberg-update` without `--tofu` is refused with `plan_allow_iceberg_update_needs_tofu`. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- A table whose Iceberg schema changed outside the contract (a column a writer added, or a dropped one Iceberg keeps listing) gets the note on every apply while the two differ. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- A saved plan made before this change that updates a live Iceberg table in place is refused by `fluid apply plan.json`. Make the plan again. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
+- On AWS, a plan that `tofu show -json` cannot read back is refused when it changes anything in place, even with `--allow-data-loss`. Make the plan again. *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))*
 
 ## Options
 
@@ -877,7 +890,7 @@ Options marked *native* are read only by the native engine. As of 0.18.1 the Ope
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--mode` | `amend` | One of `dry-run`, `create-only`, `amend`, `amend-and-build`, `replace`, `replace-and-build`. *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* Also `reconcile`: see [Reconcile mode](#reconcile-mode). |
+| `--mode` | `amend` | One of `dry-run`, `create-only`, `amend`, `amend-and-build`, `replace`, `replace-and-build`. *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* Also `reconcile`: see [Reconcile mode](#reconcile-mode). *(since 0.38.0, [forge-cli #1057](https://github.com/Agenticstiger/forge-cli/pull/1057))* Also `maintain`: see [Maintain mode](#maintain-mode). |
 | `--yes` | off | Skip confirmation. |
 | `--dry-run` | off | Alias for `--mode dry-run`. |
 | `--ensure-opentofu` | off | *(since 0.8.8)* If the `tofu` binary is missing, provision a **pinned, SHA-256-verified** OpenTofu build before a cloud apply — **no root, gpg, cosign, curl, or unzip needed** (Python stdlib only). Idempotent (a usable `tofu` at/above the engine floor is left untouched) and a no-op for native / `local` applies. Pin via `FLUID_OPENTOFU_VERSION`. `fluid generate ci` bakes this into the generated apply stage so cloud applies work on locked-down / non-root runners. |
@@ -956,7 +969,7 @@ Each failure prints the typed event name and an `[ERR_<EVENT>]` slug, and exits 
 | `opentofu_plan_failed` | `tofu plan` failed. *(since 0.27.0, [forge-cli #786](https://github.com/Agenticstiger/forge-cli/pull/786))* A plan that failed on a held state lock suggests `tofu force-unlock <id>`. |
 | `opentofu_apply_failed` | `tofu apply` failed. See [A failed OpenTofu apply](#a-failed-opentofu-apply). |
 | `table_adoption_requires_flag`, `table_adoption_mismatch`, `table_adoption_unavailable` | *(since 0.37.0)* An existing Glue table is not taken over without `--adopt-tables`, differs from the contract, or cannot be looked for. See [Adopting existing Glue tables](#adopting-existing-glue-tables-since-0-37-0). |
-| `iceberg_table_update_in_place` | A live Iceberg table would be updated in place. See [Live Iceberg tables are not updated in place](#live-iceberg-tables-are-not-updated-in-place). *On forge-cli `main`, not yet in a release ([forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054)).* |
+| `iceberg_table_update_in_place` | A live Iceberg table would be updated in place. See [Live Iceberg tables are not updated in place](#live-iceberg-tables-are-not-updated-in-place). *(since 0.38.0, [forge-cli #1054](https://github.com/Agenticstiger/forge-cli/pull/1054))* |
 | `opentofu_region_moved` | State holds the contract's resources in another region than its bindings name. |
 | `packaging_transition_blocked` | A container's ownership flips under existing state. See [Packaging modes](#packaging-modes). |
 | `iceberg_catalog_move_blocked` | *(since 0.20.0, [forge-cli #707](https://github.com/Agenticstiger/forge-cli/pull/707))* State holds Glue resources an earlier release created for an AWS Iceberg table that now lives in another catalog. *([forge-cli #709](https://github.com/Agenticstiger/forge-cli/pull/709), since 0.20.0)* Or it holds the Snowflake EXTERNAL VOLUME an earlier release created for a Snowflake Iceberg table in an external catalog. See [Iceberg catalog-move guard](#iceberg-catalog-move-guard). |
