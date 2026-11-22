@@ -707,6 +707,7 @@ export default defineUserConfig({
                 '/sdk-and-plugins/reference/entry-points.md',
                 '/sdk-and-plugins/reference/trust-model.md',
                 '/sdk-and-plugins/reference/packaging.md',
+                '/sdk-and-plugins/reference/testing-kit.md',
                 '/sdk-and-plugins/reference/companion-packages.md'
               ]
             }

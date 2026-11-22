@@ -689,6 +689,8 @@ What never passes:
 
 *(since 0.31.0, [forge-cli #905](https://github.com/Agenticstiger/forge-cli/pull/905))* An IaC plugin that lives outside forge declares what its provider reads: exact names in `credential_env_vars` and whole families in `credential_env_prefixes` (for example `("MYCLOUD_",)`). A plugin that declares no prefixes is warned about once, with `tofu_env_plugin_undeclared`, and gets only its `credential_env_vars` and the basics. A job that relied on a variable the allowlist now drops needs it declared there, or set another way.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* The `tofu --version` check, which runs before a cloud apply and before `fluid diff`, gets a shorter list still: `PATH`, `HOME`, `SYSTEMROOT`, `USERPROFILE` and `PATHEXT` for Windows, and `TOFU_CLI_PATH` and `GITHUB_OUTPUT`. A version check needs no credential, proxy or OpenTofu setting. Through 0.36.0 that one call ran with the whole environment of the job.
+
 ## Reporting to the Command Center (since 0.17.0)
 
 The [Command Center page](../concepts/command-center.md#what-fluid-apply-reports) covers what the report holds and how to configure it.

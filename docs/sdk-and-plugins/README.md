@@ -160,6 +160,7 @@ Full statement: [Trust model](./reference/trust-model.md). Read it before instal
 - **[Entry points](./reference/entry-points.md)** — the entry-point groups (CLI hooks + role-level), which code walks each, with signatures and failure model
 - **[Trust model](./reference/trust-model.md)** — what we defend against, what we don't
 - **[Packaging](./reference/packaging.md)** — `pyproject.toml` template, `py.typed`, conformance harness, publishing checklist
+- **[Test kit](./reference/testing-kit.md)**: run a plugin inside the real `fluid`, with its own HOME, an installed entry point and a fake HTTP service
 - **[Companion packages](./reference/companion-packages.md)** — what's on PyPI, dual-naming, version pinning
 
 ## Source repos

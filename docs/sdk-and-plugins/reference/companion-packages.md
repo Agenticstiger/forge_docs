@@ -15,7 +15,7 @@ Three packages ship together as one platform. End users only need the CLI; plugi
 | You are… | Install |
 |---|---|
 | **End user** consuming someone else's plugins | `pip install data-product-forge data-product-forge-custom-scaffold <plugin-package>` |
-| **Plugin author** writing a new role subclass | `pip install data-product-forge-sdk` for development; the CLI itself for testing |
+| **Plugin author** writing a new role subclass | `pip install data-product-forge-sdk` for development; the CLI itself for testing, which includes the [test kit](./testing-kit.md) |
 | **Bundle author** distributing Jinja templates to other teams | No extra install — consumers install `data-product-forge-custom-scaffold`; you just host the bundle in git |
 | **Platform team** building a custom CLI subcommand | `pip install data-product-forge-sdk` if your plugin subclasses anything, otherwise no SDK needed (entry-point can be a plain function) |
 

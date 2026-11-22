@@ -267,6 +267,8 @@ pytest
 5 passed in 0.02s
 ```
 
+These tests call the hook function directly. To run it inside the real `fluid apply`, with the hook installed as an entry point and a fake service behind it, use [the test kit](../reference/testing-kit.md#an-example-testing-an-apply-hook).
+
 ## Step 5 — wire it in
 
 ```bash
