@@ -1617,6 +1617,257 @@ def check_docs_coverage(allowlist: dict[str, set[str]]) -> int:
     return rc
 
 
+# ---------------------------------------------------------------------------
+# Check: the releases page, the upgrade sections and the companion pins
+# ---------------------------------------------------------------------------
+
+# Releases before this one are listed with gaps (several were never published
+# or never got a page), so the completeness checks start here. From 0.30.0 on,
+# every release has a row in docs/releases.md and a "Changes in" section in
+# docs/upgrading.md.
+FIRST_TRACKED_RELEASE = "0.30.0"
+
+RELEASES_PAGE = DOCS_DIR / "releases.md"
+UPGRADING_PAGE = DOCS_DIR / "upgrading.md"
+
+_RELEASE_ROW_RE = re.compile(r"^\|\s*\[`(\d+\.\d+\.\d+)`\]", re.M)
+_CHANGES_HEADING_RE = re.compile(r"^##\s+Changes in\s+(.+?)\s*$", re.M)
+_PLAIN_VERSION_RE = re.compile(r"\d+\.\d+\.\d+")
+
+# The two companion packages whose pins live in cli-version.json, as
+# (JSON key stem, PyPI name). The pinned CLI declares what range of each it
+# accepts, and the pins must sit inside that range.
+COMPANIONS = (
+    ("Sdk", "data-product-forge-sdk"),
+    ("CustomScaffold", "data-product-forge-custom-scaffold"),
+)
+
+
+def release_page_problems(
+    releases_text: str,
+    upgrading_text: str,
+    changelog_versions: list[str] | None,
+    supported: str,
+) -> list[str]:
+    """What is wrong with the releases table and the upgrade sections.
+
+    Pure: takes the page texts and the release list, returns messages. The
+    release list is the one the marker sweep already reads (the `## [x.y.z]`
+    headings of forge-cli's CHANGELOG.md); None means it was not offered, and
+    only the half that needs no list runs.
+    """
+    problems: list[str] = []
+    floor = _release_key(FIRST_TRACKED_RELEASE)
+
+    rows = _RELEASE_ROW_RE.findall(releases_text)
+    if not rows:
+        problems.append(
+            "docs/releases.md has no release rows, so nothing can be checked. "
+            "Each row starts `| [`x.y.z`](...) | date | what changed |`."
+        )
+    else:
+        if rows[0] != supported:
+            problems.append(
+                f"docs/releases.md lists {rows[0]} as its newest row, but "
+                f"supportedCliVersion is {supported}. Add the {supported} row at the top "
+                "of the table (or fix the pin in docs/.vuepress/cli-version.json)."
+            )
+        newest_row = max(rows, key=_release_key)
+        if newest_row != rows[0]:
+            problems.append(
+                f"docs/releases.md has {newest_row} below {rows[0]}: keep the table "
+                "newest first."
+            )
+
+    sections: set[str] = set()
+    for heading in _CHANGES_HEADING_RE.findall(upgrading_text):
+        sections.update(_PLAIN_VERSION_RE.findall(heading))
+
+    if changelog_versions is not None:
+        tracked = [v for v in changelog_versions if _release_key(v) >= floor]
+        for version in tracked:
+            if version not in rows:
+                problems.append(
+                    f"docs/releases.md has no row for forge-cli {version}. Add "
+                    f"`| [`{version}`](./upgrading.md#changes-in-{version.replace('.', '-')}) "
+                    "| YYYY-MM-DD | one sentence |` from the CHANGELOG.md section of that "
+                    "version, newest first."
+                )
+            if version not in sections:
+                problems.append(
+                    f"docs/upgrading.md has no `## Changes in {version}` section. Write "
+                    f"one from the [{version}] section of forge-cli's CHANGELOG.md, in "
+                    "version order, and add the version to the 'You run' table."
+                )
+    else:
+        # No release list: the supported version is the one release every page
+        # must at least cover.
+        if _release_key(supported) >= floor and supported not in sections:
+            problems.append(
+                f"docs/upgrading.md has no `## Changes in {supported}` section. Write one "
+                "from forge-cli's CHANGELOG.md."
+            )
+    return problems
+
+
+def check_release_pages(forge_changelog: str | None = None) -> int:
+    supported = load_supported_version()
+    changelog, source = _read_forge_changelog(forge_changelog)
+    versions: list[str] | None = None
+    if changelog is not None:
+        versions = changelog_releases(changelog)
+        if not versions:
+            print(
+                f"FAIL: the forge-cli CHANGELOG.md from {source} names no `## [x.y.z]` "
+                "release, so the releases table cannot be checked.",
+                file=sys.stderr,
+            )
+            return 1
+    problems = release_page_problems(
+        RELEASES_PAGE.read_text(encoding="utf-8"),
+        UPGRADING_PAGE.read_text(encoding="utf-8"),
+        versions,
+        supported,
+    )
+    if problems:
+        print(
+            f"FAIL: {len(problems)} problem(s) with docs/releases.md or docs/upgrading.md:\n"
+            + "\n".join(f"  - {p}" for p in problems),
+            file=sys.stderr,
+        )
+        return 1
+    if versions is None:
+        print(
+            f"OK: docs/releases.md and docs/upgrading.md cover {supported}; the full "
+            f"release list was not checked, because {source}."
+        )
+    else:
+        tracked = [v for v in versions if _release_key(v) >= _release_key(FIRST_TRACKED_RELEASE)]
+        print(
+            f"OK: docs/releases.md has a row, and docs/upgrading.md a section, for each "
+            f"of the {len(tracked)} forge-cli release(s) from {FIRST_TRACKED_RELEASE} "
+            f"to {versions[0]}; the newest row is {supported}."
+        )
+    return 0
+
+
+def _companion_requirements(dist: str, name: str) -> list[Any]:
+    """Every requirement the installed CLI declares on `name` (one per extra)."""
+    from importlib.metadata import PackageNotFoundError, requires
+
+    from packaging.requirements import Requirement
+    from packaging.utils import canonicalize_name
+
+    try:
+        declared = requires(dist) or []
+    except PackageNotFoundError:
+        return []
+    out = []
+    for line in declared:
+        req = Requirement(line)
+        if canonicalize_name(req.name) == canonicalize_name(name):
+            out.append(req)
+    return out
+
+
+def companion_pin_problems(data: dict[str, Any], requirements: dict[str, list[Any]]) -> list[str]:
+    """Pins in cli-version.json against what the pinned CLI declares.
+
+    `requirements` maps a PyPI name to the requirements the CLI declares on it.
+    """
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+    from packaging.version import InvalidVersion, Version
+
+    problems: list[str] = []
+    cli = data.get("supportedCliVersion")
+    for stem, name in COMPANIONS:
+        version_key = f"supported{stem}Version"
+        spec_key = f"supported{stem}InstallSpec"
+        raw_version = data.get(version_key)
+        raw_spec = data.get(spec_key)
+        if not raw_version or not raw_spec:
+            problems.append(f"cli-version.json is missing '{version_key}' or '{spec_key}'.")
+            continue
+        try:
+            pinned = Version(str(raw_version))
+        except InvalidVersion:
+            problems.append(f"cli-version.json {version_key}={raw_version!r} is not a version.")
+            continue
+        # The install spec a page tells readers to use must admit the pinned version.
+        spec_text = str(raw_spec).replace(name, "", 1).strip()
+        try:
+            if pinned not in SpecifierSet(spec_text):
+                problems.append(
+                    f"cli-version.json {version_key}={raw_version} is outside its own "
+                    f"{spec_key}={raw_spec!r}. Make the two agree."
+                )
+        except InvalidSpecifier:
+            problems.append(f"cli-version.json {spec_key}={raw_spec!r} is not a requirement.")
+        declared = requirements.get(name, [])
+        if not declared:
+            problems.append(
+                f"the pinned CLI {cli} declares no requirement on {name}, so "
+                f"{version_key} cannot be checked. Remove the pin, or fix the CLI install."
+            )
+            continue
+        for req in declared:
+            if not req.specifier.contains(pinned, prereleases=True):
+                extra = f" (extra {req.marker})" if req.marker else ""
+                problems.append(
+                    f"cli-version.json {version_key}={raw_version} does not satisfy "
+                    f"{req.name}{req.specifier} that forge-cli {cli} declares{extra}. Move "
+                    f"{version_key} and {spec_key} to a release inside that range, and update "
+                    f"every page that quotes the old one."
+                )
+            try:
+                spec_set = SpecifierSet(spec_text)
+            except InvalidSpecifier:
+                continue
+            # A spec wider than the CLI's would let a reader install a version
+            # the CLI refuses; compare the floor, which is what drifts.
+            floors = [x.version for x in req.specifier if x.operator in (">=", ">")]
+            spec_floors = [x.version for x in spec_set if x.operator in (">=", ">")]
+            if floors and spec_floors:
+                if max(Version(v) for v in spec_floors) < max(Version(v) for v in floors):
+                    problems.append(
+                        f"cli-version.json {spec_key}={raw_spec!r} allows a version below "
+                        f"the {max(floors, key=Version)} that forge-cli {cli} requires. Raise "
+                        "its lower bound."
+                    )
+    return problems
+
+
+def check_companion_pins() -> int:
+    try:
+        import packaging  # noqa: F401
+    except ImportError:
+        print(
+            "FAIL: the companion-pin check needs the `packaging` library "
+            "(`pip install packaging`; it ships with pip).",
+            file=sys.stderr,
+        )
+        return 1
+    data = json.loads(VERSION_FILE.read_text(encoding="utf-8"))
+    requirements = {name: _companion_requirements("data-product-forge", name) for _, name in COMPANIONS}
+    problems = companion_pin_problems(data, requirements)
+    if problems:
+        print(
+            f"FAIL: {len(problems)} companion pin problem(s) in docs/.vuepress/cli-version.json:\n"
+            + "\n".join(f"  - {p}" for p in problems),
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        "OK: the SDK and custom-scaffold pins satisfy what the pinned CLI declares ("
+        + "; ".join(
+            f"{name} {data[f'supported{stem}Version']}"
+            for stem, name in COMPANIONS
+        )
+        + ")."
+    )
+    return 0
+
+
 def check_full(forge_changelog: str | None = None) -> int:
     allowlist = load_allowlist()
     rc = check_version_only()
@@ -1631,6 +1882,10 @@ def check_full(forge_changelog: str | None = None) -> int:
     if check_doc_versions(allowlist["version_sweep_ok"]) != 0:
         rc = 1
     if check_release_markers(forge_changelog) != 0:
+        rc = 1
+    if check_release_pages(forge_changelog) != 0:
+        rc = 1
+    if check_companion_pins() != 0:
         rc = 1
     return rc
 
@@ -1663,6 +1918,16 @@ def main(argv: list[str] | None = None) -> int:
         "--markers-only",
         action="store_true",
         help="Only run the release-marker sweep over docs/**/*.md.",
+    )
+    parser.add_argument(
+        "--releases-only",
+        action="store_true",
+        help="Only check docs/releases.md and docs/upgrading.md cover every release.",
+    )
+    parser.add_argument(
+        "--companions-only",
+        action="store_true",
+        help="Only check the SDK and custom-scaffold pins against the pinned CLI.",
     )
     parser.add_argument(
         "--forge-cli-changelog",
@@ -1701,6 +1966,10 @@ def main(argv: list[str] | None = None) -> int:
         return check_doc_versions(load_allowlist()["version_sweep_ok"])
     if args.markers_only:
         return check_release_markers(args.forge_cli_changelog)
+    if args.releases_only:
+        return check_release_pages(args.forge_cli_changelog)
+    if args.companions_only:
+        return check_companion_pins()
     return check_full(args.forge_cli_changelog)
 
 

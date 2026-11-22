@@ -113,6 +113,17 @@ jobs:
         # contains the work shipped, naming the file, the line and that release.
         run: python scripts/check_cli_docs.py --markers-only
 
+      - name: Verify the releases page and the upgrade sections cover every release
+        # Every forge-cli release from 0.30.0 on needs a row in docs/releases.md
+        # and a "Changes in" section in docs/upgrading.md, and the newest row is
+        # the pinned CLI. The release list is the CHANGELOG fetched above.
+        run: python scripts/check_cli_docs.py --releases-only
+
+      - name: Verify the SDK and custom-scaffold pins satisfy the pinned CLI
+        # cli-version.json's companion pins must sit inside the ranges the
+        # installed data-product-forge declares for them.
+        run: python scripts/check_cli_docs.py --companions-only
+
       - name: Verify the contract reference matches the bundled schemas
         # docs/reference/contract-*.md are generated from the schemas inside the
         # pinned CLI. --check writes nothing: it fails when a committed page
