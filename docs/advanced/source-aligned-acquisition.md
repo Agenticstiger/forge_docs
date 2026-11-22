@@ -139,6 +139,29 @@ fix  Switch engine to one declaring ['exactly_once'], or remove from build.capab
 
 This is the typed `CapabilityMismatchError`. Its `doc` link prints [Capability warnings](./capability-warnings.md), which is about LLM model capabilities for `fluid forge`, not about runners. The runner check is the one above.
 
+### Contract text a connector expands
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1051](https://github.com/Agenticstiger/forge-cli/pull/1051)).* Debezium Server reads its `application.properties` through SmallRye Config, which expands a `${...}` expression in any value, from its environment too. A Kafka Connect worker resolves `${provider:path:key}` in a connector config with the config providers it declares. So a `${` in contract text that reaches a connector could carry a variable or a file of the machine it runs on to a host the contract chose. A `kafka-connect` or `debezium` build, embedded Debezium Server included, now fails before it reads a secret, writes a file or makes a REST call when any of this text holds `${`, in a value of any type or in a key:
+
+- the build's source: `kind`, `mode`, `connection` (its `secretRef` aside), `cursor_field`, `watermark`, `streams` and `reader`;
+- the whole of `properties.debezium` or `properties.kafka-connect`, every setting in it, `extra_config` and `sink_connector_config` included, and for embedded Debezium Server the sink's type and config (`server.sink.type`, `server.sink.config`).
+
+The runners check what they send as well: each line of Debezium Server's `application.properties`, the merged sink config, and each source connector config just before its REST call, so a setting forge derives from another part of the contract is covered too. The message names the key path and never the value:
+
+```text
+properties.source.cursor_field holds a ${...} expression (the value is not shown). The connector expands it where it runs, Debezium Server from its environment and a Kafka Connect worker through its config providers, so it could carry a variable or a file of that machine to a host the contract chose. Write the value itself; a secret belongs in a secretRef.
+```
+
+A key that holds `${` reads `a key under properties.source.connection.options holds a ${...} expression`, and an item of a list is named by its index, as in `properties.source.streams[1]`. A Java named-group replacement such as `transforms.route.replacement: "${tbl}"` in an `extra_config` is refused too, and `$1` still works, because it holds no `${`. The check runs when the build does, so `fluid validate` passes such a contract and `fluid apply` fails it.
+
+A secret is a different case. The source's `secretRef` is not contract text, so the check does not read what it resolves to, and a Kafka Connect build sends that value as it is. Embedded Debezium Server expands a value from its environment too, so there a credential that holds `${` is refused, one the operator's store resolved included:
+
+```text
+debezium config entry debezium.source.database.password holds ${ in its value (the value is not shown), which Debezium Server would expand from its environment. A credential that holds ${ cannot be handed to Debezium Server: change it.
+```
+
+forge's own `${FLUID_DBZ_...}` lines, which carry the credentials it moves to the environment as [the derived config](#what-the-derived-config-holds) shows, are not affected.
+
 ## Three deployment modes
 
 Airbyte, Meltano, Kafka Connect and Debezium take a `deployment` block under their own properties key (`properties.airbyte.deployment`, `properties.meltano.deployment`, and so on). `duckdb` and `dlt` run inside the `fluid` process and have no `deployment` key.

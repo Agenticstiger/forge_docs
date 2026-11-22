@@ -237,6 +237,8 @@ A `host` that is a `{{ env.NAME }}` placeholder, and a `host` that is empty, are
 
 A literal `password` in the same `connection` block wins over `secretRef`, and then the reference is never read. A contract that [`fluid init --discover`](./init.md) wrote, which carries the URI's password in `connection.password`, needs that line deleted when you add the `secretRef`. A password typed into a command-line URI also lands in shell history and in `ps` output; keep it out of the URI where you can.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1051](https://github.com/Agenticstiger/forge-cli/pull/1051)).* A secret that holds `${` cannot go to an embedded Debezium Server, which expands a value from its environment: the build fails with `debezium config entry <key> holds ${ in its value`. See [Contract text a connector expands](../advanced/source-aligned-acquisition.md#contract-text-a-connector-expands).
+
 ### A placeholder or an empty host
 
 `fluid apply` renders every `{{ env.NAME }}` placeholder from the environment it runs in before the build runs, and judges the host that results. With `PGHOST=db.example.com`, a connection that says `host: "{{ env.PGHOST }}"` needs `PGPASSWORD@db.example.com`. An allowlist entry that names the placeholder, such as `PGPASSWORD@{{ env.PGHOST }}`, matches nothing, at apply or anywhere else, so remove it.
@@ -337,7 +339,7 @@ the contract would send environment variable 'PGPASSWORD' to host 'api.example.c
 the contract would send environment variable 'PGPASSWORD' to a host that could not be determined (connection.sqlalchemy_eng_params.connect_args) as a credential
 ```
 
-The first two name the mapping. A refusal names a mapping's key as the contract wrote it, and a query-string key in lower case without separators (`'unixsocket'`), and it never quotes a parameter name that holds connection-string syntax. The last line is what a JDBC URL, a `connect_args` value that holds `;`, `{` or `}`, and a block over the value limit get.
+The first two name the mapping. A refusal names a mapping's key as the contract wrote it, and a query-string key in lower case without separators (`'unixsocket'`), and it never quotes a parameter name that holds connection-string syntax. The last line is what a JDBC URL and a `connect_args` value that holds `;`, `{` or `}` get. *On forge-cli `main`, not yet in a release ([forge-cli #1051](https://github.com/Agenticstiger/forge-cli/pull/1051)).* A block over the value limit has a message of its own, `the contract would send ... over a connection block that holds more than 10,000 values, more than this check reads`, and its fix is to hold fewer values in the block.
 
 ### Schemes
 
