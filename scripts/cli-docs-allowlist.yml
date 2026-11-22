@@ -45,6 +45,8 @@ docs_only_ok:
                     # fluid_build/cli/generate_iac.py::register_subcommand);
                     # dedicated page because PR #140's OpenTofu autogenerator
                     # is a user-facing feature operators look up by full name.
+  - generate-pyspark-schema  # subcommand of `generate`; dedicated page because
+                    # operators look it up by full name (like generate-iac).
   - generate-vector # subcommand of `generate` (fluid_build/cli/generate_vector.py);
                     # pgvector RAG output port, shipped in v0.11.0. Dedicated page
                     # because operators look it up by full name (like generate-iac).

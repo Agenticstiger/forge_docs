@@ -23,6 +23,7 @@ The reel above walks `runs status`, `runs logs --component dlq`, `runs diff`, a 
 
 ```bash
 fluid runs status <product-id> [--build BUILD] [--last N] [--state-root PATH] [--json]
+fluid runs status <product-id> --release-dir DIR [--release-dir DIR ...] [--on YYYY-MM-DD] [--env NAME] [--json]
 fluid runs logs   <product-id> [--component C] [--run-id ID] [--grep TEXT] [--limit N] [--state-root PATH] [--json]
 fluid runs diff   <product-id> --build BUILD --run-a ID --run-b ID [--state-root PATH] [--json]
 ```
@@ -243,6 +244,131 @@ With `--json`, the document has `run_a`, `run_b`, `state_a`, `state_b`, `records
 
 Run IDs that do not exist are not an error. The diff comes back with zero counts, `null` states and an empty `streams` list, and the exit code is `0`. Check `state_a` and `state_b` before you read the deltas in a script.
 
+## Which release was in force
+
+*(since 0.37.0, [forge-cli #1035](https://github.com/Agenticstiger/forge-cli/pull/1035))* A job that forge does not run, such as an existing job on its own runner that Airflow schedules, leaves no run record. What it does leave is the sealed release that [`fluid ship --release-dir`](./ship.md#publishing-a-release) publishes at each deploy. `fluid runs status --release-dir` reads those releases and says which one was in force, and so which version of the code ran.
+
+```bash
+fluid runs status commerce.orders --release-dir releases
+fluid runs status commerce.orders --release-dir releases --on 2026-10-14
+fluid runs status commerce.orders --release-dir releases/prod-0412 --release-dir releases/prod-0413 --env prod --json
+```
+
+| Option | Description |
+| --- | --- |
+| `--release-dir DIR` | One release, or a directory of releases, read one level deep. Repeat the flag to read several. Giving it replaces the run-record view: `--build`, `--last` and `--state-root` are not used. |
+| `--on YYYY-MM-DD` | The UTC day to answer for. Default: now. Only valid with `--release-dir`. |
+| `--env NAME` | Answer only for the releases of this environment. Default: one answer per environment the releases name. An empty name is a usage error. Only valid with `--release-dir`. |
+| `--json` | Emit JSON. |
+
+Each environment is answered on its own: a `dev` release sealed between two `prod` ones is not what was in force in `prod`.
+
+### What you see
+
+For each environment, the command prints:
+
+- the release **in force**: now, or at the start of the `--on` day. This is the latest intact release sealed before that moment.
+- the releases **sealed during** the `--on` day, if any.
+- for each release, its expose versions, its release id, when it was sealed, the run that sealed it, the environment, the forge version, the `code` line (revision, repository and ref) and its `bundle` digest.
+- a "Not in force" block for later records that are not intact (see below).
+- a `not read` line for each kind of entry that was skipped, with a count.
+
+```text
+commerce.orders: 2 sealed release(s) read
+In force at the start of 2026-10-14:
+  orders 1.4.0
+  release  rel-0412
+  sealed   2026-10-12T08:31:02Z   run 8841   env prod   forge 0.37.0
+  code     3f9c1d2e... https://github.com/example/orders-jobs refs/heads/main
+  bundle   sha256:...
+Sealed during 2026-10-14:
+  orders 1.5.0
+  release  rel-0413
+  sealed   2026-10-14T09:02:44Z   run 8870   env prod   forge 0.37.0
+  code     a77b0c19... https://github.com/example/orders-jobs refs/heads/main
+Records are read as written. 'intact' means a record's identity_digest matches its identity; it does not say who wrote the record, and its sealed time and source are outside that digest.
+```
+
+With `--json` the document has `product_id`, `on`, `releases_read`, `not_read` and `answers`. Each entry of `answers` is:
+
+| Field | Meaning |
+| --- | --- |
+| `environment` | The environment name, or `null` for releases that record none. |
+| `in_force` | The release in force, or `null`. |
+| `during` | The releases sealed during the `--on` day (empty without `--on`). |
+| `not_intact` | Later records whose identity digest no longer matches. |
+
+A release object carries `path`, `product_id`, `sealed_at`, `release_id`, `expose_versions`, `environment`, `forge_version`, `run_id`, `source`, `bundle_digest` and `intact`; fields a record does not hold are left out.
+
+### Intact and not intact
+
+A release record carries an `identity_digest`. A record is **intact** when that digest matches the record's `identity`. The release in force is the latest intact one. A later record whose digest no longer matches is listed under "Not in force" (`not_intact` in `--json`) and is never in force. When no intact release was sealed by then, nothing is in force and the exit code is `1`.
+
+`intact` is a consistency check, not authentication. Whoever can write a record can also compute its digest, and the sealed time and the source are outside the digest. Read the records from a place only your pipeline can write to.
+
+### Exit codes with `--release-dir`
+
+| Code | Meaning |
+| --- | --- |
+| `0` | At least one environment has a release in force or sealed during the day. |
+| `1` | No release of the product was sealed by then, or none that is intact. |
+| `2` | A bad `--on` day, a `--release-dir` that is not a directory or cannot be read, an empty `--env`, or `--on` or `--env` without `--release-dir`. |
+
+### Limits
+
+| Limit | Value |
+| --- | --- |
+| Entries read in one directory | 2,000. The "not read" line counts every entry past that. |
+| Size of one `release.json` | 1 MB. A larger record is skipped and counted. |
+| Links | Never followed. |
+| Other products, or files that are not a release | Skipped and counted under `not read`. |
+
+Text taken from a record is cleaned of control characters and cut, so a record cannot rewrite your terminal.
+
+### What `release.json` holds
+
+`fluid ship --release-dir` writes `release.json` (schema `fluid-release/1`) last into a directory that is then renamed into place and never changed. Two parts of it are what `runs status` reads. *(since 0.37.0)*
+
+| Field | Holds |
+| --- | --- |
+| `identity.expose_versions` | The version of each expose, by expose id. |
+| `provenance.source` | `revision`, `repository` and `ref`, read from the CI system's own variables. |
+
+`provenance.source` is filled from the first CI system whose run variable is set:
+
+| CI system | Revision | Repository | Ref |
+| --- | --- | --- | --- |
+| GitHub Actions | `GITHUB_SHA` | `GITHUB_REPOSITORY`, as a URL on `GITHUB_SERVER_URL` | `GITHUB_REF` |
+| GitLab CI | `CI_COMMIT_SHA` | `CI_PROJECT_URL` | `CI_COMMIT_REF_NAME` |
+| CircleCI | `CIRCLE_SHA1` | `CIRCLE_REPOSITORY_URL` | `CIRCLE_BRANCH` |
+| Azure Pipelines | `BUILD_SOURCEVERSION` | `BUILD_REPOSITORY_URI` | `BUILD_SOURCEBRANCH` |
+| Bitbucket Pipelines | `BITBUCKET_COMMIT` | `BITBUCKET_GIT_HTTP_ORIGIN` | `BITBUCKET_BRANCH` |
+| Jenkins | `GIT_COMMIT` | `GIT_URL` | `GIT_BRANCH` |
+
+What is left out: a clone URL loses its user, password, query and fragment. Anything that is not a hex commit, a URL or `user@host:org/repo`, or a ref name is dropped. A credential, or a path on the runner, is never part of a release record. An scp-style address such as `host:org/repo` with no `user@` is dropped.
+
+`provenance.run_id` is the pipeline's run id. The Spark runner stamps the same id and the release's bundle digest on every Iceberg commit: see [Commit stamps](../advanced/spark-iceberg-aws.md#commit-stamps).
+
+### Guide: which version ran on that date
+
+Use this for a job forge does not run. Keep one sealed release per deploy, then ask.
+
+1. Seal a release at each deploy, into a directory you keep:
+
+   ```bash
+   fluid ship contract.fluid.yaml --release-dir releases/run-8870
+   ```
+
+2. Later, ask which release was in force on the day:
+
+   ```bash
+   fluid runs status commerce.orders --release-dir releases --on 2026-10-14
+   ```
+
+3. Read the `In force` block for the version and the `code` line for the revision. If the job writes Iceberg tables through forge's Spark runner, match a commit to its release with the `bundle` digest and `fluid.bundle-digest` in the table's snapshot summary: see [Commit stamps](../advanced/spark-iceberg-aws.md#commit-stamps).
+
+See [`fluid ship`](./ship.md#publishing-a-release) for how a release is sealed.
+
 ## Exit codes
 
 | Code | Meaning |
@@ -251,9 +377,13 @@ Run IDs that do not exist are not an error. The diff comes back with zero counts
 | `1` | `runs status` found no builds for the product. |
 | `2` | A usage error: a missing required argument, an unknown subcommand, an invalid `--component`. |
 
+With `--release-dir`, the codes are those of [Exit codes with `--release-dir`](#exit-codes-with-release-dir).
+
 ## See also
 
 - [Source-aligned acquisition](../advanced/source-aligned-acquisition.md): what produces these run records
 - [`fluid retention`](./retention.md): sweep run records past their horizon
 - [`fluid stats`](./stats.md): aggregate cost across forge runs
+- [`fluid ship`](./ship.md#publishing-a-release): seal the releases that `--release-dir` reads
+- [Spark to Iceberg on AWS](../advanced/spark-iceberg-aws.md#commit-stamps): the stamps on each Iceberg commit
 - [Typed CLI errors](../advanced/typed-cli-errors.md): the error catalog

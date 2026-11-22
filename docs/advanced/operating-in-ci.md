@@ -16,7 +16,7 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
 [install-mode: pypi] Jenkinsfile written -> Jenkinsfile
   |- Jenkins installs FLUID_PACKAGE_SPEC into $WORKSPACE/.fluid-venv (stage 0)
   ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.35.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.37.0
   |- Jenkins plugins required: workflow-aggregator, git
 ```
 
@@ -122,6 +122,12 @@ pipeline; delete them: .github/workflows/fluid-standard.yml,
 .github/workflows/security.yml
 ```
 
+### Change-request builds and custom scaffold
+
+*(since 0.37.0)* `fluid generate artifacts --emit custom-scaffold` renders a contract's bundle templates in the build, so a generated pipeline never runs it on a change-request build (a pull or merge request). On such a build `fluid ship` leaves `custom-scaffold` out of stage 3 and says so in the stage's notes. A default-branch build keeps it. A run that would seal a release or publish while `--require-artifacts` names `custom-scaffold` is refused.
+
+The build is marked by the CI system's own variable, for example `CHANGE_ID` on Jenkins or `GITHUB_EVENT_NAME` set to `pull_request` on GitHub Actions. Tekton sets none, so its generated Pipeline takes a `FLUID_CHANGE_REQUEST` parameter that defaults to `true`: pass `false` on a default-branch run. Any other pipeline may set the variable `FLUID_CHANGE_REQUEST` in the job's environment. The full marker table, the extra to install and the error codes are in [`fluid generate artifacts`](../cli/generate-artifacts.md#change-request-builds).
+
 ## The Jenkins pipeline: stages 1-11
 
 Stage 1 writes `runtime/bundle.tgz` for one environment. Stages 2, 3, 5, 6, 7 and 9 read that bundle and pass the same `--env`, so every stage works on the bytes stage 1 produced. If a stage runs without the bundle, it stops and says so.
@@ -172,7 +178,7 @@ Jenkins learns a job's parameters from its first build. As measured on a Jenkins
 
 ### Install
 
-Stage 0 creates `$WORKSPACE/.fluid-venv`, because agents that follow PEP 668 refuse a bare `pip install`, and installs `FLUID_PACKAGE_SPEC` into it. The default is the version that generated the file with the extras the contract's base and overlays need, for example `data-product-forge[local]==0.35.0`. Every stage then runs `fluid` from that venv, and stage 0 fails if the first `fluid` on `PATH` is another one. The agent needs `python3` with the `venv` module, and `rsync` for a `file://` or `ssh://` stage 11 destination. The workspace is removed with Jenkins's core `deleteDir()`, so the `ws-cleanup` plugin is not needed.
+Stage 0 creates `$WORKSPACE/.fluid-venv`, because agents that follow PEP 668 refuse a bare `pip install`, and installs `FLUID_PACKAGE_SPEC` into it. The default is the version that generated the file with the extras the contract's base and overlays need, for example `data-product-forge[local]==0.37.0`. Every stage then runs `fluid` from that venv, and stage 0 fails if the first `fluid` on `PATH` is another one. The agent needs `python3` with the `venv` module, and `rsync` for a `file://` or `ssh://` stage 11 destination. The workspace is removed with Jenkins's core `deleteDir()`, so the `ws-cleanup` plugin is not needed.
 
 Pin a different version at build time with `FLUID_PACKAGE_SPEC=data-product-forge==X.Y.Z`. `FLUID_PIP_INDEX_URL` (blank means PyPI), `FLUID_PIP_EXTRA_INDEX_URL` and `FLUID_ALLOW_PRERELEASE` (`true` adds `pip --pre`) cover TestPyPI pilots and private mirrors. With `--install-mode dev-source` the file installs from a `/forge-cli-src` bind mount and fails if the mount is missing; it never falls back to PyPI.
 
@@ -332,7 +338,7 @@ A contract that binds no cloud gets a header that says so, and no login. Run `fl
 - GitHub's ID tokens last about five minutes, so the Snowflake and OpenBao token files are replaced every four minutes for the later steps of the job.
 - The login steps are skipped on pull requests from forks and from Dependabot, which get no ID token, so the job does not fail before validate runs.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* Every action in a generated GitHub Actions workflow is written as a commit, never as a tag that can move, and the generator raises an error if it ever asks for an action it has no commit for. Four pins are newer: `actions/checkout` v4.4.0 (it was v4.3.1), `google/osv-scanner-action` v2.7.1 (v2.3.8), `github/codeql-action/upload-sarif` v3.39.4 (v3.36.1) and `anchore/sbom-action` v0.24.3 (v0.24.0). The workflow carries the commit and not the version, so a pipeline you generated before keeps the old commits until you run `fluid generate ci` again.
+*(since 0.37.0, [forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042))* Every action in a generated GitHub Actions workflow is written as a commit, never as a tag that can move, and the generator raises an error if it ever asks for an action it has no commit for. Four pins are newer: `actions/checkout` v4.4.0 (it was v4.3.1), `google/osv-scanner-action` v2.7.1 (v2.3.8), `github/codeql-action/upload-sarif` v3.39.4 (v3.36.1) and `anchore/sbom-action` v0.24.3 (v0.24.0). The workflow carries the commit and not the version, so a pipeline you generated before keeps the old commits until you run `fluid generate ci` again.
 
 This is an excerpt of a workflow generated for a contract with a Snowflake binding. In 0.33.0 the job is named `apply` and its `environment` follows `FLUID_ENV`; 0.30.1 wrote one `deploy-<env>` job per environment (`deploy-dev` here, with `environment: dev`):
 

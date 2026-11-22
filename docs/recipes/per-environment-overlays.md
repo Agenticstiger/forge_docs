@@ -249,14 +249,14 @@ jobs:
       matrix:
         env: [dev, staging, prod]
     steps:
-      - run: pip install "data-product-forge==0.35.0"
+      - run: pip install "data-product-forge==0.37.0"
       - run: fluid validate contract.fluid.yaml --env ${{ matrix.env }}
       - run: fluid plan     contract.fluid.yaml --env ${{ matrix.env }}
 ```
 
 Pin the version: an unpinned `pip install` in a pipeline takes whatever is
 newest on the day. Add the extras your clouds need, for example
-`"data-product-forge[gcp]==0.35.0"`.
+`"data-product-forge[gcp]==0.37.0"`.
 
 ## See also
 

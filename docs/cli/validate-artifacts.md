@@ -40,7 +40,7 @@ fluid validate-artifacts ARTIFACTS_DIR
 
 Two situations produce a warning, and `--strict` turns each into a failure:
 
-- A file on disk that `MANIFEST.json` does not declare: `MANIFEST-UNDECLARED-FILE`.
+- A file on disk that `MANIFEST.json` does not declare: `MANIFEST-UNDECLARED-FILE`. *(since 0.37.0)* A dotfile the MANIFEST declares (a scaffold's `.gitlab-ci.yml`) is read like any other file, and is no longer reported missing. An undeclared hidden file such as `.DS_Store` is still ignored.
 - A file the MANIFEST declares that has no validator for its path: `ARTIFACT-UNEXPECTED`. Only the prefixes in the table above have one.
 
 ## Examples

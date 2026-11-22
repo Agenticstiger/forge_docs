@@ -275,6 +275,20 @@ Two consequences to expect:
 These are output-checking conventions only. No privacy or anonymity guarantee is made or implied. ACRO's tools assist human output checkers and do not replace them: read the document before you share it.
 :::
 
+## Children per parent
+
+*(since 0.37.0)* When one call profiles both exposes of a `semantics.relationships` entry, without `--bundle`, the document's `relationships[]` entry holds how many child rows each parent has. Each parent row counts once, in one of these bins: 0, 1, 2, 3 to 4, 5 to 9, 10 to 19, and 20 or more. Keys are matched as the registry reads them, and a null key matches none.
+
+To keep a count from showing more than it should, the child's foreign-key columns withhold their `distinctCount`, `sum`, `min`, `max` and `quantiles`, and form no `mean/1`. Next to the parents' row count, the number of parents that have a child would give the number that have none, and the key's own values would describe each parent's children one key at a time. The key columns of a counted relationship also take no default statistic of their own.
+
+A relationship is named in the summary and left out when:
+
+- its target is not profiled in the call;
+- it declares a validity window;
+- its keys are read in different domains.
+
+The histogram goes through its own output check. Treat it as one more table about the same parents: other tables over them (an `enum` column's level histogram, another relationship's cells) bound the numbers, and so do the children's own counts.
+
 ## Output
 
 ```bash

@@ -102,6 +102,10 @@ A status, and a footer after the last role, can say more than `allowed`:
 - **`--detailed` and the security boundary.** `--detailed` LOADS only ALLOWED plugins to read their declared metadata; BLOCKED plugins are NEVER loaded. That is the security boundary — a blocked plugin's code does not execute even to print its own version.
 - **Spec exporters are not plugins.** The spec-export formats (`odps` / `odcs` / `odps-bitol`) are surfaced by [`fluid exporters`](./exporters.md), not by `fluid plugins`.
 
+## Importer plugins
+
+*(since 0.37.0)* The entry-point group `fluid_build.importers` holds importer plugins. Each adds `fluid import <name> <source>`. `fluid plugins` lists them under the role `importer`, read from entry-point metadata without loading them. A plugin is loaded only when its tool is asked for by name. The allow/block lists above apply to its entry-point name, and it cannot take a built-in importer's name. See [Importer plugins](../advanced/importing-existing-pipelines.md#importer-plugins) for the plugin shape.
+
 ## Operator governance
 
 Two operator env vars gate the code-executing entry-point groups before a plugin is loaded:

@@ -967,6 +967,11 @@ The runner's sha256 is in the hash on every runtime, and the runner of 0.33.0 di
 | `FLUID_SPARK_WAIT_SECONDS` | How long a reconcile waits for a cancelled run to stop, and for a started one to leave its pending states. Default 900. |
 | `FLUID_SPARK_MAVEN_REPOSITORY` | One https Maven mirror. See [Network](#network-and-packages). |
 | `FLUID_SPARK_GLUE_JARS_URL` | `s3://<bucket>/<prefix>/`: where the platform keeps the pinned jars a Glue Avro build loads. See [Avro on Glue](#avro-on-glue). |
+| `FLUID_SPARK_STOP_GRACE_SECONDS` | *(since 0.37.0)* How long `fluid apply` waits for a changed stream to stop between batches before it cancels the run. Default 300, at most 3600, `0` cancels at once. See [Replacing a changed stream](#replacing-a-changed-stream). |
+| `FLUID_SPARK_RELEASE_PROBATION_SECONDS` | *(since 0.37.0)* How long `fluid apply` watches a released stream's new run before it keeps it. Default 300, at most 3600, `0` keeps it at once. See [Rolling back a failed release](#rolling-back-a-failed-release). |
+| `FLUID_SPARK_ACCEPT_FAILED_RELEASE` | *(since 0.37.0)* `1` lets one `fluid apply` start a config that failed a probation before. A project `.env` cannot set it. |
+| `FLUID_SPARK_PACKAGE_ALLOWLIST` | *(since 0.37.0)* The prefixes a [prebuilt package](#prebuilt-pyspark-packages) may come from, as `s3://bucket/prefix/` or `file:///dir/`. Unset allows none. |
+| `FLUID_RELEASE_ID`, `FLUID_RUN_ID`, `FLUID_SCHEDULER_JOB`, `FLUID_SCHEDULER_RUN_ID` | *(since 0.37.0)* Name the release, run and scheduler run that [each commit](#commit-stamps) carries. |
 
 A stream that reads a registry with a credential also needs the settings of the [Schema registry](./schema-registry.md#operator-settings) page. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A build with `runtime: local` needs those of [Operator settings for a local run](#operator-settings-for-a-local-run).
 
@@ -1017,7 +1022,7 @@ After `tofu apply`, `fluid apply` reconciles each streaming build:
 | Found | What apply does |
 |---|---|
 | A running job with this hash | Nothing. |
-| A running job with another hash | Cancels it, waits for it to stop, and starts the new config on the **same checkpoint**, so it resumes where the old one stopped. |
+| A running job with another hash | Cancels it, waits for it to stop, and starts the new config on the **same checkpoint**, so it resumes where the old one stopped. *(since 0.37.0)* A changed stream is asked to stop between batches first, and a release that fails is rolled back: see [Replacing a changed stream](#replacing-a-changed-stream) and [Rolling back a failed release](#rolling-back-a-failed-release). |
 | A new topic or cluster, with a checkpoint an earlier run read | Refuses, before cancelling anything. A checkpoint holds the offsets of one topic on one cluster. To read the new stream, move `properties.stream.checkpoint` to a new prefix: the job then starts from `startingOffsets`. |
 | No running job | Starts one, unless the last run with this hash failed. *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* Unless it failed where the service's own retries are spent (EMR Serverless and EMR on EKS) or the [restart budget](#the-restart-budget) is spent: see the next row. |
 | A last run that failed | An error that names the run and its reason. On EMR Serverless a streaming job retries until it fails more than `maxFailedAttemptsPerHour` times in an hour, and then stops, so starting it again would fail the same way. Fix the cause, then change the build: `fluid apply` starts it with the new config. *(since 0.34.0, [forge-cli #1013](https://github.com/Agenticstiger/forge-cli/pull/1013))* On EMR on EC2, Glue and a local build the stream is started again on its checkpoint within the [restart budget](#the-restart-budget), and the error is for a spent budget. EMR Serverless and EMR on EKS keep the error, as their own retries come first. |
@@ -1158,6 +1163,67 @@ The check guards against another apply changing the config or the runner. Write 
 The runner changed, so each running Spark stream restarts once on its next apply, on its checkpoint.
 
 The outputs are from forge-cli's reconcile step, the code `fluid apply` runs after `tofu apply`, with AWS answered by botocore's test stubs (the reads of S3 included), and from forge's runner, run as a script with a stand-in for Spark. No cluster, bucket or Spark job was involved.
+
+### Replacing a changed stream
+
+*(since 0.37.0)* Where a changed config used to cancel the running stream, `fluid apply` now asks it to stop between batches, so no batch is cut in half.
+
+1. Each stream's run is started with a **stop key** (`--fluid-stop-key`, a token of that start). To ask for a stop, `fluid apply` writes an object at `stop/<key>` beside the build's job config, in `_fluid/spark/<product>/<build>/`. The job's role already reads and lists that prefix. On `runtime: local` the object sits under `FLUID_SPARK_LOCAL_ROOT`.
+2. The runner looks for the object every 10 seconds. It stops each of its queries once no batch is running in it, or right after a batch commits when batches run back to back, and it ends cleanly.
+3. The new config then starts on the same checkpoint.
+
+The request is removed whatever happens, Ctrl-C included. A run is cancelled instead, as before, when:
+
+- it has not stopped within `FLUID_SPARK_STOP_GRACE_SECONDS` (default 300, at most 3600; `0` cancels at once);
+- it was started by an older `fluid apply`, so it has no stop key;
+- it was started on another job config (the output's location moved, so it would never see the request);
+- it is a second writer on the checkpoint: a second copy of the same config, or a run of another config beside one of the new config. These are cancelled at once.
+
+`fluid apply --mode reconcile` never replaces a config and writes no request. A stream that moves to `trigger.availableNow` has its continuous run stopped the same way, and its scheduled run does not start while the old continuous run is still on the checkpoint.
+
+The outcome names the config the stream moved from and to and how each old run stopped. A dry run, and the `stateImpact` of the plan, say which runs would stop between batches.
+
+Before a stream reads anything, the runner refuses a checkpoint (or the dead letters' checkpoint) whose newest offsets name another topic, or partitions the topic no longer has. This also catches a checkpoint that no recorded run used, such as a prefix copied from another stream. Moving `properties.stream.checkpoint` still starts the job from `startingOffsets`, unless the new prefix already holds a position, which Spark resumes. The outcome says which happened.
+
+The first `fluid apply` after upgrading to 0.37.0 still cancels each running stream once, because the runner changed and a run started before the upgrade has no stop key. A plan made before the upgrade is refused with `apply_spark_artifact_mismatch`: plan again with the new version.
+
+### Rolling back a failed release
+
+*(since 0.37.0)* After `fluid apply` starts a stream's new config over a previous one, it watches the new run for a **probation**. A run that fails in that time, or that its runtime retries, has failed its probation. EMR Serverless and EMR on EKS retry a run. The Glue job forge emits never does.
+
+Forge then cancels the run if it is still going, starts the previous job config again on its checkpoint, and fails the apply with `spark_release_rolled_back`. The outcome names both runs, both configs and why.
+
+`FLUID_SPARK_RELEASE_PROBATION_SECONDS` sets the watch: default 300, `0` keeps the new run at once and watches nothing, at most 3600. The watch is per changed stream and one stream after another, so an apply of several changed streams can take that many times longer than before. Set it to `0` where a scheduler's timeout is shorter than the wait.
+
+#### How it works
+
+- After every start of a stream, forge keeps the job config the run read beside the build's own, as `releases/<digest16>/job.json` (on `runtime: local`, under `FLUID_SPARK_LOCAL_ROOT`). The record is used only when its digest is the one the runtime recorded for the run that ran it, so bytes put there later start nothing.
+- Only the **job config** is rolled back. The rolled-back run gets the runner and the settings (role, target, Spark configuration, retries) that this apply compiled. A release that changed only settings or the runner rolls nothing back, and the outcome says so.
+- A config is one to go back to only when its run was RUNNING on its first attempt when it was replaced, or ended SUCCEEDED, and did not fail a probation itself.
+- A run stopped from outside during its probation (an operator's cancel, another apply's stop) is no failure. Nothing is rolled back.
+- `--mode reconcile` keeps no record, watches nothing and rolls nothing back. While a rolled-back run goes, it reports the stream as not what the last apply deployed, until the next `fluid apply`.
+
+#### What a rollback leaves in the sink
+
+| Case | What is in the sink |
+|---|---|
+| The release kept the checkpoint | The batches the failed run committed stay in the sink. The rolled-back run resumes after them and does not read them again. |
+| The release moved the checkpoint (`properties.stream.checkpoint`) to another output | The failed run's sink keeps what it wrote. The old config goes on writing its own. |
+| The release moved the checkpoint and the old config writes the same output or dead-letter table | Nothing is rolled back (`apply_spark_rollback_unsafe`). The old checkpoint would resume from an offset before the ones the failed run processed and write those records a second time. |
+
+#### What you see and what to do
+
+| You see | Meaning | What to do |
+|---|---|---|
+| `spark_release_rolled_back` | The new run failed its probation. The previous config runs again. | Read the outcome for the reason. Fix the contract and apply again. |
+| `apply_spark_rollback_unsafe` | The checkpoint moved and the old config writes the same table. The failed run is cancelled and the stream is down. | Applying the previous contract again is the deliberate way back. It expects those records twice. |
+| `apply_spark_no_known_good_config` | The config being replaced was not a known good one (its last run failed or was cancelled before the apply), and the release failed too. The stream is down. | Fix the contract and apply again. |
+| `apply_spark_release_failed_earlier` | This config failed a probation before. Every such config is marked (`releases/<digest16>/failed`), so no later `fluid apply` or `--mode reconcile` starts it as it stands. The error comes before a running config is stopped. | Change the contract. To start it anyway for one apply, set `FLUID_SPARK_ACCEPT_FAILED_RELEASE=1`. A project `.env` cannot set it. |
+| `apply_spark_artifact_read_denied` | The marker or record prefix cannot be read. | Grant the identity `s3:GetObject` and `s3:ListBucket` on `_fluid/spark/<product>/<build>/`. The error names the grants. Where `s3:ListBucket` is missing and the job config beside the marker reads, a missing marker is read as missing, with a warning that names the grant. |
+| `apply_spark_artifact_mismatch` | A plan made before the upgrade. | Plan again with the new version. |
+| An outcome that says the old config cannot be started again | The previous run started before 0.37.0 and has no release record. The failing run is left as it is. | Fix the contract and apply again. |
+
+A Ctrl-C, SIGTERM or SIGHUP between cancelling the failed run and starting the old config ends the apply with an outcome that says where it stopped and that the stream may be down. The marker keeps the failed config from being restarted. Two applies that roll back at once keep the older rollback run.
 
 ### The caller's permissions
 
@@ -1354,6 +1420,137 @@ spark_cluster_posture
 - **A cluster it cannot read prints nothing.** That covers a missing `[aws]` extra (boto3), no credentials, a call AWS refuses, an endpoint that does not answer, and a cluster that is ending or ended. `fluid plan` and `fluid apply` carry on as before, and `fluid apply --dry-run` reads nothing. Each call waits at most 3 seconds to connect and 10 seconds to answer, in two attempts.
 - **Permissions.** The three read actions in [The caller's permissions](#the-caller-s-permissions).
 
+## Commit stamps
+
+*(since 0.37.0)* Every Iceberg commit the Spark runner makes (a batch overwrite, a stream's append, a dead-letter table's append) carries the identity of the run in its snapshot summary. Read them with:
+
+```sql
+SELECT snapshot_id, committed_at, summary FROM <table>$snapshots
+```
+
+| Key | Holds | Comes from |
+|---|---|---|
+| `fluid.product` | The product id. | The contract. |
+| `fluid.build` | The build id. | The contract. |
+| `fluid.job-sha256` | The digest of the job config as it ran. | The runner. |
+| `fluid.product-version` | The version of the build's output. | The version of the build's first output expose. Set when `fluid apply` passes it. |
+| `fluid.contract-digest` | The digest of the contract as loaded, before `{{ env.* }}` is resolved. | `fluid apply`. A date in the contract, as a value or a key, is hashed as its ISO 8601 text. |
+| `fluid.release-id` | The release the deploy names. | `FLUID_RELEASE_ID`. |
+| `fluid.run-id` | The pipeline's run id. | The run id that `fluid ship` records as `provenance.run_id`. `FLUID_RUN_ID` replaces it. |
+| `fluid.bundle-digest` | The `bundleDigest` of the plan that `fluid apply` verified. | The `identity.bundle.manifest_digest` of the sealed release. Only a run started from a verified plan carries it. |
+| `fluid.scheduler-job` | The scheduler's job (the DAG id). | `FLUID_SCHEDULER_JOB`, else `AIRFLOW_CTX_DAG_ID`. |
+| `fluid.scheduler-run-id` | The scheduler's run. | `FLUID_SCHEDULER_RUN_ID`, else `AIRFLOW_CTX_DAG_RUN_ID`. |
+| `fluid.package.sha256` | The sha256 of the [prebuilt package](#prebuilt-pyspark-packages) that ran. | The build's `package.sha256`. Only on a package build. |
+
+A key whose value `fluid apply` does not pass is left out. The job's Spark conf also holds them as `spark.fluid.*`, and the runner's `start` log line names them.
+
+Rules for the values:
+
+- A value must match `[A-Za-z0-9][A-Za-z0-9._:+@/=~-]{0,255}`: a letter or digit first, then letters, digits and `. _ : + @ / = ~ -`, at most 256 characters in all. A value passed on the command line that breaks this stops the run before Spark starts.
+- A `FLUID_RELEASE_ID` like that refuses `fluid apply` in every mode before anything is applied, except `--mode reconcile`. The keepalive drops it with a warning, so a mis-set variable cannot stop a dead stream from being restarted.
+- A run id is stamped as the pipeline has it, except that each character a stamp may not hold becomes `_` and what is not a letter or digit is cut from the start: `Build #42` is stamped `Build__42`. A scheduler's job and run are made safe the same way and never refuse a run.
+- A project `.env` may set neither the scheduler's variables nor Airflow's. The DAGs `fluid generate schedule` writes hand Airflow's DAG id and run id to `fluid apply` under forge's names.
+
+The stamps are runner arguments, not part of the job config, the Spark configuration or the plan. So a contract edit that leaves the job alone, or a new run id, restarts no stream. For the same reason a **stream that keeps running keeps the stamps it started with**: its later commits carry the release and run id of the run that started it, until a change to the job replaces it. A stream the keepalive restarts carries the keepalive's. The first `fluid apply` after upgrading to 0.37.0 replaces each running stream once, because the runner changed.
+
+A scheduled run and the keepalive apply the contract, not a plan, so they carry no bundle digest. Set `FLUID_RELEASE_ID` on the worker to name the release there. A scheduled run's run id is now derived from the scheduler's job and run: the same for each command of one run and different for the next. `.fluid/run-id.txt` is neither read nor written for it, and `FLUID_RUN_ID` still wins. Before 0.37.0 every scheduled run of a product shared one id.
+
+To find the release in force for a job, see [`fluid runs status --release-dir`](../cli/runs.md#which-release-was-in-force).
+
+## Prebuilt PySpark packages
+
+*(since 0.37.0)* An `engine: spark` batch build can run your own prebuilt PySpark package, pinned by its sha256 digest. Forge's runner owns the write: your function returns a DataFrame and the runner checks it and writes it. This replaces `sql`, `mapping` and `stream` on the build, so it is batch only and `language: pyspark`.
+
+```yaml
+builds:
+  - id: score-orders
+    engine: spark
+    pattern: embedded-logic
+    language: pyspark
+    outputs: [order_scores]
+    properties:
+      package:
+        uri: s3://commerce-artifacts/packages/order_scores-1.4.0-py3-none-any.whl
+        sha256: 9f2b3c0d5e7a41b8c6d1e0f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4
+        entryPoint: order_scores.job:build
+        arguments:
+          window_days: "30"
+        deadLetter:
+          enabled: true
+          table: order_scores__dead_letter
+          maxRecordsBeforeAbort: 1000
+```
+
+The fields of `package` and its `deadLetter` block are in the [contract reference](../reference/contract-0.7.7-preview.md). In short:
+
+| Field | Meaning |
+|---|---|
+| `uri` | `s3://` for the AWS runtimes, `file:///` for `runtime: local`. A `.whl` or `.zip`. |
+| `sha256` | 64 lowercase hex characters. |
+| `entryPoint` | `module:attr`. |
+| `arguments` | A map of strings, at most 64. |
+| `deadLetter` | `enabled`, `table` and `maxRecordsBeforeAbort`. |
+
+### The call contract
+
+The runner calls the entry point as `fn(spark, context)` and writes the DataFrame it returns.
+
+| `context` | Holds |
+|---|---|
+| `arguments` | The build's `arguments`. |
+| `product`, `build`, `output` | The ids. |
+| `run_id` | The run's id. |
+| `package_sha256` | The package's digest. |
+
+`context` is read-only. The returned DataFrame must have the output's `contract.schema` columns and types exactly, in any order. Required values are checked at any depth. The passing rows replace the partitions they hold.
+
+### Publishing a package
+
+Publish it as one part, with S3's own SHA-256 checksum, and put the digest in the contract:
+
+```bash
+aws s3api put-object --bucket commerce-artifacts \
+  --key packages/order_scores-1.4.0-py3-none-any.whl \
+  --body dist/order_scores-1.4.0-py3-none-any.whl \
+  --checksum-algorithm SHA256
+sha256sum dist/order_scores-1.4.0-py3-none-any.whl
+```
+
+`fluid apply` copies the package beside the job config, keyed by its digest. On AWS, OpenTofu copies the S3 object only when S3's SHA-256 checksum of it is the pin, which `tofu plan` checks. On `runtime: local`, forge hashes the file and then copies it. The runner hashes its copy again and imports the entry point only from those bytes: a module of that name elsewhere on the Python path, or a compiled extension in the package, is refused. `fluid plan` shows and binds the package's source, digest and entry point.
+
+### Operator setting and role
+
+| Item | Rule |
+|---|---|
+| `FLUID_SPARK_PACKAGE_ALLOWLIST` | Comma-separated whole prefixes: `s3://bucket/prefix/` or `file:///dir/`. Unset allows no package. `fluid validate` warns and `fluid apply` refuses a package outside the list. For a local package the real path counts. |
+| `executionRoleArn` | Required where forge would create the role, as for a SQL batch build. |
+
+### Dead letters
+
+With `deadLetter.enabled`, a row whose required value is null at any depth goes to the table instead of failing the run.
+
+| Column | Holds |
+|---|---|
+| `error` | The reason. |
+| `row_json` | The row as JSON. |
+| `run_id` | The scheduler's run id when `fluid apply` passes one, else the Spark application id. |
+| `package_sha256` | The package's digest. |
+| `dead_lettered_at` | When the row was landed. |
+
+The table is written once per run. Past `maxRecordsBeforeAbort` the run fails and the output is not written. Without dead letters, any failing row fails the run with nothing written.
+
+### Guarantees and limits
+
+| Limit | Detail |
+|---|---|
+| Size | 256 MiB per package. |
+| Code | Pure Python only. Dependencies come from the runtime image or a venv archive, not from the package. |
+| Writes | PySpark's write calls and `spark.conf.set` / `unset` are refused while the function runs. `spark.sql` runs reads only: a `SET` that changes a setting, `RESET` and a `${...}` variable are refused too. |
+| Commits around the runner | A commit to the output or its dead letters that the runner did not make is checked before the runner writes and again after. It fails the run and the runner writes nothing, but that commit has landed: roll back from the table's snapshots. |
+| Memory and disk | The output is computed once and cached. Give executors disk, for example `spark.emr-serverless.executor.disk`. |
+
+Each commit carries the run's [stamps](#commit-stamps) and `fluid.package.sha256`.
+
 ## Network and packages
 
 A streaming run resolves its pinned packages when it starts:
@@ -1453,6 +1650,11 @@ An output with a non-empty `governance.lakeFormation` block keeps its grants as 
 | `spark-dead-letters-table-unsupported` | *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A `deadLetter` table sink beside an output at its bucket's root, beside a location forge registers with Lake Formation, or beside an output whose lifecycle expires its objects. See [What is refused](#what-is-refused). |
 | `apply_spark_refused` | `fluid apply` refuses a Spark build before `tofu apply` changes anything when an operator's list does not allow what the build names: an MSK cluster that `FLUID_SPARK_TARGET_ALLOWLIST` does not list, a host, a secret reference, or a `sparkConf` key. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* It also refuses a `deadLetter` topic that `FLUID_SPARK_TARGET_ALLOWLIST` does not list (see [Listing the topic](#listing-the-topic)), and, for a local build, a namespace that `FLUID_SPARK_LOCAL_NAMESPACE_ALLOWLIST` does not list (see [The table the job creates](#the-table-the-job-creates)). |
 | `apply_spark_artifact_mismatch` | The bound plan lists other Spark runs than apply compiles |
+| `spark_release_rolled_back` | *(since 0.37.0)* A released stream failed its probation and the previous config runs again. See [Rolling back a failed release](#rolling-back-a-failed-release). |
+| `apply_spark_rollback_unsafe` | *(since 0.37.0)* A rollback would write records into the same table a second time. The failed run is cancelled and the stream is down. |
+| `apply_spark_no_known_good_config` | *(since 0.37.0)* A release failed over a config that was not a known good one. The stream is down. |
+| `apply_spark_release_failed_earlier` | *(since 0.37.0)* The config failed a probation before. Change the contract, or set `FLUID_SPARK_ACCEPT_FAILED_RELEASE=1` for one apply. |
+| `apply_spark_artifact_read_denied` | *(since 0.37.0)* The identity cannot read the build's `_fluid/spark/` prefix. The error names the grants. |
 | `apply_aws_sdk_missing` | boto3 is not installed: `pip install 'data-product-forge[aws]'` |
 | `apply_spark_needs_opentofu` | The contract's apply engine is not OpenTofu, and it has a Spark build on an AWS runtime. *(since 0.33.0, [forge-cli #975](https://github.com/Agenticstiger/forge-cli/pull/975))* A build with `runtime: local` is not refused. |
 | `apply_spark_invalid` | A Spark build the runner would refuse (a contract before the 0.7.7 managed lane, or an `execution.runtime.timeout` that is not an ISO-8601 duration of at least one second), refused before `tofu apply` changes anything |
@@ -1465,3 +1667,4 @@ An output with a non-empty `governance.lakeFormation` block keeps its grants as 
 - [Managed Flink to Iceberg](./managed-flink-iceberg.md): the `properties.stream` and `properties.mapping` this lane shares.
 - [Scheduling Spark builds on Airflow](./airflow.md#scheduled-spark-builds).
 - [Environment variables](./environment-variables.md#spark-on-aws-preview): every variable this lane reads.
+- [`fluid runs status`](../cli/runs.md#which-release-was-in-force): which release was in force, matched to the commit stamps.

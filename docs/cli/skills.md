@@ -43,6 +43,18 @@ fluid skills compile
 fluid skills show
 ```
 
+## Agent Skills
+
+Separate from `.fluid/skills.yaml`, forge-cli ships Agent Skills: short guides a coding assistant loads when a task matches. [`fluid scaffold-ide`](./scaffold-ide.md) installs them into the project. *(since 0.37.0)* Three more ship:
+
+| Skill | What it covers |
+| --- | --- |
+| `adopting-existing-pipelines` | Proposes contracts from existing Spark jobs and Airflow DAGs with `fluid import pyspark` and `fluid import airflow` (dry run first, then the defaults the report asks you to complete). Covers the conventions file the import reads, importer plugins, and taking existing Glue tables over with `--adopt-tables` through a reviewed plan. |
+| `releasing-streaming-products` | How a changed Spark stream stops between batches, which runs are cancelled instead, what its probation watches, and when a failed release is rolled back or refused. Also what each Iceberg commit's stamps hold, and how `fluid ship --release-dir` and `fluid runs status --release-dir` name the release in force. |
+| `publishing-to-data-mesh-manager` | Publishes a batch as drafts, promotes the drafts a `fluid verify` report shows clean, and reads a migration's status. See [`fluid datamesh-manager`](./datamesh-manager.md#migrating-a-catalog). |
+
+`fluid scaffold-ide` installs them with the others. For the `generic`, `cursor` and `cline` targets they go in `.agents/skills/`, which Codex reads too. Each skill points to [`fluid describe --commands`](./describe.md#every-command-as-json) for every command and flag.
+
 ## Notes
 
 - All subcommands require a FLUID workspace (a directory with `fluid.workspace.yaml`, which [`fluid init`](./init.md) writes). Elsewhere the command exits `1` with `Not inside a FLUID workspace. Run 'fluid init' first.`
