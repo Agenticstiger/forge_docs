@@ -248,13 +248,24 @@ Each stage option takes the flag, then the variable the Jenkins pipeline already
 
 Stages 2 and 4 also write `runtime/validate-report.json` and `runtime/validate-artifacts-report.json`. *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* When stage 11 runs (a scheduler is set, stage 3 wrote DAGs, and apply was not a dry run), it passes `--report runtime/schedule-sync-report.json` to `fluid schedule-sync`.
 
+### A wrapped store token
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* A runner such as Command Center can hand a run its OpenBao or Vault token response-wrapped, as `FLUID_VAULT_WRAPPED_TOKEN`, and a wrapper opens once. Ship runs each stage as its own process, so through 0.36.0 only the first stage that reached the store could use the wrapper. With OpenBao state encryption, `fluid diff` and `fluid apply` both reach it, so `diff` spent it and `apply` then failed. Now a ship of two or more stages opens the wrapper before the first stage and hands every stage the token it yields:
+
+- **One unwrap, one revoke.** Ship opens the wrapper once, hands each stage the token through a pipe, and revokes that token when the run ends, also after a failed stage and after Ctrl-C. No stage revokes it. The token is in no process's environment, so `tofu`, dbt and a project's build steps cannot reach it. A stage reads the pipe, which `FLUID_VAULT_SHIP_TOKEN_FD` names, as it starts. Windows has no inherited pipes, so there the token travels in `FLUID_VAULT_SHIP_TOKEN`, which the stage takes out of its environment at once. Ship sets both names for its stages, an operator never does, and a project `.env` cannot set them.
+- **A wrapper that cannot be opened stops the run before any stage.** Ship exits 2 with a message that starts `fluid ship: no stage ran:`. It happens when the wrapper is spent, when no store address is set, and when the store cannot be reached. For a spent wrapper the message says to treat the run's credentials as exposed, unless this run opened it.
+- **A ship of one stage leaves the wrapper to that stage**, as before, so a pipeline that runs one stage per CI step works as it did. A single `fluid apply` uses the wrapper itself.
+- **A wrapper serves one `fluid ship` invocation.** A run split over several invocations needs a wrapper for each.
+
+The store resolver reads this token before any other, a project `.env` token included, and `fluid doctor` reports its auth method as `ship-token`. A ship that SIGTERM or SIGKILL ends does not revoke the token, which then lasts until its TTL. See [A response-wrapped token](./secrets.md#a-response-wrapped-token).
+
 ### Exit status
 
 | Code | Meaning |
 |---|---|
 | `0` | Every selected stage passed or was skipped, or every stage the flags selected is [switched off](#stage-switches-and-knobs). |
 | `1` | A stage failed. |
-| `2` | Ship refused its arguments: an unknown stage or a reversed range, no stage left to run, an environment name a stage would refuse, a publish target with `:`, `--dry-run` with another `--apply-mode`, a missing input, no contract, a contract that is missing, symlinked or under a system path, or `--skip-plan`. |
+| `2` | Ship refused its arguments: an unknown stage or a reversed range, no stage left to run, an environment name a stage would refuse, a publish target with `:`, `--dry-run` with another `--apply-mode`, a missing input, no contract, a contract that is missing, symlinked or under a system path, or `--skip-plan`. *On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* Also a wrapped store token that cannot be opened: see [A wrapped store token](#a-wrapped-store-token). |
 | `3` | A stage failed after apply changed something, so those changes are live. A dry-run apply changes nothing. |
 | `130` | Interrupted. |
 
@@ -296,6 +307,8 @@ Ship complete: 9 stage(s) passed, 0 skipped
 ### Where it runs
 
 A contract outside the current directory (`fluid ship /tmp/x/contract.fluid.yaml`) runs in its own directory, so `runtime/` and `dist/` land beside it. A contract below the current directory keeps the current directory as the project root.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* A stage no longer imports modules from that directory. Through 0.36.0 a stage started as `python -m fluid_build.cli` in the contract's directory, so a `yaml.py` or a `fluid_build/` in the checkout ran inside every stage, before the CLI started, with your environment. A stage now starts the CLI as `-m` does, without the checkout on the import path.
 
 ### From the four-stage macro
 

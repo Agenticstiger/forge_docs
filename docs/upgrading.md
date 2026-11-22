@@ -1526,6 +1526,23 @@ These changes are in 0.35.0.
 
 - **`data-product-forge[profile]` installs flux-stats 0.7.0.** The extra asked for `flux-stats>=0.6.2,<0.7` in 0.34.0 and asks for `flux-stats[yaml]>=0.7.0,<0.8` now. Upgrade the extra with `pip install -U 'data-product-forge[profile]'`. `fluid profile` stops with `profile_statistics_unavailable` on an older flux-stats. See [fluid profile](./cli/profile.md).
 
+## Not in a release yet
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).*
+
+- **The secret destination check reads more than `host`.** Beside a `secretRef`, `fluid validate` and `fluid apply` now refuse a query string that names a host (`host`, `hostaddr` and others, in a URI field or in `jdbc_url_params`), URL syntax in `database` or `dbname`, a URI whose authority a database client could read as another host, the host of an SSH tunnel in use, a host with an IPv6 zone id, and a host in `sqlalchemy_url` that has no entry. The operator can allow a reference for any host. A contract that validates on 0.36.0 can fail on `main`: run [`fluid secrets check`](./cli/secrets.md#fluid-secrets-check) on it before you upgrade a pipeline. A tunnel needs an entry for its host, and a loopback database host behind it needs `NAME@localhost`. A Debezium `extra_config` that sets `database.port`, `database.dbname`, `database.names` or `connector.class` is refused whatever the allowlist says. See [Hosts a connection can name another way](./cli/secrets.md#hosts-a-connection-can-name-another-way).
+- **A runner keeps each connection field in its own part of the URL.** dlt's `sql_database` source, the Kafka Connect JDBC source and Debezium fail the build, with or without a secret, when `host` or `database` holds URL syntax or a port is not a number. dlt's `drivername` has to be `dialect[+driver]`, such as `postgresql+psycopg`.
+- **`NAME@*` allows any host for `env://NAME`.** In `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST` it used to name a literal host `*`, which no destination matches. A bare `NAME` and `env://NAME@*` already meant any host.
+- **Refusals name the field they judged and print no value from the environment.** A refusal reads `... to host 'db.example.com' (connection.host) as a credential`. At `fluid apply`, a host that came from a placeholder appears as `the host '{{ env.PGHOST }}' renders to (connection.host)`, where it used to show the value it rendered to, and a keyword string shows its host part and not the password beside it. A script that matches the old wording can match `would send` and `as a credential`, which are in both. A URI whose query names a host no longer waits for `fluid apply` when its host part is a placeholder, and a placeholder that names a tunnel host waits as `host` does.
+- **An OpenBao or Vault address with an IPv6 zone id is not loopback.** `http://[::1%25lo0]:8200` needs `https` now.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).*
+
+- **`fluid ship` opens a wrapped store token once and hands it to every stage.** A response-wrapped OpenBao or Vault token (`FLUID_VAULT_WRAPPED_TOKEN`) opens once, and ship runs each stage as its own process, so only the first stage that reached the store could use it: with OpenBao state encryption, `diff` spent it and `apply` failed. A ship of two or more stages now opens it before the first stage, hands each stage the token through a pipe that no environment holds (`FLUID_VAULT_SHIP_TOKEN_FD`, or `FLUID_VAULT_SHIP_TOKEN` on Windows) and revokes it when the run ends. A wrapper that cannot be opened stops the run before any stage, with exit 2. A wrapper serves one `fluid ship` invocation, so a run split over several invocations needs one for each. A ship of one stage works as before. See [A wrapped store token](./cli/ship.md#a-wrapped-store-token).
+- **A `fluid ship` stage no longer imports modules from the checkout.** A `yaml.py` or a `fluid_build/` in the contract's directory used to run inside every stage, before the CLI started, with your environment. See [Where it runs](./cli/ship.md#where-it-runs).
+- **Generated GitHub Actions workflows pin newer commits of four actions.** `actions/checkout` v4.4.0, `google/osv-scanner-action` v2.7.1, `github/codeql-action/upload-sarif` v3.39.4 and `anchore/sbom-action` v0.24.3. A workflow you generated keeps its old commits until you run `fluid generate ci` again. See [What each system gets](./advanced/operating-in-ci.md#what-each-system-gets).
+- **`fluid doctor` reports the auth method `ship-token`** in a process that `fluid ship` handed its store token to.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

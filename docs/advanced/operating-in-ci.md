@@ -332,6 +332,8 @@ A contract that binds no cloud gets a header that says so, and no login. Run `fl
 - GitHub's ID tokens last about five minutes, so the Snowflake and OpenBao token files are replaced every four minutes for the later steps of the job.
 - The login steps are skipped on pull requests from forks and from Dependabot, which get no ID token, so the job does not fail before validate runs.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* Every action in a generated GitHub Actions workflow is written as a commit, never as a tag that can move, and the generator raises an error if it ever asks for an action it has no commit for. Four pins are newer: `actions/checkout` v4.4.0 (it was v4.3.1), `google/osv-scanner-action` v2.7.1 (v2.3.8), `github/codeql-action/upload-sarif` v3.39.4 (v3.36.1) and `anchore/sbom-action` v0.24.3 (v0.24.0). The workflow carries the commit and not the version, so a pipeline you generated before keeps the old commits until you run `fluid generate ci` again.
+
 This is an excerpt of a workflow generated for a contract with a Snowflake binding. In 0.33.0 the job is named `apply` and its `environment` follows `FLUID_ENV`; 0.30.1 wrote one `deploy-<env>` job per environment (`deploy-dev` here, with `environment: dev`):
 
 ```yaml

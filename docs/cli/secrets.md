@@ -3,7 +3,7 @@
 Two things live here: the `secretRef` references a contract uses to name a secret, with the command that checks them (`fluid secrets check`) and the operator's policy that decides which of them may resolve; and the keychain commands (`login`, `verify`, `rotate`) that store a named secret in the OS keychain. It sits under its own umbrella so it doesn't collide with `fluid auth` (cloud-provider auth) or `fluid ai setup` (LLM credentials).
 
 ::: tip Arrived from a secret error?
-Start with the section that matches the message: [What is refused](#what-is-refused) for `is not a valid secret reference`, [The operator's policy](#the-operator-s-policy) for `is not enabled`, `outside the prefixes`, `may not fetch secret values`, `would send ... to host`, `connection.host is empty` or `which only fluid apply knows`, [Vault and OpenBao](#vault-and-openbao) for `no store token was found`, a store that cannot be reached or a `BAO_TOKEN` or `VAULT_TOKEN` that was ignored, and [The run-secrets file](#the-run-secrets-file) for `was not handed to this run` or `the run-secrets file ... cannot be used`.
+Start with the section that matches the message: [What is refused](#what-is-refused) for `is not a valid secret reference`, [The operator's policy](#the-operator-s-policy) for `is not enabled`, `outside the prefixes`, `may not fetch secret values`, `would send ... to host`, `connection.host is empty` or `which only fluid apply knows`, [Vault and OpenBao](#vault-and-openbao) for `no store token was found`, a store that cannot be reached or a `BAO_TOKEN` or `VAULT_TOKEN` that was ignored, and [The run-secrets file](#the-run-secrets-file) for `was not handed to this run` or `the run-secrets file ... cannot be used`. *On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043), [forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* [Hosts a connection can name another way](#hosts-a-connection-can-name-another-way) covers `which this check does not read`, `more than a database name` and `could not be determined`, and [`fluid ship`](./ship.md#a-wrapped-store-token) covers `no stage ran`.
 :::
 
 ::: tip Available in 0.8.3
@@ -256,6 +256,8 @@ All 1 secret references pass.
 - **No warning when the operator allows the reference for any host.** That is a bare `PGPASSWORD` for `env://PGPASSWORD`, or `<reference>@*`. `fluid apply` then clears whatever the placeholder renders to, and `fluid validate --strict` stays green. An entry for one host does not silence the warning, because the lint cannot tell whether the placeholder renders to that host.
 - **The warning quotes only your contract.** It never prints a value from the environment. Of a URI it quotes the scheme and the hosts without their ports, never a login or a path, and it names the variables the host uses.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).* Three things change for a placeholder host. A URI whose query names a host, or whose authority a client could read as another host, no longer waits for `fluid apply`, even when its host part is a placeholder: it is refused, as [below](#hosts-a-connection-can-name-another-way) says. A placeholder that names the host of an SSH tunnel waits like `host`, and the warning then says `connection.ssh_tunnel.host`. The hosts behind the tunnel are still judged at `fluid validate`. And `fluid apply` names the placeholder in its refusal and no longer prints the value it rendered to: `the contract would send environment variable 'PGPASSWORD' to the host '{{ env.PGHOST }}' renders to (connection.host) as a credential`. A placeholder in `sqlalchemy_url` waits like one in `uri`.
+
 *(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* **An empty host is refused.** A `connection.host` that is present and empty (`host: ""` or `host: null`) names no host, and a database client given none picks one itself: libpq reads `PGHOST`, which a project `.env` may set. The check cannot tell where the value would go, so it refuses unless the operator has allowed the reference for any host. A placeholder whose variable is not set where `fluid apply` runs renders to an empty host, and `fluid apply` refuses it the same way:
 
 ```text
@@ -267,6 +269,43 @@ fix: Name the host in connection.host. A placeholder such as {{ env.PGHOST }} re
 A connection that names no destination at all, or only empty `uri`, `server`, `endpoint`, `instance_url` or `connection_string` fields, is refused as `a host that could not be determined`. Through 0.32.0 an empty destination field passed. Only a connection whose one destination is an object-store URI has no host to judge, and it passes.
 
 The DuckDB runner also hides `PGHOST` and `PGHOSTADDR` while it attaches a Postgres source, with the ambient credentials it already hides ([Changes in 0.23.0](../upgrading.md#changes-in-0-23-0)). A connection with no host then reaches only libpq's default local socket, and never a host a project `.env` set. `fluid init --discover` keeps both variables, because there you name the server.
+
+### Hosts a connection can name another way
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).* The check reads the `host` field and the host part of each URI field, and a database client can take its host from somewhere else too. So `fluid validate` and `fluid apply` refuse each of these beside a `secretRef`, unless the operator has allowed the reference for any host (a bare `NAME` or `NAME@*` for `env://NAME`, or `<reference>@*`):
+
+- **A query string that names a host.** A parameter such as `host`, `hostaddr` or `service` in the query of a URI field (`uri`, `connection_string`, `server`, `endpoint`, `instance_url`, `sqlalchemy_url`), or in `jdbc_url_params`, which Airbyte's JDBC sources append to their JDBC URL. A driver can take its host from the query as well as from the host part, and drivers differ on which one wins. An `http`, `https`, `ws` or `wss` URI is exempt. The keys are matched in any letter case and after percent-decoding, and `_`, `-` and spaces in them do not matter.
+- **URL syntax in `database` or `dbname`.** `?`, `#`, `;`, `&`, `@`, `\` or a control character. A runner puts the name into a connection URL, where `?` starts connection settings that can name another host.
+- **An authority a database client could read as another host.** More than one `@` before the first `/`, `?` or `#` in the user part, `#` in the host part, `?` followed by `,`, `\` in an `http` or `https` authority, and a SQLAlchemy password that reaches through `/`, `?` or `#`. In a MongoDB URI, or in a value written without a scheme, also any `?` before the first `/`, and `%` in a MongoDB host list.
+- **An SSH tunnel in use.** A Singer tap's `ssh_tunnel`, unless its `enable` is false, or Airbyte's `tunnel_method`, unless it is `NO_TUNNEL`. The tunnel's host needs an entry of its own, and a loopback database host behind it needs `NAME@localhost`, because the client reads that host from the tunnel host's side.
+- **`sqlalchemy_url`**, the Singer taps' URL, is judged like `uri`.
+- **A host with an IPv6 zone id**, such as `::1%lo0`, is not a loopback host, so it needs an entry like any other host.
+
+A Debezium `extra_config` that sets `database.port`, `database.dbname`, `database.names` or `connector.class` is refused as well, whatever the allowlist says: see [the host and credential keys](#fluid-acquisition-secret-ref-allowlist).
+
+::: details The keys that name a host in a query string
+`host`, `hostaddr`, `service`, `pghost`, `pghostaddr`, `pgservice`, `unix_socket`, `read_default_file`, `read_default_group`, `socksProxyHost`, `odbc_connect`, `dsn`, `server`, `servername`, `address`, `addr`, `network address`, `data source`, `failoverPartner`, `proxyHost`, `account`, `region`, `alt_hosts`, `hostname`, `url`, `uri`, `endpoint` and `connection_string`. They are the host a driver connects to, or a file or a connection string that names it. Parameters are split on `&`, `;` and `#`, and everything after the first `?` counts, a fragment included.
+:::
+
+A refusal names the reference, the field and what is wrong:
+
+```text
+the contract would send environment variable 'PGPASSWORD' to a host that 'host' names in the query string of connection.uri, which this check does not read
+the contract would send environment variable 'PGPASSWORD' over a connection whose connection.database holds '?', which a connection URL reads as more than a database name
+the contract would send environment variable 'PGPASSWORD' to a host that could not be determined (connection.uri) as a credential
+```
+
+Each refusal also says what to change: name the host in the host part, write the database's own name, or have the operator allow the reference for any host. A keyword string such as `Server=db.example.com;Database=d` is one destination the check cannot read, so it is refused unless the reference may go to any host, as before.
+
+Every other destination refusal names the field it judged, as in `... to host 'db.example.com' (connection.host) as a credential`. A keyword string shows its host part and nothing else: `... to a keyword string naming host 'db.example.com' (connection.connection_string) as a credential`. At `fluid apply`, a refusal quotes a host only when the contract wrote it as it stands, so a value from the environment never reaches the message. Every fix lists both any-host forms, a bare `NAME` and `NAME@*`, for an `env://` reference.
+
+The runners that build a connection URL refuse the same syntax themselves, with or without a secret, and the build fails with the reason. dlt's `sql_database` source refuses a host, database or `drivername` that would change how its connection URL reads back, and `drivername` has to be a SQLAlchemy dialect name with an optional `+driver`, such as `postgresql+psycopg`. The Kafka Connect JDBC source and Debezium refuse URL syntax in `host` or `database`, and a port that is not a number:
+
+```text
+sql_database connection: the host, database or drivername holds URL syntax (such as '?', '/' or '@') that would change where the connection URL points; write each as a plain name.
+Invalid database for the Debezium connector: '?' is not permitted, because the connection URL would read it as more than a database name.
+Invalid port for the Kafka Connect JDBC source: connection.port must be a port number.
+```
 
 ### Schemes
 
@@ -419,9 +458,9 @@ A stage that never fetches gives a different refusal, which has nothing to chang
   | `<reference>@<host>` or `<reference>@*` | that reference, in any scheme, to that host, or to any host |
   | `<prefix>*@<host>` | every reference that starts with the prefix, to that host |
 
-  The `@<host>` part is required in the reference forms, because a Secrets Manager name may itself contain `@`. A reference is compared in its canonical form, so `aws://x` and `aws-sm://x` are one. A host written with a port never matches: leave the port off. A malformed entry grants nothing.
+  The `@<host>` part is required in the reference forms, because a Secrets Manager name may itself contain `@`. A reference is compared in its canonical form, so `aws://x` and `aws-sm://x` are one. A host written with a port never matches: leave the port off. A malformed entry grants nothing. *On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).* `NAME@*` also sends `env://NAME` to any host, as a bare `NAME` and `env://NAME@*` do. Through 0.36.0 it named a literal host `*`, which no destination matches, so it allowed nothing.
 - **Example:** `export FLUID_ACQUISITION_SECRET_REF_ALLOWLIST="PGPASSWORD@db.example.com,vault://kv/orders/pg#db_pass@*,aws-sm://fluid/orders/*@db.example.com"`
-- **Refusal:** a destination that leaves this machine and has no entry. Every host of a connection counts, a host list included, and a port that is not a number counts as a host that cannot be read. *(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* So does an empty `host`, which only an entry for any host clears: see [A placeholder or an empty host](#a-placeholder-or-an-empty-host).
+- **Refusal:** a destination that leaves this machine and has no entry. Every host of a connection counts, a host list included, and a port that is not a number counts as a host that cannot be read. *(since 0.33.0, [forge-cli #982](https://github.com/Agenticstiger/forge-cli/pull/982))* So does an empty `host`, which only an entry for any host clears: see [A placeholder or an empty host](#a-placeholder-or-an-empty-host). *On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).* So does a host that a query string, an SSH tunnel or an ambiguous authority names: see [Hosts a connection can name another way](#hosts-a-connection-can-name-another-way).
 
 ```text
 the contract would send environment variable 'PGPASSWORD' to host 'db.example.com' as a credential
@@ -431,7 +470,9 @@ fix: If this is intended, set it in the OPERATOR environment (a shell or CI vari
 
 For a reference of another scheme the message names the secret (`secret vault://kv/orders/pg#db_pass`) and suggests `<reference>@<host>` for that host or `<reference>@*` for any host. Prefer the entry for one host.
 
-A Debezium `extra_config` may not set a host or credential key (`database.hostname`, `mongodb.connection.string` and the like) when the connection has a `secretRef`. Such a key would send the resolved value past this check, so it is refused with the key named.
+*On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).* The first line names the field it judged, `... to host 'db.example.com' (connection.host) as a credential`, and the fix for an `env://` reference lists both any-host forms, `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST="PGPASSWORD"` and `FLUID_ACQUISITION_SECRET_REF_ALLOWLIST="PGPASSWORD@*"`. For the other refusals, see [Hosts a connection can name another way](#hosts-a-connection-can-name-another-way).
+
+A Debezium `extra_config` may not set a host or credential key (`database.hostname`, `mongodb.connection.string` and the like) when the connection has a `secretRef`. Such a key would send the resolved value past this check, so it is refused with the key named, whatever the allowlist says. *On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).* `database.port`, `database.dbname`, `database.names` and `connector.class` are refused too: the port and the database go into the JDBC URL Debezium builds beside the host, and the connector class decides which settings are read at all. The lint and `fluid apply` both refuse them.
 
 ## Vault and OpenBao
 
@@ -467,6 +508,8 @@ forge uses the first of these that applies:
 
 So `FLUID_VAULT_JWT_ROLE` beats a `BAO_TOKEN` that is also set. A run with none of them stops with `no store token was found`, and says to sign in, set `BAO_TOKEN` or `VAULT_TOKEN`, set `FLUID_VAULT_JWT_ROLE` in CI, or have a runner hand over `FLUID_VAULT_WRAPPED_TOKEN`.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* A stage that `fluid ship` starts has one more source, which comes before all of these: the token ship opened from `FLUID_VAULT_WRAPPED_TOKEN` and handed the stage through a pipe, `FLUID_VAULT_SHIP_TOKEN_FD` (`FLUID_VAULT_SHIP_TOKEN` on Windows). It beats a project `.env` token too, and `fluid doctor` reports its auth method as `ship-token`. See [A wrapped store token](./ship.md#a-wrapped-store-token).
+
 ### JWT login for CI
 
 `FLUID_VAULT_JWT_ROLE` names the role. forge posts the role and the CI job's OIDC token to the JWT auth mount and uses the token it gets back. The [OpenBao JWT auth](https://openbao.org/docs/auth/jwt/) page explains the role and its bound claims.
@@ -484,9 +527,11 @@ With a role set and neither `FLUID_VAULT_JWT` nor `FLUID_VAULT_JWT_FILE`, the ru
 
 `FLUID_VAULT_WRAPPED_TOKEN` carries a [response-wrapped](https://openbao.org/docs/concepts/response-wrapping/) token, the per-run handoff of a runner such as Command Center. forge unwraps it once and uses the token inside. A wrapping token works once, so a refused unwrap means it expired or something else used it, and forge says to treat the run's credentials as exposed and to check the store's audit log. A second run in the same process is refused as well: start a new process per run.
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042)).* A `fluid ship` of two or more stages opens the wrapper once, before the first stage, and hands each stage the token it yields, so the stages after the first no longer find the wrapper spent. A wrapper serves one `fluid ship` invocation, and one that cannot be opened stops the run before any stage, with exit 2. See [A wrapped store token](./ship.md#a-wrapped-store-token).
+
 ### Transport
 
-- **https.** The address is `https`, or `http` to a loopback address only. Plain `http` to any other host is refused, because the token would cross the network in clear text.
+- **https.** The address is `https`, or `http` to a loopback address only. Plain `http` to any other host is refused, because the token would cross the network in clear text. *On forge-cli `main`, not yet in a release ([forge-cli #1043](https://github.com/Agenticstiger/forge-cli/pull/1043)).* An address with an IPv6 zone id, such as `http://[::1%25lo0]:8200`, is not a loopback address, so it needs `https`.
 - **No redirects.** A redirect from the store is an error and is not followed, because it could carry the token to another host. Point the address at the active node.
 - **TLS verification is always on.** `*_SKIP_VERIFY` is not read. A private CA goes in `BAO_CACERT` or `VAULT_CACERT`.
 - **One resolved address.** The address is resolved once and the connection is pinned to it. A host that resolves to a cloud metadata address is refused. A request waits 10 seconds.
