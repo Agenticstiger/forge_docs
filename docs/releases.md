@@ -12,6 +12,13 @@ For what `fluid version`, `fluidVersion` and the schema versions mean, see [Unde
 
 | Version | Date | What changed |
 | --- | --- | --- |
+| [`0.37.0`](./upgrading.md#changes-in-0-37-0) | 2026-11-22 | A secret may only travel to a host the operator allowed, whichever way a connection names it, and `fluid import airflow` and `fluid import pyspark` read estates whose code builds its commands in loops. |
+| [`0.36.0`](./upgrading.md#changes-in-0-36-0) | 2026-11-19 | `fluid profile` publishes default statistics without a bundle and profiles a whole data product in one call; FLUID SQL/1 adds `ADD_DAYS`, `ADD_MONTHS` and `ADD_YEARS`. |
+| [`0.35.0`](./upgrading.md#changes-in-0-35-0) | 2026-11-19 | A plan made from a `fluid ship --release-dir` release applies when the contract has a dbt build, and the `[profile]` extra installs flux-stats 0.7. |
+| [`0.34.0`](./upgrading.md#changes-in-0-34-0) | 2026-11-19 | A Spark stream that died starts again on its checkpoint, a keepalive DAG keeps it running, and an Iceberg table on Glue plans no change after an engine commits to it. |
+| [`0.33.0`](./upgrading.md#changes-in-0-33-0) | 2026-11-19 | `fluid ship` keeps a stage journal, a Spark build can run on the machine that applies it, a Glue table is partitioned as its binding declares, and `fluid policy apply` grants a Lakekeeper table. |
+| [`0.32.0`](./upgrading.md#changes-in-0-32-0) | 2026-11-18 | A 0.7.7 `enum` level may hold any character, generated job scripts keep contract values as data, and `fluid_build.testing` is a test kit for plugins. |
+| [`0.31.0`](./upgrading.md#changes-in-0-31-0) | 2026-11-17 | Scheduled Spark builds run through `fluid apply`, schema 0.7.7 previews rules about valid data, and OpenTofu state encryption is opt-in. |
 | [`0.30.1`](./upgrading.md#changes-in-0-30-1) | 2026-11-13 | `fluid validate --strict` no longer fails a dbt-built Databricks product. |
 | [`0.30.0`](./upgrading.md#changes-in-0-30-0) | 2026-11-13 | Databricks Genie spaces for a data product or an estate, Unity Catalog keys, and quality monitoring. |
 | [`0.29.0`](./upgrading.md#changes-in-0-29-0) | 2026-11-12 | Agent Skills for coding agents, plus an eval harness for them. |
