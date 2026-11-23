@@ -100,13 +100,20 @@ GitHub Actions and Azure DevOps use the runner's own image, and Jenkins the agen
 
 ### Add-ons
 
-`--add security`, `--add compliance` and `--add sbom` (repeatable) add the jobs that the advanced and enterprise tiers carried:
+`--add security`, `--add compliance` and `--add sbom` (repeatable) add the jobs that the advanced and enterprise tiers carried. *(since 0.39.0, [forge-cli #1067](https://github.com/Agenticstiger/forge-cli/pull/1067))* `--add import-drift` adds a fourth, a gate on imported contracts:
 
 - **`security`**: `fluid policy-check contract.fluid.yaml --strict` and an OSV-Scanner scan. On GitHub Actions it runs daily, on pull requests and on pushes to the default branch, and uploads the result to code scanning. On the other systems it is a job or stage beside the plan (Tekton: its own Pipeline), and the OSV scan runs only when `osv-scanner` is on the runner: the default images do not have it.
 - **`compliance`**: a policy report (`runtime/compliance-report.json`) and a lineage check, `fluid verify contract.fluid.yaml --reconcile-lineage --warn-only`, which reaches the cloud. GitHub Actions runs it weekly. GitLab CI runs it on a schedule you create or a pipeline run by hand, CircleCI on a scheduled pipeline or with the `run_compliance` parameter, Azure DevOps on a manual or scheduled run, Bitbucket as the custom pipeline `fluid-compliance`, and Jenkins as a stage after apply on the default branch.
 - **`sbom`**: on GitHub Actions, an SPDX SBOM from anchore with an attestation, weekly. On the other systems, `syft` on the default branch when the runner has it. Without `syft`, or when it fails, the job prints that no SBOM was written, and the run carries on.
 
-GitHub Actions writes each add-on to its own workflow (`fluid-security.yml`, `fluid-compliance.yml`, `fluid-sbom.yml`), each with its own schedule. Tekton writes a Pipeline named `fluid-<add-on>`, and the other systems add a job or stage; a schedule there is one you create. Each add-on that runs fluid installs it first. The 0.30.1 security and compliance workflows never did.
+- **`import-drift`** *(since 0.39.0, [forge-cli #1067](https://github.com/Agenticstiger/forge-cli/pull/1067))*: runs [`fluid import <tool> <source> --check`](../cli/import.md#checking-for-drift-in-ci) on every pull or merge request and every push to the default branch, and fails when the committed contracts no longer match the code or the check cannot decide. It needs `--import-tool airflow|pyspark` and `--import-source DIR`, and takes the options of the import that wrote the contracts: `--import-out`, `--import-split-by`, `--import-conventions` and, for `pyspark`, `--import-dags`. It is never advisory and not a numbered stage. A flag without the add-on, or the add-on without the tool and the source, is refused with `generate_ci_import_flags_without_add_on` or `generate_ci_import_drift_incomplete`. One tool and source go in one generated gate. Each path is checked and written as one quoted shell word, never as a `${NAME:-default}` that a run could override: a gate's source must not be one.
+
+```bash
+fluid generate ci contract.fluid.yaml --system github --add import-drift \
+  --import-tool pyspark --import-source jobs --import-dags dags --import-out contracts
+```
+
+GitHub Actions writes each add-on to its own workflow (`fluid-security.yml`, `fluid-compliance.yml`, `fluid-sbom.yml`, and `fluid-import-drift.yml`, which runs with `--format github` so that drift shows as annotations), each with its own schedule. Tekton writes a Pipeline named `fluid-<add-on>`, and the other systems add a job or stage (`import-drift` runs beside the plan and apply on GitLab CI, Azure DevOps, CircleCI and Tekton, and before apply on Jenkins and Bitbucket, as the security scan does); a schedule there is one you create. Each add-on that runs fluid installs it first. The 0.30.1 security and compliance workflows never did.
 
 ### What was run
 
@@ -194,7 +201,7 @@ A committed Jenkinsfile keeps what it was generated with. Regenerate it after up
 |---|---|
 | `--system` | The CI system. Default `gitlab` |
 | `--complexity {basic,standard,advanced,enterprise}` | 0.30.1: `basic` is validate and apply; `standard` is the default; `advanced` adds multiple environments and approvals; `enterprise` adds governance and compliance. Exits 2 in 0.33.0: use `--add` |
-| `--add {security,compliance,sbom}` | *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Repeatable. Add a job beside the pipeline: a daily scan, a weekly compliance report and lineage check, or an SBOM. See [Add-ons](#add-ons). In 0.31.0, `--complexity` exits 2 and points here |
+| `--add {security,compliance,sbom,import-drift}` | *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* Repeatable. Add a job beside the pipeline: a daily scan, a weekly compliance report and lineage check, an SBOM, or *(since 0.39.0, [forge-cli #1067](https://github.com/Agenticstiger/forge-cli/pull/1067))* an import drift gate. See [Add-ons](#add-ons). In 0.31.0, `--complexity` exits 2 and points here |
 | `--default-branch <branch>` | *(since 0.31.0, [forge-cli #942](https://github.com/Agenticstiger/forge-cli/pull/942))* The branch whose pushes run stages 7 to 11. Default: the remote's default branch (`origin/HEAD`), else `main`. GitLab CI reads its own `$CI_DEFAULT_BRANCH` |
 | `--out <path>` | Output path, for single-file systems |
 | `--no-generate-artifacts` | Turn stage 3 off by default, so stage 4 has nothing to check. Through 0.32.0 it was also set for reference-only contracts, detected from `builds[].pattern`. *(since 0.33.0, [forge-cli #1000](https://github.com/Agenticstiger/forge-cli/pull/1000))* It only turns stage 3's default off, and nothing infers it: a contract with reference builds, or only reference builds, still runs stage 3, because `fluid generate artifacts` writes the policy bindings and schedule that stages 4, 8 and 11 read |

@@ -12,6 +12,7 @@ For what `fluid version`, `fluidVersion` and the schema versions mean, see [Unde
 
 | Version | Date | What changed |
 | --- | --- | --- |
+| [`0.39.0`](./upgrading.md#changes-in-0-39-0) | 2026-11-23 | Iceberg maintenance for a table forge does not write, with the plan binding each maintenance action, `fluid import --check` and `fluid generate ci --add import-drift`, profile facts checked together against differencing, and command plugins that may add new command names only. |
 | [`0.38.0`](./upgrading.md#changes-in-0-38-0) | 2026-11-22 | Per-table Iceberg maintenance that forge runs beside the stream, Airflow alerts and writer pools in generated DAGs, `fluid profile` answers a FLUX profile request and can release a table under differential privacy, and a live Iceberg table in Glue is no longer updated in place. |
 | [`0.37.0`](./upgrading.md#changes-in-0-37-0) | 2026-11-22 | A secret may only travel to a host the operator allowed, whichever way a connection names it, and `fluid import airflow` and `fluid import pyspark` read estates whose code builds its commands in loops. |
 | [`0.36.0`](./upgrading.md#changes-in-0-36-0) | 2026-11-19 | `fluid profile` publishes default statistics without a bundle and profiles a whole data product in one call; FLUID SQL/1 adds `ADD_DAYS`, `ADD_MONTHS` and `ADD_YEARS`. |
