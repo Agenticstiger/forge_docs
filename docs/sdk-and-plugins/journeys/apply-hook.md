@@ -46,7 +46,7 @@ Three things to know about the hook contract:
 
 ## Step 0 — see the result first
 
-For a contract that fails the hook (output from CLI 0.18.1, local-platform contract with an `overlays/prod.yaml`):
+For a contract that fails the hook (output from CLI 0.38.0, local-platform contract with an `overlays/prod.yaml`; the CLI prints a `Loading FLUID contract: ...` line and `overlay_applied` before these lines, and with no overlay for the environment it prints `overlay_not_found` and uses the base contract):
 
 ```bash
 unset FLUID_PROD_DEPLOY_KEY
@@ -66,8 +66,10 @@ Exit code `1`. With the env var set:
 ```bash
 export FLUID_PROD_DEPLOY_KEY="$(read-from-secret-manager)"
 fluid apply contract.fluid.yaml --env prod --yes
-# (proceeds normally)
+# the hook passes and the provider runs; exit code 0
 ```
+
+"Proceeds" means the hook no longer stops the apply. What the provider then prints depends on the contract: for the small local-platform contract used here, which has no source table, 0.38.0 prints `local_plan_validation_failed` and `local_placeholder_refused` and still ends with `Data product deployed successfully` and exit code `0`.
 
 Override flag for emergencies (logged as a warning, so the override shows in the deploy log):
 
@@ -81,7 +83,7 @@ apply hook drift ignored (--force-pattern-drift): prod-key-guard: FLUID_PROD_DEP
   ...
 ```
 
-The apply then proceeds.
+The apply then proceeds (exit code `0`).
 
 ## Step 1 — set up the package
 
@@ -264,7 +266,7 @@ pytest
 
 ```text
 .....                                                                    [100%]
-5 passed in 0.02s
+5 passed in 0.01s
 ```
 
 These tests call the hook function directly. To run it inside the real `fluid apply`, with the hook installed as an entry point and a fake service behind it, use [the test kit](../reference/testing-kit.md#an-example-testing-an-apply-hook).
@@ -302,7 +304,7 @@ for ep in entry_points(group='fluid_build.apply_hooks'):
 # prod-key-guard: prod_key_guard.hook:check_prod_deploy_key
 ```
 
-End-to-end (CLI 0.18.1, local-platform contract with an `overlays/prod.yaml`):
+End-to-end (CLI 0.38.0, local-platform contract with an `overlays/prod.yaml`; exit codes as run):
 
 ```bash
 # This fails: no FLUID_PROD_DEPLOY_KEY in the environment.
@@ -311,20 +313,22 @@ fluid apply contract.fluid.yaml --env prod --yes
 # apply hook: prod-key-guard: FLUID_PROD_DEPLOY_KEY is not set in the environment.
 #   ...
 # apply aborted by an apply-time plugin hook. Pass --force-pattern-drift to override.
+# (exit code 1)
 
 # The check passes with the key set:
 export FLUID_PROD_DEPLOY_KEY=<key>
 fluid apply contract.fluid.yaml --env prod --yes
-# (proceeds normally)
+# (the hook passes; exit code 0)
 
 # Non-prod targets are untouched:
 fluid apply contract.fluid.yaml --env dev --yes
-# (proceeds normally)
+# (the hook passes; exit code 0)
 
 # Break-glass override (logged as a warning):
 unset FLUID_PROD_DEPLOY_KEY
 fluid apply contract.fluid.yaml --env prod --force-pattern-drift --yes
 # apply hook drift ignored (--force-pattern-drift): prod-key-guard: FLUID_PROD_DEPLOY_KEY is not set in the environment.
+# (exit code 0)
 ```
 
 ## Variations — the same shape, different invariants
@@ -397,6 +401,8 @@ def check_scaffold_lock(contract_dir, contract, errors):
 ```
 
 `fluid custom-scaffold` writes `fluid-scaffold.lock` (YAML) with, per library, the `ref` the contract asked for and the resolved `commit`. Pairs with the [your-own-CI bundle pattern](./your-own-ci.md): a product team that bumps `ref` and forgets to regenerate is stopped before deploying.
+
+Run against a real lock (a git bundle rendered by `fluid custom-scaffold` at `ref: v0.5.0`), the check appended nothing for the matching contract and, after the contract's `ref` was changed to `v1.1.0`, appended the error above with the recorded `v0.5.0`. One caveat: `fluid custom-scaffold --pin` rewrites the library's `ref` in the lock to the resolved commit, so after a `--pin` run this check compares the contract's `ref` with a commit and reports a mismatch. Run the check on a lock that a plain `fluid custom-scaffold` wrote, or compare against `commit` as well.
 :::
 
 

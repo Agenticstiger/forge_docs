@@ -8,40 +8,43 @@ A `Validator` plugin that fails any contract missing a data-steward identifier. 
 
 A contract must declare `labels["principal.steward.id"]`. Optionally, `labels["principal.steward.email"]` carries the steward's email for ops notifications. The validator emits an **error** if the id is missing, a **warning** if the email is missing, and an **error** if the email is outside `@my-org.example.com`.
 
-Output from CLI 0.18.1 for a valid 0.7.5 contract with no steward label:
+Output from CLI 0.38.0 for a valid 0.7.6 contract (`owner: { team: platform }`, no steward label):
 
 ```bash
 fluid validate contract.fluid.yaml
 ```
 
 ```text
-❌ Invalid FLUID contract (1 error(s)) (schema v0.7.5)
-Validation completed in 0.005s
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.6)
+Validation completed in 0.012s
 
 Validation Errors:
 ==================
- 1.  STEWARD_ID_MISSING: Contract 'bronze.demo.my_first_product_v1' is missing 
-the required label 'principal.steward.id'. (at labels["principal.steward.id"])
+ 1. [steward-required] STEWARD_ID_MISSING: Contract 'bronze.demo.my_first_product_v1' is missing the required label 'principal.steward.id'. (at labels["principal.steward.id"])
 ```
 
 With a steward id and no email, the contract is valid and the finding is a warning (exit code `0`; `--strict` makes it exit `1`):
 
 ```text
-✅ Valid FLUID contract (schema v0.7.5)
+✅ Valid FLUID contract (schema v0.7.6)
 ⚠️  1 warning(s)
-Validation completed in 0.136s
+Validation completed in 0.011s
 
 Validation Warnings:
 ====================
- 1.  STEWARD_EMAIL_MISSING: Contract 'bronze.demo.my_first_product_v1' declares 
-a steward id but no email. (at labels["principal.steward.email"])
+ 1. [steward-required] STEWARD_EMAIL_MISSING: Contract 'bronze.demo.my_first_product_v1' declares a steward id but no email. (at labels["principal.steward.email"])
 ```
 
-With the id and a `@my-org.example.com` email, the output is:
+With the id and a `@my-org.example.com` email, the plugin has nothing to say. `fluid validate` itself prints one warning, because `my-org.example.com` is a reserved documentation domain and 0.38.0 flags a placeholder address (use a real one):
 
 ```text
-✅ Valid FLUID contract (schema v0.7.5)
-Validation completed in 0.282s
+✅ Valid FLUID contract (schema v0.7.6)
+⚠️  1 warning(s)
+Validation completed in 0.012s
+
+Validation Warnings:
+====================
+ 1. labels.principal.steward.email: 'alice@my-org.example.com' is a placeholder address: my-org.example.com is reserved for documentation (RFC 2606), so no mailbox is at it. Use the owning team's real address, never a guess; if there is none, delete the key (it is optional).
 ```
 
 Once installed (`pip install steward-validator`), the rule runs on each `fluid validate` in that environment, so the rule becomes part of the CI gate without each team configuring anything.
@@ -147,7 +150,7 @@ class StewardValidator(Validator):
         return [f.to_action() for f in findings]
 ```
 
-`Finding` is the SDK's structured-finding type. Severity is one of `info` / `warn` / `error` / `critical` — the `Severity` str-enum added in SDK 0.10.0, whose `Severity.coerce` treats an unrecognised severity as `error`. In `fluid validate` 0.18.1, `error` and `critical` findings fail the validation, `warn` findings are listed as warnings, and `info` findings go to the debug log only. The `remediation` text is not part of the printed output, so put the fix in the `message` when the reader needs it.
+`Finding` is the SDK's structured-finding type. Severity is one of `info` / `warn` / `error` / `critical` — the `Severity` str-enum, added in SDK 0.10.0, whose `Severity.coerce` treats an unrecognised severity as `error`. In `fluid validate` 0.38.0, `error` and `critical` findings fail the validation, `warn` findings are listed as warnings, and `info` findings go to the debug log only. The `remediation` text is not part of the printed output, so put the fix in the `message` when the reader needs it.
 
 `Validator.plan(contract)` returns a list of `PluginAction` dicts (each `Finding.to_action()` produces one, with `op` equal to `emit_finding`). The CLI translates them into validation errors and warnings.
 
@@ -188,7 +191,7 @@ class TestStewardValidator(ValidatorTestHarness):
         assert self._codes(CONTRACT_GOOD_STEWARD) == set()
 ```
 
-`ValidatorTestHarness` (SDK 0.10.0) runs the generic plugin invariants plus validator-specific conformance against each contract in `sample_contracts`. It fails with `test_sample_contracts_present` if that list is empty. `self.get_plugin()` returns a fresh instance of your `plugin_class`.
+`ValidatorTestHarness` (since SDK 0.10.0) runs the generic plugin invariants plus validator-specific conformance against each contract in `sample_contracts`. It fails with `test_sample_contracts_present` if that list is empty. `self.get_plugin()` returns a fresh instance of your `plugin_class`.
 
 ## Run it
 
@@ -200,7 +203,7 @@ pytest
 
 ```text
 .........................                                                [100%]
-25 passed in 0.19s
+25 passed in 0.03s
 ```
 
 End-to-end against a real contract:
@@ -218,10 +221,10 @@ fluid validate contract.fluid.yaml
 
   validator  (1)
     • steward-required             allowed
-      from=my-org-validators 0.1.0
+      from=steward-validator 0.1.0
 ```
 
-(Here the package was `my-org-validators`; yours shows `steward-validator`.) `fluid validate` then runs your validator alongside core schema validation.
+`fluid validate` then runs your validator alongside core schema validation.
 
 ## You'll know it worked when
 

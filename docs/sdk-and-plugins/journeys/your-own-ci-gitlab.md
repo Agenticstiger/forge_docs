@@ -27,7 +27,7 @@ validate:
   stage: validate
   image: python:3.12
   script:
-    - pip install --quiet "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
+    - pip install --quiet "data-product-forge=={{ fluid_cli_version | default('0.38.0') }}"
     - fluid validate contract.fluid.yaml --strict
 
 build:
@@ -56,7 +56,7 @@ deploy:{{ env_name }}:
     SF_ROLE: {{ t.role }}
 {%- endif %}
   script:
-    - pip install --quiet "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
+    - pip install --quiet "data-product-forge=={{ fluid_cli_version | default('0.38.0') }}"
     - fluid apply contract.fluid.yaml --env {{ env_name }} --yes
   environment:
     name: {{ env_name }}

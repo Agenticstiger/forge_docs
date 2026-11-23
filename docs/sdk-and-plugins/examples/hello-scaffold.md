@@ -13,7 +13,7 @@ fluid custom-scaffold
 ```
 
 ```text
-✓ 1 files written, 0 failed (0.0004s)
+✓ 1 files written, 0 failed (0.0005s)
   <cwd>/README.md
 ```
 
@@ -91,7 +91,7 @@ class HelloScaffold(CustomScaffold):
 Two methods of note (both inherited from `CustomScaffold` / `BasePlugin`, no override needed):
 
 - **`apply(actions)`** — the reference implementation writes files atomically with sha256 verification + path-traversal guards. You get this for free.
-- **`get_plugin_info()`** — class metadata read by `fluid plugins --detailed` (CLI 0.10.0, for ALLOWED plugins) and any registry that reads `PluginMetadata`. Defaults to a `PluginMetadata` derived from `name` + `role`. Override if you want richer metadata (see [gitlab-ci-scaffold example](./gitlab-ci-scaffold.md)).
+- **`get_plugin_info()`** — class metadata read by `fluid plugins list --detailed` (for ALLOWED plugins) and any registry that reads `PluginMetadata`. Defaults to a `PluginMetadata` derived from `name` + `role`. Override if you want richer metadata (see [gitlab-ci-scaffold example](./gitlab-ci-scaffold.md)).
 
 ## `tests/test_scaffold.py`
 
@@ -116,8 +116,8 @@ pytest
 ```
 
 ```text
-.........................                                                [100%]
-25 passed in 0.08s
+..........................                                               [100%]
+26 passed in 0.03s
 ```
 
 Then in any fluid project:
@@ -128,7 +128,7 @@ pip install data-product-forge data-product-forge-custom-scaffold
 
 ```yaml
 # contract.fluid.yaml
-fluidVersion: "0.7.5"
+fluidVersion: "0.7.6"
 kind: DataProduct
 id: bronze.demo.my_first_product_v1
 name: My First Product
@@ -172,7 +172,7 @@ cat README.md
 ## You'll know it worked when
 
 - `pytest` passes against your plugin class.
-- `fluid plugins` lists `hello` under `custom_scaffold` (with the `NOT DISPATCHED` label explained in the [quickstart](../quickstart.md)), or the `importlib.metadata.entry_points(group='fluid_build.custom_scaffolds')` one-liner shows `hello`.
+- `fluid plugins` lists `hello` under `custom_scaffold`, or the `importlib.metadata.entry_points(group='fluid_build.custom_scaffolds')` one-liner shows `hello`.
 - `fluid custom-scaffold` writes a `README.md` whose body matches the contract's `name` and `description`.
 - Running the same command twice produces byte-identical output (determinism is one of the conformance tests).
 

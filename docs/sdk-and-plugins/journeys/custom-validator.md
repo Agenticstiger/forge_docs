@@ -40,7 +40,7 @@ Validators are **discovered automatically** by `fluid validate`. There is no per
 
 ## Step 0 — see the result first
 
-Output from CLI 0.18.1 with the three validators from this guide installed. The contract is a valid 0.7.5 contract with a root-level `labels:` map; only the labels differ.
+Output from CLI 0.38.0 with the three validators from this guide installed. The contract is a valid 0.7.6 contract with a root-level `labels:` map and `owner: { team: platform }`; only the labels differ. (The owner has no email on purpose: 0.38.0 warns about a placeholder address on a reserved example domain, such as `example.com`, and about a team still named `data-team`.)
 
 A contract with no labels:
 
@@ -49,43 +49,45 @@ fluid validate contract.fluid.yaml
 ```
 
 ```text
-❌ Invalid FLUID contract (2 error(s)) (schema v0.7.5)
-Validation completed in 0.012s
+❌ Invalid FLUID contract (2 error(s)) (schema v0.7.6)
+Validation completed in 0.016s
 
 Validation Errors:
 ==================
- 1.  COST_CENTER_MISSING: Contract 'bronze.demo.my_first_product_v1' is missing 
-label 'cost-center'. (at labels["cost-center"])
- 2.  STEWARD_ID_MISSING: Contract 'bronze.demo.my_first_product_v1' is missing 
-the required label 'principal.steward.id'. (at labels["principal.steward.id"])
+ 1. [cost-center-required] COST_CENTER_MISSING: Contract 'bronze.demo.my_first_product_v1' is missing label 'cost-center'. (at labels["cost-center"])
+ 2. [steward-required] STEWARD_ID_MISSING: Contract 'bronze.demo.my_first_product_v1' is missing the required label 'principal.steward.id'. (at labels["principal.steward.id"])
 ```
 
-Exit code `1`. With every label present and valid:
+Exit code `1`. With every label present and valid (`cost-center: cc-1234`, a steward id, and the steward email `alice@my-org.example.com`), the contract passes, with one warning from the core validator, not from a plugin. `my-org.example.com` is a reserved documentation domain, so 0.38.0 flags the stand-in address; use a real one:
 
 ```text
-✅ Valid FLUID contract (schema v0.7.5)
-Validation completed in 0.005s
-```
-
-With a steward id but no steward email, the contract passes with a warning (exit code `0`):
-
-```text
-✅ Valid FLUID contract (schema v0.7.5)
+✅ Valid FLUID contract (schema v0.7.6)
 ⚠️  1 warning(s)
-Validation completed in 0.005s
+Validation completed in 0.012s
 
 Validation Warnings:
 ====================
- 1.  STEWARD_EMAIL_MISSING: Contract 'bronze.demo.my_first_product_v1' declares 
-a steward id but no email. (at labels["principal.steward.email"])
+ 1. labels.principal.steward.email: 'alice@my-org.example.com' is a placeholder address: my-org.example.com is reserved for documentation (RFC 2606), so no mailbox is at it. Use the owning team's real address, never a guess; if there is none, delete the key (it is optional).
 ```
 
-Severity drives the exit code: `error` and `critical` findings fail validation (exit `1`), `warn` findings are listed and exit `0`, and `fluid validate --strict` also exits `1` on warnings. `info` findings are not printed; the CLI writes them to its debug log only.
+With a steward id but no steward email, the contract passes with a warning from the plugin (exit code `0`):
 
-As of 0.18.1 the text output renders each finding as `<CODE>: <message> (at <path>)`. Two details to know:
+```text
+✅ Valid FLUID contract (schema v0.7.6)
+⚠️  1 warning(s)
+Validation completed in 0.011s
+
+Validation Warnings:
+====================
+ 1. [steward-required] STEWARD_EMAIL_MISSING: Contract 'bronze.demo.my_first_product_v1' declares a steward id but no email. (at labels["principal.steward.email"])
+```
+
+Severity drives the exit code: `error` and `critical` findings fail validation (exit `1`), `warn` findings are listed and exit `0`, and `fluid validate --strict` also exits `1` on warnings (run on the contract above, it exited `1`). `info` findings are not printed; the CLI writes them to its debug log only, with or without `--verbose` (run with a validator that emits one).
+
+As of 0.38.0 the text output renders each finding as `[<plugin>] <CODE>: <message> (at <path>)`. Two details to know:
 
 - The finding's `remediation` text is not printed, in text or in `--format json`. Put the fix in the `message` if the reader needs it.
-- The plugin name prefix is dropped from the text output (note the double space after `1.`). `--format json` keeps it as `[steward-required] STEWARD_EMAIL_MISSING: ...`, so parse the JSON form if a script needs to know which validator spoke.
+- The `[<plugin>]` prefix is the validator's `name` (in this guide it equals the entry-point key), so the text output and `--format json` both say which validator spoke. (CLI 0.18.1 dropped the prefix from the text output.) `--format json` also lists each finding under `issues`, with `severity`, `code` (`ERR_CONTRACT_VALIDATOR_FINDING`), a `pointer`, the message and a generic `fix` line that points at the plugin's owner.
 
 ## Step 1 — set up the package skeleton
 
@@ -415,7 +417,7 @@ pytest
 
 ```text
 .........................                                                [100%]
-25 passed in 0.23s
+25 passed in 0.06s
 ```
 
 The inherited `ValidatorTestHarness` tests plus your four scenarios all run. `self.get_plugin()` returns a fresh instance of `plugin_class`. Repeat the pattern for the other two validators.
@@ -497,7 +499,7 @@ Validators run once per `fluid validate` invocation against the contract as writ
 :::
 
 ::: details Findings show up twice in the output
-You have two validators emitting the same `code`. The JSON output prefixes each finding with the entry-point name (`[steward-required] STEWARD_ID_MISSING: ...`), but the text output drops that prefix, so two plugins that both define `STEWARD_ID_MISSING` produce two near-identical lines. Pick unique codes per rule.
+You have two validators emitting the same `code`. Each text line carries the validator's name in brackets (`[steward-required] STEWARD_ID_MISSING: ...`), so two plugins that both define `STEWARD_ID_MISSING` produce two near-identical lines that differ only in that name. Pick unique codes per rule.
 :::
 
 ## Next

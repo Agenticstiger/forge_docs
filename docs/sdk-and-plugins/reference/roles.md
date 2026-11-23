@@ -87,7 +87,7 @@ class MyScaffold(CustomScaffold):
 
 ### Hooks into the CLI
 
-`fluid custom-scaffold`, the command the `data-product-forge-custom-scaffold` engine registers. The engine looks a `CustomScaffold` plugin up by its entry-point name (a contract's `source: { kind: entrypoint, name: <key> }`). The CLI itself does not walk the `fluid_build.custom_scaffolds` group, which is why `fluid plugins` labels it `NOT DISPATCHED`.
+`fluid custom-scaffold`, the command the `data-product-forge-custom-scaffold` engine registers. The engine looks a `CustomScaffold` plugin up by its entry-point name (a contract's `source: { kind: entrypoint, name: <key> }`). `fluid generate artifacts --emit custom-scaffold` (since forge-cli 0.38.0) runs the engine from the CLI, and `fluid plugins` lists the group as dispatched.
 
 ### Examples
 
@@ -122,7 +122,7 @@ class MyValidator(Validator):
 
 ### What you get from `Validator`
 
-- **`Finding` dataclass** — structured `severity` + `code` + `message` + `path` + `remediation`. The `severity` field accepts the [`Severity`](#typed-value-domains) str-enum (`info` / `warn` / `error` / `critical`). In `fluid validate` (0.18.1), `error` and `critical` findings fail the validation, `warn` findings are listed as warnings, and `info` findings go to the debug log only. `fluid validate` prints `code`, `message` and `path`, and does not print `remediation`.
+- **`Finding` dataclass** — structured `severity` + `code` + `message` + `path` + `remediation`. The `severity` field accepts the [`Severity`](#typed-value-domains) str-enum (`info` / `warn` / `error` / `critical`). In `fluid validate` (0.38.0), `error` and `critical` findings fail the validation, `warn` findings are listed as warnings, and `info` findings go to the debug log only. `fluid validate` prints `code`, `message` and `path`, and does not print `remediation`.
 - **Inherited `apply(actions)`** — summarizes findings by severity. `fluid validate` builds its report from `plan()`'s `emit_finding` actions and does not call `apply()`.
 - **`ValidatorTestHarness`** (SDK 0.10.0) — subclass it (`class TestMyValidator(ValidatorTestHarness): plugin_class = MyValidator; sample_contracts = [LOCAL_CONTRACT]`) for the generic plugin invariants plus validator-specific conformance. Add your fixture-driven good/bad-contract assertions as additional `test_*` methods, and use `self.get_plugin()` for a fresh instance.
 - **Auto-discovery at `fluid validate`** — a validator registered via the `fluid_build.validators` entry point runs on the contracts `fluid validate` checks, with no opt-in in the contract (subject to `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST`).
@@ -193,7 +193,7 @@ Most of it: `apply()` is *your* code talking to *your* cloud's API. The SDK prov
 
 ### Hooks into the CLI
 
-An `InfraProvider` registered under `fluid_build.providers` joins the provider registry that `fluid providers` lists and `--provider <name>` selects. Observed on CLI 0.18.1: a plugin registered with the entry-point key `my-cloud` is listed by `fluid providers` as `my_cloud`, with the dash turned into an underscore, while `fluid plugins` shows the entry-point key as written.
+An `InfraProvider` registered under `fluid_build.providers` joins the provider registry that `fluid providers` lists and `--provider <name>` selects. Observed on CLI 0.38.0: a plugin registered with the entry-point key `my-cloud` is listed by `fluid providers` as `my_cloud`, with the dash turned into an underscore, while `fluid plugins` shows the entry-point key as written.
 
 ### Examples
 

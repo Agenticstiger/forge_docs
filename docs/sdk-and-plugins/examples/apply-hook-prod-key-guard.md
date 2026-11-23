@@ -237,7 +237,7 @@ pytest
 
 ```text
 .....                                                                    [100%]
-5 passed in 0.02s
+5 passed in 0.01s
 ```
 
 Verify the CLI picks it up. `fluid plugins` lists installed plugins by group with their allow/block status; the hook appears under `apply_hook`. Or query `importlib.metadata` directly:
@@ -280,7 +280,7 @@ DEPLOY_ENV=prod fluid apply contract.fluid.yaml --yes
 # apply hook: prod-key-guard: FLUID_PROD_DEPLOY_KEY is not set in the environment.
 ```
 
-These runs used a local-platform contract with an `overlays/prod.yaml`, against CLI 0.18.1. Without an overlay, `--env prod` logs `overlay_not_found` and uses the base contract; the hook still receives `env="prod"`.
+These runs used a local-platform contract with an `overlays/prod.yaml`, against CLI 0.38.0. Exit codes as run: `1` for the aborted applies, `0` for the others, including the `--force-pattern-drift` one. After the hook passes, the local provider runs; for a contract with no source table it prints `local_plan_validation_failed` and `local_placeholder_refused` and still exits `0`. Without an overlay, `--env prod` logs `overlay_not_found` and uses the base contract; the hook still receives `env="prod"`.
 
 ## You'll know it worked when
 
@@ -382,7 +382,7 @@ def check_scaffold_lock(contract_dir, contract, errors):
             )
 ```
 
-Called with a lock that records `v1.0.0` and a contract that asks for `v1.1.0`, this appends the error above; with matching refs it appends nothing.
+Called with a lock that records `v1.0.0` and a contract that asks for `v1.1.0`, this appends the error above; with matching refs it appends nothing. (Run on 0.38.0 against a real lock, with `v0.5.0` and `v1.1.0`.) A `fluid custom-scaffold --pin` run rewrites the lock's `ref` to the resolved commit, so after one the comparison reports a mismatch: run the check on a lock a plain `fluid custom-scaffold` wrote.
 :::
 
 

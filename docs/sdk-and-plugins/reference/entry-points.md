@@ -1,6 +1,6 @@
 # Entry points reference
 
-`data-product-forge` discovers external functionality through Python entry-points. Each line in your `pyproject.toml` registers one plugin under one group. This table lists, for CLI 0.18.1 and `data-product-forge-custom-scaffold` 0.4.1, which code walks each group:
+`data-product-forge` discovers external functionality through Python entry-points. Each line in your `pyproject.toml` registers one plugin under one group. This table lists, for CLI 0.38.0 and `data-product-forge-custom-scaffold` 0.5.0, which code walks each group:
 
 | Group | Walked by |
 |---|---|
@@ -10,7 +10,7 @@
 | `fluid_build.extension_validators` | `cli/validate.py` |
 | `fluid_build.extension_schemas` | `fluid_build/extension_schemas.py` (the `fluid forge` copilot) |
 | `fluid_build.apply_hooks` | `cli/apply.py` |
-| `fluid_build.custom_scaffolds` | **Not walked by the CLI.** The `data-product-forge-custom-scaffold` engine looks a plugin up by entry-point name when `fluid custom-scaffold` runs. `fluid plugins` labels the group `NOT DISPATCHED` for that reason. |
+| `fluid_build.custom_scaffolds` | `fluid generate artifacts --emit custom-scaffold` (*since 0.38.0*), which holds each `entrypoint` bundle to the allow/block policy before the engine runs, and the `data-product-forge-custom-scaffold` engine, which looks a plugin up by entry-point name when `fluid custom-scaffold` runs. `fluid plugins` lists the group as dispatched. |
 | `fluid_build.providers` | `providers/__init__.py` (provider discovery for `fluid apply` and `--provider`) |
 | `fluid_build.validators` | `cli/validate.py`, through `plugin_manager.collect_validator_findings` |
 | `fluid_build.catalog_adapters` | `cli/publish.py`, through `plugin_manager.dispatch_catalog_adapters` |
@@ -342,22 +342,41 @@ fluid plugins list --json      # machine-readable, every group keyed
 
   command  (1)
     • generate-custom-scaffold     allowed
-      from=data-product-forge-custom-scaffold 0.4.1
+      from=data-product-forge-custom-scaffold 0.5.0
 
-  custom_scaffold  (1)  — NOT DISPATCHED
+  custom_scaffold  (1)
     • hello                        allowed
       from=hello-scaffold 0.1.0
 
-  provider  (4)
-    • aws                          allowed
-      from=data-product-forge 0.18.1
-    ...
+  extension_schema  (1)
+    • customScaffold               allowed
+      from=data-product-forge-custom-scaffold 0.5.0
 
-custom_scaffold: declared and governed, but this build has no dispatch site — 
-plugins registered under it are never invoked.
+  extension_validator  (1)
+    • customScaffold               allowed
+      from=data-product-forge-custom-scaffold 0.5.0
+
+  provider  (5)
+    • aws                          allowed
+      from=data-product-forge 0.38.0
+    • databricks                   allowed
+      from=data-product-forge 0.38.0
+    ...
 ```
 
-(Output from CLI 0.18.1 with the scaffold engine and the quickstart plugin installed, trimmed.) The `--json` form emits an object keyed by group (`apply_hook`, `catalog`, `command`, `custom_scaffold`, `extension_schema`, `extension_validator`, `iac_provider`, `llm_provider`, `modeling_technique`, `provider`, `source_adapter`, `validator`), each value a list of `{name, group, allowed, dispatched, distribution}`. `dispatched` is `false` for `custom_scaffold`: the CLI itself never walks that group, and the engine behind `fluid custom-scaffold` does, so the label does not mean the plugin is inert.
+(Output from CLI 0.38.0 with the scaffold engine and the quickstart plugin installed, trimmed after the `databricks` provider.) The engine registers one command, `generate-custom-scaffold`, which adds the subcommand `fluid custom-scaffold`, and the `customScaffold` extension schema and validator that `fluid validate` and the `fluid forge` copilot read. In 0.18.1 the same listing carried a `— NOT DISPATCHED` label on `custom_scaffold`, because no code in the CLI walked the group; 0.38.0 lists it as dispatched.
+
+The `--json` form emits an object keyed by group (`alert_defaults`, `alert_notifier`, `apply_hook`, `catalog`, `command`, `custom_scaffold`, `extension_schema`, `extension_validator`, `iac_provider`, `importer`, `llm_provider`, `maintenance_action`, `modeling_technique`, `provider`, `secret_resolver`, `source_adapter`, `validator`), each value a list of `{name, group, allowed, dispatched, distribution}`. The `hello` entry reads:
+
+```json
+{
+  "allowed": true,
+  "dispatched": true,
+  "distribution": "hello-scaffold 0.1.0",
+  "group": "fluid_build.custom_scaffolds",
+  "name": "hello"
+}
+```
 
 If you'd rather not shell out, the `importlib.metadata` one-liner is an equivalent fallback:
 
@@ -381,14 +400,14 @@ Either is your sanity check after `pip install` — if a plugin doesn't show up,
 
 ## Plugin governance
 
-The CLI gates the code-executing entry-point groups **before load** with two operator env vars (the scaffold engine applies the same policy to `fluid_build.custom_scaffolds` itself):
+The CLI gates the code-executing entry-point groups **before load** with two operator env vars (the scaffold engine applies the same policy to `fluid_build.custom_scaffolds` itself, and so does `fluid generate artifacts --emit custom-scaffold`):
 
 - **`FLUID_PLUGINS_ALLOWLIST`** — comma-separated entry-point names; if it holds a bare name, only listed names load. A `<distribution>:<name>` entry only grants that distribution an override of a reserved built-in name and restricts nothing (from 0.27.0).
 - **`FLUID_PLUGINS_BLOCKLIST`** — comma-separated entry-point names; these never load, and the blocklist wins over the allowlist.
 
 Names match case-insensitively, with `-` and `_` treated as the same character (from 0.27.0).
 
-A blocked plugin's code never executes. Governed groups: `providers`, `validators`, `catalog_adapters`, `commands`, `apply_hooks`, `extension_schemas`, `extension_validators`, `modeling_techniques`, `source_adapters`, `iac_providers`, `llm_providers`, and `custom_scaffolds` (enforced by the engine). `fluid plugins` surfaces each plugin's allow/block status.
+A blocked plugin's code never executes. Governed groups: `providers`, `validators`, `catalog_adapters`, `commands`, `apply_hooks`, `extension_schemas`, `extension_validators`, `modeling_techniques`, `source_adapters`, `iac_providers`, `llm_providers`, and `custom_scaffolds` (enforced by the engine, and by `fluid generate artifacts --emit custom-scaffold` before it calls the engine). `fluid plugins` surfaces each plugin's allow/block status.
 
 An opt-in compat gate, **`FLUID_PLUGIN_STRICT_COMPAT=1`**, makes the CLI refuse to register a provider plugin whose declared `requires_cli` (a PEP 440 specifier from the SDK's `PluginMetadata`) the running CLI version does not satisfy. Default (unset) is warn-only. `fluid plugins` marks such a plugin `INCOMPATIBLE (requires_cli)`. See the [trust model](./trust-model.md#operator-governance-—-allowlist-and-blocklist) for the full operator story.
 
