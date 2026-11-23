@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.38.0                                                              │
+│ Version: 0.39.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.38.0"
+pip install "data-product-forge[local]==0.39.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.38.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.39.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -1632,15 +1632,16 @@ A Jenkins `GENERATE_EMIT` default that includes `opds`; GitHub Actions uploads t
 
 ## Changes in 0.39.0
 
-These changes are in 0.39.0. Five need an action, and only if they apply to you: a saved plan that holds a Spark action, every running Spark stream (it restarts once), a maintenance DAG that runs before the next `fluid apply`, a command plugin that takes a core command's name, and a FLUX simulation pinned to a profile that lists facts. Everything else is additive or loosens a rule that was wrong.
+These changes are in 0.39.0. Six need an action, and only if they apply to you: a saved plan that holds a Spark action, every running Spark stream (it restarts once), a maintenance DAG that runs before the next `fluid apply`, orphan removal on a REST-catalog table, a command plugin that takes a core command's name, and a FLUX simulation pinned to a profile that lists facts. Everything else is additive or loosens a rule that was wrong.
 
 ### Steps to take
 
 1. **Plan again after upgrading if you hold a saved plan with a Spark action.** `fluid apply plan.json` refuses a plan made by 0.38.0 or earlier that lists a `spark.reconcile` or a `spark.maintain` action, with `apply_spark_artifact_mismatch`: the runner changed, and a maintenance action now also lists each plugin action (`actions[]`) and carries other compaction options. Run `fluid plan`, then `fluid apply`. A plan with no Spark action is not affected. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))* To check: `fluid apply plan.json --dry-run` on a plan made by 0.38.0 prints the refusal, and on a plan made by 0.39.0 it does not.
 2. **Expect each running Spark stream to restart once on its next `fluid apply`, on its checkpoint.** The runner file changed, and a build's config hash covers the runner's sha256, so the hash of a Spark build whose contract did not change is another one: apply asks the running stream to stop between batches, and starts it again on the same checkpoint. A stream that a 0.37.0 or later `fluid apply` started has a stop key, and one that an older apply started is cancelled instead. A build that runs to completion is not restarted, and its next run uses the new runner. Apply when a restart is acceptable. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))* To check: `fluid plan` on the same contract with 0.38.0 and with 0.39.0 lists a different `configHash` and `runnerSha256` for each `spark.reconcile` action and the same `jobConfigDigest`. See [Starting and reconciling runs](./advanced/spark-iceberg-aws.md#starting-and-reconciling-runs) and [Replacing a changed stream](./advanced/spark-iceberg-aws.md#replacing-a-changed-stream).
 3. **Run `fluid apply` once for each product whose tables declare maintenance, before the next scheduled maintenance run.** The maintenance job config changed (the runner, and compaction now writes `max-concurrent-file-group-rewrites=5`), and `fluid apply --mode maintain` starts a run only with the config that the last `fluid apply` deployed when that is the config the contract compiles to now. Step 2's apply does this too. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))* To check: `fluid apply contract.fluid.yaml --mode maintain --expose-id <expose> --dry-run` lists `max-concurrent-file-group-rewrites=5` on its compaction line.
-4. **Give a command plugin command names of its own.** A `fluid_build.commands` plugin that asks for the name of a core command or of another plugin's command is skipped whole, with a `cli_plugin_command_shadow` warning that names the plugin and the command, and the other plugins still load. Rename the command it adds. On Python 3.10 such a plugin used to replace the core command without a word, and on Python 3.11 and later it failed with `Failed to load CLI plugin <name>: ArgumentError`. *(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))* To check: `fluid describe --commands` loads every plugin and prints no `cli_plugin_command_shadow` warning. See [Command names are new ones](./sdk-and-plugins/reference/entry-points.md#command-names-are-new-ones).
-5. **Profile again, and pin again, if a FLUX simulation pins a profile that lists facts.** `fluid profile --request` now checks the facts of a table together, so a fact that 0.38.0 published may be withheld (`C` in the document, `D` in the summary), and the profile's digest changes with it. Read the report, then update the digest your simulation pins. A profile with no facts is not affected. *(since 0.39.0, [forge-cli #1066](https://github.com/Agenticstiger/forge-cli/pull/1066))* See [The facts of a table are checked together](./cli/profile.md#the-facts-of-a-table-are-checked-together).
+4. **Check that the Spark runtime of a REST-catalog table has Iceberg's prefix listing.** Orphan removal on a table in an Iceberg REST catalog (such as Lakekeeper) now lists only the table's own folder, through Iceberg's prefix listing. A Spark runtime whose Iceberg has none stops that step with an error and deletes nothing, and compaction and snapshot expiry still run. A Glue-catalog table keeps the default listing. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))* To check: the first scheduled `removeOrphanFiles` step of such a table ends without that error.
+5. **Give a command plugin command names of its own.** A `fluid_build.commands` plugin that asks for the name of a core command or of another plugin's command is skipped whole, with a `cli_plugin_command_shadow` warning that names the plugin and the command, and the other plugins still load. Rename the command it adds. On Python 3.10 such a plugin used to replace the core command without a word, and on Python 3.11 and later it failed with `Failed to load CLI plugin <name>: ArgumentError`. *(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))* To check: `fluid describe --commands` loads every plugin and prints no `cli_plugin_command_shadow` warning. See [Command names are new ones](./sdk-and-plugins/reference/entry-points.md#command-names-are-new-ones).
+6. **Profile again, and pin again, if a FLUX simulation pins a profile that lists facts.** `fluid profile --request` now checks the facts of a table together, so a fact that 0.38.0 published may be withheld (`C` in the document, `D` in the summary), and the profile's digest changes with it. Read the report, then update the digest your simulation pins. A profile with no facts is not affected. *(since 0.39.0, [forge-cli #1066](https://github.com/Agenticstiger/forge-cli/pull/1066))* See [The facts of a table are checked together](./cli/profile.md#the-facts-of-a-table-are-checked-together).
 
 ### What changed
 
