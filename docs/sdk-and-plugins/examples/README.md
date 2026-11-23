@@ -19,7 +19,7 @@ Three of the four ship as runnable Python projects inside the SDK repo:
 - [`gitlab-ci-scaffold`](https://github.com/Agenticstiger/forge-cli-sdk/tree/main/examples/gitlab-ci-scaffold)
 - [`steward-validator`](https://github.com/Agenticstiger/forge-cli-sdk/tree/main/examples/steward-validator)
 
-Each has its own `pyproject.toml`, `demo.py` and test suite. `pip install -e .[dev] && pytest` ran green in `hello-scaffold`, `gitlab-ci-scaffold` and `steward-validator` against SDK 0.10.0 on CLI 0.18.1. The upstream `steward-validator` reads `metadata.labels`, which a contract that passes `fluid validate` cannot contain; the [walkthrough](./steward-validator.md) here reads root `labels` instead.
+Each has its own `pyproject.toml`, `demo.py` and test suite. `pip install -e '.[dev]' && pytest` ran green at the SDK's `v0.12.0` tag in `hello-scaffold` (27 passed, one test more than the four-line version on its page, which gives 26), `gitlab-ci-scaffold` (31 passed) and `steward-validator` (22 passed) against SDK 0.12.0 on CLI 0.38.0. The upstream repo now has three more examples (`acme-chat-alerts`, `acme-erasure-action` and `acme-hello-command`, for the alert, maintenance and command roles); they are not walked through here and were not run. The upstream `steward-validator` reads `metadata.labels`, which a contract that passes `fluid validate` cannot contain; the [walkthrough](./steward-validator.md) here reads root `labels` instead.
 
 ## After the examples — pick your journey
 

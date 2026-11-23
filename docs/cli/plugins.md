@@ -56,7 +56,7 @@ A status, and a footer after the last role, can say more than `allowed`:
 | --- | --- |
 | `BLOCKED (allow/block policy)` | `FLUID_PLUGINS_ALLOWLIST` or `FLUID_PLUGINS_BLOCKLIST` keeps it from loading. The footer reads `N plugin(s) blocked by FLUID_PLUGINS_ALLOWLIST / FLUID_PLUGINS_BLOCKLIST.` |
 | `INCOMPATIBLE (requires_cli)` | The plugin declares a `requires_cli` the running CLI does not satisfy. With `FLUID_PLUGIN_STRICT_COMPAT=1` the CLI refuses to register it. |
-| `— NOT DISPATCHED` after the role heading | The role is declared and governed, but this build has no code path that runs plugins registered under it. Listing it as `allowed` would read as active, so the heading says otherwise. In 0.18.1 that role is `custom_scaffold`. |
+| `— NOT DISPATCHED` after the role heading | The role is declared and governed, but this build has no code path that runs plugins registered under it. Listing it as `allowed` would read as active, so the heading says otherwise. In 0.18.1 that role was `custom_scaffold`; in 0.38.0 no role carries the heading. |
 
 ## Output (JSON)
 

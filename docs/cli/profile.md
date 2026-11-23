@@ -38,7 +38,7 @@ The profiler is the one part of FLUX that reads records. It runs inside the envi
 ## Syntax
 
 ```bash
-fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE] [--fractional-bits N] [--bundle DIR] [--request FILE] [--env ENV]
+fluid profile CONTRACT --source SOURCE [--expose ID]... [--table NAME] [--out FILE] [--fractional-bits N] [--bundle DIR] [--request FILE] [--env ENV]
                [--privacy-unit EXPOSE --rho R --release-record PATH [--release-table EXPOSE] [--unit-key COL[,COL]]
                 [--max-rows-per-unit N] [--max-rows-per-cell K] [--rederive]]
 ```
@@ -46,10 +46,10 @@ fluid profile CONTRACT --source SOURCE [--expose ID] [--table NAME] [--out FILE]
 | Argument | What it does |
 |---|---|
 | `CONTRACT` | The FLUID contract (or a stage-1 bundle `.tgz`) that declares the expose. Its `exposeId` keys the profile's table, and each column's type gives the domain it is read in. |
-| `--source` | Where the records live. See [Sources](#sources). |
-| `--expose`, `--expose-id` | The expose to profile. Optional when the contract has one expose. |
-| `--table` | The table of a database `--source`, as `name` or `schema.name`. Refused for a file. |
-| `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory. |
+| `--source` | Where the records live. See [Sources](#sources). *(since 0.36.0, [forge-cli #1024](https://github.com/Agenticstiger/forge-cli/pull/1024))* For several exposes, repeat it as `--source <exposeId>=<location>`, one for each. |
+| `--expose`, `--expose-id` | The expose to profile. Optional when the contract has one expose. *(since 0.36.0, [forge-cli #1024](https://github.com/Agenticstiger/forge-cli/pull/1024))* Repeat it to profile several exposes into one document. See [Profiling a whole data product](#profiling-a-whole-data-product). |
+| `--table` | The table of a database `--source`, as `name` or `schema.name`. Refused for a file. For several exposes, `--table <exposeId>=<table>`. |
+| `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory, or `<contract id>.profile.json` when the call profiles several exposes. |
 | `--fractional-bits` | The grid [`mean/1`](#the-mean-1-statistic) is formed on, in steps of 2^-N: 0 to 128, default 16. Set it to the fidelity block's `encoding.fractionalBits`. |
 | `--bundle` | *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* A FLUX bundle directory: the profile answers the fidelity block its one Simulation declares for the expose, on the block's grid, and a different `--fractional-bits` is refused. See [Answering a fidelity block](#answering-a-fidelity-block-bundle). |
 | `--request` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* A profile request that `fluxsim init --contract` wrote. See [Answering a profile request](#answering-a-profile-request-request). |
@@ -82,6 +82,53 @@ A timestamp value is read as RFC 3339 with an offset (`2026-07-01T10:00:00.000Z`
 A date or timestamp that is infinite (PostgreSQL's `infinity`) is refused, by column, rather than read as the year 9999. Every value of the profiled columns is held in memory while it is measured, so a table larger than the machine's memory is out of reach for now.
 
 A number that needs more than 1,000 digits written out, such as `1E+5000`, is refused by its cell before it is read, as `value class 'over-long number'`: a profile declares no range to bound it. A sum longer than 1,000 digits is refused when the document is checked, and nothing is written.
+
+## Profiling a whole data product
+
+*(since 0.36.0, [forge-cli #1024](https://github.com/Agenticstiger/forge-cli/pull/1024))* One call profiles every expose of a contract into one document. Give each expose its records as `--source <exposeId>=<location>`. With no `--expose`, every expose a `--source` names is profiled, in the contract's order:
+
+```bash
+fluid profile contract.fluid.yaml \
+  --source customers=data/customers.csv \
+  --source orders=data/orders.csv
+```
+
+```text
+Profiled 2 exposes (customers, orders): 8 columns, 30 values published, 38 withheld.
+Withheld, by the check (CL_CONF_STATUS code): A (small count) 26, D (secondary suppression) 12.
+The document writes C for every withheld group and cell of a histogram or a quantile, whatever withheld it, so its code says nothing of its size.
+exposes[customers]: Fidelity statistics: mean/1 of 'customer_id'; quantile/2 of 'customer_id' at level 0.25 over 116 bins; quantile/2 of 'customer_id' at level 0.5 over 116 bins; levelHistogram/1 of 'segment'; marginalHistogram/1 of 'age' over bins 18, 20, 30, 40, 50, 60, 70, 80, 90, on fractionalBits 16 (the fidelity block must declare the same).
+exposes[customers]: Withheld whole, so a run that checks them scores them censored: quantile/2 of 'customer_id' at level 0.75 over 116 bins; quantile/2 of 'signup_date' at level 0.25 over 202 bins; quantile/2 of 'signup_date' at level 0.5 over 202 bins; quantile/2 of 'signup_date' at level 0.75 over 202 bins.
+exposes[orders]: Fidelity statistics: mean/1 of 'order_id', 'customer_id'; quantile/2 of 'order_id', 'customer_id' at level 0.25 over 116 bins; quantile/2 of 'order_id', 'customer_id' at level 0.5 over 116 bins; marginalHistogram/1 of 'amount' over bins 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000; levelHistogram/1 of 'status', on fractionalBits 16 (the fidelity block must declare the same).
+exposes[orders]: Withheld whole, so a run that checks them scores them censored: quantile/2 of 'order_id', 'customer_id' at level 0.75 over 116 bins.
+Wrote /work/gold.shop.orders_v1.profile.json (readable by you alone; read it before you share it).
+Pin it in the FLUX Simulation:
+  profile: {digest: sha256:7fe97b2d1dd22735b13b431a3455481a68c5fc6fb64f42fc6008da2bfbe58934}
+```
+
+(Output from 0.38.0 on a two-expose contract with 3,000 customers and 9,000 orders, so your counts and digest differ.) The document's `tables` hold both exposes, `customers` and `orders`. It is written to `<contract id>.profile.json` unless `--out` names it, and is read back whole before the command reports success. A single `--expose` with one bare `--source` works as before.
+
+`--expose` repeats too. Each flag then needs its own `--source <exposeId>=<location>`, so that one expose's records are never read as another's. A database source takes `--table <exposeId>=<table>`:
+
+```bash
+fluid profile contract.fluid.yaml \
+  --source customers=sqlite:///$PWD/data/shop.db --table customers=customers \
+  --source orders=sqlite:///$PWD/data/shop.db --table orders=orders
+```
+
+The same records, read from SQLite and from the two CSV files, wrote the same bytes. Each of these is refused before any record is read, and the run reads nothing and exits 1:
+
+| Call | Refusal |
+|---|---|
+| `--expose customers --expose orders --source data/customers.csv` | `profile_source_unpaired`: `--expose` is given 2 times and no `--source` names its expose |
+| `--expose customers --expose orders --source customers=...` | `profile_source_missing`: `exposes[orders]` has no `--source orders=<location>` |
+| `--expose customers --source customers=... --source orders=...` | `profile_source_unused`: `--source` names `exposes[orders]`, which no `--expose` names |
+| `--expose customers --expose customers ...` | `profile_expose_repeated`: `--expose` names `customers` twice |
+| `--source customers=a.csv --source customers=b.csv` | `profile_source_repeated`: `exposes[customers]` is given more than one `--source` |
+
+With a contract of two exposes and neither `--expose` nor a `<exposeId>=` source, the run stops with `profile_expose_required` and lists the exposes. A database source's password is masked in every refusal.
+
+With `--bundle`, each expose answers its own fidelity block, and the blocks must declare one grid.
 
 ## What is profiled
 
@@ -137,6 +184,44 @@ Fidelity statistics: mean/1 of 'amount', on fractionalBits 16 (the fidelity bloc
 `mean/1` is written without a `groupBy`, and for number columns only. A timestamp or category column gets no statistic: a mean of timestamps would publish a sum that no metric publishes. `fluid profile` writes no other statistic yet: no histogram, `quantile/1`, `support/1` or `correlation/1`, and no `mean/1` with a `groupBy`. The engine refuses a property that reads one with `FLX-5037`.
 
 *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* [`--bundle`](#answering-a-fidelity-block-bundle) writes the statistic each property of a fidelity block declares, a grouped `mean/1`, the histograms, `support/1` and `quantile/1` among them, and still no `correlation/1`.
+
+## Default statistics without `--bundle`
+
+*(since 0.36.0, [forge-cli #1024](https://github.com/Agenticstiger/forge-cli/pull/1024))* With no `--bundle`, the profile declares a fidelity block from the contract alone, never from the records, and answers it through the same path as a Simulation's block. So the profile carries the statistics `fluxsim init` reads, and flux-stats forms and checks each of them:
+
+| The contract declares | The profile writes |
+|---|---|
+| an `enum(...)` column | `levelHistogram/1` over every declared level. A level no record holds is listed, its cell withheld as `C`. |
+| a number whose `validationRules` give both ends of a range, each inside its type | `marginalHistogram/1` over about ten bins of one width, exact at both ends. |
+| any other number of a bounded type, and every date and timestamp | `quantile/2` at 0.25, 0.5 and 0.75, on a ladder fixed by the type. |
+| a categorical `semantics.dimensions` entry on an `enum` column | the other `enum` columns' level histograms, grouped by its levels. One column's groupings hold at most 10,000 cells together; a grouping past that is left out and named. |
+
+A `range` rule reads as `">= 18 and <= 90"` or `"between 18 and 90"`. A rule in another shape, such as `">= 18, <= 90"`, declares no range, so that number gets `quantile/2` if its type is bounded. A number with neither a two-ended range nor a bounded type, such as a `decimal` without `(p,s)`, gets no such statistic, and the summary says so:
+
+```text
+Profiled exposes[notes]: 2 columns, 7 values published, 5 withheld.
+Withheld, by the check (CL_CONF_STATUS code): A (small count) 5.
+Fidelity statistics: mean/1 of 'weight', on fractionalBits 16 (the fidelity block must declare the same).
+Left out of the default statistics: column 'weight': neither its type nor a validationRules range bounds it within 10^38.
+Wrote /work/notes.profile.json (readable by you alone; read it before you share it).
+Pin it in the FLUX Simulation:
+  profile: {digest: sha256:bc4000a1f50cd0a95dcccf073e8c53ec6393de73db4aa87b8923bf56c15a547d}
+```
+
+A record outside what the contract declares stops the run and writes nothing: a level its type does not list, a value outside its type or its declared range, a strict bound included. The refusal is `profile_record_outside_declared_domain`. It names the column and the row, never the value:
+
+```text
+❌ profile_record_outside_declared_domain  [ERR_PROFILE_RECORD_OUTSIDE_DECLARED_DOMAIN]
+  detail: column 'age' row 2: value outside the range its validationRules declare
+  written: nothing
+  next: the records and the contract disagree: fix the records, or the contract's column type, enum levels or validationRules range, then profile
+```
+
+Three more rules keep a count table from pinning a small count: a column that a level histogram counts, or that a grouped statistic groups by, withholds its `distinctCount` under `D`; a number with a default histogram withholds its exact `sum`, `min`, `max`, `quantiles` and `distinctCount` under `D` and has no `mean/1`; and a column gets a histogram or quantiles on the same bins, not both. In the run above, `age` has a histogram, withholds its `sum`, `min`, `max`, `quantiles` and `distinctCount` under `D` and has no `mean/1`, and `segment` withholds its `distinctCount` under `D`. `customer_id` has no histogram, so it keeps `mean/1` and gets `quantile/2`.
+
+A profile that holds a `quantile/2` is format `1-1-0`, which flux-stats reads from 0.7. A profile without `--bundle` of a contract with a bounded number, a date or a timestamp is therefore a `1-1-0` document, and its bytes and digest differ from a 0.35.0 profile of the same records. A contract with only categories and an unbounded `decimal`, like the one above, stays `1-0-0`.
+
+A column the contract types `date` reads a `YYYY-MM-DD` text, from a CSV file too, as that day's midnight in UTC. Anything else in that column is refused as before.
 
 ## Answering a fidelity block: `--bundle`
 
@@ -333,7 +418,7 @@ Pin it in the FLUX Simulation:
 
 *(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965))* The second line of this output reads `Withheld, by the check (CL_CONF_STATUS code): A (small count) 3.`
 
-The document is FLUX's profile format `1-0-0` in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
+The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
 
 ```yaml
 extensions:

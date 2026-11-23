@@ -42,7 +42,7 @@ A product team runs the following. The bundle here is bound with `kind: path` so
 mkdir -p ~/products/order-events && cd ~/products/order-events
 
 cat > contract.fluid.yaml <<'EOF'
-fluidVersion: "0.7.5"
+fluidVersion: "0.7.6"
 kind: DataProduct
 id: bronze.commerce.order_events_v1
 name: Order Events
@@ -80,7 +80,7 @@ Output (trimmed; the engine prints absolute paths):
 Resolved libraries:
   skel  (path)  version=local
 
-✓ 10 files written, 0 failed (0.0047s)
+✓ 10 files written, 0 failed (0.0055s)
   .../.editorconfig
   .../.pre-commit-config.yaml
   .../Dockerfile
@@ -95,7 +95,7 @@ Resolved libraries:
 
 The module directory `src/bronze_commerce_order_events_v1/` comes from the contract's id (`bronze.commerce.order_events_v1`), with `-` and `.` turned into `_` by a Jinja filter chain. The destination path in the manifest is itself rendered against the contract, so one template path produces a different directory for each product.
 
-After `pip install -e .`, `pytest` in the generated project runs the smoke test and passes (`1 passed`).
+After `pip install -e ".[dev]"`, `pytest` in the generated project runs the smoke test and passes (`1 passed`). `fluid validate` on this contract passes with one warning on 0.38.0, because `my-org.example.com` is a reserved documentation domain: use your team's real address.
 
 ## Step 1: set up the bundle
 
@@ -412,7 +412,7 @@ fluid custom-scaffold --pin
 fluid custom-scaffold --update --target v1.1.0
 ```
 
-`--pin` and `--update` act on git sources, so the verification for this page covers the flags' presence in `fluid custom-scaffold --help` and not a merge run. The merge internals live in the [custom-scaffold engine repo](https://github.com/Agenticstiger/data-product-forge-custom-scaffold).
+`--pin` acts on git sources. Run on 0.38.0 with a git bundle, it re-rendered from the commit the lock records. On a `path` bundle like the one above it prints `library 'skel' is a 'path' source — --pin cannot reproducibly lock it (only git sources pin to a commit)` and renders from the path as usual. `--update` on the unedited `path` output printed `unchanged` for each of the ten files. A merge with overlapping edits (conflict markers, exit `4`) was not run here, so that behaviour is read from the engine's documentation. The merge internals live in the [custom-scaffold engine repo](https://github.com/Agenticstiger/data-product-forge-custom-scaffold).
 
 ## You'll know it worked when
 

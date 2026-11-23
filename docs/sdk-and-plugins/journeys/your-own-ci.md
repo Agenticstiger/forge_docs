@@ -238,7 +238,7 @@ Now you are a product-team engineer. In your product's repo:
 
 ```yaml
 # contract.fluid.yaml
-fluidVersion: "0.7.5"
+fluidVersion: "0.7.6"
 kind: DataProduct
 id: bronze.commerce.order_events_v1
 name: Order Events
@@ -269,7 +269,7 @@ extensions:
           kind: git
           url: "https://github.com/<your-org>/ci-bundle"
           ref: "v1.0.0"                      # pin the tag
-          auth: { secret_ref: GITHUB_TOKEN } # only needed for private bundles
+          auth: { secret_ref: FLUID_SCAFFOLD_GITHUB_TOKEN } # only needed for private bundles
     patterns:
       - use: my-ci:main
         variables:
@@ -282,31 +282,55 @@ extensions:
 ```bash
 pip install data-product-forge data-product-forge-custom-scaffold
 
-# Only for private bundles:
-export GITHUB_TOKEN=<token>
+# Only for private bundles. The contract only names the variable; the operator
+# decides which hosts may receive a credential, outside the contract:
+export FLUID_SCAFFOLD_GITHUB_TOKEN=<token>
+export FLUID_CUSTOM_SCAFFOLD_AUTH_HOSTS=github.com
 
 fluid validate contract.fluid.yaml
 fluid custom-scaffold
 ```
 
-You should see (output trimmed; the engine prints absolute paths):
+You should see (output trimmed; the engine prints absolute paths). The library line names the commit the `ref` resolved to:
 
 ```text
 Resolved libraries:
-  my-ci  ...
+  my-ci  (git)  version=<commit>
 
-✓ 4 files written, 0 failed (0.0168s)
+✓ 4 files written, 0 failed (0.0013s)
   .../.gitlab-ci.yml
   .../Dockerfile
   .../README.md
   .../docs/runbook.md
 ```
 
-The engine also writes `fluid-scaffold.lock` to the output root. Commit it with the generated files. It records the pattern `variables` verbatim, so keep secrets out of `variables`.
+The engine also writes `fluid-scaffold.lock` to the output root, readable by its owner only (mode `0600`). Commit it with the generated files. It records the pattern `variables` verbatim, so keep secrets out of `variables`.
 
-::: details Verified on 0.18.1
-The steps above were run on CLI 0.18.1 with `data-product-forge-custom-scaffold` 0.4.1, with the bundle bound as `source: { kind: path, path: ../my-org-ci-bundle }` instead of `kind: git`, because the engine refuses `file://` git URLs (`git source url has disallowed scheme ... (allowed: https/ssh/git+https/git+ssh)`). The rendered output is the same for both source kinds. The git clone path itself was not exercised.
+`fluid validate` prints one warning for this contract on 0.38.0: `metadata.owner.email: 'orders-team@my-org.example.com' is a placeholder address: my-org.example.com is reserved for documentation (RFC 2606)`. The domain here is a stand-in, and 0.38.0 flags reserved example domains. Use your team's real address. The generated pipelines run `fluid validate contract.fluid.yaml --strict`, which turns that warning into a failure (exit `1`), so a contract that keeps the stand-in address fails its own validate stage.
+
+::: details Verified on CLI 0.38.0
+These steps were run on CLI 0.38.0 with `data-product-forge-custom-scaffold` 0.5.0 and SDK 0.12.0. The bundle in this guide (the manifest, the four CI templates, the Dockerfile, the README and the runbook) was built from the code blocks on these pages, with the bundle bound as `source: { kind: path, path: ../my-org-ci-bundle }`, and each of the four patterns (`main`, `github`, `jenkins`, `circleci`) rendered. The GitLab, GitHub Actions and CircleCI outputs parse as YAML, and a second `fluid custom-scaffold` run wrote byte-identical files and lock. `fluid generate artifacts --emit custom-scaffold` wrote the same four files, plus the lock, under `custom-scaffold/`.
+
+The git clone path was run against a public bundle: the engine's reference bundle, `https://github.com/Agenticstiger/data-product-forge-custom-scaffold` at `ref: v0.5.0` with `subdir: tests/fixtures/reference_bundle`. It resolved the tag to a commit, wrote that commit and the ref into `fluid-scaffold.lock`, and `--pin` re-rendered from it. A private bundle with `auth` was not run against a real host: the engine's refusals for a `secret_ref` that does not start with `FLUID_SCAFFOLD_`, and for a host not in `FLUID_CUSTOM_SCAFFOLD_AUTH_HOSTS`, were run, and the credentialed clone itself was only read from the release notes. The engine refuses `file://` git URLs (`git source url has disallowed scheme ... (allowed: https/ssh/git+https/git+ssh)`), so a local git bundle cannot stand in for that test.
 :::
+
+## Generating the scaffold in a release run
+
+*(since CLI 0.38.0)* `fluid generate artifacts` can run the same engine, so a scaffold's files join stage 3's `MANIFEST.json` and a sealed release. The key is named, never part of the default set, because the engine renders the bundles' templates inside the CLI process:
+
+```bash
+pip install 'data-product-forge[custom-scaffold]'
+fluid generate artifacts contract.fluid.yaml --emit custom-scaffold --out dist/artifacts
+```
+
+```text
+generate_artifacts_custom_scaffold_ok: 5 file(s) in dist/artifacts/custom-scaffold
+✅ Artifacts written to dist/artifacts
+   MANIFEST digest: sha256:...
+   files: 5
+```
+
+The five files are the four rendered files and `fluid-scaffold.lock`. Stage 3 clears `custom-scaffold/` on every run. It never runs the key on a build that CI marks as a change request, so a pull request's bundle templates do not run with the job's credentials: the run is refused with `custom_scaffold_change_request` unless you pass `--allow-scaffold-on-change-request`. Without the engine, or with one older than 0.5.0, the run fails with an error that names the `custom-scaffold` extra. These two refusals were read from the release notes and the command's help, not run. The emit options and the refusal codes are in [`fluid generate artifacts`](../../cli/generate-artifacts.md).
 
 ## When the platform team ships a new bundle version
 
@@ -320,7 +344,7 @@ git diff
 `git diff` shows what the platform team changed. Review, commit, deploy.
 
 ::: tip Reproducible re-generation (engine 0.4.0)
-`fluid custom-scaffold --pin` re-renders at the commit recorded in `fluid-scaffold.lock`, for reproducible CI. `fluid custom-scaffold --update [--target REF]` re-renders at the new ref and 3-way-merges the result onto the working tree. See [Reproducible re-generation](./your-own-scaffolding.md#reproducible-re-generation-engine-0-4-0).
+`fluid custom-scaffold --pin` re-renders at the commit recorded in `fluid-scaffold.lock`, for reproducible CI. It acts on git sources: for a `path` source it prints `library 'my-ci' is a 'path' source — --pin cannot reproducibly lock it (only git sources pin to a commit)` and renders from the path as usual. `fluid custom-scaffold --update [--target REF]` re-renders at the new ref and 3-way-merges the result onto the working tree. See [Reproducible re-generation](./your-own-scaffolding.md#reproducible-re-generation-engine-0-4-0).
 :::
 
 ## You'll know it worked when
@@ -348,17 +372,22 @@ The contract's `source.ref` is required. Leaving it out is a deliberate failure,
 :::
 
 ::: details The bundle is private, what auth do I use?
-`source.auth.secret_ref` names the environment variable carrying a token (here `GITHUB_TOKEN`). The engine injects it into the clone URL as `https://x-access-token:<TOKEN>@github.com/...`. The lock file records the source URL, ref and resolved commit, not the `auth` block.
+`source.auth.secret_ref` names the environment variable carrying a token. Since engine 0.5.0 the contract only asks and the operator decides, in the process environment:
+
+- the variable must start with `FLUID_SCAFFOLD_` (or a prefix the operator lists in `FLUID_CUSTOM_SCAFFOLD_SECRET_PREFIXES`), so `GITHUB_TOKEN` is refused: `auth.secret_ref 'GITHUB_TOKEN' is not a variable a contract may name: it must start with FLUID_SCAFFOLD_`;
+- `FLUID_CUSTOM_SCAFFOLD_AUTH_HOSTS` must list the host that may receive the credential, such as `github.com`. Unset, a source with `auth` is refused: `auth.secret_ref: 'github.com' is not a host this operator allows a credential to be sent to`.
+
+The token reaches git as a request header scoped to the source's URL, not inside the clone URL. The lock file records the source URL, ref and resolved commit, not the `auth` block.
 
 ```yaml
 source:
   kind: git
   url:  "https://github.com/<your-org>/ci-bundle"
   ref:  "v1.0.0"
-  auth: { secret_ref: GITHUB_TOKEN }
+  auth: { secret_ref: FLUID_SCAFFOLD_GITHUB_TOKEN }
 ```
 
-Then `export GITHUB_TOKEN=...` before running `fluid custom-scaffold`.
+Then `export FLUID_SCAFFOLD_GITHUB_TOKEN=...` and `export FLUID_CUSTOM_SCAFFOLD_AUTH_HOSTS=github.com` before running `fluid custom-scaffold`.
 :::
 
 ::: details The bundle moved, my CI doesn't reflect it
@@ -366,7 +395,7 @@ Git bundles are cached under `~/.cache/fluid/custom-scaffold/git/<urlhash>/<ref>
 :::
 
 ::: details A template fails with `RenderError`
-The render context has no `contract` name (see the table in Step 3), and `StrictUndefined` fails on any name it does not have. `{{ contract.metadata.id }}` becomes `{{ product_id }}`; `{{ contract.environments.items() }}` becomes `{{ environments.items() }}` or, for bundle-owned data, `{{ targets.items() }}`. Escape quotes in a Jinja default inside a quoted Groovy string with the other quote kind: `{{ fluid_cli_version | default("0.18.1") }}`, not `default(\'0.18.1\')`, which Jinja rejects.
+The render context has no `contract` name (see the table in Step 3), and `StrictUndefined` fails on any name it does not have. `{{ contract.metadata.id }}` becomes `{{ product_id }}`; `{{ contract.environments.items() }}` becomes `{{ environments.items() }}` or, for bundle-owned data, `{{ targets.items() }}`. Escape quotes in a Jinja default inside a quoted Groovy string with the other quote kind: `{{ fluid_cli_version | default("0.38.0") }}`, not `default(\'0.38.0\')`, which Jinja rejects.
 
 Add `requiredContractFields:` and a `variables:` schema to the manifest so the failure comes earlier and names the missing field.
 :::

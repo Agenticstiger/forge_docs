@@ -29,7 +29,7 @@ pip install --quiet -e .
 mkdir /tmp/quickstart-demo && cd /tmp/quickstart-demo
 
 cat > contract.fluid.yaml <<'EOF'
-fluidVersion: "0.7.5"
+fluidVersion: "0.7.6"
 kind: DataProduct
 id: bronze.demo.my_first_product_v1
 name: My First Product
@@ -62,13 +62,13 @@ EOF
 fluid custom-scaffold
 ```
 
-What you should see (CLI 0.18.1 prints absolute paths; `<cwd>` stands for the directory you ran it in):
+What you should see (CLI 0.38.0 prints absolute paths; `<cwd>` stands for the directory you ran it in):
 
 ```text
 Resolved libraries:
   hi  (entrypoint)  version=0.1.0
 
-✓ 1 files written, 0 failed (0.0004s)
+✓ 1 files written, 0 failed (0.0005s)
   <cwd>/README.md
 ```
 
@@ -193,11 +193,11 @@ pip install -e ".[dev]"
 pytest
 ```
 
-You should see (the count depends on the SDK version; this is SDK 0.10.0):
+You should see (the count depends on the SDK version; this is SDK 0.12.0):
 
 ```text
-.........................                                                [100%]
-25 passed in 0.08s
+..........................                                               [100%]
+26 passed in 0.03s
 ```
 
 The harness runs its invariants against your `plugin_class`: the role is declared correctly, `plan()` is deterministic and its actions are JSON-serialisable, destinations are free of path traversal, sha256 verification works, the atomic-write behaviour holds, and more. You wrote four lines. `sample_contracts` must hold at least one contract: with an empty list the harness fails `test_sample_contracts_present`, so that it cannot pass against nothing.
@@ -211,7 +211,7 @@ mkdir -p /tmp/my-product && cd /tmp/my-product
 pip install data-product-forge data-product-forge-custom-scaffold
 
 cat > contract.fluid.yaml <<'EOF'
-fluidVersion: "0.7.5"
+fluidVersion: "0.7.6"
 kind: DataProduct
 id: bronze.demo.my_first_product_v1
 name: My First Product
@@ -250,7 +250,7 @@ You should see the same output as in Step 0:
 Resolved libraries:
   hi  (entrypoint)  version=0.1.0
 
-✓ 1 files written, 0 failed (0.0004s)
+✓ 1 files written, 0 failed (0.0005s)
   <cwd>/README.md
 ```
 
@@ -307,12 +307,10 @@ hello = "hello_scaffold.scaffold:HelloScaffold"
 The full message is:
 
 ```text
-❌ Unexpected error: no plugin named 'hello-scaffold' found under entry-point 
-group 'fluid_build.custom_scaffolds'. Install the package that provides it, then
-re-run. Available plugins: ['hello']
+error: no plugin named 'hello-scaffold' found under entry-point group 'fluid_build.custom_scaffolds'. Install the package that provides it, then re-run. Available plugins: ['hello']
 ```
 
-The contract's `source.name` has to match the entry-point **key** in `pyproject.toml`, not the class name or the plugin's `name` attribute. The message lists the keys it can see:
+The command exits `2`. The contract's `source.name` has to match the entry-point **key** in `pyproject.toml`, not the class name or the plugin's `name` attribute. The message lists the keys it can see:
 
 ```toml
 # pyproject.toml — the KEY is what contracts reference
@@ -331,11 +329,11 @@ If you renamed the entry-point, re-run `pip install -e .` and try again.
 :::
 
 ::: details `fluid plugins` shows my scaffold as `NOT DISPATCHED`
-`fluid plugins` lists a `custom_scaffold` plugin under a `custom_scaffold  (1)  — NOT DISPATCHED` heading and ends with `custom_scaffold: declared and governed, but this build has no dispatch site — plugins registered under it are never invoked.` That describes the CLI itself: nothing in `fluid` walks the `fluid_build.custom_scaffolds` group. The `fluid custom-scaffold` command comes from `data-product-forge-custom-scaffold`, and that engine looks your plugin up by entry-point name when it runs. Observed on CLI 0.18.1 with engine 0.4.1: a plugin carrying this label rendered its files normally. The engine applies the same `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` policy itself before it loads the plugin, and `fluid plugins` still shows the allow/block status and the package that installed it.
+That label belongs to CLI 0.18.1, which listed `custom_scaffold` under a `— NOT DISPATCHED` heading because nothing in `fluid` walked the `fluid_build.custom_scaffolds` group. On 0.38.0 the listing shows the plugin under a plain `custom_scaffold  (1)` heading, and `fluid plugins list --json` carries `"dispatched": true` for it, because `fluid generate artifacts --emit custom-scaffold` now reaches the group. If you still see the label, you are on an older CLI: upgrade, or ignore it, since the `fluid custom-scaffold` command always looked your plugin up by entry-point name. The engine applies the `FLUID_PLUGINS_ALLOWLIST` / `FLUID_PLUGINS_BLOCKLIST` policy itself before it loads the plugin, and `fluid plugins` shows the allow/block status and the package that installed it.
 :::
 
 ::: details Should `plan()` return action objects or dicts?
-Return dicts: call `.to_dict()` on every `write_file_action(...)`. `plan()` is documented to return a list of action dicts, and the harness checks that they are JSON-serialisable. On CLI 0.18.1 with engine 0.4.1, a plugin that returned the action objects unconverted still wrote its file, so a missing `.to_dict()` is not what makes output empty; look at the entry-point and `source.name` first.
+Return dicts: call `.to_dict()` on every `write_file_action(...)`. `plan()` is documented to return a list of action dicts, and the harness checks that they are JSON-serialisable. On CLI 0.38.0 with engine 0.5.0 and SDK 0.12.0, a plugin that returned the action objects unconverted still wrote its file, and the harness still passed, so a missing `.to_dict()` is not what makes output empty; look at the entry-point and `source.name` first.
 
 ```python
 return [

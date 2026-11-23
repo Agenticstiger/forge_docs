@@ -31,7 +31,7 @@ That's it. The plugin doesn't know or care which cloud you're on — it just she
 
 ```yaml
 # contract.fluid.yaml
-fluidVersion: "0.7.5"
+fluidVersion: "0.7.6"
 kind: DataProduct
 id: bronze.commerce.order_events_v1
 name: Order Events
@@ -84,7 +84,7 @@ Generated `config/dev.json`:
   },
   "environment": "dev",
   "product": {
-    "id": "order-events",
+    "id": "bronze.commerce.order_events_v1",
     "owner": "events-team@example.com"
   }
 }
@@ -278,7 +278,7 @@ Two things to note about the design:
 # tests/test_scaffold.py
 
 MULTI_ENV_CONTRACT = {
-    "fluidVersion": "0.7.5",
+    "fluidVersion": "0.7.6",
     "kind": "DataProduct",
     "id": "my-data-product",
     "name": "My Data Product",
@@ -343,8 +343,8 @@ pytest
 ```
 
 ```text
-..............................                                           [100%]
-30 passed in 0.11s
+...............................                                          [100%]
+31 passed in 0.05s
 ```
 
 End-to-end against a real contract:
@@ -365,7 +365,7 @@ fluid custom-scaffold
 ```
 
 ```text
-✓ 5 files written, 0 failed (0.0033s)
+✓ 5 files written, 0 failed (0.0031s)
   <cwd>/.gitlab-ci.yml
   <cwd>/README.md
   <cwd>/config/dev.json
@@ -373,7 +373,7 @@ fluid custom-scaffold
   <cwd>/config/staging.json
 ```
 
-`source.name` is the entry-point key in the plugin's `pyproject.toml` (`gitlab-ci`). The engine supports the source kinds `path`, `git` and `entrypoint`; there is no `pypi` kind, so a pip-installed plugin is reached through `entrypoint`. The engine also writes `fluid-scaffold.lock`.
+`source.name` is the entry-point key in the plugin's `pyproject.toml` (`gitlab-ci`). The engine supports the source kinds `path`, `git` and `entrypoint`; there is no `pypi` kind, so a pip-installed plugin is reached through `entrypoint`. The engine also writes `fluid-scaffold.lock`. For the contract above, `fluid validate` passes with one warning on 0.38.0: `events-team@example.com` is a placeholder address on a reserved documentation domain, so use a real one in your own contract. The generated `.gitlab-ci.yml` header, if you use the upstream plugin rather than the copy above, still names `fluid generate custom-scaffold`, which is not a command. The command is `fluid custom-scaffold`.
 
 ## You'll know it worked when
 

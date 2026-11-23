@@ -302,7 +302,7 @@ Semantic versioning. For SDK plugins specifically:
 
 For the SDK dependency, pin to `data-product-forge-sdk>=0.12,<1` (until the SDK ships 1.0; bump the upper bound when it does).
 
-For the CLI dependency (if your plugin needs runtime CLI features), pin the minor line you tested against, for example `data-product-forge>=0.18.1,<0.19`, and test each new minor before widening the bound. Only the `fluid_build.api` surface carries a SemVer promise ([API stability](../../advanced/api-stability.md)); CLI behaviour has changed on purpose inside a minor line, and the [upgrade guide](../../upgrading.md) and each release's notes list those changes (for example the [0.18.0 release notes](../../RELEASE_NOTES_0.18.0.md)).
+For the CLI dependency (if your plugin needs runtime CLI features), pin the minor line you tested against, for example `data-product-forge>=0.38.0,<0.39`, and test each new minor before widening the bound. Only the `fluid_build.api` surface carries a SemVer promise ([API stability](../../advanced/api-stability.md)); CLI behaviour has changed on purpose inside a minor line, and the [upgrade guide](../../upgrading.md) and each release's notes list those changes (for example the [0.18.0 release notes](../../RELEASE_NOTES_0.18.0.md)).
 
 ## Changelog
 
@@ -317,7 +317,7 @@ Use the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Even fo
 
 ### Added
 - Initial release.
-- Supports fluidVersion 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.7.5.
+- Supports fluidVersion 0.7.1 through 0.7.6.
 
 ### Notes
 - Beta classifier; minor versions may break the API until 1.0.

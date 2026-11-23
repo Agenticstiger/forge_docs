@@ -24,7 +24,7 @@ jobs:
       - image: cimg/python:3.12
     steps:
       - checkout
-      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
+      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.38.0') }}"
       - run: fluid validate contract.fluid.yaml --strict
 {% for env_name, t in targets.items() %}
   deploy-{{ env_name }}:
@@ -32,7 +32,7 @@ jobs:
       - image: cimg/python:3.12
     steps:
       - checkout
-      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.18.1') }}"
+      - run: pip install "data-product-forge=={{ fluid_cli_version | default('0.38.0') }}"
       - run: fluid apply contract.fluid.yaml --env {{ env_name }} --yes
 {%- endfor %}
 
