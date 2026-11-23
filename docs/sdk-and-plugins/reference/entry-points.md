@@ -24,7 +24,7 @@ These hook into specific CLI subcommands and take functions.
 
 | Group | Hooks into | Plugin shape | Failure mode |
 |---|---|---|---|
-| `fluid_build.commands` | `cli/bootstrap.py::register_core_commands` (CLI startup) | `register(subparsers) -> None` | Plugin load or `register()` exception → WARN log, CLI continues |
+| `fluid_build.commands` | `cli/bootstrap.py::register_core_commands` (CLI startup) | A callable `(subparsers) -> None`, such as `register(subparsers)` | Plugin load or callable exception → WARN log, CLI continues. A command name that is already taken → the plugin is skipped whole, with a WARN naming it and the command |
 | `fluid_build.extension_validators` | `cli/validate.py::_run_extension_validators` (during `fluid validate`) | `validate(extensions_block: dict, errors: list[str]) -> None` | Plugin exception → folded into `ValidationResult.errors`, validate continues |
 | `fluid_build.extension_schemas` | `fluid_build/extension_schemas.py::iter_extension_schemas` (during `fluid forge` generate + pre-emit validate) | `get_extension_schema(fluid_version: str \| None = None) -> dict` | Plugin exception → skipped (logged by type, redacted); discovery fails open to `{}` |
 | `fluid_build.apply_hooks` | `cli/apply.py::_run_apply_hooks` (during `fluid apply`) | `hook(contract_dir: Path, contract: dict, errors: list[str]) -> None` | Plugin exception → recorded as error, apply aborts unless `--force-pattern-drift` |
@@ -58,13 +58,26 @@ def _run_my_command(args, logger):
 my-command = "my_pkg.cli:register"
 ```
 
-The value is `module:callable` — pointing at the `register` function, not at a class.
+The value is `module:callable`, pointing at a callable that takes the subparsers and returns nothing: `(subparsers) -> None`. It is called whatever it is named (`register` is the usual name, not a rule), and an instance of a class with `__call__` works the same. It does not point at a class.
+
+### Command names are new ones
+
+*(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))* A plugin may add **new command names only**. The callable gets the subparsers with an `add_parser` that refuses the name of a core command or one of its aliases, the name of another plugin's command, and a name it already added once. The core names stay reserved when the build profile leaves a command out. Refusal is a typed `PluginCommandShadowError`, the same on every Python from 3.10 to 3.14.
+
+The plugin is skipped whole: the commands it had added before the refusal are taken back, the other plugins still load, and one warning names the plugin and the command, never the exception:
+
+```text
+cli_plugin_command_shadow: CLI plugin 'shadow' was not loaded: it asked for the command 'apply', which is already taken (a fluid command, or another plugin's). A plugin may add new command names only; none of its commands was registered.
+```
+
+Before 0.39.0, a plugin that added a core command's name replaced the core command without a word on Python 3.10, and on Python 3.11 and later argparse failed with `conflicting subparser` (`Failed to load CLI plugin <name>: ArgumentError`) and left the plugin half registered. `fluid describe --commands`, which loads every plugin, gives the same warning. A plugin that caught the refusal and went on is skipped all the same, and the guard is not a sandbox: plugins are in-process Python.
 
 ### Discovery + failure
 
 - Discovered at CLI startup by `register_core_commands()` in `cli/bootstrap.py`.
 - If `ep.load()` raises (broken import, missing dependency) → logged at WARNING (prefix: `"Failed to load CLI plugin <name>: ..."`), CLI continues.
-- If `register(subparsers)` raises → same WARN-and-continue.
+- If the plugin's callable raises → same WARN-and-continue.
+- If it asks for a command name that is already taken → the plugin is skipped whole, with `cli_plugin_command_shadow` (since 0.39.0): see [Command names are new ones](#command-names-are-new-ones).
 - Plugin exception text is **redacted** with the global secret-scanner before being logged.
 
 ### Source

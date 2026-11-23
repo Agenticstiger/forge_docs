@@ -108,7 +108,7 @@ Quick lookup:
 | `Validator` subclass | `fluid_build.validators` | the class | `steward-required` |
 | `InfraProvider` subclass | `fluid_build.providers` | the class | `mycloud` |
 | `CatalogAdapter` subclass | `fluid_build.catalog_adapters` | the class | `datahub-adapter` |
-| A function adding `fluid <name>` subcommand | `fluid_build.commands` | the `register()` function | `my-cmd` |
+| A function adding `fluid <name>` subcommand | `fluid_build.commands` | a callable `(subparsers) -> None`, usually `register()`. New command names only (since 0.39.0) | `my-cmd` |
 | A function validating `contract.extensions.<key>` | `fluid_build.extension_validators` | the `validate()` function | `myKey` |
 | A function checking apply-time invariants | `fluid_build.apply_hooks` | the hook function | `my-hook` |
 

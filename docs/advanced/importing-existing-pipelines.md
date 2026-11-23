@@ -408,6 +408,88 @@ The user information of a data path or a host, and a `key=value` path segment wi
 
 Review the contract before you commit it. Masking works on the shape of the text, so a secret in an unusual shape can be left as written.
 
+## Checking for drift in CI
+
+*(since 0.39.0, [forge-cli #1067](https://github.com/Agenticstiger/forge-cli/pull/1067))* The contracts an import writes are a starting point that people then complete, and the code keeps changing. `fluid import airflow|pyspark SOURCE --check` reads the DAGs or the job files again, compares what they say with the contracts committed where the import writes them, and writes nothing, so a pipeline can fail when the two no longer match. Give it the `--out`, `--split-by`, `--conventions` and `--dags` of the import that wrote the contracts:
+
+```bash
+fluid import pyspark jobs --dags dags --out contracts --check
+```
+
+```text
+Import drift check: pyspark jobs: 2 product(s) compared
+✓ In sync: the committed contracts match the code.
+```
+
+When the code has moved on, each difference names the contract file, the field and the line of code. Here a DAG's schedule changed from `0 4 * * *` to `0 5 * * *`:
+
+```text
+Import drift check: pyspark jobs: 2 product(s) compared
+✗ Drift: 2 error(s), 0 warning(s)
+
+  contracts/contract.curated.customers.fluid.yaml (curated.customers)
+    ✗ schedule_changed  builds[customers_job].execution.orchestration.airflow.dagConfig.schedule: "0 4 * * *" → "0 5 * * *"  [dags/orders_daily.py:5]
+
+  contracts/contract.curated.orders.fluid.yaml (curated.orders)
+    ✗ schedule_changed  builds[orders_job].execution.orchestration.airflow.dagConfig.schedule: "0 4 * * *" → "0 5 * * *"  [dags/orders_daily.py:5]
+
+Update the contracts by hand, or write them again with `fluid import` and --force (it replaces what a person wrote).
+```
+
+### Exit codes
+
+The codes follow `diff(1)`, as [`fluid diff --exit-on-drift`](../cli/diff.md) does. Only a decided difference exits 1, so a broken run never reads as drift.
+
+| Exit | Meaning |
+|---|---|
+| `0` | The contracts match the code. Warnings do not change this, unless you give `--strict`. |
+| `1` | Drift, a job or an output that no contract holds yet included. With `--strict`, a warning is drift too. |
+| `2` | It cannot decide: the source is not a directory or cannot be read, no contract exists where the import would write one, a source file could not be read, `--force` was given, or an unexpected error. |
+
+A source file that a scan could not read (a syntax error, no permission, past the size limits) exits 2 and names the file, because it may hold a job, a DAG or a write that the contracts record. Fix or remove the file, or list it under `ignore.files` in the conventions. In check mode a file of the DAG folder is parsed even when it does not mention a DAG.
+
+### What is compared
+
+A projection of each contract is compared with what the code decides, per product:
+
+- which jobs and outputs there are, by build id and by expose id, and the reads that the import wrote;
+- each output's `kind`, `platform`, `format` and `location`. A binding that the import left at `other` is the person's once they have named a platform;
+- the DAG that runs a job: its id, a literal cron or preset `schedule`, an explicit `catchup` and its task ids.
+
+What a person completed is never drift: descriptions, owners, columns, tags, a schedule that the code does not state, any output, read or build they added, key order and comments. The `--registry` options are dropped, because columns are not compared.
+
+| Kind | What it says | Severity |
+|---|---|---|
+| `job_added` | A job the code has and no contract holds. | error |
+| `job_removed` | A job file is gone, and its contract is left behind. | warning |
+| `output_added`, `output_removed` | An output the code writes that the contract lacks, or the other way round. | error |
+| `schedule_changed` | The DAG's id, schedule, `catchup` or tasks differ. | error |
+| `table_changed` | A table or topic the job touches differs: the output's `kind`, `platform`, `format` or `location`, or an added read. | error |
+| `coverage_regressed` | The import used to find something and no longer does, such as a deleted DAG file: the job is still there, but its `dagId` is not. A lost read that the import wrote is the same kind. | warning |
+
+A warning is drift with `--strict`. Which kind you see for a renamed table depends on `--split-by`: with the default `table`, a product's id follows its table, so the rename is a new product with no contract (`job_added` and `output_added`); with `--split-by job` it is `output_removed` and `output_added` on the job's own contract.
+
+A job file that was deleted is found among the `contract.*.fluid.yaml` files of the output directory: the check also reads the ones the code does not propose, and a build of the shape the import writes whose script is gone is `job_removed`. When only some of the contract files are missing the exit is 1; when none exists it is 2.
+
+### Reports
+
+`--format text` (the default), `json` and `github` pick the report, and `--out-report PATH` also writes it to a file.
+
+- **`json`** is a document with `"schema": 1`, a `status` (`in_sync`, `drift` or `error`), the `counts` of errors and warnings, and an `items` list of `kind`, `severity`, `product_id`, `contract_path`, `what`, `source_ref`, `before` and `after`. On exit 2 it is a `status: error` document with `what`, `why` and `fix`, so a consumer always gets one.
+- **`github`** writes one workflow annotation for each item, `::error file=<contract>,line=1,title=<kind>::...`, on the contract file. The line of code is in the message. A warning is a `::warning`.
+- At most 100 items are listed and the rest are counted in `omitted`. The exit code is decided on all of them. Values are redacted before they are printed, and a value past 4,096 characters is counted, not scanned.
+- `--out-report` writes before anything is printed, replaces a file only when it is empty or an earlier report, and takes its path as given: `../` and a symbolic link in a parent directory are followed, as with `--out`. It is the one file `--check` writes.
+
+### Limits
+
+- A contract left for a job that still exists but no longer writes that output is not looked for, and a schedule the code no longer states is not reported.
+- A subdirectory the scan cannot list is a note of the import, not a refusal.
+- `--force` is refused with `--check`, and `--format`, `--strict` and `--out-report` are refused without it.
+
+### As a gate in a generated pipeline
+
+[`fluid generate ci --add import-drift`](../advanced/operating-in-ci.md#add-ons) writes this check into a pipeline for every supported CI system, so it runs on every pull or merge request and on every push to the default branch.
+
 ## Importer plugins
 
 A package can add `fluid import <tool>` through the `fluid_build.importers` entry-point group. Your package does not import forge.

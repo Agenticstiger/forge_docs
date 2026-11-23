@@ -124,7 +124,7 @@ fluid describe --commands
 | `commands` | The command tree. Each command lists its aliases, its positional arguments and its flags. Each flag has its names, `type`, `choices`, `default`, `nargs` and `help`. |
 | `importers` | The importers `fluid import` offers: the built-in ones and those added by `fluid_build.importers` plugins. Each has a `name` and a `source`. |
 
-Commands added by `fluid_build.commands` plugins are loaded for this call, under the allow and block policy (`FLUID_PLUGINS_ALLOWLIST`, `FLUID_PLUGINS_BLOCKLIST`), and carry a `plugin` key. Importer plugins are read from entry-point metadata without loading them. Plain `--help` and every other command still load no plugin.
+Commands added by `fluid_build.commands` plugins are loaded for this call, under the allow and block policy (`FLUID_PLUGINS_ALLOWLIST`, `FLUID_PLUGINS_BLOCKLIST`), and carry a `plugin` key. *(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))* A plugin that asks for a command name a core command or another plugin already has is not loaded: the core command keeps its help and no `plugin` key, none of that plugin's commands is listed, and a `cli_plugin_command_shadow` warning on stderr names the plugin and the command. See [Command names are new ones](../sdk-and-plugins/reference/entry-points.md#command-names-are-new-ones). Importer plugins are read from entry-point metadata without loading them. Plain `--help` and every other command still load no plugin.
 
 ## Notes
 

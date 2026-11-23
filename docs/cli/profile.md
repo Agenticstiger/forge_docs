@@ -332,6 +332,29 @@ The `Withheld histogram cells` line counts the histogram cells withheld inside g
 
 *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* `--request FILE` takes the list of statistics, column metrics and relationships that `fluxsim init --contract` writes for a contract. The profile measures what the request lists and nothing else, under the same output checks: per listed table only the listed columns, metrics and statistics, the row count only when asked, and children per parent only for a listed relationship the contract declares. The request's grid is the profile's. Each listed item the profile cannot answer is named in the report as `Not measured`, with its reason, for example a histogram over a number with no declared range. A listed fact, a rule of the contract's `invariants`, is measured as the rows the rule covers that do not and do satisfy it, and the profile is then format 1-2-0. A rule over an aggregate, a dependency or a related row is reported as not measured.
 
+### The facts of a table are checked together
+
+*(since 0.39.0, [forge-cli #1066](https://github.com/Agenticstiger/forge-cli/pull/1066))* Each fact's own two cells (the rows that satisfy the rule and the rows that do not) pass the output checks, but facts that overlap give more together than each alone. `A` beside `A OR id = 'x'` differ by the one row `x` when it lies outside `A`, and `A`, `B` and `A OR B` give `|A AND B| = |A| + |B| - |A OR B|` however large each pair's difference is. Rounding does not hide it: counts of 102 and 103 are published as 100 and 105. So the profiler counts every combination of a table's facts' states (not covered by the rule, fails it, holds it) in one pass over the records, on the exact counts before any rounding, and holds every combination to the threshold.
+
+- **A fact that touches a small combination is withheld.** A fact is withheld when it touches a combination of 1 to 9 records (the threshold, 10, less 1), and the combinations of the facts still published are formed again, until none is left. Small cells are settled first, so a fact is not withheld for the empty combinations around a cell that other facts set apart.
+- **Where zeros are disclosive** (they are, by default) an empty combination that the rules' texts allow also withholds the facts it differs in, however many single changes it lies from a combination the records hold. What a withheld fact is does not depend on the order of the facts.
+- **A fact that leaves too few rows uncovered is withheld too.** The table's `rowCount` less a fact's `k` gives the number of rows its `when` does not cover, so a `when` that leaves fewer than 10 rows uncovered, or none where zeros are disclosive, withholds its fact. A withheld fact with a `when` writes `sampleSize: {"min": 0}`, because the band of the rows it covers would give their number back to a reader who differences it against another fact's `when`.
+- **The texts are read as AND, OR and NOT.** `A` TRUE beside `A OR id = 'x'` not TRUE is known to be no row's, so a containment the rules' texts show is not taken for one the records show. What the parts mean (`x > 2` beside `x > 1`) is not read, which errs toward withholding. Rules that share too many parts to be read in 2^17 readings are taken to rule nothing out, which also only withholds more.
+
+A withheld fact is written `C` in the document, as every withheld group of a level histogram is, and the summary counts it as `D` (secondary suppression):
+
+```text
+Profiled exposes[orders]: 1 column, 3 values published, 2 withheld.
+Withheld, by the check (CL_CONF_STATUS code): D (secondary suppression) 2.
+Fact orders.big: withheld by the check (D, secondary suppression).
+Fact orders.big_or_x: withheld by the check (D, secondary suppression).
+Fact orders.open_status: its share is published, as rounded counts.
+```
+
+This is the output of a profile of 301 records, one of which, `x`, lies outside the rule `amount >= 10`, for the facts `amount >= 10`, `amount >= 10 OR id = 'x'` and `status = 'open'`. The two overlapping facts differ by that one record, so both are withheld, and the third is published. 0.38.0 published all three, and a reader could take the one record from the first two.
+
+What this does not cover: a fact's overlap with a histogram's cells, a column's counts or a relationship's counts, and facts of two exposes that the data owner reads from the same records, which it takes for two tables. A threshold makes differencing harder and cannot rule it out. Noise does, and [a release under differential privacy](#releasing-a-table-under-differential-privacy) is the way to publish counts with noise. A profile that lists facts may therefore differ from one that 0.38.0 wrote, and its digest with it: see [Changes in 0.39.0](../upgrading.md#changes-in-0-39-0).
+
 A request is refused before any record is read, each with its own event code, when it is used beside `--bundle`, `--env` or `--expose`, when the contract is a stage-1 bundle archive, when the request file is not a regular file, is too large, is not UTF-8 or is refused by flux-stats, when its contract digest is not the contract file's (run `fluxsim init` again), when a table, column or domain is not shared by the contract and the profile, when `--fractional-bits` differs from the request's, and when a listed table has no `--source` or a `--source` names a table the request does not list.
 
 ## Releasing a table under differential privacy
@@ -344,7 +367,15 @@ fluid profile contract.fluid.yaml --request orders.request.json \
   --max-rows-per-unit 3 --rho 1 --release-record orders.release-record.json
 ```
 
-- **The privacy unit is an entity.** One row of `--privacy-unit`, or with `--release-table` a child table through one declared relationship, or with `--unit-key COL[,COL]` the rows of one table that share a key. Each entity contributes at most `--max-rows-per-unit` rows and counts at most `--max-rows-per-cell` in one cell, so the stated loss holds for each entity and for each row of it.
+- **The privacy unit is an entity.** *(since 0.39.0, [forge-cli #1066](https://github.com/Agenticstiger/forge-cli/pull/1066))* `fluid profile --help` says so too. One row of `--privacy-unit`, or with `--release-table` a child table through one declared relationship, or with `--unit-key COL[,COL]` the rows of one table that share a key. Each entity contributes at most `--max-rows-per-unit` rows and counts at most `--max-rows-per-cell` in one cell, so the stated loss holds for each entity and for each row of it.
+- **A `--rho` above 1 warns.** *(since 0.39.0, [forge-cli #1066](https://github.com/Agenticstiger/forge-cli/pull/1066))* `--rho` still takes any number above zero, and the release goes ahead, but once it is planned (from `--rho`, or from the record under `--rederive`) a `rho` above 1 prints one warning:
+
+  ```text
+  ⚠️  rho 1.5 is above 1, a large privacy loss. OpenDP's rule of thumb keeps epsilon at most 1, which is rho 0.5 (an epsilon-DP release is (epsilon^2/2)-zCDP); the US Census Bureau's 2020 Census
+  products used rho from about 2.6 to 7.7. The release goes ahead.
+  ```
+
+  A `rho` of 1 or below prints nothing.
 - **The budget.** A tenth of `rho` chooses the cliques, and the rest is split equally over the count tables. The report names the unit, the loss and its split, each table's noise scale, the cliques, an informational conversion to (epsilon, delta), and every requested item that is not released, with the reason.
 - **The release record.** The noise is drawn from a seeded randomness source that is recorded in `--release-record`, created readable by its owner alone, and the file must not exist for a new release. Keep it inside the data owner's boundary: with the record and the profile, the noise can be taken off. `--rederive` with the existing record draws the release again and writes the profile only when its digest is the recorded one.
 - **Nothing that depends on the records** is printed, logged or recorded outside the noise. A refusal names a column and a row, never a value or a count.

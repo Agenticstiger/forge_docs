@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.37.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.39.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.38.0                                                              │
+│ Version: 0.39.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.38.0"
+pip install "data-product-forge[local]==0.39.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.38.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.39.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -132,6 +132,7 @@ when they apply.
 | `0.35.x` | [Changes in 0.36.0](#changes-in-0-36-0) |
 | `0.36.x` | [Changes in 0.37.0](#changes-in-0-37-0) |
 | `0.37.x` | [Changes in 0.38.0](#changes-in-0-38-0) |
+| `0.38.x` | [Changes in 0.39.0](#changes-in-0-39-0) |
 | Anything before `0.24.0`, if you read forge's ODCS or ODPS output | [Read this first if you consume the exported artifacts](#read-this-first-if-you-consume-the-exported-artifacts) (`0.23.0` and `0.24.0`) |
 | Anything before `0.23.0`, and any DuckDB upgrade | [DuckDB 1.x to 2.x](#duckdb-1-x-to-2-x) (`0.22.0` and `0.23.0`) |
 
@@ -1628,6 +1629,36 @@ These changes are in 0.38.0. Four need an action before you upgrade a pipeline: 
 ### Also in 0.38.0
 
 A Jenkins `GENERATE_EMIT` default that includes `opds`; GitHub Actions uploads that keep their dot folders; a `parquet_variant` column read as a variant by the live `fluid diff` of a DuckDB table; an Airflow client that bounds the whole time it takes to read an answer; generated DAG file names that differ only in case are refused; and a generated Glue table helper that leaves Iceberg tables alone. The full list is in the forge-cli [CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md).
+
+## Changes in 0.39.0
+
+These changes are in 0.39.0. Six need an action, and only if they apply to you: a saved plan that holds a Spark action, every running Spark stream (it restarts once), a maintenance DAG that runs before the next `fluid apply`, orphan removal on a REST-catalog table, a command plugin that takes a core command's name, and a FLUX simulation pinned to a profile that lists facts. Everything else is additive or loosens a rule that was wrong.
+
+### Steps to take
+
+1. **Plan again after upgrading if you hold a saved plan with a Spark action.** `fluid apply plan.json` refuses a plan made by 0.38.0 or earlier that lists a `spark.reconcile` or a `spark.maintain` action, with `apply_spark_artifact_mismatch`: the runner changed, and a maintenance action now also lists each plugin action (`actions[]`) and carries other compaction options. Run `fluid plan`, then `fluid apply`. A plan with no Spark action is not affected. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))* To check: `fluid apply plan.json --dry-run` on a plan made by 0.38.0 prints the refusal, and on a plan made by 0.39.0 it does not.
+2. **Expect each running Spark stream to restart once on its next `fluid apply`, on its checkpoint.** The runner file changed, and a build's config hash covers the runner's sha256, so the hash of a Spark build whose contract did not change is another one: apply asks the running stream to stop between batches, and starts it again on the same checkpoint. A stream that a 0.37.0 or later `fluid apply` started has a stop key, and one that an older apply started is cancelled instead. A build that runs to completion is not restarted, and its next run uses the new runner. Apply when a restart is acceptable. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))* To check: `fluid plan` on the same contract with 0.38.0 and with 0.39.0 lists a different `configHash` and `runnerSha256` for each `spark.reconcile` action and the same `jobConfigDigest`. See [Starting and reconciling runs](./advanced/spark-iceberg-aws.md#starting-and-reconciling-runs) and [Replacing a changed stream](./advanced/spark-iceberg-aws.md#replacing-a-changed-stream).
+3. **Run `fluid apply` once for each product whose tables declare maintenance, before the next scheduled maintenance run.** The maintenance job config changed (the runner, and compaction now writes `max-concurrent-file-group-rewrites=5`), and `fluid apply --mode maintain` starts a run only with the config that the last `fluid apply` deployed when that is the config the contract compiles to now. Step 2's apply does this too. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))* To check: `fluid apply contract.fluid.yaml --mode maintain --expose-id <expose> --dry-run` lists `max-concurrent-file-group-rewrites=5` on its compaction line.
+4. **Check that the Spark runtime of a REST-catalog table has Iceberg's prefix listing.** Orphan removal on a table in an Iceberg REST catalog (such as Lakekeeper) now lists only the table's own folder, through Iceberg's prefix listing. A Spark runtime whose Iceberg has none stops that step with an error and deletes nothing, and compaction and snapshot expiry still run. A Glue-catalog table keeps the default listing. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))* To check: the first scheduled `removeOrphanFiles` step of such a table ends without that error.
+5. **Give a command plugin command names of its own.** A `fluid_build.commands` plugin that asks for the name of a core command or of another plugin's command is skipped whole, with a `cli_plugin_command_shadow` warning that names the plugin and the command, and the other plugins still load. Rename the command it adds. On Python 3.10 such a plugin used to replace the core command without a word, and on Python 3.11 and later it failed with `Failed to load CLI plugin <name>: ArgumentError`. *(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))* To check: `fluid describe --commands` loads every plugin and prints no `cli_plugin_command_shadow` warning. See [Command names are new ones](./sdk-and-plugins/reference/entry-points.md#command-names-are-new-ones).
+6. **Profile again, and pin again, if a FLUX simulation pins a profile that lists facts.** `fluid profile --request` now checks the facts of a table together, so a fact that 0.38.0 published may be withheld (`C` in the document, `D` in the summary), and the profile's digest changes with it. Read the report, then update the digest your simulation pins. A profile with no facts is not affected. *(since 0.39.0, [forge-cli #1066](https://github.com/Agenticstiger/forge-cli/pull/1066))* See [The facts of a table are checked together](./cli/profile.md#the-facts-of-a-table-are-checked-together).
+
+### What changed
+
+- **Iceberg maintenance for a table forge does not write (schema 0.7.7 preview).** `exposes[].iceberg.maintenance.runtime` takes the place of `build` for a table that no forge build writes, such as one whose streams run on its team's own runner. It names `emr-serverless`, `emr-ec2` or `emr-eks` with the runtime's target and an explicit `executionRoleArn`, or `local` for a table in an Iceberg REST catalog on platform local. `glue` is refused. The operator's `FLUID_SPARK_EXECUTION_ROLE_ALLOWLIST`, `FLUID_SPARK_TARGET_ALLOWLIST` and `FLUID_SPARK_CONF_ALLOWLIST` apply to it, the role must be able to read the run's files under `_fluid/spark/<product>/maintain_<expose>/`, `removeOrphanFiles` needs an explicit `olderThan` there, and `fluid validate` warns when it is under `P3D`. The maintenance DAG has no writer build, so its `BUILD_ID` is empty. The change is additive: a contract without `runtime` behaves as before. See [A table forge does not write](./advanced/spark-iceberg-aws.md#a-table-forge-does-not-write). *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))*
+- **The plan binds each maintenance action on its own.** The `spark.maintain` action lists `actions[] = {name, kind, distribution, version, statementsSha256}`, never the SQL. `fluid apply` compares the actions by name, and refuses with `apply_plan_digest_maintenance_actions_changed` (plan-binding kind `maintenance-actions-changed`) when an action's statements hash differently or only one side lists it. The message names the action and the package and version on each side. A new version that renders the same statements only warns. See [A package's maintenance action](./advanced/spark-iceberg-aws.md#a-package-s-maintenance-action). *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))*
+- **Compaction in a maintenance run rewrites at most 5 file groups at once.** The job config now says `max-concurrent-file-group-rewrites=5`, Iceberg's own default, unless `compaction.maxConcurrentRewrites` sets another value. Partial progress stays on, so a conflict with a live writer fails only one file group. *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))*
+- **Two runner fixes for table maintenance.** A maintenance run started through `spark-submit` (`fluid apply --mode maintain` on `runtime: local`) stopped with `NameError` before its first step, because the runner's script entry point sat above the maintenance functions. And on a table in an Iceberg REST catalog (such as Lakekeeper), removing orphan files waited on Hadoop S3A credentials that the catalog never hands out. The runner now lists through the table's own FileIO, under the table's location and a `/`, so a sibling table whose location starts the same is never listed. A Glue-catalog table keeps the default listing. There is nothing to configure: the fixes arrive with the runner that `fluid apply` uploads, so run `fluid apply` (step 3). *(since 0.39.0, [forge-cli #1068](https://github.com/Agenticstiger/forge-cli/pull/1068))*
+- **`fluid import airflow|pyspark SOURCE --check` is a drift gate.** It compares the DAGs or job files with the contracts the import wrote, writes nothing, and exits 0 (in sync), 1 (drift) or 2 (it cannot decide). `--format text|json|github`, `--strict` and `--out-report PATH` shape the report. `fluid generate ci --add import-drift` puts it in a generated pipeline for every CI system. See [Checking for drift in CI](./advanced/importing-existing-pipelines.md#checking-for-drift-in-ci) and [Add-ons](./advanced/operating-in-ci.md#add-ons). Output without the add-on is the same bytes as before. *(since 0.39.0, [forge-cli #1067](https://github.com/Agenticstiger/forge-cli/pull/1067))*
+- **An alert route names a connection only when its kind has no default.** A kind with `requires_connection` and a `default_connection` refused every route that named none in 0.38.0. A route that names none now uses the default, in the notifier's arguments and in the DAG's notes, and a connection the route names wins. `webhook` still needs one. See [Extending alerts](./advanced/airflow.md#extending-alerts). *(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))*
+- **`data-team` is template residue at `metadata.owner.team` only.** `fluid validate` no longer warns (`contract_template_residue`) about `channel: data-team` in an alert route, or a tag or a label of that name. A run with `--strict` that failed on one of those now passes. See [`fluid validate`](./cli/validate.md). *(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))*
+- **The entry point of a command plugin is any callable `(subparsers) -> None`**, whatever it is named. The docs and `AGENTS.md` said `register(subparsers)`. *(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))*
+- **The 0.7.7 `dagId` and `taskId` patterns end where the value ends.** They ended in `$`, which Python's `re` also matches before a final line break, so a validator that runs `pattern` as it is (stock `jsonschema`) took `"abc\n"` where an ECMA-262 validator, such as node's, refused it. `fluid validate` already refused it. Both patterns now end in `(?![\s\S])`, as 34 other patterns of the file do, and `minLength` 1 and `maxLength` 250 are unchanged. The descriptions now say the schema takes the ASCII part of Airflow's rule: Airflow's own pattern also takes Unicode letters and digits. A contract that passed `fluid validate` before still passes. The [0.7.7 reference](./reference/contract-0.7.7-preview.md) shows the new text. *(since 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))*
+- **`fluid profile --privacy-unit` warns when `--rho` is above 1.** The release still runs, and `--rho` still takes any number above zero. The warning cites OpenDP's rule of thumb (an epsilon of at most 1, rho 0.5) and the rho of about 2.6 to 7.7 that the US Census Bureau's 2020 Census products used. The `--privacy-unit` help now says what the privacy unit is: one row of the unit's expose, or with `--release-table` or `--unit-key` every row that belongs to one entity. A script that treats any output on stderr as failure sees the warning. See [Releasing a table under differential privacy](./cli/profile.md#releasing-a-table-under-differential-privacy). *(since 0.39.0, [forge-cli #1066](https://github.com/Agenticstiger/forge-cli/pull/1066))*
+
+### Also in 0.39.0
+
+`fluid profile --help` imports at most 328 modules beyond the plain CLI, one more than before, which keeps the startup budget test from failing in an environment with more packages installed. The full list is in the forge-cli [CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md).
 
 ## Older releases
 

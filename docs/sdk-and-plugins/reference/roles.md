@@ -284,7 +284,7 @@ class ChatNotifier(AlertNotifier):
 acme-chat = "acme_alerts.forge:ChatNotifier"
 ```
 
-`kwargs` returns literals only, keyed by Python identifiers, and never `context`. A route never carries a secret: `connection` names the Airflow connection that holds the URL or key, and `check` must not quote a route value. `alert_route(...)` builds a default route for `fluid_build.alert_defaults` and raises `ValueError` for a shape forge-cli refuses, never quoting a value; `check_alert_route` returns the problems as a list. Test with `AlertNotifierTestHarness`.
+A route names a connection only when its kind requires one and has no default. *(forge-cli 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))* A kind with `default_connection` set needs none: a route that names none gets the default as `route.connection`, in `check` and in `kwargs`, so `route.connection or self.default_connection` in the example above is the same value either way. A connection the route names wins, and `default_connection` is a plain Airflow connection id. In forge-cli 0.38.0 a route of a kind with `requires_connection = True` was refused when it named no connection, whatever the default. `kwargs` returns literals only, keyed by Python identifiers, and never `context`. A route never carries a secret: `connection` names the Airflow connection that holds the URL or key, and `check` must not quote a route value. `alert_route(...)` builds a default route for `fluid_build.alert_defaults` and raises `ValueError` for a shape forge-cli refuses, never quoting a value; `check_alert_route` returns the problems as a list. Test with `AlertNotifierTestHarness`.
 
 ### `MaintenanceAction`
 
@@ -310,7 +310,7 @@ A statement holds no `${...}`, comment, backslash or control character, and `sta
 
 ### `CommandPlugin`
 
-Set `name` and `help`, override `configure(parser)` and `run(args, logger)`, and name an **instance** in the entry point: forge-cli calls the loaded object with the CLI's subparsers, so the class itself is not callable that way.
+Set `name` and `help`, override `configure(parser)` and `run(args, logger)`, and name an **instance** in the entry point: forge-cli calls the loaded object with the CLI's subparsers, so the class itself is not callable that way. *(forge-cli 0.39.0, [forge-cli #1065](https://github.com/Agenticstiger/forge-cli/pull/1065))* The entry point may be any callable `(subparsers) -> None`, whatever it is named, and **a plugin adds new command names only**: see [Command names are new ones](./entry-points.md#command-names-are-new-ones).
 
 ```python
 from fluid_sdk import CommandPlugin

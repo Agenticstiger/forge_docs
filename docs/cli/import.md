@@ -300,7 +300,11 @@ fluid import pyspark ./jobs --registry confluent --url https://sr.example.com --
 | `--registry {confluent\|glue}` | `fluid import pyspark`: read the columns of a written topic through the schema-registry importer. Only when asked. `confluent` needs `--url`, and `glue` takes `--registry-name`. |
 | `--out PATH` | The output file for one product, or the output directory for several. |
 | `--dry-run` | Print the proposal and the report, and write nothing. |
-| `--force` | Replace an existing file that differs from what the import would write. |
+| `--force` | Replace an existing file that differs from what the import would write. Refused with `--check`. |
+| `--check` | *(since 0.39.0, [forge-cli #1067](https://github.com/Agenticstiger/forge-cli/pull/1067))* `fluid import airflow` and `fluid import pyspark` only. A drift gate: read the code again, compare it with the contracts written where this import would write them, and write nothing. Exit `0` they match, `1` drift, `2` it cannot decide. See [Checking for drift](#checking-for-drift-in-ci). |
+| `--strict` | With `--check`: a job that is gone from the code, and a link to a DAG, a task or a read that the import no longer finds, are drift too. Otherwise they are warnings. |
+| `--format {text\|json\|github}` | With `--check`: how the report is printed. Default `text`. `github` writes workflow annotations. |
+| `--out-report PATH` | With `--check`: also write the report to `PATH`, the one file `--check` writes. |
 
 Every proposal is checked against the schema before anything is written. A schema error stops the import. [`fluid validate`](./validate.md)'s contract rules also run on it: what they find that no code can give (the columns, a Databricks schema, a Snowflake warehouse) is listed in the report and the contract is still written.
 
@@ -340,6 +344,23 @@ All importers follow these rules *(since 0.37.0)*:
 | `several job files match it equally` (report) | Two job files share a name. Map a prefix under `script_roots`. |
 
 [The guide](../advanced/importing-existing-pipelines.md#the-report) lists the other report lines and says what to do about each. The [limits](../advanced/importing-existing-pipelines.md#limits) and the [credential masking rules](../advanced/importing-existing-pipelines.md#credential-masking) are there too.
+
+### Checking for drift in CI
+
+*(since 0.39.0, [forge-cli #1067](https://github.com/Agenticstiger/forge-cli/pull/1067))* `--check` reads the DAGs or job files again and compares what they say with the contracts that the import wrote. Pass the same `--out`, `--split-by`, `--conventions` and `--dags` as the import that wrote them, and it writes nothing:
+
+```bash
+fluid import pyspark ./jobs --dags ./dags --out ./contracts --check
+fluid import airflow ./dags --conventions conventions.yaml --out ./contracts --check --format github
+```
+
+| Exit | Meaning |
+|---|---|
+| `0` | The contracts match the code. |
+| `1` | Drift. A job or an output that no contract holds yet counts. |
+| `2` | It cannot decide: an unreadable source, a source file it cannot read, no contract where the import writes one, `--force`, or an unexpected error. |
+
+What it compares, the seven drift kinds (`job_added`, `job_removed`, `output_added`, `output_removed`, `schedule_changed`, `table_changed`, `coverage_regressed`), the reports and the limits are in [Checking for drift in CI](../advanced/importing-existing-pipelines.md#checking-for-drift-in-ci). [`fluid generate ci --add import-drift`](./generate.md) puts the check in a generated pipeline.
 
 ### Importer plugins
 
