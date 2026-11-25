@@ -1747,6 +1747,15 @@ One change in forge-cli #1109 needs an action: a caller that a row filter narrow
 - **`fluid_build.output_ports.iam_compiler` is removed.** Nothing called it, and it compiled the old `policy.rowFilters` key. `fluid apply` already writes `policy.authz.rowFilters` into BigQuery row access policies, Lake Formation data cells filters and Unity Catalog row filters. On BigQuery, grant the gateway's service account a read permission in `accessPolicy` and name it in no row filter, or BigQuery returns it no rows.
 - **What is not covered.** The outer select list, the arguments of aggregates in `HAVING` and an aggregate's `FILTER (WHERE ...)` are not checked, because they are computed over the rows the filter keeps; an engine that evaluated one before the filter could raise on a withheld row. Timing stays visible, a column's type can be up to five minutes old, and the 38-digit rule refuses some comparisons an engine would run safely: HUGEINT, BIGNUMERIC, and a Snowflake `NUMBER(38,0)` against a fractional literal. See [What a row filter does not cover](./advanced/mcp.md#what-a-row-filter-does-not-cover).
 
+*On forge-cli's `fix/mcp-expose-boundary` branch ([forge-cli #1110](https://github.com/Agenticstiger/forge-cli/pull/1110)), not yet on `main` or in a release.*
+
+Readers of `query_sql` need to check their statements: forge-cli #1110 holds every caller, readers that no row filter narrows included, to the expose's declared columns and to the function list.
+
+- **`query_sql` and `sample` read only the columns `contract.schema` declares, for every caller.** On every expose, `sample` returns only declared columns. A `query_sql` statement that joins another table or reads a catalog view is refused, and one that names an undeclared column fails on that column. Both tools refuse an expose that declares no column, or whose declared columns are all restricted. To act: declare the column, or read the other table through its own expose.
+- **Readers are now held to the function list.** A `query_sql` statement that calls a function the list does not name is refused for every caller, and so is a Postgres cast to an object identifier type (`regclass`, `regproc` and the like). `split` and `string_to_array` join the list. To act: compute the value elsewhere.
+- **A declared column whose name is not a plain identifier refuses `query_sql` for everyone.** A plain identifier is a letter or underscore, then letters, digits and underscores. A restricted column is exempt, and `sample` still reads such a column. To act: rename the column, or expose it through a view.
+- **For a narrowed caller, integers meet integers at any size, and a literal with an exponent is a float only on DuckDB, Trino, Athena and BigQuery.** A HUGEINT column now meets an integer literal; DuckDB's UHUGEINT is still compared as a decimal. On Snowflake and elsewhere, a literal such as `1e-30` is an exact number, and the 38-digit rule applies to it.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
