@@ -288,7 +288,7 @@ The two column lists pair up by position, so they must have the same length and
 every column must be one the expose declares in `contract.schema`. A composite
 key is one relationship with two columns in each list, not two relationships.
 Against a target that has a validity window, the one matching row is the
-version valid at the time of the declaring row. *On forge-cli `main`, not yet in a release ([forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099)).* A relationship
+version valid at the time of the declaring row. *(since 0.41.0, [forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099))* A relationship
 names that time with `asOf`, and a rule can read the window's target by entity
 or as of a date: see
 [Versioned tables](#versioned-tables-window-conventions-and-as-of-reads).
@@ -351,7 +351,7 @@ Validation Warnings:
 
 ### Versioned tables: window conventions and as-of reads
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099)).*
+*(since 0.41.0, [forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099))*
 
 A type II table repeats its natural key once per version, so a foreign key into it names an entity, not a row. Through 0.40.1, a FLUID SQL/1 path and a `sharedColumns` entry could not read such a table through a relationship, and `fluid validate` refused both (see [FLUID SQL/1](./data-rules.md#fluid-sql-1)). The 0.7.7 preview now has four more members. Two state the window's conventions, one describes the natural entity's life, and one lets a relationship read the version valid on a date. All four are optional. A contract that declares none of them validates and exports as before.
 
@@ -702,7 +702,7 @@ What the compiler does, as of 0.18.1:
 
   Query the underlying measures instead, or let dbt MetricFlow answer the
   metric.
-- **On an expose with restricted or redacted columns, expressions are checked more strictly.** *On forge-cli `main`, not yet in a release ([forge-cli #1105](https://github.com/Agenticstiger/forge-cli/pull/1105)).*
+- **On an expose with restricted or redacted columns, expressions are checked more strictly.** *(since 0.41.0, [forge-cli #1105](https://github.com/Agenticstiger/forge-cli/pull/1105))*
   On an expose with restricted columns, every dimension, measure, metric `filter` and filter key
   is evaluated over the columns `contract.schema` declares, less the restricted ones. On an expose
   with restricted or redacted columns, or with row filters, a subquery in one is refused. On an
@@ -854,7 +854,7 @@ dbt rejects some elements beside a window, so the generator drops them with a
 warning: primary and unique entities, and measures. It also drops a `natural`
 entity that has no window, because dbt accepts one only beside a window.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099)).* The semantic model of a window also carries the
+*(since 0.41.0, [forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099))* The semantic model of a window also carries the
 window's conventions in `config.meta.snapshot_config`, in dbt's own snapshot
 key names, for every window, including the one in the example above. Through
 0.40.1 no model had a `snapshot_config`. For the `station_version` window of

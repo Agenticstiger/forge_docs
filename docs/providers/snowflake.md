@@ -446,7 +446,7 @@ OpenTofu apply path.
 
 *(since 0.31.0, [forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901))* The pin was `~> 2.23`. 2.23 adds the `token_file_path` field, which OAuth, PAT and OIDC workload identity read a token from.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1108](https://github.com/Agenticstiger/forge-cli/pull/1108)).* The pin is `~> 2.23.0`, which holds the provider below 2.24, so a fresh workspace resolves to 2.23.x. Provider 2.24 reworked the preview `snowflake_table` resource (`column.nullable` became `column.not_null`), which forge does not emit yet, and `tofu validate` refused the output for a table with columns. The resources the emitter writes are unchanged. The move to 2.24 comes with the emitter change.
+*(since 0.41.0, [forge-cli #1108](https://github.com/Agenticstiger/forge-cli/pull/1108))* The pin is `~> 2.23.0`, which holds the provider below 2.24, so a fresh workspace resolves to 2.23.x. Provider 2.24 reworked the preview `snowflake_table` resource (`column.nullable` became `column.not_null`), which forge does not emit yet, and `tofu validate` refused the output for a table with columns. The resources the emitter writes are unchanged. The move to 2.24 comes with the emitter change.
 :::
 
 ### Workload identity federation

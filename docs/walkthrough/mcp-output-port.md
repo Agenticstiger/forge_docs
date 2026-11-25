@@ -29,7 +29,7 @@ No cloud account, no credentials, no cost. Everything runs on DuckDB reading a l
 - The four agent tools: `describe`, `sample`, `query`, and the gated `query_sql`.
 - How `sensitivity: pii` redacts **values** while keeping the column **visible**.
 - How `agentPolicy.allowedModels` gates which LLM may read the product — enforced at runtime, from the contract.
-- *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* How row filters are declared (`policy.authz.rowFilters`), and which key the gateway no longer reads (`policy.rowFilters`).
+- *(since 0.41.0, [forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107))* How row filters are declared (`policy.authz.rowFilters`), and which key the gateway no longer reads (`policy.rowFilters`).
 - Where to go for production HTTP + mTLS.
 
 ---
@@ -409,7 +409,7 @@ fluid mcp output-port serve ./contract.fluid.yaml \
 
 ### Row filters are `policy.authz.rowFilters`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The gateway enforces `exposes[].policy.authz.rowFilters[]` (`{principal, where}`, schema `0.7.6`) on `sample`, `query` and `query_sql`, and `fluid validate` accepts it. A caller reads the rows of the filters that name its principal, and the principal binds only from a verified JWT claim mapped with `FLUID_MCP_JWT_CLAIM_MAPPING=<claim>=principal`. This walkthrough serves one local file over stdio, which carries no verified identity, so `serve` refuses to start an expose that declares row filters here. The older `policy.rowFilters` key is no longer read, and an expose that carries it is refused. The restrictions this walkthrough used are `sensitivity` on a column and `policy.agentPolicy`.
+*(since 0.41.0, [forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107))* The gateway enforces `exposes[].policy.authz.rowFilters[]` (`{principal, where}`, schema `0.7.6`) on `sample`, `query` and `query_sql`, and `fluid validate` accepts it. A caller reads the rows of the filters that name its principal, and the principal binds only from a verified JWT claim mapped with `FLUID_MCP_JWT_CLAIM_MAPPING=<claim>=principal`. This walkthrough serves one local file over stdio, which carries no verified identity, so `serve` refuses to start an expose that declares row filters here. The older `policy.rowFilters` key is no longer read, and an expose that carries it is refused. The restrictions this walkthrough used are `sensitivity` on a column and `policy.agentPolicy`.
 
 Serve an expose with row filters over HTTP with JWT auth, and give the gateway a database role that can read the exposed tables and nothing else. The [advanced MCP page](../advanced/mcp.md#row-level-security-—-policy-authz-rowfilters) has the rules, and [The database role of the gateway](../advanced/mcp.md#the-database-role-of-the-gateway) the setup for Postgres and BigQuery.
 
