@@ -1660,6 +1660,16 @@ These changes are in 0.39.0. Six need an action, and only if they apply to you: 
 
 `fluid profile --help` imports at most 328 modules beyond the plain CLI, one more than before, which keeps the startup budget test from failing in an environment with more packages installed. The full list is in the forge-cli [CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md).
 
+## Not in a release yet
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099)).*
+
+Nothing here needs an action. A contract that declares none of the new members validates and exports as before, except that the dbt semantic model of a validity window gains a `config` block.
+
+- **A table that keeps history can be read through a relationship (schema 0.7.7 preview).** A validity window takes `validityParams.openEnd` and `chain` on its `isEnd` dimension, the natural entity takes a `lifecycle` of `activation`, `endMarker` and `currentFlag`, and a relationship takes `asOf`, a date or time column that picks the version it reads. A FLUID SQL/1 path or a `sharedColumns` entry through a relationship into such a table was refused on 0.40.1 and earlier. It now reads the natural key and the columns a `dependency` from the key makes stable, by entity, or any column as of the `asOf` date. A summary into such a table is still refused. `fluid validate` reports a misplaced or mistyped member, and the exported rules and `fluid generate dbt-tests` render both joins. See [Versioned tables](./concepts/semantic-layer.md#versioned-tables-window-conventions-and-as-of-reads).
+- **The dbt semantic model of a validity window carries `config.meta.snapshot_config`.** It holds `unique_key`, `snapshot_meta_column_names` and, where the contract declares them, `dbt_valid_to_current` and `hard_deletes: new_record`. A regenerated dbt project shows the block in `semantic_models.yml`, for a window that declares no conventions too. To check: `fluid generate transformation contract.fluid.yaml` on a contract with a window, and compare `semantic_models.yml`. See [dbt MetricFlow](./concepts/semantic-layer.md#dbt-metricflow).
+- **The error for a refused read into a validity window has new text.** It no longer says that FLUID SQL/1 v1 reads no slowly changing dimension through a relationship, and it ends with both ways to declare the read: a column stable per entity, or an `asOf` column on the relationship. A script that matches the old sentence needs the new one.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
