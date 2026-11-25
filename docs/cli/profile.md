@@ -38,9 +38,11 @@ The profiler is the one part of FLUX that reads records. It runs inside the envi
 ## Syntax
 
 ```bash
-fluid profile CONTRACT --source SOURCE [--expose ID]... [--table NAME] [--out FILE] [--fractional-bits N] [--bundle DIR] [--request FILE] [--env ENV]
+fluid profile CONTRACT --source SOURCE [--expose ID]... [--table NAME] [--out FILE] [--fractional-bits N] [--bundle DIR]
+               [--request FILE [--row-floor N] [--strict]] [--timings] [--env ENV]
                [--privacy-unit EXPOSE --rho R --release-record PATH [--release-table EXPOSE] [--unit-key COL[,COL]]
-                [--max-rows-per-unit N] [--max-rows-per-cell K] [--rederive]]
+                [--follow PARENT.COL[,COL]=CHILD.COL[,COL]:MAX]... [--max-rows-per-unit N] [--max-rows-per-cell K]
+                [--clique-method aim|mst] [--rederive]]
 ```
 
 | Argument | What it does |
@@ -52,8 +54,13 @@ fluid profile CONTRACT --source SOURCE [--expose ID]... [--table NAME] [--out FI
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory, or `<contract id>.profile.json` when the call profiles several exposes. |
 | `--fractional-bits` | The grid [`mean/1`](#the-mean-1-statistic) is formed on, in steps of 2^-N: 0 to 128, default 16. Set it to the fidelity block's `encoding.fractionalBits`. |
 | `--bundle` | *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* A FLUX bundle directory: the profile answers the fidelity block its one Simulation declares for the expose, on the block's grid, and a different `--fractional-bits` is refused. See [Answering a fidelity block](#answering-a-fidelity-block-bundle). |
-| `--request` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* A profile request that `fluxsim init --contract` wrote. See [Answering a profile request](#answering-a-profile-request-request). |
-| `--privacy-unit`, `--rho`, `--release-record` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* Release one table under differential privacy. See [Releasing a table under differential privacy](#releasing-a-table-under-differential-privacy). `--release-table`, `--unit-key`, `--max-rows-per-unit`, `--max-rows-per-cell` and `--rederive` refine it. |
+| `--request` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* A profile request that `fluxsim init --contract` wrote. See [Answering a profile request](#answering-a-profile-request-request). *On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* The request is read whole, and an ask the profile does not form is named under Not measured with its reason instead of being dropped. See [Asks the profile does not form](#asks-the-profile-does-not-form-strict). |
+| `--privacy-unit`, `--rho`, `--release-record` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* Release one table under differential privacy. See [Releasing a table under differential privacy](#releasing-a-table-under-differential-privacy). `--release-table`, `--unit-key`, `--max-rows-per-unit`, `--max-rows-per-cell`, `--clique-method`, `--follow` and `--rederive` refine it. |
+| `--row-floor` | *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* The row floor of the rank correlations a `--request` asks for: a public count of 2 or more, written as each statistic's `rowFloor` and used to form its value, as the larger of the number of records and N. Without it a rank correlation is formed over its records alone and states no `rowFloor`. In a private release each noisy rank correlation carries `--row-floor` as its public `rowFloor`, 1000 by default. |
+| `--strict` | *On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* Refuse a `--request` before any record is read when the request or the contract alone shows that an ask cannot be formed. See [Asks the profile does not form](#asks-the-profile-does-not-form-strict). |
+| `--timings` | *On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* After the report, print how long each table took to read, measure and check, and how long the document took to write. The document is the same bytes without it. Refused with a private release. See [Where the time goes](#where-the-time-goes-timings). |
+| `--follow PARENT.COL[,COL]=CHILD.COL[,COL]:MAX` | *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* With `--privacy-unit`, the privacy unit follows its child rows through one declared relationship: at most MAX children of each parent row are kept. Repeat it for each relationship of the tree rooted at `--privacy-unit`. See [Releasing a table under differential privacy](#releasing-a-table-under-differential-privacy). |
+| `--clique-method` | *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* `aim` (the default) or `mst`: how a private release chooses its cliques when two or more columns may join them. Both are OpenDP's, from the `[privacy]` extra. |
 | `--env` | An environment overlay to apply to the contract first. |
 
 Install the extra, which adds DuckDB and flux-stats:
@@ -196,6 +203,8 @@ Fidelity statistics: mean/1 of 'amount', on fractionalBits 16 (the fidelity bloc
 | any other number of a bounded type, and every date and timestamp | `quantile/2` at 0.25, 0.5 and 0.75, on a ladder fixed by the type. |
 | a categorical `semantics.dimensions` entry on an `enum` column | the other `enum` columns' level histograms, grouped by its levels. One column's groupings hold at most 10,000 cells together; a grouping past that is left out and named. |
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* A date or timestamp with no declared range gets a month or year histogram in place of those quartiles, and its table gains a calendar. See [Time and structure statistics](#time-and-structure-statistics).
+
 A `range` rule reads as `">= 18 and <= 90"` or `"between 18 and 90"`. A rule in another shape, such as `">= 18, <= 90"`, declares no range, so that number gets `quantile/2` if its type is bounded. A number with neither a two-ended range nor a bounded type, such as a `decimal` without `(p,s)`, gets no such statistic, and the summary says so:
 
 ```text
@@ -220,6 +229,8 @@ A record outside what the contract declares stops the run and writes nothing: a 
 Three more rules keep a count table from pinning a small count: a column that a level histogram counts, or that a grouped statistic groups by, withholds its `distinctCount` under `D`; a number with a default histogram withholds its exact `sum`, `min`, `max`, `quantiles` and `distinctCount` under `D` and has no `mean/1`; and a column gets a histogram or quantiles on the same bins, not both. In the run above, `age` has a histogram, withholds its `sum`, `min`, `max`, `quantiles` and `distinctCount` under `D` and has no `mean/1`, and `segment` withholds its `distinctCount` under `D`. `customer_id` has no histogram, so it keeps `mean/1` and gets `quantile/2`.
 
 A profile that holds a `quantile/2` is format `1-1-0`, which flux-stats reads from 0.7. A profile without `--bundle` of a contract with a bounded number, a date or a timestamp is therefore a `1-1-0` document, and its bytes and digest differ from a 0.35.0 profile of the same records. A contract with only categories and an unbounded `decimal`, like the one above, stays `1-0-0`.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* A default profile of a table with a date or timestamp column moves from format `1-1-0` to `1-3-0`, so its digest changes. See [Time and structure statistics](#time-and-structure-statistics).
 
 A column the contract types `date` reads a `YYYY-MM-DD` text, from a CSV file too, as that day's midnight in UTC. Anything else in that column is refused as before.
 
@@ -357,6 +368,61 @@ What this does not cover: a fact's overlap with a histogram's cells, a column's 
 
 A request is refused before any record is read, each with its own event code, when it is used beside `--bundle`, `--env` or `--expose`, when the contract is a stage-1 bundle archive, when the request file is not a regular file, is too large, is not UTF-8 or is refused by flux-stats, when its contract digest is not the contract file's (run `fluxsim init` again), when a table, column or domain is not shared by the contract and the profile, when `--fractional-bits` differs from the request's, and when a listed table has no `--source` or a `--source` names a table the request does not list.
 
+### Asks the profile does not form: `--strict`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* The request is read whole. An ask that `fluid profile` does not form is named in the report under `Not measured` (under `Not released` with `--privacy-unit`), with its reason, and the rest of the profile is written. A listed query is named, never printed: its text is not kept.
+
+`--strict` turns that into a refusal before any record is read. It refuses a request when the request or the contract alone shows that an ask cannot be formed:
+
+- a workload or a consumer query;
+- a metric, statistic, rank correlation, grouping, date pair, calendar, relationship date or exposure over a column the profile does not read, over a key of a counted relationship, or over a column whose type rules it out;
+- a fact whose rule `fluid profile` cannot measure;
+- more entries than a profile holds;
+- any ask of a relationship the contract does not declare or the profile does not read.
+
+With `--privacy-unit`, `--strict` refuses instead the kinds a private release does not form: a workload, a consumer query, date pairs, a calendar, relationship dates and exposure.
+
+An ask that only the records leave unanswered, such as a small cell, a column with no published date span or a value that is not a whole day, is named under `Not measured` and never refused. Without `--request`, `--strict` is refused.
+
+The command exits 1, names each ask and its reason, and writes nothing. This request asks for the children per parent of `waterings(watering_id)` to `beds(bed_id)`, a relationship the contract does not declare:
+
+```text
+CLI command error
+❌ profile_request_not_formed  [ERR_PROFILE_REQUEST_NOT_FORMED]
+  detail: --strict: the request asks for 1 item fluid profile does not form
+  the contract declares no such relationship: children per parent of waterings(watering_id) to beds(bed_id)
+  read: nothing: no record was read
+  next: leave --strict out to profile what fluid profile forms, with each of these named under Not measured, or write the request without them
+```
+
+Without `--strict`, the same request is profiled, and the report says:
+
+```text
+Not measured: children per parent of waterings(watering_id) to beds(bed_id): the contract declares no such relationship.
+```
+
+With `--privacy-unit`, a request for date pairs and a calendar is refused the same way:
+
+```text
+CLI command error
+❌ profile_request_not_formed  [ERR_PROFILE_REQUEST_NOT_FORMED]
+  detail: --strict: the request asks for 3 items fluid profile does not form
+  a private release forms no date pair: date pair planted to sprouted of beds; date pair planted to harvested of beds
+  a private release forms no calendar: calendar of beds.planted
+  read: nothing: no record was read
+  next: leave --strict out to profile what fluid profile forms, with each of these named under Not measured, or write the request without them
+```
+
+`--strict` with no `--request` is refused:
+
+```text
+CLI command error
+❌ profile_strict_needs_request  [ERR_PROFILE_STRICT_NEEDS_REQUEST]
+  detail: --strict refuses a request that asks for what fluid profile does not form, and --request names none
+  read: nothing: no record was read
+  next: give --request, or leave --strict out
+```
+
 ## Releasing a table under differential privacy
 
 *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* With `--privacy-unit`, `--request`, `--rho` and `--release-record`, the profile is a release of one table's requested statistics under zero-concentrated differential privacy, a profile of format 1-2-0. It holds a noisy level histogram of each required `enum` column the request lists, a noisy histogram of each required number, date or timestamp column on public bins, and noisy clique marginals over categorical columns, chosen with OpenDP's AIM. The selection needs the `[privacy]` extra, `pip install 'data-product-forge[profile,privacy]'`, and only when a selection runs.
@@ -376,6 +442,17 @@ fluid profile contract.fluid.yaml --request orders.request.json \
   ```
 
   A `rho` of 1 or below prints nothing.
+- **A rank correlation carries a row floor.** *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* Each noisy rank correlation carries `--row-floor` as its public `rowFloor`, 1000 by default. Its sensitivity for one row is 4 / (floor + 1) for Kendall's tau and 9 / (floor + 1) for Spearman's rho, times the rows one unit contributes.
+- **The cliques are chosen with AIM or MST.** *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* `--clique-method mst` chooses them with OpenDP's MST instead of its AIM. The profile records the method, the OpenDP version and the tenth of `rho` the choice cost in `cliqueSelection`. A clique that holds a number or timestamp column is released as `cliqueMarginal/2` on the public bins of the column's declared range, and the bins are never chosen from the data.
+- **The unit can follow its child rows.** *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* `--follow PARENT.COL[,COL]=CHILD.COL[,COL]:MAX` makes the unit a row of the privacy unit's expose with at most MAX of its children through that relationship. Repeat it for a tree. The profile names the follows in `privacy.privacyUnit.follows` (format 1-4-0), and the tree is checked before any record is read. `--follow` is not combined with `--release-table`, `--unit-key` or `--max-rows-per-unit`. This unit is an account with up to 3 invoices, each with up to 2 lines:
+
+  ```bash
+  fluid profile billing.fluid.yaml --request billing.profile-request.yml \
+    --source account=./account.csv --source invoice=./invoice.csv --source line=./line.csv \
+    --privacy-unit account --follow account.id=invoice.account_id:3 \
+    --follow invoice.invoice_id=line.invoice_id:2 --rho 1 --release-record billing.record.json
+  ```
+
 - **The budget.** A tenth of `rho` chooses the cliques, and the rest is split equally over the count tables. The report names the unit, the loss and its split, each table's noise scale, the cliques, an informational conversion to (epsilon, delta), and every requested item that is not released, with the reason.
 - **The release record.** The noise is drawn from a seeded randomness source that is recorded in `--release-record`, created readable by its owner alone, and the file must not exist for a new release. Keep it inside the data owner's boundary: with the record and the profile, the noise can be taken off. `--rederive` with the existing record draws the release again and writes the profile only when its digest is the recorded one.
 - **Nothing that depends on the records** is printed, logged or recorded outside the noise. A refusal names a column and a row, never a value or a count.
@@ -431,6 +508,128 @@ A relationship is named in the summary and left out when:
 
 The histogram goes through its own output check. Treat it as one more table about the same parents: other tables over them (an `enum` column's level histogram, another relationship's cells) bound the numbers, and so do the children's own counts.
 
+## Time and structure statistics
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* The profile publishes the date and structure members of FLUX's profile format 1-3-0, which `fluxsim init` reads to place dates and shape relationships: date spans, date pairs, a relationship's dates, structural classes and exposure, a table's calendar and periods, and statistics counted per entity. They go through the same output checks as every other value, and a private release forms none of them and names each one it was asked for.
+
+The examples on this page use a small synthetic garden. The `beds` expose has the columns `bed_id`, `planted`, `sprouted` and `harvested`, the last three typed `date`. Its contract says a bed does not sprout or get harvested before it is planted, and a bed is harvested only after it sprouted. The `waterings` expose has a `bed_id` that its relationship `bed` ties to `beds`.
+
+```bash
+fluid profile contract.json --source beds=./beds.ndjson --source waterings=./waterings.ndjson --out garden.profile.json
+```
+
+```text
+Profiled 2 exposes (beds, waterings): 6 columns, 35 values published, 38 withheld.
+Withheld, by the check (CL_CONF_STATUS code): A (small count) 23, D (secondary 
+suppression) 15.
+Withheld histogram cells, by the check (CL_CONF_STATUS code): A (small count) 2,
+D (secondary suppression) 2.
+The document writes C for every withheld group and cell of a histogram or a quantile, whatever withheld it, so its code says nothing of its size.
+exposes[beds]: Fidelity statistics: mean/1 of 'bed_id'; marginalHistogram/1 of 'planted' over bins 1672531200000, 1704067200000; marginalHistogram/1 of 'sprouted' over 12 bins; marginalHistogram/1 of 'harvested' over bins 1672531200000, 1704067200000, 1735689600000, on fractionalBits 16 (the fidelity block must declare the same).
+exposes[beds]: Left out of the default statistics: column 'bed_id': a key of a counted relationship, which its children per parent describe.
+exposes[waterings]: Fidelity statistics: mean/1 of 'watering_id'; quantile/2 of 'watering_id' at level 0.25 over 116 bins; quantile/2 of 'watering_id' at level 0.5 over 116 bins, on fractionalBits 16 (the fidelity block must declare the same).
+exposes[waterings]: Withheld whole, so a run that checks them scores them censored: quantile/2 of 'watering_id' at level 0.75 over 116 bins.
+exposes[waterings]: Left out of the default statistics: column 'bed_id': a key of a counted relationship, which its children per parent describe.
+Children per parent of exposes[beds] in exposes[waterings] (bed): withheld whole.
+exposes[beds]: Date pairs: 2 of 3 published.
+Exposure of exposes[beds] in exposes[waterings]: 1 of 6 published.
+exposes[beds]: Calendar: 4 of 6 histograms published.
+Not measured: days of date pair planted to harvested of beds: its first or last day bin holds fewer than the least cell, so its days have no outer edge to publish.
+Wrote /work/garden.profile.json (readable by you alone; read it before you share it).
+Pin it in the FLUX Simulation:
+  profile: {digest: sha256:3c1886305cc3a0b15f8fb170e8c58a27be81ffebb8bc54c2fab60ce45e38560d}
+```
+
+The document names format 1-3-0. A profile of a table with a date or timestamp column moves from format 1-1-0 to 1-3-0 even with no date pair or relationship in it, so its digest changes. `fluxsim` 0.10.0 is the first release that reads format 1-3-0, and 0.9 and older refuse it. Profile again after upgrading, and pin the new digest wherever the old one was pinned.
+
+### Date spans
+
+A date or timestamp column with no declared range gets a `marginalHistogram/1` over calendar months, or over calendar years when the span is longer than 240 months. It runs from the start of the month that holds the earliest record to the start of the month after the latest, so its outer edges cover every record, and `fluxsim init` can take a run window from them. The column's quartiles move onto the same bins, so one check sees every edge statistic of the column.
+
+The grain is published only when its first and last bin each hold at least the output check's minimum cell (10 under ACRO) and the span is at most 240 bins. Otherwise the column keeps the quartiles on the type's ladder, and the report says why. This is the line for a `tasks` expose whose `due` column holds one date years after the rest:
+
+```text
+tasks.due: no date span: its first or last month and year hold fewer than 10 records; its quartiles stay on the type's ladder.
+```
+
+A column with both ends of a range declared, a column a request groups by or is grouped by, and a key of a counted relationship are unchanged.
+
+### Date pairs and a relationship's dates
+
+Each pair of date columns of a table gets a histogram of the whole days from the earlier to the later, on one fixed ladder of bins trimmed to the bins from the first one that holds a record to the last, and the order of the two: after, before or same. A request lists the pairs it wants, and a table holds at most 1024 of them. The days and the order are checked together in one pass on the same outer edges.
+
+- The days are published only when each of the two end bins holds at least the minimum cell, so no single record places an outer edge. With no day histogram the order is checked alone.
+- A cell that a contract rule empties is published as a zero only when the records leave it empty. In the garden, the rule `sprouted IS NULL OR sprouted >= planted` empties "before" for the pair `planted` to `sprouted`, and the published order reads after 270, before 0, same 30. The rule never makes a zero out of data, and a rule the records break changes nothing.
+- A pair with a timestamp column, or a value that is not a whole day, is named under `Not measured` with its reason, as the `planted` to `harvested` pair is above.
+- A pair that no record holds both dates of is written like a small one, with its order withheld whole, so the list of pairs says nothing about it.
+
+Each declared relationship gets the same for every pair of a parent's and a child's date columns, under `dates`, at most 1024 of them.
+
+### Structural classes and exposure
+
+A relationship states `structural: ["childless"]` only when its children per parent are counted, the disclosure rule treats zeros as disclosive, the contract derives the parent's count of its children and checks that it is at least 1, and no parent lacks a child.
+
+An `exposure` holds the child rows whose parent's start is known, and the days those parents are active inside a window. The window comes from the start column's published date span or the range the contract declares for it. A relationship holds at most 1024 exposures.
+
+A parent table publishes the exposure of one lifetime, the same under every relationship into it: among the lifetimes formed, the first with an end, else the first date column alone, in the schema's order. The lifetime is chosen from the contract, the request and the published document, never from the records. Every other lifetime's exposure is written withheld whole, with the code `D`, because sums over the same parents can be added and subtracted to give one parent's date back. In the garden profile the six exposures are the three date columns alone and the three pairs, and only `planted` to `sprouted` carries its numbers:
+
+```text
+Exposure of exposes[beds] in exposes[waterings]: 1 of 6 published.
+```
+
+The output checks hold within one run. The tier does not protect across runs, so separate runs that request different lifetimes can be combined.
+
+### Calendar, periods and statistics per entity
+
+Each date and timestamp column gets `month`, `dayOfWeek` and, on a timestamp only, `hourOfWeek`, each a `levelHistogram/1` read in UTC. A request lists the columns it wants, and a table's calendar holds at most 1024 columns. `dayOfWeek` is numbered as ISO 8601 numbers it, Monday 1 to Sunday 7. The hours and the days of the week are checked in one call, since a day is 24 hours.
+
+A calendar histogram is published only when no statistic on the column withholds a group or a cell, and every statistic cuts the records only at the start of its unit: a month, a day or an hour. Otherwise it is withheld whole. A declared range's quantile edges, which fall mid-month, withhold the month.
+
+A table that declares `semantics.defaultAggTimeDimension` gets, without `--request`, the mean of each number column that is not a key and has no histogram over a declared range, in each calendar month from the first to the last of the time column's published span or declared range. These are the table's `periods`. They are withheld whole unless the time column's edge statistics all cut at month starts and withhold nothing.
+
+A column that a contract `dependency` sets from an entity key gets its histogram counted per entity, each entity at the value its rows most often hold, under `per`. It is withheld whole when the cells it withholds are not the cells the column's row-level histogram withholds, or when no entity holds a known value.
+
+### What the report says
+
+Each line names tables, columns and how many entries were published, never a count of records.
+
+| Line | Counts |
+|---|---|
+| `exposes[beds]: Date pairs: 2 of 3 published.` | A table's date pairs. A pair published in part is counted apart: `N of M published whole, K in part.` |
+| `Dates of exposes[parent] in exposes[child]: ...` | A relationship's dates, counted the same way. |
+| `Structural classes of exposes[parent] in exposes[child]: childless, stated by the contract.` | The classes a relationship states. |
+| `Exposure of exposes[parent] in exposes[child]: 1 of 6 published.` | A relationship's exposures. |
+| `exposes[beds]: Calendar: 4 of 6 histograms published.` | A table's calendar histograms. |
+| `exposes[beds]: Periods: N of M monthly groups published.` | A table's monthly periods. |
+| `exposes[beds]: Per-entity statistics: N of M published.` | The statistics counted per entity. |
+| `tasks.due: no date span: ...` | A date column that kept its quartiles, with the reason. |
+
+## Where the time goes: `--timings`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* `--timings` prints, after the report and for each table in profile order, how long the table took to read, measure and check, and then how long the document took to write:
+
+```bash
+fluid profile contract.json --source beds=./beds.ndjson --source waterings=./waterings.ndjson --out garden.profile.json --timings
+```
+
+```text
+Timings for beds: read 0.00 s, measure 0.03 s, check 0.00 s.
+Timings for waterings: read 0.00 s, measure 0.05 s, check 0.00 s.
+Timings for the document: write 0.01 s; total 0.16 s.
+```
+
+Your numbers differ. Read is the source read. Measure forms the table's metrics, statistics, date spans, children per parent, facts and rank correlations. Check is the output checks across a column's statistics and a relationship's counts, and a check made metric by metric counts as measure. Work that spans tables, such as facts and groupings, is shared equally among the tables it names.
+
+The timings are in the report only. The document is the same bytes with and without the flag, so its digest does not change. A private release refuses `--timings` before any record is read, because a duration follows the row count:
+
+```text
+CLI command error
+❌ profile_timings_with_release  [ERR_PROFILE_TIMINGS_WITH_RELEASE]
+  detail: a private release prints nothing that depends on the records outside the noise, and timings follow the row count
+  read: nothing: no record was read
+  next: leave --timings out of a private release
+```
+
 ## Output
 
 ```bash
@@ -449,7 +648,7 @@ Pin it in the FLUX Simulation:
 
 *(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965))* The second line of this output reads `Withheld, by the check (CL_CONF_STATUS code): A (small count) 3.`
 
-The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
+The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. *On forge-cli `main`, not yet in a release ([forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106)).* A document with a date or timestamp member is format `1-3-0` (see [Time and structure statistics](#time-and-structure-statistics)). Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
 
 ```yaml
 extensions:
