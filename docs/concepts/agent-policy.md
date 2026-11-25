@@ -119,11 +119,11 @@ A denied read does not return an HTTP 403 — the stdio gateway returns a `TextC
 
 When agents query the warehouse directly over SQL or HTTP, the gateway is not in the path, and no forge-cli command turns `agentPolicy` into a platform policy as of 0.18.1. `fluid policy-compile` reads only `accessPolicy.grants`, and `fluid policy-apply` provisions nothing. Govern those reads with the cloud's own IAM, which the contract does drive:
 
-- **GCP:** `accessPolicy.grants` become dataset IAM members, and `policy.authz.columnRestrictions` become Data Catalog policy tags with fine-grained readers, both at `fluid apply` ([Governance parity](./governance-parity.md) has the resources and what `fluid verify` checks). Give each agent its own service account and grant or restrict it like any other principal. BigQuery row access policies are not emitted.
+- **GCP:** `accessPolicy.grants` become dataset IAM members, and `policy.authz.columnRestrictions` become Data Catalog policy tags with fine-grained readers, both at `fluid apply` ([Governance parity](./governance-parity.md) has the resources and what `fluid verify` checks). Give each agent its own service account and grant or restrict it like any other principal.
 - **AWS:** `binding.governance.lakeFormation` grants, excluded columns and data cells filters, at `fluid apply`.
 - **Snowflake:** nothing from contract fields (see the [per-cloud table](./governance-policy.md#what-gets-emitted-per-cloud)).
 
-`fluid_build.output_ports.iam_compiler` is a Python module that compiles `agentPolicy` and `rowFilters` into Snowflake and PostgreSQL row access SQL; BigQuery and Lake Formation are stubs. As of 0.18.1 no command calls it, so you run its output yourself; see "Cloud-IAM compilers" on [Advanced → MCP output port](../advanced/mcp.md).
+*On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* The Python module `fluid_build.output_ports.iam_compiler` is removed; nothing called it. `fluid apply` writes `policy.authz.rowFilters` into BigQuery row access policies, Lake Formation data cells filters and Unity Catalog row filters, and nothing compiles `agentPolicy` into a platform policy. See "Cloud-IAM compilers" on [Advanced → MCP output port](../advanced/mcp.md).
 
 ### 3. Application-level (when neither MCP nor platform IAM fits)
 

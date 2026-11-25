@@ -415,7 +415,7 @@ Serve an expose with row filters over HTTP with JWT auth, and give the gateway a
 
 ### Go deeper
 
-- [Advanced: MCP output-port governance](../advanced/mcp.md) — the full enforcement order, auth modes (shared-token / JWT, and what an mTLS proxy does and does not bind), the five drivers, cloud-IAM compilers, rate-limit / circuit-breaker / audit internals.
+- [Advanced: MCP output-port governance](../advanced/mcp.md) — the full enforcement order, auth modes (shared-token / JWT, and what an mTLS proxy does and does not bind), the five drivers, the warehouse-side row filters `fluid apply` writes, rate-limit / circuit-breaker / audit internals.
 - [`fluid mcp` CLI reference](../cli/mcp.md) — the flags, with copy-paste examples.
 - [Governance](../advanced/governance.md) — `policy-check`, `policy-compile` and the access, classification and quality blocks.
 - [Agent policy](../concepts/agent-policy.md) — `agentPolicy` and where it is enforced.
