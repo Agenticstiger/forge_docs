@@ -415,7 +415,7 @@ The server speaks plain HTTP. Off loopback, terminate TLS in front of it (a reve
 
 ## Related guides
 
-- [Advanced MCP server guide](../advanced/mcp.md) — runtime governance, auth modes, drivers, IAM compilers, rate-limit / circuit-breaker / audit internals.
+- [Advanced MCP server guide](../advanced/mcp.md) — runtime governance, auth modes, drivers, the warehouse-side row filters `fluid apply` writes, rate-limit / circuit-breaker / audit internals.
 - [Walkthrough: MCP output port](../walkthrough/mcp-output-port.md) — serve the example DuckDB product end-to-end and watch PII masking + an agentPolicy deny in action.
 - [AI Forge And Data-Model Journeys](../walkthrough/ai-forge-data-model.md)
 - [Forge Memory Guide](../advanced/forge-copilot-memory.md)

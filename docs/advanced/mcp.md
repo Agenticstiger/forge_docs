@@ -387,7 +387,7 @@ A proxy in front of the gateway can require client certificates, which keeps hos
 
 - It reads them only when an auth mode is enforced: `jwt` with its three settings, or `shared-token` with `FLUID_MCP_AUTH_TOKEN` set. With `none`, or with neither configured, the middleware passes the request on without looking.
 - It copies them, unverified, into the request's caller attributes as `client_cn` and `client_fingerprint`, so the gateway must be reachable only through the proxy, and the proxy must overwrite any copy of those headers the client sends.
-- *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Neither attribute selects rows. A row filter reads the caller's `principal` and no other attribute, and the gateway no longer resolves the old `${caller.client_cn}` and `${caller.client_fingerprint}` placeholders of `policy.rowFilters` (the IAM compiler still does): a certificate is not a principal, so a certificate checked by a proxy does not decide which rows a caller reads. A client that names its own `client_cn` or `client_fingerprint` is ignored, in every auth mode.
+- *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Neither attribute selects rows. A row filter reads the caller's `principal` and no other attribute, and the gateway no longer resolves the old `${caller.client_cn}` and `${caller.client_fingerprint}` placeholders of `policy.rowFilters`: a certificate is not a principal, so a certificate checked by a proxy does not decide which rows a caller reads. A client that names its own `client_cn` or `client_fingerprint` is ignored, in every auth mode.
 - They never supply `model`, `use_case`, `tenant_id` or `jurisdiction`. Those come from the mapped claims of a verified JWT, or from the client's own declaration when no auth mode is enforced.
 - In 0.18.1 neither header is written to a `data_access` audit record.
 
@@ -526,6 +526,8 @@ sql may not call a function that reads a relation or runs a query given as text,
 
 A string literal that contains `u&"` or `u&'` is refused as well. The rule sits in the shared expression check, so it also applies to the contract expressions that the Snowflake planner and the Databricks Genie and metrics emitters read. The same check runs on every row filter predicate; see [Row-level security](#row-level-security-—-policy-authz-rowfilters).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* More Postgres functions are refused on every expose: those that read server files, the write-ahead log or logical-decoding changes, or touch the session, sequences, locks or other sessions. `query_sql`, the `query` expressions and the drivers' statement guard refuse `pg_read_*`, `pg_ls_*`, `pg_file_*`, the large-object functions, `pg_get_wal*`, `pg_logical*`, `pg_create_*`, `pg_advisory*`, `pg_try_advisory*`, `pg_sleep*`, `current_setting`, `nextval`, `setval`, `currval`, `lastval`, `pg_relation_filepath`, `pg_cancel_backend`, `pg_terminate_backend`, `pg_reload_conf`, `pg_switch_wal`, `pg_notify` and the replication-slot functions. A role allowed to call the file and write-ahead-log readers would read the rows a row filter withholds.
+
 ### Row-level security — `policy.authz.rowFilters`
 
 *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).*
@@ -595,7 +597,7 @@ To move a filter, write one `policy.authz.rowFilters` entry per principal, with 
   ```
 
   Read another table through its own expose.
-- **The exposed table's name under another schema or catalog is refused.** Write the table unqualified, or as the expose binds it. On DuckDB, `main` counts as the schema of an unqualified binding, so `main.customers` still reads the exposed table.
+- **The exposed table's name under another schema or catalog is refused.** Write the table unqualified, or as the expose binds it. On DuckDB, `main` counts as the schema of an unqualified binding, so `main.customers` still reads the exposed table. *On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* The catalog counts too: on DuckDB an unqualified binding's schema is `main` and its catalog is the database the binding opens, `memory` or the database file's name up to its first dot, so `memory.main.customers` reads the exposed table of an in-memory binding.
 
   ```text
   sql reads 'other.customers', a table of that name in another schema or catalog than the exposed table's; write the table unqualified or as the expose names it.
@@ -606,12 +608,48 @@ To move a filter, write one `policy.authz.rowFilters` entry per principal, with 
 - **Each Postgres request runs in its own read-only transaction, rolled back at the end.** The shared connection runs in autocommit, where its read-only flag applies to no statement and a session setting that one request changed would stay for the next. The per-request query timeout (`SET LOCAL statement_timeout`) takes effect in that transaction too.
 - **`query` parenthesises every term of its `WHERE`**, so an `OR` inside a metric-filter or a dimension expression stays inside its own term and the row filter is still ANDed to the result.
 
+#### What a caller a row filter narrows may write in `query_sql`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).*
+
+An engine may evaluate a caller's condition on a row the filter removes. An error there, such as a failed cast or a division by zero, would tell the caller that the row exists. So for a caller that a filter narrows, `query_sql` limits which functions it may call and which conditions it may write, and checks the types of the values a condition relates. A reader that no filter narrows is not limited. The `query_sql` tool's description states the same limits.
+
+**Functions.** A narrowed caller may call aggregates, window functions and each engine's common conditional, math, string, date, conversion, JSON and array functions, unqualified or under `pg_catalog`. These are refused:
+
+- any function that is not listed;
+- a function that another schema qualifies;
+- a quoted function name that differs from the listed one in case;
+- `OPERATOR(...)`;
+- the generators `generate_series`, `range`, `repeat`, `lpad` and `rpad`. Not every engine stops a statement at the gateway's timeout, and the row cap does not bound a string built per row.
+
+**Conditions.** Each WHERE, JOIN ON or USING, HAVING and QUALIFY condition is checked:
+
+- Every condition, and each operand of AND, OR, NOT and IS TRUE / IS FALSE, is a comparison (`=`, `<>`, `<`, `<=`, `>`, `>=`, `IS DISTINCT FROM`), `IN`, `BETWEEN`, `LIKE`, `ILIKE`, `IS NULL`, `EXISTS`, a column declared as a boolean, or TRUE or FALSE. A non-boolean value as a condition is cast row by row, so it is refused. `IS UNKNOWN` is refused.
+- The two values a comparison relates have one type, because a comparison between different types is cast row by row. Each `coalesce`, `IN` and `BETWEEN` operand is held to the same rules, and so are the members of a tuple.
+- A `USING` column must have one type on both sides, and `NATURAL` joins are refused. An `IN` subquery must return one value of the left side's type. A value that a subquery computes is refused.
+- A `VALUES` or `UNNEST` column, a computed value, and a JSON, array, map or struct value cannot be typed, so they are not compared.
+- `LIKE` and `ILIKE` take a string and a string literal pattern, with no `ESCAPE` clause and no backslash, since both fail on a value that meets the escape character. A literal `%` or `_` cannot be matched.
+- `lower` and `upper` take a string column or literal, and `coalesce` takes columns and constants of one type. Compute other values (casts, arithmetic, other functions) in the outer select list.
+
+**Types.** The gateway types each column by the table's own type, read from the engine's catalog: `pg_catalog` on Postgres, so a view, a materialized view, an enum, `citext` and a domain are typed, and `information_schema.columns` on the other engines. The lookup uses the current schema when the binding names none, and it is read again after five minutes.
+
+- A type that `contract.schema` declares must agree with the table's type, and a column the contract declares but the table lacks is refused. A column declared as a string but held as a number refuses the narrowed caller. Without a driver the declared type stands.
+- The type follows a column through CTEs and derived tables that select it unchanged. A derived table's column list is read by position, and an alias column list on a table reference is refused. A name the catalog reports with two types, or with a type the gateway does not type, is not compared.
+- A constant is a literal, a cast or an interval of one, or the current date or time. `DATE '2024-01-01'` and `CURRENT_DATE` are dates, a date plus or minus an integer is a date, `TIMESTAMP '...'` is a timestamp, and `now()` and `CURRENT_TIMESTAMP` are timestamps with a time zone. A date plus or minus an interval is not typed, because engines differ on whether the result is a date or a timestamp. Cast it: `CAST(CURRENT_DATE - INTERVAL '7' DAY AS DATE)`.
+- A date meets only a date, a timestamp only a timestamp, and a timestamp with a time zone only a timestamp with a time zone. A date column compared with `'2024-01-01'` is refused, so write `DATE '2024-01-01'`.
+- Exact numbers are compared as DECIMAL. An integer type is DECIMAL(d, 0), with d = 3, 5, 10, 19 and 39 for tinyint, smallint, int, bigint and hugeint, and a decimal literal is DECIMAL(its digits, its decimals). Two exact numbers meet only when the larger integer part plus the larger scale is at most 38 digits. A number of unknown precision, Postgres's unconstrained `numeric`, meets no other exact number until the table gives it a precision and scale. A float meets any number.
+
+**HAVING and QUALIFY.** Aggregates and window values see only the rows the filter keeps, so they compare freely. The other values of such a comparison are still typed. A HAVING name that a select-list alias could take is typed only when the column and the alias have one type.
+
+A refusal names the function or the condition as the caller wrote it, where the parser kept its position.
+
 #### Refusals
 
 - **A request that cannot be filtered is refused.** `RowFilterIdentityMissing` is the refusal for a caller without a principal that a filter or `readers` names. `RowFilterUnavailable` is the refusal on every call to an expose whose filter cannot be applied: a column that `contract.schema` does not declare, a malformed entry, a principal filtered twice, two filters whose derived names collide (set `name:` on one), a predicate that the engine would read differently, or the old `policy.rowFilters` key. A predicate that BigQuery or Spark would read differently is a double-quoted name, which is a string there, so write the name bare. `fluid generate iac` and `fluid apply` refuse a row filter with a double-quoted column name for BigQuery and Databricks as well, and check Lake Formation filters as Athena reads them.
 - **The caller sees a generic message.** The wire message is `Tool '<tool>' failed; see server audit trail for the full annotated error.` for both. The detail, which names the predicate and the principals, goes to the operator log and the audit record.
 - **A filter is checked as the engine reads it.** The same check refuses a predicate that holds the text `:p_`, because the gateway's bind markers are rewritten wherever they appear, and a predicate that holds the word `UNION`, `INTERSECT` or `EXCEPT`, because the statement guard reads string literals too.
-- **Without sqlglot, every row filter is refused.** An unchecked predicate is never applied. sqlglot is a base dependency of forge-cli, and the floor is 26.20. 26.16 and older record no identifier positions and refused every row filter; 26.17 to 26.19 record them but were not run.
+- **Without sqlglot, every row filter is refused.** An unchecked predicate is never applied. sqlglot is a base dependency of forge-cli. *On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* The floor is 30.1: releases before 30.1 refuse some valid `query_sql` reads on an expose with row filters (a DuckDB `EXISTS (FROM ...)` subquery, for one), and 26.16 and older record no identifier positions and refuse every row filter. Upgrade with `pip install --upgrade "sqlglot>=30.1"` or upgrade `data-product-forge`.
+- **An expose that holds an unresolved `$ref` is refused.** *On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* forge's loader resolves every reference, a pointer into the same document included, before `serve` reads a policy. A caller that hands the compiler an expose of its own (the Python functions `compile_semantic_query`, `compile_free_form_sql`, `row_filter_predicate` and `declares_row_filters`) could pass `policy: {$ref: ...}` unresolved, which read as no row filter. Every read path and the startup check now refuse an expose that is itself a `$ref`, or whose `policy`, `contract` or `contract.schema` entries hold one.
 
 `fluid mcp output-port serve` refuses to start an expose whose row filters no request could satisfy, and exits 2: over stdio, over HTTP without auth or with a shared token, and over HTTP with JWT auth when no claim is mapped to `principal`. It refuses too when the old `policy.rowFilters` key is present or a filter cannot be applied, as the engine of the binding reads it. Serve such an expose over HTTP with JWT auth and map the claim that carries a caller's principal:
 
@@ -628,11 +666,13 @@ Over HTTP with JWT auth and no claim mapped to `principal`, the message reads `.
 #### What a row filter does not cover
 
 - **The gateway's account reads the table.** A row filter limits what a caller reads through the gateway. The gateway reads the table with its own database role or cloud account, so keep that role narrow: see [The gateway's database role](#the-database-role-of-the-gateway).
-- **The error side channel is closed on Postgres only.** On other engines, a condition of the caller's own that fails on a row the filter withholds can still surface as an error.
-- **Timing remains.** How long a query runs can reflect rows that the filter withholds. The gateway does not hide it.
+- **The error side channel is closed by two layers.** On Postgres the filtered projection is a step of its own, and on every engine a caller that a filter narrows writes only the typed conditions above. *On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* What is not checked is the outer select list, the arguments of aggregates in HAVING, and an aggregate's `FILTER (WHERE ...)`. An engine that evaluates them before the filter could still raise on a withheld row. This is unverified and engine-dependent, and Snowflake is the likely case. Trino and Athena's evaluation order is unverified too.
+- **Timing remains.** How long a query runs can reflect rows that the filter withholds. The gateway does not hide it. The same holds for plan output, where an engine exposes it (an `EXPLAIN`-style channel).
 - **On Postgres, table sizes stay visible**, through functions such as `pg_relation_size`.
-- **The functions that `query_sql` refuses are a deny-list.** A function that the list does not name is not refused. An allowlist for filtered exposes is not part of this release.
-- **Direct warehouse access bypasses the gateway.** Anyone who connects to the warehouse with their own role is not filtered by it. The [cloud-IAM compilers](#cloud-iam-compilers-—-defending-the-bypass-path) and `fluid apply` write warehouse-side policy for that path.
+- **The function list covers a narrowed caller only.** *On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* A caller that a filter narrows may call listed functions only. The deny-list of Postgres functions stays as a second layer on every expose, and a reader no filter narrows is limited by it alone. Some listed names have no built-in on every engine: `cardinality`, `strlen` and `age` have none on Snowflake or BigQuery, so an unqualified call there can resolve to a function the operator created where the gateway's role looks up names. A caller cannot create one.
+- **The type rules refuse some comparisons an engine would run safely.** *On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* The 38-digit rule means a HUGEINT or a BIGNUMERIC meets no exact number, a Snowflake integer (`NUMBER(38,0)`) meets no fractional literal, and Postgres's unconstrained `numeric` meets no exact number. A float still meets all of them. On Postgres, an unconstrained `numeric` beyond a float's range (about 10^308) cannot be cast to one, and the `OFFSET 0` step keeps such a comparison off withheld rows.
+- **A column's type can be up to five minutes old.** The table's types are kept for five minutes, so a column whose type changes is typed by its old type until the next read. On Athena, the catalog read uses `current_schema`, which has not been verified on a live engine; if it fails, narrowed callers are refused.
+- **Direct warehouse access bypasses the gateway.** Anyone who connects to the warehouse with their own role is not filtered by it. `fluid apply` writes warehouse-side policy for that path; see [Cloud-IAM compilers](#cloud-iam-compilers-—-defending-the-bypass-path).
 
 ### The five engine drivers
 
@@ -654,13 +694,15 @@ The query compiler emits portable `:p_<index>` placeholders and each driver re-r
 
 The gateway reads the table as one database role or cloud account, whoever calls it. A row filter limits what a caller is shown; it does not limit what the gateway's own account can read. Give that account the least it needs, so that a statement a guard missed reaches no more than the exposed table.
 
-**PostgreSQL.** The driver connects with `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and optionally `POSTGRES_SSLMODE`. Set that role up as follows. The gateway does not check any of it:
+**PostgreSQL.** The driver connects with `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and optionally `POSTGRES_SSLMODE`. *On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* At connect, the driver checks whether the role is privileged: a superuser, or a member, directly or through another role, of `pg_read_server_files`, `pg_write_server_files`, `pg_execute_server_program`, `pg_monitor`, `pg_read_all_data`, `pg_read_all_settings` or `pg_read_all_stats`. If it is, every read of an expose with row filters is refused with that reason, and any other expose logs a warning. A connection is kept only once its check has passed, so a check that failed runs again on the next request. Nothing else about the role is checked. Set it up as follows:
 
-- It is not a superuser, and holds none of the predefined roles that read beyond the granted tables (`pg_read_all_data`, `pg_read_all_stats`, `pg_monitor`).
+- It is not a superuser, and holds none of the predefined roles above, which read beyond the granted tables, run programs or read server files.
+- Any extension that adds functions (`pageinspect`, `dblink` and others) is installed in a schema the role cannot use.
 - It owns nothing and creates nothing: no `CREATE` on any schema, and no `pageinspect`, `dblink` or other extension function granted to it.
 - It holds `SELECT` on the exposed tables and `USAGE` on their schema, and nothing else.
-- Its `search_path` is fixed on the role, so a table name written without a schema always means the exposed table's schema, whatever a session sets.
+- Its `search_path` is fixed on the role, so a table name written without a schema always means the exposed table's schema, whatever a session sets. The schema holds no function that the operator created under the name of a listed function, because an unqualified call would resolve to it.
 - `default_transaction_read_only` is on for the role. The gateway already runs each request in a read-only transaction; the setting is a second layer that does not depend on it.
+- `EXECUTE` is revoked from `PUBLIC` on the dangerous built-in functions, such as those listed under [Postgres functions that read past the projection](#postgres-functions-that-read-past-the-projection).
 
 ```sql
 CREATE ROLE fluid_gateway LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
@@ -672,7 +714,7 @@ GRANT SELECT ON analytics.customers TO fluid_gateway;
 
 Set its password outside this script. The role name, schema and table are examples.
 
-**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member with an `accessPolicy` grant of any permission, write grants included, or listed in `policy.authz.readers`. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, and name it in no row filter, because a filter narrows every identity it names. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
+**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member with an `accessPolicy` grant of any permission, write grants included, or listed in `policy.authz.readers`. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, so the service account resolves to a grant on the expose, and name it in no row filter, because a filter narrows every identity it names. Without the grant, BigQuery returns the gateway no rows once `fluid apply` writes the row access policies. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
 
 ```yaml
 # top level of the contract, beside exposes:
@@ -684,18 +726,16 @@ accessPolicy:
 
 ### Cloud-IAM compilers — defending the bypass path
 
-The gateway only governs traffic *through* it. An analyst querying the warehouse directly with their own role is a bypass. `fluid_build.output_ports.iam_compiler` closes that gap by compiling `agentPolicy` and row filters into **cloud-native** policy you apply warehouse-side. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The compiler still reads the old `policy.rowFilters` key with its `${caller.*}` placeholders, which the gateway no longer reads and no schema declares. For a contract that declares `policy.authz.rowFilters`, `fluid apply` writes the warehouse-side policy for BigQuery, Lake Formation and Unity Catalog; the Snowflake provider reads no row filters. See [Row-level security](#row-level-security-—-policy-authz-rowfilters).
+The gateway only governs traffic *through* it. An analyst querying the warehouse directly with their own role is a bypass, and the warehouse's own policy closes that gap. *On forge-cli `main`, not yet in a release ([forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109)).* The Python module `fluid_build.output_ports.iam_compiler` is removed. Nothing called it, and it compiled row filters from the old `policy.rowFilters` key, which no contract schema allows and the gateway refuses. For a contract that declares `policy.authz.rowFilters`, `fluid apply` writes the filters into the warehouse:
 
-The compiler emits, per target:
-
-| Target | Emits |
+| Target | What `fluid apply` writes from `policy.authz.rowFilters` |
 | --- | --- |
-| **Snowflake** | `CREATE OR REPLACE ROW ACCESS POLICY … RETURNS BOOLEAN` + `ALTER TABLE … ADD ROW ACCESS POLICY`. `${caller.role}` → `CURRENT_ROLE()`, `${caller.user}` → `CURRENT_USER()`; `allowedModels` → `CURRENT_ROLE() IN ('FLUID_MODEL_<MODEL>', …)`. |
-| **PostgreSQL** | `ALTER TABLE … ENABLE ROW LEVEL SECURITY` + `CREATE POLICY … FOR SELECT USING (…)`, mapping `${caller.user}` → `current_user`, `${caller.role}` → `current_role`. |
-| **BigQuery** | `CREATE OR REPLACE ROW ACCESS POLICY … GRANT TO (…) FILTER USING (…)`, with `${caller.user}` → `SESSION_USER()` and `allowedModels` → `serviceAccount:fluid-mcp-<model>@<project>.iam.gserviceaccount.com` grantees. |
-| **AWS Lake Formation** | A runnable **boto3 script** (Lake Formation has no SQL surface): `create_data_cells_filter` (row-level rule) + `grant_permissions` to per-LLM IAM roles `arn:aws:iam::<ACCOUNT>:role/fluid-mcp-<model>`. Paste into CDK/Terraform or run directly. |
+| **BigQuery** | A row access policy per filter, and `fluid_all_rows` for the other members with a grant. See [Row filters](../providers/gcp.md#row-filters) on GCP. |
+| **AWS Lake Formation** | A data cells filter. |
+| **Databricks Unity Catalog** | A row filter. |
+| **Snowflake, PostgreSQL** | Nothing. The Snowflake provider reads no row filters. |
 
-Each `CompiledPolicy` carries a `warnings` list naming the `agentPolicy` fields the target can't enforce natively (e.g. a `${caller.tenant_id}` with no warehouse primitive), so operators know exactly which gap to plug with another control.
+`fluid generate iac` and `fluid apply` refuse a row filter that the platform's engine would read differently. See [Row-level security](#row-level-security-—-policy-authz-rowfilters).
 
 ### Resilience — rate limit, circuit breaker, backpressure
 
@@ -778,7 +818,7 @@ This is **defence-in-depth** — every layer stops a different failure:
 | Bearer token (`FLUID_MCP_AUTH_TOKEN`) | A leaked client cert (attacker also needs the secret) | Proxy **and** gateway |
 | `agentPolicy.allowedModels` / `allowedUseCases` | A legitimate client running an unapproved model / use case | Gateway (per-`tools/call`) |
 | `policy.authz.rowFilters[]` | A legitimate client bound to a different tenant | *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Gateway (per-row `WHERE`, by the principal of a verified JWT claim) |
-| Cloud row-access policy (IAM compiler) | Bypass-the-gateway direct warehouse reads | Cloud (warehouse-side) |
+| Cloud row-access policy (`fluid apply`) | Bypass-the-gateway direct warehouse reads | Cloud (warehouse-side) |
 
 The `agentPolicy` row and the row-filter row tell a legitimate client from another one only when the caller's identity is verified, which is `FLUID_MCP_AUTH_MODE=jwt`. Behind the shared token the gateway drops what the client declares about itself, and a client certificate supplies none of those attributes; see [Authentication modes](#authentication-modes).
 
