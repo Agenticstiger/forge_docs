@@ -397,7 +397,7 @@ Normalization rules:
 Invalid hostnames such as `https://example.com` fail fast with a validation error instead of being silently misparsed.
 
 ::: warning `SNOWFLAKE_ACCOUNT` on the `fluid apply` path — changed in `0.15.0`
-The generated OpenTofu module pins `snowflakedb/snowflake ~> 2.0` (see below for 2.23), and from the v2
+The generated OpenTofu module pins `snowflakedb/snowflake` (the current constraint is at the end of this note), and from the v2
 provider the bare `account` field is gated behind the
 `PROVIDER_CONFIGURATION_ACCOUNT_FALLBACK` experiment: the provider **errors the
 moment it sees `SNOWFLAKE_ACCOUNT`**, whether or not the v2
@@ -444,7 +444,9 @@ Every form listed above remains valid for the **connection** credentials fluid i
 opens (`fluid auth status snowflake`, discovery, dbt). This applies only to the
 OpenTofu apply path.
 
-*(since 0.31.0, [forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901))* The pin is `~> 2.23`. 2.23 adds the `token_file_path` field, which OAuth, PAT and OIDC workload identity read a token from.
+*(since 0.31.0, [forge-cli #901](https://github.com/Agenticstiger/forge-cli/pull/901))* The pin was `~> 2.23`. 2.23 adds the `token_file_path` field, which OAuth, PAT and OIDC workload identity read a token from.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1108](https://github.com/Agenticstiger/forge-cli/pull/1108)).* The pin is `~> 2.23.0`, which holds the provider below 2.24, so a fresh workspace resolves to 2.23.x. Provider 2.24 reworked the preview `snowflake_table` resource (`column.nullable` became `column.not_null`), which forge does not emit yet, and `tofu validate` refused the output for a table with columns. The resources the emitter writes are unchanged. The move to 2.24 comes with the emitter change.
 :::
 
 ### Workload identity federation
