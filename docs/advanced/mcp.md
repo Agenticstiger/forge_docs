@@ -240,7 +240,7 @@ exposes:
         auditRequired: true
 ```
 
-Row filters are read from `policy.authz.rowFilters`: see [Row-level security](#row-level-security-—-policy-authz-rowfilters).
+*On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Row filters are read from `policy.authz.rowFilters`: see [Row-level security](#row-level-security-—-policy-authz-rowfilters).
 
 ### Per-`tools/call` enforcement order
 
@@ -263,13 +263,13 @@ Over **stdio**, the caller's `model` and `useCase` are self-attested, and a bugg
 {"capabilities": {"experimental": {"fluid": {"model": "claude-haiku-4-5-20251001", "useCase": "analysis", "tenant_id": "t1"}}}}
 ```
 
-Any other key in that block becomes a caller attribute. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Two kinds of attribute are the exception: `principal`, which decides the rows a caller reads, and the client-certificate attributes bind only from a verified credential, so a client that names its own is ignored in every auth mode. Whenever a model or use-case gate is active, the gateway prints this notice at startup:
+Any other key in that block becomes a caller attribute. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Two kinds of attribute are the exception: `principal`, which decides the rows a caller reads, binds only from a JWT claim mapped to it, and the certificate attributes bind only from the headers of a trusted proxy. A client that names its own is ignored in every auth mode. Whenever a model or use-case gate is active, the gateway prints this notice at startup:
 
 ```text
 ⚠️  fluid mcp output-port: caller model_id is self-attested via MCP clientInfo. Do not expose this gateway over an untrusted network until P3 (OAuth/mTLS identity) ships. See https://agenticstiger.github.io/forge_docs/concepts/agent-policy.html
 ```
 
-The notice is printed whatever the transport and auth mode. Its "until P3 ships" wording predates the JWT mode: over **HTTP** with `FLUID_MCP_AUTH_MODE=jwt`, identity is cryptographically bound, because the verified JWT claims then *replace* self-attestation for the model and use-case gates, the row-filter principal and the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0). A client certificate checked by a proxy does not bind identity; see [mTLS authenticates the connection](#authentication-modes) under Authentication modes.
+The notice is printed whatever the transport and auth mode. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The row-filter principal binds from the verified claim in the same way. Its "until P3 ships" wording predates the JWT mode: over **HTTP** with `FLUID_MCP_AUTH_MODE=jwt`, identity is cryptographically bound, because the verified JWT claims then *replace* self-attestation for the model and use-case gates, and the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0). A client certificate checked by a proxy does not bind identity; see [mTLS authenticates the connection](#authentication-modes) under Authentication modes.
 :::
 
 ### agentPolicy runtime gates
@@ -387,7 +387,7 @@ A proxy in front of the gateway can require client certificates, which keeps hos
 
 - It reads them only when an auth mode is enforced: `jwt` with its three settings, or `shared-token` with `FLUID_MCP_AUTH_TOKEN` set. With `none`, or with neither configured, the middleware passes the request on without looking.
 - It copies them, unverified, into the request's caller attributes as `client_cn` and `client_fingerprint`, so the gateway must be reachable only through the proxy, and the proxy must overwrite any copy of those headers the client sends.
-- *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Neither attribute selects rows. A row filter reads the caller's `principal` and no other attribute, and the old `${caller.client_cn}` and `${caller.client_fingerprint}` placeholders of `policy.rowFilters` are gone with that key: a certificate is not a principal, so a certificate checked by a proxy does not decide which rows a caller reads. A client that names its own `client_cn` or `client_fingerprint` is ignored, in every auth mode.
+- *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Neither attribute selects rows. A row filter reads the caller's `principal` and no other attribute, and the gateway no longer resolves the old `${caller.client_cn}` and `${caller.client_fingerprint}` placeholders of `policy.rowFilters` (the IAM compiler still does): a certificate is not a principal, so a certificate checked by a proxy does not decide which rows a caller reads. A client that names its own `client_cn` or `client_fingerprint` is ignored, in every auth mode.
 - They never supply `model`, `use_case`, `tenant_id` or `jurisdiction`. Those come from the mapped claims of a verified JWT, or from the client's own declaration when no auth mode is enforced.
 - In 0.18.1 neither header is written to a `data_access` audit record.
 
@@ -400,10 +400,10 @@ Without an auth mode, the gateway is unauthenticated whatever the proxy does: a 
 
 | Claim | `caller_attributes` key | Why it is load-bearing |
 | --- | --- | --- |
-| `sub` | `sub` | Attributes each call on the audit trail. A row filter does not read it: map a claim to `principal` for that. |
+| `sub` | `sub` | *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Kept as a caller attribute. The gateway reads nothing from it, and a row filter does not read it: map a claim to `principal` for that. |
 | `model` | `model` | Input to the `agentPolicy` model gate. |
 | `use_case` | `use_case` | Input to the `agentPolicy` use-case gate. |
-| `tenant_id` | `tenant_id` | Kept as a caller attribute. A row filter does not read it: map a claim to `principal` for that. |
+| `tenant_id` | `tenant_id` | *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Kept as a caller attribute. The gateway reads nothing from it, and a row filter does not read it: map a claim to `principal` for that. |
 | `jurisdiction` | `jurisdiction` | *(since 0.15.0)* The verified claim the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0) reads. |
 
 *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* No claim maps to `principal` by default. Add one, for example `FLUID_MCP_JWT_CLAIM_MAPPING=groups=principal`, on a gateway that serves an expose with `policy.authz.rowFilters`. A claim that holds a list gives the caller every principal in it.
@@ -498,7 +498,7 @@ SELECT to_json(c) AS row_json FROM customers AS c LIMIT 1
 -> {"customer_id":1,"segment":"retail","amount":10,"tenant_id":"t1"}
 ```
 
-A statement that names `ssn` or `email` is still refused by name. What the statement may read from is limited as well. Each of these is refused on such an expose, with the message shown:
+A statement that names `ssn` or `email` is still refused by name. What the statement may read from is limited as well. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The messages below say "columns or rows", since a filtered expose is limited the same way. Each of these is refused on such an expose, with the message shown:
 
 | Statement | Refusal |
 | --- | --- |
@@ -530,7 +530,7 @@ A string literal that contains `u&"` or `u&'` is refused as well. The rule sits 
 
 *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).*
 
-The gateway enforces `exposes[].policy.authz.rowFilters[]` on `sample`, `query` and `query_sql`. Each entry is `{principal, where, name?}`: the principal reads only the rows its `where` predicate selects. The key is in contract schema `0.7.6` (preview) and later, not in `0.7.5`, so the contract needs `fluidVersion: "0.7.6"`. It is the key that `fluid apply` writes into a BigQuery row access policy, a Lake Formation data cells filter or a Unity Catalog row filter, and the gateway reads it with the same parser. See [Row filters](../providers/gcp.md#row-filters) on GCP.
+The gateway enforces `exposes[].policy.authz.rowFilters[]` on `sample`, `query` and `query_sql`. Each entry is `{principal, where, name?}`: the principal reads only the rows its `where` predicate selects. The key is in contract schema `0.7.6`, the stable default, and `0.7.7` (preview), not in `0.7.5`, so the contract needs `fluidVersion: "0.7.6"` or later. It is the key that `fluid apply` writes into a BigQuery row access policy, a Lake Formation data cells filter or a Unity Catalog row filter, and the gateway reads it with the same parser. See [Row filters](../providers/gcp.md#row-filters) on GCP.
 
 ```yaml
 exposes:
@@ -552,6 +552,7 @@ exposes:
 
 ```text
 ❌ Invalid FLUID contract (1 error(s)) (schema v0.7.6)
+Validation completed in 0.003s
 
 Validation Errors:
 ==================
@@ -571,13 +572,13 @@ To move a filter, write one `policy.authz.rowFilters` entry per principal, with 
 
 - **The principal comes from a verified JWT claim.** The caller attribute `principal`, one value or a list, is matched against the `principal` of each filter and against `policy.authz.readers`. It binds only from a JWT claim mapped to it, `FLUID_MCP_JWT_CLAIM_MAPPING=<claim>=principal` (see [Authentication modes](#authentication-modes)). A client that states its own `principal`, in `clientInfo` or in its `fluid` capability block, is dropped in every auth mode, so a client cannot pick its own filter or a reader's every row.
 - **A caller reads the union of the filters that name its principals.** BigQuery combines row access policies the same way. A caller with two principals reads the rows of either predicate.
-- **A reader no filter names reads every row.** A principal in `policy.authz.readers` that no filter names reads every row. A caller with any such principal reads every row, whatever its other principals are filtered to.
+- **A reader no filter names reads every row.** A principal in `policy.authz.readers` that no filter names reads every row. A caller with any such principal reads every row, whatever its other principals are filtered to, and it reads the plain statement: undeclared columns and other relations are not fenced for it (see below).
 - **A caller no filter or reader names is refused.** A request with no principal, or with principals that neither a filter nor `readers` names, gets `RowFilterIdentityMissing`. The gateway cannot tell an unfiltered reader from a filtered principal it does not know, so it serves neither.
 - **`accessPolicy` grantees and `binding.principals` are not consulted.** To read every row through the gateway, a principal must be in `policy.authz.readers`.
 
 #### What the gateway applies
 
-- **Every read of the table is filtered, wherever it sits.** The gateway reads the table through `(SELECT <allowed columns> FROM <table> AS _fluid_rows WHERE <predicate>)`, the projection that [column restrictions](#restricted-columns-on-the-query-tools) already use. `sample` filters its scan, `query` reads the projection as `_fluid_allowed`, and `query_sql` has every reference to the exposed table replaced by it. A subquery, a CTE, a branch of a set operation and a second reference to the table each see only the caller's rows. The predicate's columns are qualified with `_fluid_rows`, so none of them resolves to a column of the caller's own statement:
+- **Every read of the table is filtered, wherever it sits.** The gateway reads the table through `(SELECT <allowed columns> FROM <table> AS _fluid_rows WHERE <predicate>)`, the projection that [column restrictions](#restricted-columns-on-the-query-tools) already use. `sample` filters its scan, `query` reads the projection as `_fluid_allowed`, and `query_sql` has every reference to the exposed table replaced by it. The projection is applied at every place the table is read, so a second reference (a self-join) sees only the caller's rows. A subquery, a CTE or a set operation is refused earlier, as an invalid SQL expression. The predicate's columns are qualified with `_fluid_rows`, so none of them resolves to a column of the caller's own statement:
 
   ```text
   SELECT * FROM customers
@@ -586,8 +587,8 @@ To move a filter, write one `policy.authz.rowFilters` entry per principal, with 
   ```
 
   The statement that the result shows the caller reads `(<row filter>)` in place of the predicate. `describe` does not return `policy.authz`, and the `expose.json` and `contract.yaml` resources omit it too.
-- **The query tools read only the declared columns.** On an expose with row filters, `query` and `query_sql` read only the columns that `contract.schema` declares, as they do on an expose with column restrictions, and they need plain-identifier column names there.
-- **`query_sql` reads only the exposed table.** On an expose that restricts columns or filters rows, a statement may read the exposed table, a CTE of its own where that CTE is in scope, `VALUES` and `UNNEST`. A join with another table, a catalog view and any other relation are refused, because a catalog view holds values from every row and column of the table, which the projection does not cover:
+- **The query tools read only the declared columns.** For a caller that a filter limits, `query` and `query_sql` read only the columns `contract.schema` declares, and `query_sql` reads only the exposed table, its own CTEs, `VALUES` and `UNNEST`. A reader that no filter names reads the plain statement: undeclared columns and other relations are not fenced for it, so keep `policy.authz.readers` to principals that may see the whole table. They need plain-identifier column names there. `sample` returns every column of the filtered scan, so it is not limited to the declared columns.
+- **`query_sql` reads only the exposed table.** For a caller that a filter limits, and on an expose that restricts columns, a statement may read the exposed table, a CTE of its own where that CTE is in scope, `VALUES` and `UNNEST`. A join with another table, a catalog view and any other relation are refused, because a catalog view holds values from every row and column of the table, which the projection does not cover:
 
   ```text
   sql reads 'pg_stats'; on an expose that restricts columns or rows a statement reads only the exposed table, its own CTEs, VALUES and UNNEST.
@@ -599,7 +600,7 @@ To move a filter, write one `policy.authz.rowFilters` entry per principal, with 
   ```text
   sql reads 'other.customers', a table of that name in another schema or catalog than the exposed table's; write the table unqualified or as the expose names it.
   ```
-- **Functions that read past the projection are refused on every expose.** `query_sql`, the `query` expressions and the drivers' statement guard refuse the Postgres functions that run a query given as text, the catalog and statistics functions, and the other functions listed under [Postgres functions that read past the projection](#postgres-functions-that-read-past-the-projection), beside the XML functions. A name or a string written with Unicode escapes is refused too.
+- **Functions that read past the projection are refused on every expose.** `query_sql`, the `query` expressions and the drivers' statement guard refuse the Postgres functions that run a query given as text, the statistics functions (`pg_stat*`, `pgstat*`), and the other functions listed under [Postgres functions that read past the projection](#postgres-functions-that-read-past-the-projection), beside the XML functions. A name or a string written with Unicode escapes is refused too.
 - **The whole statement is checked.** The keyword and character checks and the drivers' statement guard read everything after the leading `SELECT`, including text written directly against the keyword.
 - **On Postgres the filtered projection is a step of its own.** The statement ends the projection with `OFFSET 0`. Postgres can otherwise merge the projection into the caller's statement and evaluate the caller's conditions on rows the filter removes, where a failing cast or a division by zero would tell the caller that such a row exists.
 - **Each Postgres request runs in its own read-only transaction, rolled back at the end.** The shared connection runs in autocommit, where its read-only flag applies to no statement and a session setting that one request changed would stay for the next. The per-request query timeout (`SET LOCAL statement_timeout`) takes effect in that transaction too.
@@ -607,10 +608,10 @@ To move a filter, write one `policy.authz.rowFilters` entry per principal, with 
 
 #### Refusals
 
-- **A request that cannot be filtered is refused.** `RowFilterIdentityMissing` is the refusal for a caller without a principal that a filter or `readers` names. `RowFilterUnavailable` is the refusal on every call to an expose whose filter cannot be applied: a column that `contract.schema` does not declare, a malformed entry, a principal filtered twice, two filters whose derived names collide (set `name:` on one), a predicate that the engine would read differently, or the old `policy.rowFilters` key. A predicate that BigQuery or Spark would read differently is a double-quoted name, which is a string there, so write the name bare. `fluid generate iac` and `fluid apply` refuse a row filter with a double-quoted column name for BigQuery and Databricks as well.
+- **A request that cannot be filtered is refused.** `RowFilterIdentityMissing` is the refusal for a caller without a principal that a filter or `readers` names. `RowFilterUnavailable` is the refusal on every call to an expose whose filter cannot be applied: a column that `contract.schema` does not declare, a malformed entry, a principal filtered twice, two filters whose derived names collide (set `name:` on one), a predicate that the engine would read differently, or the old `policy.rowFilters` key. A predicate that BigQuery or Spark would read differently is a double-quoted name, which is a string there, so write the name bare. `fluid generate iac` and `fluid apply` refuse a row filter with a double-quoted column name for BigQuery and Databricks as well, and check Lake Formation filters as Athena reads them.
 - **The caller sees a generic message.** The wire message is `Tool '<tool>' failed; see server audit trail for the full annotated error.` for both. The detail, which names the predicate and the principals, goes to the operator log and the audit record.
 - **A filter is checked as the engine reads it.** The same check refuses a predicate that holds the text `:p_`, because the gateway's bind markers are rewritten wherever they appear, and a predicate that holds the word `UNION`, `INTERSECT` or `EXCEPT`, because the statement guard reads string literals too.
-- **Without sqlglot, every row filter is refused.** An unchecked predicate is never applied. sqlglot is a base dependency of forge-cli, and the floor is 26.20. Older releases record no identifier positions and refused every row filter. Releases 26.17 to 26.19 were not run.
+- **Without sqlglot, every row filter is refused.** An unchecked predicate is never applied. sqlglot is a base dependency of forge-cli, and the floor is 26.20. 26.16 and older record no identifier positions and refused every row filter; 26.17 to 26.19 record them but were not run.
 
 `fluid mcp output-port serve` refuses to start an expose whose row filters no request could satisfy, and exits 2: over stdio, over HTTP without auth or with a shared token, and over HTTP with JWT auth when no claim is mapped to `principal`. It refuses too when the old `policy.rowFilters` key is present or a filter cannot be applied, as the engine of the binding reads it. Serve such an expose over HTTP with JWT auth and map the claim that carries a caller's principal:
 
@@ -628,7 +629,7 @@ Over HTTP with JWT auth and no claim mapped to `principal`, the message reads `.
 
 - **The gateway's account reads the table.** A row filter limits what a caller reads through the gateway. The gateway reads the table with its own database role or cloud account, so keep that role narrow: see [The gateway's database role](#the-database-role-of-the-gateway).
 - **The error side channel is closed on Postgres only.** On other engines, a condition of the caller's own that fails on a row the filter withholds can still surface as an error.
-- **Timing and planner output remain.** A query's run time, and the planner's estimates and statistics, can reflect rows that the filter withholds. The gateway does not hide them.
+- **Timing remains.** How long a query runs can reflect rows that the filter withholds. The gateway does not hide it.
 - **On Postgres, table sizes stay visible**, through functions such as `pg_relation_size`.
 - **The functions that `query_sql` refuses are a deny-list.** A function that the list does not name is not refused. An allowlist for filtered exposes is not part of this release.
 - **Direct warehouse access bypasses the gateway.** Anyone who connects to the warehouse with their own role is not filtered by it. The [cloud-IAM compilers](#cloud-iam-compilers-—-defending-the-bypass-path) and `fluid apply` write warehouse-side policy for that path.
@@ -642,7 +643,7 @@ Drivers are keyed on `(binding.platform, binding.format)` and built lazily, so `
 | **DuckDB** | `local` / `{csv, parquet, json, other}` | Reference driver — no credentials. Opens the file read-only (or `:memory:`), auto-creates a view over `read_csv_auto` / `read_parquet` / `read_json_auto`. The same engine the `local` provider uses, so a locally-developed contract serves over MCP unchanged. Since 0.18.0 the connection runs in the [DuckDB sandbox](./duckdb-sandbox.md#what-each-kind-of-sql-can-reach) and can read only the bound file; two DuckDB drivers bound to the same `.duckdb` file in one process conflict. |
 | **BigQuery** | `gcp` / `bigquery_table` | `@p_<index>` parameters; honours `--query-timeout-seconds`. |
 | **Snowflake** | `snowflake` / `snowflake_table` | `%(p_<index>)s` (DB-API `pyformat`) parameters; honours `--query-timeout-seconds`. |
-| **PostgreSQL** | `postgres` / `{postgres_table, table}` | psycopg v3; the connection is read-only, and *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* each request runs in a read-only transaction of its own that is rolled back at the end; per-request timeout via `SET LOCAL statement_timeout`; `%(p_<index>)s` parameter rewrite. |
+| **PostgreSQL** | `postgres` / `{postgres_table, table}` | psycopg v3; *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* each request runs in a read-only transaction of its own that is rolled back at the end; per-request timeout via `SET LOCAL statement_timeout`; `%(p_<index>)s` parameter rewrite. |
 | **AWS Athena** | `aws` / `{athena_table, glue_table}` | boto3 default credential chain (env / `~/.aws/credentials` / IAM role / OIDC) — no long-lived keys baked in. `StartQueryExecution` → poll `GetQueryExecution` → page `GetQueryResults`; parameterised via `ExecutionParameters`; optional `workgroup` from the binding or `ATHENA_WORKGROUP`. |
 
 The query compiler emits portable `:p_<index>` placeholders and each driver re-renders them to its dialect; every interpolated identifier passes through `_sql_safety.validate_ident`, and the rendered statement is swept for injection markers (`;`, `--`, `/*`, `*/`) and banned keywords (`UNION`, `DROP`, …) as defence-in-depth.
@@ -671,9 +672,10 @@ GRANT SELECT ON analytics.customers TO fluid_gateway;
 
 Set its password outside this script. The role name, schema and table are examples.
 
-**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member that has a grant on the expose, through an `accessPolicy` grant or `policy.authz.readers`. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, and name it in no row filter, because a filter narrows every identity it names. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
+**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member that has a grant on the expose, through an `accessPolicy` grant or `policy.authz.readers`, writers included. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, and name it in no row filter, because a filter narrows every identity it names. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
 
 ```yaml
+# top level of the contract, beside exposes:
 accessPolicy:
   grants:
     - principal: "serviceAccount:fluid-gateway@my-project-id.iam.gserviceaccount.com"
@@ -682,7 +684,7 @@ accessPolicy:
 
 ### Cloud-IAM compilers — defending the bypass path
 
-The gateway only governs traffic *through* it. An analyst querying the warehouse directly with their own role is a bypass. `fluid_build.output_ports.iam_compiler` closes that gap by compiling `agentPolicy` and row filters into **cloud-native** policy you apply warehouse-side. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The compiler still reads the old `policy.rowFilters` key with its `${caller.*}` placeholders, which the gateway no longer reads and no schema declares. For a contract that declares `policy.authz.rowFilters`, `fluid apply` writes the warehouse-side policy; see [Row-level security](#row-level-security-—-policy-authz-rowfilters).
+The gateway only governs traffic *through* it. An analyst querying the warehouse directly with their own role is a bypass. `fluid_build.output_ports.iam_compiler` closes that gap by compiling `agentPolicy` and row filters into **cloud-native** policy you apply warehouse-side. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The compiler still reads the old `policy.rowFilters` key with its `${caller.*}` placeholders, which the gateway no longer reads and no schema declares. For a contract that declares `policy.authz.rowFilters`, `fluid apply` writes the warehouse-side policy for BigQuery, Lake Formation and Unity Catalog; the Snowflake provider reads no row filters. See [Row-level security](#row-level-security-—-policy-authz-rowfilters).
 
 The compiler emits, per target:
 
@@ -775,7 +777,7 @@ This is **defence-in-depth** — every layer stops a different failure:
 | mTLS client cert | Random network attackers (no valid cert) | Proxy |
 | Bearer token (`FLUID_MCP_AUTH_TOKEN`) | A leaked client cert (attacker also needs the secret) | Proxy **and** gateway |
 | `agentPolicy.allowedModels` / `allowedUseCases` | A legitimate client running an unapproved model / use case | Gateway (per-`tools/call`) |
-| `policy.authz.rowFilters[]` | A legitimate client bound to a different tenant | Gateway (per-row `WHERE`, by the principal of a verified JWT claim) |
+| `policy.authz.rowFilters[]` | A legitimate client bound to a different tenant | Gateway (per-row `WHERE`, by the principal of a verified JWT claim). *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* |
 | Cloud row-access policy (IAM compiler) | Bypass-the-gateway direct warehouse reads | Cloud (warehouse-side) |
 
 The `agentPolicy` row and the row-filter row tell a legitimate client from another one only when the caller's identity is verified, which is `FLUID_MCP_AUTH_MODE=jwt`. Behind the shared token the gateway drops what the client declares about itself, and a client certificate supplies none of those attributes; see [Authentication modes](#authentication-modes).

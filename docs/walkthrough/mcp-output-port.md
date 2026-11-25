@@ -29,7 +29,7 @@ No cloud account, no credentials, no cost. Everything runs on DuckDB reading a l
 - The four agent tools: `describe`, `sample`, `query`, and the gated `query_sql`.
 - How `sensitivity: pii` redacts **values** while keeping the column **visible**.
 - How `agentPolicy.allowedModels` gates which LLM may read the product — enforced at runtime, from the contract.
-- How row filters are declared (`policy.authz.rowFilters`), and which key the gateway no longer reads (`policy.rowFilters`).
+- *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* How row filters are declared (`policy.authz.rowFilters`), and which key the gateway no longer reads (`policy.rowFilters`).
 - Where to go for production HTTP + mTLS.
 
 ---
