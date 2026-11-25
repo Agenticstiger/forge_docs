@@ -270,6 +270,7 @@ For each environment, the command prints:
 - the release **in force**: now, or at the start of the `--on` day. This is the latest intact release sealed before that moment.
 - the releases **sealed during** the `--on` day, if any.
 - for each release, its expose versions, its release id, when it was sealed, the run that sealed it, the environment, the forge version, the `code` line (revision, repository and ref) and its `bundle` digest.
+- *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* one `external` line for each file the release sealed with [`fluid ship --artifacts`](./ship.md#sealing-external-files): its name, kind and sha256, and the repository, ref and commit it was built from. With `--json`, each release has an `external` list with `name`, `kind`, `sha256`, `source` and `commit`.
 - a "Not in force" block for later records that are not intact (see below).
 - a `not read` line for each kind of entry that was skipped, with a count.
 
@@ -327,12 +328,13 @@ Text taken from a record is cleaned of control characters and cut, so a record c
 
 ### What `release.json` holds
 
-`fluid ship --release-dir` writes `release.json` (schema `fluid-release/1`) last into a directory that is then renamed into place and never changed. Two parts of it are what `runs status` reads. *(since 0.37.0)*
+`fluid ship --release-dir` writes `release.json` (schema `fluid-release/1`) last into a directory that is then renamed into place and never changed. These parts of it are what `runs status` reads. *(since 0.37.0)*
 
 | Field | Holds |
 | --- | --- |
 | `identity.expose_versions` | The version of each expose, by expose id. |
 | `provenance.source` | `revision`, `repository` and `ref`, read from the CI system's own variables. |
+| `identity.external` | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* The external files the release sealed (`fluid ship --artifacts`): each one's `name`, `kind`, `digest.sha256`, and its `source` as `uri` (`git+<repo>@<ref>`) and `digest.gitCommit`. See [Sealing external files](./ship.md#sealing-external-files). |
 
 `provenance.source` is filled from the first CI system whose run variable is set:
 

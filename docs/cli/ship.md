@@ -65,6 +65,7 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--no-generate-artifacts` | | | Skips stage 3. |
 | `--require-artifacts <keys>` | | | *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
 | `--release-dir <dir>` | | | *(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
+| `--artifacts <lock>` | `RELEASE_ARTIFACTS` | | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* Seals the external files the lock lists into the release. Needs `--release-dir`, and the variable is read only by a run that seals a release. See [Sealing external files](#sealing-external-files). |
 | `--journal-dir <dir>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
 | `--acknowledge-inspected <stage>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Reruns a stage whose unknown outcome you inspected, and records it. Name or number; repeatable or comma-separated. |
 | `--publish` | | | Runs stage 10. |
@@ -171,13 +172,74 @@ The flag is added whether or not `--no-verify-strict` drops `--strict`. A run th
 | Key | Holds |
 |---|---|
 | `schema` | `fluid-release/1` |
-| `identity` | The product id, environment, `fluidVersion`, Forge version, the exact emit set and any `--require-artifacts` keys, the bundle's MANIFEST digest and archive sha256, the artifacts MANIFEST digest, the plan's digests, and the apply mode when stage 7 ran (so a dry run never reads as an apply) |
+| `identity` | The product id, environment, `fluidVersion`, Forge version, the exact emit set and any `--require-artifacts` keys, the bundle's MANIFEST digest and archive sha256, the artifacts MANIFEST digest, the plan's digests, the apply mode when stage 7 ran (so a dry run never reads as an apply), and the external files a lock names (`external`, see [Sealing external files](#sealing-external-files)) |
 | `identity_digest` | A digest of `identity`. Two clean runs of one checkout give the same `identity` and `identity_digest` |
 | `provenance` | The run id, the stage times, the CI run and the report time |
 | `gates` | Each stage's number, name, status and reason |
 | `files` | The sha256 of every file in the release |
 
 `identity` holds nothing that changes from run to run, so a downstream job compares `identity_digest` to tell whether two runs built the same release. The run id and the times are in `provenance`, outside it.
+
+### Sealing external files
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).*
+
+A product can run code Forge does not build: a PySpark package that writes its own output, a hand-written Airflow DAG, a file another job reads. `--artifacts LOCK` seals those files into the release, next to what the run built, so the release names every piece of code that ran. `$RELEASE_ARTIFACTS` names the lock when the flag is absent.
+
+```bash
+fluid ship --release-dir releases/orders-1 --artifacts release-artifacts.yaml --yes
+```
+
+The lock lists each file, the sha256 of its bytes, and the repository and commit it was built from:
+
+```yaml
+artifacts:
+  - name: orders-jobs
+    kind: spark-package          # spark-package (.whl, .zip), airflow-dag (.py, .zip) or file
+    path: dist/orders_jobs-1.4.0-py3-none-any.whl
+    sha256: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+    source:
+      repo: https://git.example.com/data/orders-jobs
+      commit: 4b825dc642cb6eb9a060e54bf8d69288fbee4904
+      ref: refs/tags/v1.4.0      # optional
+  - name: orders-dag
+    kind: airflow-dag
+    path: dags/orders_daily.py
+    sha256: 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
+    source:
+      repo: git@git.example.com:data/orders-dags.git
+      commit: 9fceb02d0ae598e95dc970b74767f19372d61af8
+```
+
+**Rules.** Ship reads the lock before stage 1 and refuses, with exit `2`, a lock it cannot seal:
+
+- an unknown field, or a `kind` other than the three, or a file name its kind does not take;
+- a `name` that is not letters, digits and `._-` (at most 100, starting with a letter or digit), or two names that differ only in case;
+- a `path` that is absolute, names a hidden file or directory, or leads out of the lock's directory, by `..` or through a linked directory. A path is relative to the lock's directory, and each of its segments takes letters, digits and `._=+-` only;
+- a link, or anything that is not a regular file;
+- bytes whose sha256 is not the one the lock names. The message gives the lock's value and never the digest the file has: put the one `sha256sum` prints in the lock;
+- a `repo` that is not an `https`, `http`, `ssh` or `git` URL or `user@host:org/repo`, a `commit` that is not 7 to 64 hex characters, or a `ref` with characters a branch or tag name does not take. A user and password in the URL are dropped, as they are from the CI's own source.
+
+`--artifacts` without `--release-dir` is refused, and so is a blank value (`--artifacts "$LOCK"` with `LOCK` unset). `$RELEASE_ARTIFACTS` without `--release-dir` is not read at all, so one variable set for every job of a pipeline leaves the jobs that seal nothing, such as an apply step, alone.
+
+**What the release holds.** When every stage passed, ship reads the lock again, copies each file to `external/<name>/<file>`, and hashes the copy again before `release.json` is written: a file that changed while the run ran publishes nothing. `files` lists each copy with its sha256, and `identity` gains `external`, the entries sorted by name:
+
+```json
+"external": [
+  {
+    "name": "orders-jobs",
+    "kind": "spark-package",
+    "path": "external/orders-jobs/orders_jobs-1.4.0-py3-none-any.whl",
+    "digest": {"sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"},
+    "source": {
+      "uri": "git+https://git.example.com/data/orders-jobs@refs/tags/v1.4.0",
+      "digest": {"gitCommit": "4b825dc642cb6eb9a060e54bf8d69288fbee4904"}
+    }
+  }
+]
+```
+
+Each entry is shaped like a SLSA provenance `resolvedDependencies` entry, with its source the way `fluid bundle --attest` records the contract's own. No path on the machine that ran ship is recorded, so two clean runs with the same lock and bytes give one `identity_digest`, and a changed file gives a new one. [`fluid runs status --release-dir`](./runs.md#which-release-was-in-force) prints one `external` line for each file.
 
 ### The stage journal
 
