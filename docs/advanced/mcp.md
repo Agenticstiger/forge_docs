@@ -240,7 +240,7 @@ exposes:
         auditRequired: true
 ```
 
-Per-tenant row filters are also read from `policy.rowFilters`, with a caveat about schema validation: see [Row-level security](#row-level-security-—-policy-rowfilters).
+Row filters are read from `policy.authz.rowFilters`: see [Row-level security](#row-level-security-—-policy-authz-rowfilters).
 
 ### Per-`tools/call` enforcement order
 
@@ -263,13 +263,13 @@ Over **stdio**, the caller's `model` and `useCase` are self-attested, and a bugg
 {"capabilities": {"experimental": {"fluid": {"model": "claude-haiku-4-5-20251001", "useCase": "analysis", "tenant_id": "t1"}}}}
 ```
 
-Any other key in that block becomes a caller attribute, which is what `${caller.<attr>}` row filters resolve against. Whenever a model or use-case gate is active, the gateway prints this notice at startup:
+Any other key in that block becomes a caller attribute. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Two kinds of attribute are the exception: `principal`, which decides the rows a caller reads, and the client-certificate attributes bind only from a verified credential, so a client that names its own is ignored in every auth mode. Whenever a model or use-case gate is active, the gateway prints this notice at startup:
 
 ```text
 ⚠️  fluid mcp output-port: caller model_id is self-attested via MCP clientInfo. Do not expose this gateway over an untrusted network until P3 (OAuth/mTLS identity) ships. See https://agenticstiger.github.io/forge_docs/concepts/agent-policy.html
 ```
 
-The notice is printed whatever the transport and auth mode. Its "until P3 ships" wording predates the JWT mode: over **HTTP** with `FLUID_MCP_AUTH_MODE=jwt`, identity is cryptographically bound, because the verified JWT claims then *replace* self-attestation for the model and use-case gates, `rowFilters` resolution and the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0). A client certificate checked by a proxy does not bind identity; see [mTLS authenticates the connection](#authentication-modes) under Authentication modes.
+The notice is printed whatever the transport and auth mode. Its "until P3 ships" wording predates the JWT mode: over **HTTP** with `FLUID_MCP_AUTH_MODE=jwt`, identity is cryptographically bound, because the verified JWT claims then *replace* self-attestation for the model and use-case gates, the row-filter principal and the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0). A client certificate checked by a proxy does not bind identity; see [mTLS authenticates the connection](#authentication-modes) under Authentication modes.
 :::
 
 ### agentPolicy runtime gates
@@ -386,24 +386,27 @@ Only a verified JWT binds identity. With `shared-token`, the gateway knows that 
 A proxy in front of the gateway can require client certificates, which keeps hosts without one off the network path. The gateway never sees the certificate. It sees two request headers the proxy sets, `X-Client-CN` and `X-Client-Fingerprint`, and what it does with them is narrow:
 
 - It reads them only when an auth mode is enforced: `jwt` with its three settings, or `shared-token` with `FLUID_MCP_AUTH_TOKEN` set. With `none`, or with neither configured, the middleware passes the request on without looking.
-- It copies them, unverified, into the request's caller attributes as `client_cn` and `client_fingerprint`. A `${caller.client_cn}` placeholder resolves from the header, so the gateway must be reachable only through the proxy, and the proxy must overwrite any copy of those headers the client sends.
+- It copies them, unverified, into the request's caller attributes as `client_cn` and `client_fingerprint`, so the gateway must be reachable only through the proxy, and the proxy must overwrite any copy of those headers the client sends.
+- *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Neither attribute selects rows. A row filter reads the caller's `principal` and no other attribute, and the old `${caller.client_cn}` and `${caller.client_fingerprint}` placeholders of `policy.rowFilters` are gone with that key: a certificate is not a principal, so a certificate checked by a proxy does not decide which rows a caller reads. A client that names its own `client_cn` or `client_fingerprint` is ignored, in every auth mode.
 - They never supply `model`, `use_case`, `tenant_id` or `jurisdiction`. Those come from the mapped claims of a verified JWT, or from the client's own declaration when no auth mode is enforced.
 - In 0.18.1 neither header is written to a `data_access` audit record.
 
-Without an auth mode, the gateway is unauthenticated whatever the proxy does: a caller picks its own model, use case and `tenant_id`, so a `${caller.tenant_id}` row filter filters on a value the caller chose. *(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* Such a gateway also answers 421 to every request a proxy forwards under its public name, so it serves only callers on its own machine.
+Without an auth mode, the gateway is unauthenticated whatever the proxy does: a caller picks its own model, use case and `tenant_id`. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The principal that a row filter reads does not bind from what a client says about itself, so an expose that declares `policy.authz.rowFilters` refuses every call there, and `serve` refuses to start it (see [Row-level security](#row-level-security-—-policy-authz-rowfilters)). *(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* Such a gateway also answers 421 to every request a proxy forwards under its public name, so it serves only callers on its own machine.
 :::
 
-`FLUID_MCP_JWT_CLAIM_MAPPING` is a comma-separated `claim=attr` list, e.g. `sub=principal,https://fluid/model=model,https://fluid/tenant=tenant_id`. Mapped claims land in `caller_attributes`, which is exactly what `rowFilters` `${caller.<attr>}` placeholders resolve against — so on the JWT path, per-tenant filters resolve **cryptographically** rather than from self-attested `clientInfo`.
+`FLUID_MCP_JWT_CLAIM_MAPPING` is a comma-separated `claim=attr` list, e.g. `sub=principal,https://fluid/model=model,https://fluid/tenant=tenant_id`. Mapped claims land in `caller_attributes`. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The claim mapped to `principal` is what `policy.authz.rowFilters` and `policy.authz.readers` match, so on the JWT path the rows a caller reads follow a verified credential, never self-attested `clientInfo`.
 
 *(since 0.15.0)* The value **merges over** the default mappings instead of replacing them. Those defaults are:
 
 | Claim | `caller_attributes` key | Why it is load-bearing |
 | --- | --- | --- |
-| `sub` | `sub` | Interpolated by `${caller.sub}` row filters. |
+| `sub` | `sub` | Attributes each call on the audit trail. A row filter does not read it: map a claim to `principal` for that. |
 | `model` | `model` | Input to the `agentPolicy` model gate. |
 | `use_case` | `use_case` | Input to the `agentPolicy` use-case gate. |
-| `tenant_id` | `tenant_id` | Interpolated by `${caller.tenant_id}` row filters. |
+| `tenant_id` | `tenant_id` | Kept as a caller attribute. A row filter does not read it: map a claim to `principal` for that. |
 | `jurisdiction` | `jurisdiction` | *(since 0.15.0)* The verified claim the [caller-jurisdiction gate](#caller-jurisdiction-enforcement-since-0-15-0) reads. |
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* No claim maps to `principal` by default. Add one, for example `FLUID_MCP_JWT_CLAIM_MAPPING=groups=principal`, on a gateway that serves an expose with `policy.authz.rowFilters`. A claim that holds a list gives the caller every principal in it.
 
 ::: warning Behavior change in 0.15.0
 On `0.14.1` and earlier the parsed value was assigned **wholesale**, so mapping one extra claim silently dropped all four defaults — turning off the `agentPolicy` model and use-case gates and emptying every `${caller.*}` row filter, with no error and a server still reporting healthy. Mapping a default away explicitly still works; what no longer happens is losing one by accident while adding something unrelated.
@@ -468,7 +471,7 @@ LIMIT 100
 ```
 
 - **The allowed columns are the ones `contract.schema` declares, less the restricted ones.** A column the table has and the schema does not declare is not part of the projection, so an expression that uses it fails in the engine (`Referenced column "hidden_col" not found in FROM clause!` on DuckDB). An expose whose schema declares no readable column is refused: `This expose restricts columns, but contract.schema declares no readable column to project, so the governed query path cannot evaluate an expression without risking a restricted one. Declare the readable columns in contract.schema.` A column qualified with the table name (`customers.amount`) does not resolve either, on an expose with restricted columns; write the bare column name.
-- **Row filters apply inside the projection.** A [row filter](#row-level-security-—-policy-rowfilters) may therefore name a restricted column. With `tenant_id` denied and a filter on it, the statement reads `FROM (SELECT customer_id, email, ssn, segment, amount FROM customers WHERE ("tenant_id" = :p_0)) AS _fluid_allowed`. A caller's own filter key on a restricted column is still refused by name.
+- **Row filters apply inside the projection.** *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* A [row filter](#row-level-security-—-policy-authz-rowfilters) may therefore name a restricted column. With `tenant_id` denied and a filter on it, the statement reads `FROM (SELECT customer_id, email, ssn, segment, amount FROM customers AS _fluid_rows WHERE (<row filter>)) AS _fluid_allowed`, where `(<row filter>)` stands for the predicate, which the caller is not shown. A caller's own filter key on a restricted column is still refused by name.
 - **A subquery in an expression is refused** on an expose that restricts or redacts columns, or declares row filters: `Dimension 'd' contains a subquery. On an expose with column restrictions or row filters, expressions may only use the exposed table's own columns.` An expression that spells `SELECT` is refused earlier, as an invalid SQL expression.
 - **An expose with no restrictions** reads `FROM <table>` as before.
 
@@ -499,9 +502,9 @@ A statement that names `ssn` or `email` is still refused by name. What the state
 
 | Statement | Refusal |
 | --- | --- |
-| A table function: `SELECT * FROM read_csv('customers.csv')` | `sql may only read from tables named in the usual way, subqueries, UNNEST and VALUES on an expose that restricts columns; query the exposed table directly.` |
-| A quoted file path as a table: `SELECT * FROM 'customers.csv'` | `sql may not read from a table function or a file path on an expose that restricts columns; query the exposed table directly.` |
-| The `TABLE` keyword: `SELECT * FROM (TABLE customers)` | `sql may not use the TABLE keyword on an expose that restricts columns; select from the exposed table by name.` |
+| A table function: `SELECT * FROM read_csv('customers.csv')` | `sql may only read from tables named in the usual way, subqueries, UNNEST and VALUES on an expose that restricts columns or rows; query the exposed table directly.` |
+| A quoted file path as a table: `SELECT * FROM 'customers.csv'` | `sql may not read from a table function or a file path on an expose that restricts columns or rows; query the exposed table directly.` |
+| The `TABLE` keyword: `SELECT * FROM (TABLE customers)` | `sql may not use the TABLE keyword on an expose that restricts columns or rows; select from the exposed table by name.` |
 | Any other source that is not a plain table, `UNNEST` or `VALUES` | The first message in this table. |
 | SQL the parser cannot read: `SELECT FROM FROM` | `sql could not be rewritten to read only the columns this expose allows; write one plain SELECT over the exposed table.` |
 
@@ -511,55 +514,124 @@ A subquery that spells `SELECT` is refused earlier, as an invalid SQL expression
 - A column written as `schema.table.column` no longer resolves once the table is rewritten. Give the table an alias, or write `table.column`.
 - An expose with no restricted or redacted column runs the statement unchanged.
 
-#### Postgres functions that return a whole relation as XML
+#### Postgres functions that read past the projection
 
-`query_sql` and the `query` expressions refuse `table_to_xml`, `query_to_xml`, `cursor_to_xml`, every `schema_to_xml*` and `database_to_xml*` function, and their `*xmlschema` and `*_and_xmlschema` variants. The refusal holds on every engine, in any case, quoted or schema-qualified. On `query_sql` the message is `sql may not call a function that returns a whole table, schema, database or query result as XML (table_to_xml, query_to_xml, cursor_to_xml, schema_to_xml, database_to_xml and their variants). Select the columns of the exposed table directly.` In a `query` expression it is reported as `Invalid SQL expression`. A column or alias that only shares one of those names is not a call and is unaffected.
+`query_sql` and the `query` expressions refuse `table_to_xml`, `query_to_xml`, `cursor_to_xml`, every `schema_to_xml*` and `database_to_xml*` function, and their `*xmlschema` and `*_and_xmlschema` variants. The refusal holds on every engine, in any case, quoted or schema-qualified. In a `query` expression it is reported as `Invalid SQL expression`. A column or alias that only shares one of those names is not a call and is unaffected.
 
-### Row-level security — `policy.rowFilters`
+*On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The refusal is wider than the XML functions. On every expose, `query_sql`, the `query` expressions and the drivers' statement guard also refuse the Postgres functions that run a query given as text, the catalog and statistics functions, the functions that read raw pages or other requests' statements, and `set_config`, which changes the session that later requests run in, and the `pg_prepared_statements` and `pg_cursors` views. They refuse a name or a string written with Unicode escapes too, which can spell any of those functions. On `query_sql` the message lists them:
 
-For per-tenant isolation, the gateway reads `policy.rowFilters[]` from the expose. Each filter compiles to a parameterised `WHERE` clause appended to `sample` / `query` reads, bound to the caller's identity:
+```text
+sql may not call a function that reads a relation or runs a query given as text, or that changes the session (table_to_xml, query_to_xml, cursor_to_xml, schema_to_xml, database_to_xml, ts_stat, ts_rewrite, connectby, crosstab, dblink, pgstattuple, pg_stat_*, pgrowlocks, get_raw_page and the other pageinspect functions, pg_cursor, pg_prepared_statement, set_config and their variants), name the pg_cursors or pg_prepared_statements views, or write a name or a string with Unicode escapes (U&"..."). Select the columns of the exposed table directly.
+```
+
+A string literal that contains `u&"` or `u&'` is refused as well. The rule sits in the shared expression check, so it also applies to the contract expressions that the Snowflake planner and the Databricks Genie and metrics emitters read. The same check runs on every row filter predicate; see [Row-level security](#row-level-security-—-policy-authz-rowfilters).
+
+### Row-level security — `policy.authz.rowFilters`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).*
+
+The gateway enforces `exposes[].policy.authz.rowFilters[]` on `sample`, `query` and `query_sql`. Each entry is `{principal, where, name?}`: the principal reads only the rows its `where` predicate selects. The key is in contract schema `0.7.6` (preview) and later, not in `0.7.5`, so the contract needs `fluidVersion: "0.7.6"`. It is the key that `fluid apply` writes into a BigQuery row access policy, a Lake Formation data cells filter or a Unity Catalog row filter, and the gateway reads it with the same parser. See [Row filters](../providers/gcp.md#row-filters) on GCP.
 
 ```yaml
-policy:
-  rowFilters:
-    - { column: tenant_id, equals: "${caller.tenant_id}" }
-    - { column: region,    in:     "${caller.regions}" }
+exposes:
+  - exposeId: customers
+    contract:
+      schema:
+        - { name: customer_id }
+        - { name: tenant_id }
+        - { name: amount }
+    policy:
+      authz:
+        readers: ["group:ops"]
+        rowFilters:
+          - { principal: "tenant:acme",   where: "tenant_id = 'acme'" }
+          - { principal: "tenant:globex", where: "tenant_id = 'globex'" }
 ```
 
-::: warning `rowFilters` is not in any schema version
-As of 0.18.1, no bundled contract schema (`0.7.1` through `0.7.6`) declares `rowFilters`: `exposePolicy` accepts `authn`, `authz`, `privacy`, `classification`, `agentPolicy`, `tags` and `labels` and nothing else. A contract that declares it fails `fluid validate`, and so `fluid plan` and `fluid apply`, at every `fluidVersion`:
+`fluid validate` accepts that contract. The earlier key, `policy.rowFilters`, is not a contract field, and the same check refuses it:
 
 ```text
- 1. exposes[0].policy: Additional properties are not allowed ('rowFilters' was
-unexpected)
+❌ Invalid FLUID contract (1 error(s)) (schema v0.7.6)
+
+Validation Errors:
+==================
+ 1. exposes[0].policy: Additional properties are not allowed ('rowFilters' was unexpected)
 ```
 
-The output-port gateway loads the contract without schema validation, so the filter works there. Serving the contract above with a caller that declares `tenant_id: t1` returns only that tenant's rows, with the PII column redacted:
-
-```json
-{"rows": [{"customer_id": 1, "email": "[REDACTED-PII]", "segment": "gold", "tenant_id": "t1"}], "rowCount": 1}
-```
-
-So a contract that uses `rowFilters` can be served but cannot go through the validate, plan and apply path. Until the schema accepts it, use the cloud-native row policies from the [IAM compilers](#cloud-iam-compilers-—-defending-the-bypass-path) for warehouse-side enforcement on a contract you apply. The [MCP output port walkthrough](../walkthrough/mcp-output-port.md#policy-rowfilters-is-read-by-the-gateway-and-rejected-by-fluid-validate) shows the same refusal from a worked example.
-:::
-
-`${caller.<attr>}` placeholders resolve from `caller_attributes`: the `fluid` block of the client's declared capabilities over stdio or over HTTP with no auth mode enforced, or the mapped claims of a verified JWT over HTTP with `FLUID_MCP_AUTH_MODE=jwt`. A client certificate checked by a proxy does not supply `tenant_id`; see [Authentication modes](#authentication-modes). The supported operators are `equals` (scalar) and `in` (non-empty list); values are always **bound as parameters**, never interpolated.
-
-`query_sql` is refused altogether on an expose that declares row filters: `Free-form query_sql is not permitted on an expose that declares row filters (policy.rowFilters): row-level security cannot be enforced on arbitrary SQL — use the semantic 'query' tool instead.` A malformed entry is reported first, by the refusal below.
-
-*On forge-cli `main`, not yet in a release ([forge-cli #1105](https://github.com/Agenticstiger/forge-cli/pull/1105)).* Each entry needs a string `column` and exactly one operator, `equals` or `in`. On `sample`, `query` and `query_sql`, an entry that is not an object, has no string `column`, has any other operator, or names both operators is refused, and the message names its position. A `policy.rowFilters` that is not a list is refused too, and its message names `policy.rowFilters`:
+The gateway no longer reads `policy.rowFilters`. It refuses an expose that still carries the key, on every call and at `serve`, rather than serve it unfiltered:
 
 ```text
-policy.rowFilters[0] has no 'equals' or 'in' operator, so the row filter cannot be applied and the request is refused. Each entry needs a string 'column' and exactly one operator, 'equals' or 'in'.
+fluid mcp output-port: refusing to serve: this expose's row filters cannot be applied.
+  exposes[customers].policy.rowFilters is not a contract field. Row filters are declared under exposes[customers].policy.authz.rowFilters, each naming a principal and a where predicate; an expose that still carries the old key is refused rather than served unfiltered.
 ```
+
+To move a filter, write one `policy.authz.rowFilters` entry per principal, with the value in the predicate. A filter `{ column: tenant_id, equals: "${caller.tenant_id}" }` becomes `{ principal: "tenant:acme", where: "tenant_id = 'acme'" }` for each tenant. The `${caller.*}` placeholders are gone.
+
+#### Which rows a caller reads
+
+- **The principal comes from a verified JWT claim.** The caller attribute `principal`, one value or a list, is matched against the `principal` of each filter and against `policy.authz.readers`. It binds only from a JWT claim mapped to it, `FLUID_MCP_JWT_CLAIM_MAPPING=<claim>=principal` (see [Authentication modes](#authentication-modes)). A client that states its own `principal`, in `clientInfo` or in its `fluid` capability block, is dropped in every auth mode, so a client cannot pick its own filter or a reader's every row.
+- **A caller reads the union of the filters that name its principals.** BigQuery combines row access policies the same way. A caller with two principals reads the rows of either predicate.
+- **A reader no filter names reads every row.** A principal in `policy.authz.readers` that no filter names reads every row. A caller with any such principal reads every row, whatever its other principals are filtered to.
+- **A caller no filter or reader names is refused.** A request with no principal, or with principals that neither a filter nor `readers` names, gets `RowFilterIdentityMissing`. The gateway cannot tell an unfiltered reader from a filtered principal it does not know, so it serves neither.
+- **`accessPolicy` grantees and `binding.principals` are not consulted.** To read every row through the gateway, a principal must be in `policy.authz.readers`.
+
+#### What the gateway applies
+
+- **Every read of the table is filtered, wherever it sits.** The gateway reads the table through `(SELECT <allowed columns> FROM <table> AS _fluid_rows WHERE <predicate>)`, the projection that [column restrictions](#restricted-columns-on-the-query-tools) already use. `sample` filters its scan, `query` reads the projection as `_fluid_allowed`, and `query_sql` has every reference to the exposed table replaced by it. A subquery, a CTE, a branch of a set operation and a second reference to the table each see only the caller's rows. The predicate's columns are qualified with `_fluid_rows`, so none of them resolves to a column of the caller's own statement:
+
+  ```text
+  SELECT * FROM customers
+  -> SELECT * FROM (SELECT customer_id, tenant_id, amount FROM customers AS _fluid_rows WHERE (<row filter>)) AS customers
+     LIMIT 10
+  ```
+
+  The statement that the result shows the caller reads `(<row filter>)` in place of the predicate. `describe` does not return `policy.authz`, and the `expose.json` and `contract.yaml` resources omit it too.
+- **The query tools read only the declared columns.** On an expose with row filters, `query` and `query_sql` read only the columns that `contract.schema` declares, as they do on an expose with column restrictions, and they need plain-identifier column names there.
+- **`query_sql` reads only the exposed table.** On an expose that restricts columns or filters rows, a statement may read the exposed table, a CTE of its own where that CTE is in scope, `VALUES` and `UNNEST`. A join with another table, a catalog view and any other relation are refused, because a catalog view holds values from every row and column of the table, which the projection does not cover:
+
+  ```text
+  sql reads 'pg_stats'; on an expose that restricts columns or rows a statement reads only the exposed table, its own CTEs, VALUES and UNNEST.
+  ```
+
+  Read another table through its own expose.
+- **The exposed table's name under another schema or catalog is refused.** Write the table unqualified, or as the expose binds it. On DuckDB, `main` counts as the schema of an unqualified binding, so `main.customers` still reads the exposed table.
+
+  ```text
+  sql reads 'other.customers', a table of that name in another schema or catalog than the exposed table's; write the table unqualified or as the expose names it.
+  ```
+- **Functions that read past the projection are refused on every expose.** `query_sql`, the `query` expressions and the drivers' statement guard refuse the Postgres functions that run a query given as text, the catalog and statistics functions, and the other functions listed under [Postgres functions that read past the projection](#postgres-functions-that-read-past-the-projection), beside the XML functions. A name or a string written with Unicode escapes is refused too.
+- **The whole statement is checked.** The keyword and character checks and the drivers' statement guard read everything after the leading `SELECT`, including text written directly against the keyword.
+- **On Postgres the filtered projection is a step of its own.** The statement ends the projection with `OFFSET 0`. Postgres can otherwise merge the projection into the caller's statement and evaluate the caller's conditions on rows the filter removes, where a failing cast or a division by zero would tell the caller that such a row exists.
+- **Each Postgres request runs in its own read-only transaction, rolled back at the end.** The shared connection runs in autocommit, where its read-only flag applies to no statement and a session setting that one request changed would stay for the next. The per-request query timeout (`SET LOCAL statement_timeout`) takes effect in that transaction too.
+- **`query` parenthesises every term of its `WHERE`**, so an `OR` inside a metric-filter or a dimension expression stays inside its own term and the row filter is still ANDed to the result.
+
+#### Refusals
+
+- **A request that cannot be filtered is refused.** `RowFilterIdentityMissing` is the refusal for a caller without a principal that a filter or `readers` names. `RowFilterUnavailable` is the refusal on every call to an expose whose filter cannot be applied: a column that `contract.schema` does not declare, a malformed entry, a principal filtered twice, two filters whose derived names collide (set `name:` on one), a predicate that the engine would read differently, or the old `policy.rowFilters` key. A predicate that BigQuery or Spark would read differently is a double-quoted name, which is a string there, so write the name bare. `fluid generate iac` and `fluid apply` refuse a row filter with a double-quoted column name for BigQuery and Databricks as well.
+- **The caller sees a generic message.** The wire message is `Tool '<tool>' failed; see server audit trail for the full annotated error.` for both. The detail, which names the predicate and the principals, goes to the operator log and the audit record.
+- **A filter is checked as the engine reads it.** The same check refuses a predicate that holds the text `:p_`, because the gateway's bind markers are rewritten wherever they appear, and a predicate that holds the word `UNION`, `INTERSECT` or `EXCEPT`, because the statement guard reads string literals too.
+- **Without sqlglot, every row filter is refused.** An unchecked predicate is never applied. sqlglot is a base dependency of forge-cli, and the floor is 26.20. Older releases record no identifier positions and refused every row filter. Releases 26.17 to 26.19 were not run.
+
+`fluid mcp output-port serve` refuses to start an expose whose row filters no request could satisfy, and exits 2: over stdio, over HTTP without auth or with a shared token, and over HTTP with JWT auth when no claim is mapped to `principal`. It refuses too when the old `policy.rowFilters` key is present or a filter cannot be applied, as the engine of the binding reads it. Serve such an expose over HTTP with JWT auth and map the claim that carries a caller's principal:
 
 ```text
-policy.rowFilters is not a list, so the row filter cannot be applied and the request is refused. Each entry needs a string 'column' and exactly one operator, 'equals' or 'in'.
+fluid mcp output-port: refusing to serve: this expose declares policy.authz.rowFilters, which limit each caller to the rows its principal may read, and 'stdio' carries no verified identity, so every call would be refused.
+  Serve it over HTTP with JWT auth and map the claim that carries a caller's principal:
+    FLUID_MCP_AUTH_MODE=jwt FLUID_MCP_JWT_ISSUER=... FLUID_MCP_JWT_AUDIENCE=... FLUID_MCP_JWT_JWKS_URL=... \
+    FLUID_MCP_JWT_CLAIM_MAPPING=<claim>=principal \
+      fluid mcp output-port serve <contract> --transport http
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1105](https://github.com/Agenticstiger/forge-cli/pull/1105)).* On `query`, every term of the `WHERE` is parenthesised, so an `OR` inside a metric-filter expression or a dimension expression stays inside its own term and the row filter is still ANDed to the result. On an expose with no restricted columns, a filter on the key of a dimension written as `segment = 'wholesale' OR amount > 0` compiles to `WHERE ((segment = 'wholesale' OR amount > 0) = :p_0) AND ("tenant_id" = :p_1)`. With restricted columns the row filter is inside the projection instead; see [Restricted columns on the query tools](#restricted-columns-on-the-query-tools).
+Over HTTP with JWT auth and no claim mapped to `principal`, the message reads `... and no JWT claim is mapped to the principal, so every call would be refused.` in place of the stdio reason.
 
-**Missing identity fails closed.** If a filter references `${caller.tenant_id}` and the caller never supplied it, the read raises `RowFilterIdentityMissing` and serves **no rows**. The gateway prefers no rows to wrong rows.
+#### What a row filter does not cover
+
+- **The gateway's account reads the table.** A row filter limits what a caller reads through the gateway. The gateway reads the table with its own database role or cloud account, so keep that role narrow: see [The gateway's database role](#the-database-role-of-the-gateway).
+- **The error side channel is closed on Postgres only.** On other engines, a condition of the caller's own that fails on a row the filter withholds can still surface as an error.
+- **Timing and planner output remain.** A query's run time, and the planner's estimates and statistics, can reflect rows that the filter withholds. The gateway does not hide them.
+- **On Postgres, table sizes stay visible**, through functions such as `pg_relation_size`.
+- **The functions that `query_sql` refuses are a deny-list.** A function that the list does not name is not refused. An allowlist for filtered exposes is not part of this release.
+- **Direct warehouse access bypasses the gateway.** Anyone who connects to the warehouse with their own role is not filtered by it. The [cloud-IAM compilers](#cloud-iam-compilers-—-defending-the-bypass-path) and `fluid apply` write warehouse-side policy for that path.
 
 ### The five engine drivers
 
@@ -570,14 +642,49 @@ Drivers are keyed on `(binding.platform, binding.format)` and built lazily, so `
 | **DuckDB** | `local` / `{csv, parquet, json, other}` | Reference driver — no credentials. Opens the file read-only (or `:memory:`), auto-creates a view over `read_csv_auto` / `read_parquet` / `read_json_auto`. The same engine the `local` provider uses, so a locally-developed contract serves over MCP unchanged. Since 0.18.0 the connection runs in the [DuckDB sandbox](./duckdb-sandbox.md#what-each-kind-of-sql-can-reach) and can read only the bound file; two DuckDB drivers bound to the same `.duckdb` file in one process conflict. |
 | **BigQuery** | `gcp` / `bigquery_table` | `@p_<index>` parameters; honours `--query-timeout-seconds`. |
 | **Snowflake** | `snowflake` / `snowflake_table` | `%(p_<index>)s` (DB-API `pyformat`) parameters; honours `--query-timeout-seconds`. |
-| **PostgreSQL** | `postgres` / `{postgres_table, table}` | psycopg v3; **read-only session enforced at connect**; per-statement timeout via `SET LOCAL statement_timeout`; `%(p_<index>)s` parameter rewrite. |
+| **PostgreSQL** | `postgres` / `{postgres_table, table}` | psycopg v3; the connection is read-only, and *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* each request runs in a read-only transaction of its own that is rolled back at the end; per-request timeout via `SET LOCAL statement_timeout`; `%(p_<index>)s` parameter rewrite. |
 | **AWS Athena** | `aws` / `{athena_table, glue_table}` | boto3 default credential chain (env / `~/.aws/credentials` / IAM role / OIDC) — no long-lived keys baked in. `StartQueryExecution` → poll `GetQueryExecution` → page `GetQueryResults`; parameterised via `ExecutionParameters`; optional `workgroup` from the binding or `ATHENA_WORKGROUP`. |
 
 The query compiler emits portable `:p_<index>` placeholders and each driver re-renders them to its dialect; every interpolated identifier passes through `_sql_safety.validate_ident`, and the rendered statement is swept for injection markers (`;`, `--`, `/*`, `*/`) and banned keywords (`UNION`, `DROP`, …) as defence-in-depth.
 
+### The database role of the gateway
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).*
+
+The gateway reads the table as one database role or cloud account, whoever calls it. A row filter limits what a caller is shown; it does not limit what the gateway's own account can read. Give that account the least it needs, so that a statement a guard missed reaches no more than the exposed table.
+
+**PostgreSQL.** The driver connects with `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and optionally `POSTGRES_SSLMODE`. Set that role up as follows. The gateway does not check any of it:
+
+- It is not a superuser, and holds none of the predefined roles that read beyond the granted tables (`pg_read_all_data`, `pg_read_all_stats`, `pg_monitor`).
+- It owns nothing and creates nothing: no `CREATE` on any schema, and no `pageinspect`, `dblink` or other extension function granted to it.
+- It holds `SELECT` on the exposed tables and `USAGE` on their schema, and nothing else.
+- Its `search_path` is fixed on the role, so a table name written without a schema always means the exposed table's schema, whatever a session sets.
+- `default_transaction_read_only` is on for the role. The gateway already runs each request in a read-only transaction; the setting is a second layer that does not depend on it.
+
+```sql
+CREATE ROLE fluid_gateway LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+ALTER ROLE fluid_gateway SET search_path = analytics;
+ALTER ROLE fluid_gateway SET default_transaction_read_only = on;
+GRANT USAGE ON SCHEMA analytics TO fluid_gateway;
+GRANT SELECT ON analytics.customers TO fluid_gateway;
+```
+
+Set its password outside this script. The role name, schema and table are examples.
+
+**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member that has a grant on the expose, through an `accessPolicy` grant or `policy.authz.readers`. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, and name it in no row filter, because a filter narrows every identity it names. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
+
+```yaml
+accessPolicy:
+  grants:
+    - principal: "serviceAccount:fluid-gateway@my-project-id.iam.gserviceaccount.com"
+      permissions: [read, select, query]
+```
+
 ### Cloud-IAM compilers — defending the bypass path
 
-The gateway only governs traffic *through* it. An analyst querying the warehouse directly with their own role is a bypass. `fluid_build.output_ports.iam_compiler` closes that gap by compiling the same `agentPolicy` + `rowFilters` contract into **cloud-native** policy you apply warehouse-side:
+The gateway only governs traffic *through* it. An analyst querying the warehouse directly with their own role is a bypass. `fluid_build.output_ports.iam_compiler` closes that gap by compiling `agentPolicy` and row filters into **cloud-native** policy you apply warehouse-side. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* The compiler still reads the old `policy.rowFilters` key with its `${caller.*}` placeholders, which the gateway no longer reads and no schema declares. For a contract that declares `policy.authz.rowFilters`, `fluid apply` writes the warehouse-side policy; see [Row-level security](#row-level-security-—-policy-authz-rowfilters).
+
+The compiler emits, per target:
 
 | Target | Emits |
 | --- | --- |
@@ -668,10 +775,10 @@ This is **defence-in-depth** — every layer stops a different failure:
 | mTLS client cert | Random network attackers (no valid cert) | Proxy |
 | Bearer token (`FLUID_MCP_AUTH_TOKEN`) | A leaked client cert (attacker also needs the secret) | Proxy **and** gateway |
 | `agentPolicy.allowedModels` / `allowedUseCases` | A legitimate client running an unapproved model / use case | Gateway (per-`tools/call`) |
-| `policy.rowFilters[]` | A legitimate client bound to a different tenant | Gateway (per-row `WHERE`) |
+| `policy.authz.rowFilters[]` | A legitimate client bound to a different tenant | Gateway (per-row `WHERE`, by the principal of a verified JWT claim) |
 | Cloud row-access policy (IAM compiler) | Bypass-the-gateway direct warehouse reads | Cloud (warehouse-side) |
 
-The model, use-case and tenant rows tell a legitimate client from another one only when the caller's identity is verified, which is `FLUID_MCP_AUTH_MODE=jwt`. Behind the shared token the gateway drops what the client declares about itself, and a client certificate supplies none of those attributes; see [Authentication modes](#authentication-modes).
+The `agentPolicy` row and the row-filter row tell a legitimate client from another one only when the caller's identity is verified, which is `FLUID_MCP_AUTH_MODE=jwt`. Behind the shared token the gateway drops what the client declares about itself, and a client certificate supplies none of those attributes; see [Authentication modes](#authentication-modes).
 
 ### Environment variables (output port)
 
@@ -684,7 +791,7 @@ The model, use-case and tenant rows tell a legitimate client from another one on
 | `FLUID_MCP_AUTH_TOKEN` | Shared bearer token (shared-token mode + HTTP 401 gate). |
 | `FLUID_MCP_JWT_ISSUER` / `_AUDIENCE` / `_JWKS_URL` | JWT issuer, audience, and JWKS endpoint. |
 | `FLUID_MCP_JWT_ALGORITHMS` | Override the accepted algorithms (default `RS256,ES256,EdDSA`). |
-| `FLUID_MCP_JWT_CLAIM_MAPPING` | `claim=attr` comma list mapping JWT claims into `caller_attributes`. *(since 0.15.0)* Merges over the [default mappings](#authentication-modes) (`sub`, `model`, `use_case`, `tenant_id`, `jurisdiction`) rather than replacing them. |
+| `FLUID_MCP_JWT_CLAIM_MAPPING` | `claim=attr` comma list mapping JWT claims into `caller_attributes`. *(since 0.15.0)* Merges over the [default mappings](#authentication-modes) (`sub`, `model`, `use_case`, `tenant_id`, `jurisdiction`) rather than replacing them. *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* No claim maps to `principal` by default; an expose with `policy.authz.rowFilters` needs `<claim>=principal`. |
 | `FLUID_MCP_RATE_LIMIT` / `FLUID_MCP_RATE_WINDOW_SECONDS` | Sliding-window rate limit (default 60 / 60s; `0` disables). |
 | `FLUID_MCP_MAX_CONCURRENCY` | Concurrent-dispatch cap (default 8; `0` disables). |
 | `FLUID_MCP_CIRCUIT_THRESHOLD` / `_WINDOW_SECONDS` / `_COOLDOWN_SECONDS` | Circuit breaker (defaults 5 / 60 / 30). |
