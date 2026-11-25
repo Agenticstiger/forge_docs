@@ -157,7 +157,7 @@ Several `derive` invariants may determine one column. Each but the last needs a 
           expr: "ROUND(net * 0.05, 2)"
 ```
 
-A path through a relationship whose foreign key is NULL, or matches no row, gives NULL for every column it reads. A path, a summary or a shared attribute never goes through a relationship whose target declares a validity window, and `fluid validate` reports that as an error. See [Relationships and validity windows](./semantic-layer.md#relationships-and-validity-windows-need-the-0-7-7-preview).
+A path through a relationship whose foreign key is NULL, or matches no row, gives NULL for every column it reads. Through 0.40.1, a path, a summary or a shared attribute never goes through a relationship whose target declares a validity window, and `fluid validate` reports that as an error. See [Relationships and validity windows](./semantic-layer.md#relationships-and-validity-windows-need-the-0-7-7-preview). *On forge-cli `main`, not yet in a release ([forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099)).* A path, a `sharedColumns` entry and the route of a shared attribute may go through such a relationship when it reads the target by entity (the natural key, and the columns a `dependency` from the key makes stable) or as of a date (`asOf`, any column). A summary may not, and neither may any other read. See [Versioned tables](./semantic-layer.md#versioned-tables-window-conventions-and-as-of-reads).
 
 ### How many violations are allowed
 
@@ -197,7 +197,7 @@ What is in it:
 | Group | Members |
 | --- | --- |
 | Operators | `+ - * /`, unary `-`, `= <> != < <= > >=`, `AND`, `OR`, `NOT`, `IN`, `NOT IN`, `BETWEEN`, `NOT BETWEEN`, `IS [NOT] NULL`, `IS [NOT] DISTINCT FROM` |
-| Functions | `ROUND(x, s)`, `ROUND(x, s, 'HALF_TO_EVEN')`, `COALESCE(a, b, ...)`, `DAYS_BETWEEN(a, b)`, `MONTHS_BETWEEN(a, b)`, `YEARS_BETWEEN(a, b)` |
+| Functions | `ROUND(x, s)`, `ROUND(x, s, 'HALF_TO_EVEN')`, `COALESCE(a, b, ...)`, `DAYS_BETWEEN(a, b)`, `MONTHS_BETWEEN(a, b)`, `YEARS_BETWEEN(a, b)`, `ADD_DAYS(d, n)`, `ADD_MONTHS(d, n)`, `ADD_YEARS(d, n)` |
 | Conditionals | Searched `CASE WHEN c THEN v ... [ELSE v] END` |
 | Literals | Numbers (`3`, `1.50`), strings (`'base_fee'`), `TRUE`, `FALSE`, `NULL`, `DATE '2026-11-16'` |
 | Names | A column of the row, or `relationship.column` for a column of the row that one relationship reaches |
@@ -252,6 +252,8 @@ A float column is read as the shortest decimal that converts back to the same do
 
 `DAYS_BETWEEN`, `MONTHS_BETWEEN` and `YEARS_BETWEEN` count whole units from the first date to the second, and the result is an exact integer. Age is `YEARS_BETWEEN(birth_date, snapshot_date)`. The as-of date is a column or a `DATE` literal. No function reads the clock.
 
+`ADD_DAYS(d, n)`, `ADD_MONTHS(d, n)` and `ADD_YEARS(d, n)` move a date by a count `n` of scale 0 and give a date. They take a date, not a timestamp: `ADD_DAYS(event_date, -1)` is the day before.
+
 ::: warning MONTHS_BETWEEN is not DATEDIFF
 `DATEDIFF`, `DATE_DIFF` and similar functions count the unit boundaries crossed. `DATEDIFF(month, '2026-01-31', '2026-02-01')` is 1, while `MONTHS_BETWEEN(DATE '2026-01-31', DATE '2026-02-01')` is 0. Oracle, Snowflake and Spark also have a `MONTHS_BETWEEN(d1, d2)` of their own that returns a fraction and takes its arguments the other way round. FLUID's functions are neither of those. The consumers render them from the parsed expression and never pass the name to an engine.
 :::
@@ -260,7 +262,7 @@ A date never meets a timestamp in a comparison, because FLUID SQL/1 has no `CAST
 
 ### What is not in it
 
-String functions and `LIKE`, regular expressions, `CAST`, timestamp literals, date arithmetic other than the differences, `ABS`, `LEAST`, `GREATEST`, `NULLIF`, parameters, the clock, aggregates and windows inside an expression, subqueries, and paths over several links. If a check needs one of these, move it to `contract.quality[]`, which keeps free SQL in the warehouse's dialect. `fluid validate` says so when it finds such a text in an invariant.
+String functions and `LIKE`, regular expressions, `CAST`, timestamp literals, interval literals, `+` and `-` on dates, date arithmetic on timestamps, any date arithmetic other than the differences and the moves `ADD_DAYS`, `ADD_MONTHS` and `ADD_YEARS` (which take a date), `ABS`, `LEAST`, `GREATEST`, `NULLIF`, parameters, the clock, aggregates and windows inside an expression, subqueries, and paths over several links. If a check needs one of these, move it to `contract.quality[]`, which keeps free SQL in the warehouse's dialect. `fluid validate` says so when it finds such a text in an invariant.
 
 ## Identifier formats
 
@@ -362,7 +364,7 @@ The entry is short for a `derive` invariant with `expr: "account.status"` and `w
 
 `fluid validate` parses every text with its own parser, resolves every name, and checks types and scales. It reports two kinds of finding. Each has a JSON pointer to the field and the code `ERR_CONTRACT_DATA_RULES`. The pointer shows in `--format json`, in `issues[]`.
 
-**Errors** fail validation. They include: an unknown name or a text outside FLUID SQL/1, a type or scale error, a string literal outside its column's enum, an id that another rule already uses, a band that does not fit (two operators, a percent over 100, a range whose ends are reversed), a format or placeholders on a column that is not a string, a cycle among derived columns, a column with two sources, overlapping masks, a foreign key whose format differs from its target's, a `sharedAttribute` with a missing or ambiguous owner, and a path through a relationship whose target has a validity window.
+**Errors** fail validation. They include: an unknown name or a text outside FLUID SQL/1, a type or scale error, a string literal outside its column's enum, an id that another rule already uses, a band that does not fit (two operators, a percent over 100, a range whose ends are reversed), a format or placeholders on a column that is not a string, a cycle among derived columns, a column with two sources, overlapping masks, a foreign key whose format differs from its target's, a `sharedAttribute` with a missing or ambiguous owner, and a path through a relationship whose target has a validity window. *On forge-cli `main`, not yet in a release ([forge-cli #1099](https://github.com/Agenticstiger/forge-cli/pull/1099)).* On `main`, only a read that is neither by entity nor as of a date is an error there.
 
 **Notes** never fail validation, and `--strict` does not count them. They are: same-named columns on the two ends of a relationship that nothing relates, a division or float arithmetic (exact here and approximate in engines), a column with both a format and a regex rule, and a `contract.quality[]` expression that could become an invariant.
 
@@ -451,7 +453,7 @@ On forge-cli `main`, `fluid generate dbt-tests` runs the bounded declarations as
 ## Where to look next
 
 - [RFC: Rules about valid data](https://github.com/Agenticstiger/forge-cli/blob/main/RFC-data-rules.md): the full spec, including the grammar, the SQL renderings and the consumer matrix.
-- [The semantic layer](./semantic-layer.md): relationships, and the validity windows that a path may not cross.
+- [The semantic layer](./semantic-layer.md): relationships, validity windows, and [how a rule reads a versioned table](./semantic-layer.md#versioned-tables-window-conventions-and-as-of-reads).
 - [Quality, SLAs and lineage](./quality-sla-lineage.md): `dq.rules` and `contract.quality[]`, where checks in the warehouse's own SQL belong.
 - [Fields that need a preview schema](../reference/preview-fields.md): which fields need a preview schema. To opt in to these, declare `fluidVersion: "0.7.7"`.
 - [`fluid validate`](../cli/validate.md): the command and its flags.
