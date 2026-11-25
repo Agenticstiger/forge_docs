@@ -587,7 +587,7 @@ To move a filter, write one `policy.authz.rowFilters` entry per principal, with 
   ```
 
   The statement that the result shows the caller reads `(<row filter>)` in place of the predicate. `describe` does not return `policy.authz`, and the `expose.json` and `contract.yaml` resources omit it too.
-- **The query tools read only the declared columns.** For a caller that a filter limits, `query` and `query_sql` read only the columns `contract.schema` declares, and `query_sql` reads only the exposed table, its own CTEs, `VALUES` and `UNNEST`. A reader that no filter names reads the plain statement: undeclared columns and other relations are not fenced for it, so keep `policy.authz.readers` to principals that may see the whole table. They need plain-identifier column names there. `sample` returns every column of the filtered scan, so it is not limited to the declared columns.
+- **The query tools read only the declared columns.** For a caller that a filter limits, `query` and `query_sql` read only the columns `contract.schema` declares, and `query_sql` reads only the exposed table, its own CTEs, `VALUES` and `UNNEST`. A reader that no filter names reads the plain statement: undeclared columns and other relations are not fenced for it, so keep `policy.authz.readers` to principals that may see the whole table. For a limited caller, they need plain-identifier column names. `sample` returns every column of the filtered scan, so it is not limited to the declared columns.
 - **`query_sql` reads only the exposed table.** For a caller that a filter limits, and on an expose that restricts columns, a statement may read the exposed table, a CTE of its own where that CTE is in scope, `VALUES` and `UNNEST`. A join with another table, a catalog view and any other relation are refused, because a catalog view holds values from every row and column of the table, which the projection does not cover:
 
   ```text
@@ -672,7 +672,7 @@ GRANT SELECT ON analytics.customers TO fluid_gateway;
 
 Set its password outside this script. The role name, schema and table are examples.
 
-**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member that has a grant on the expose, through an `accessPolicy` grant or `policy.authz.readers`, writers included. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, and name it in no row filter, because a filter narrows every identity it names. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
+**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member with an `accessPolicy` grant of any permission, write grants included, or listed in `policy.authz.readers`. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, and name it in no row filter, because a filter narrows every identity it names. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
 
 ```yaml
 # top level of the contract, beside exposes:
@@ -777,7 +777,7 @@ This is **defence-in-depth** — every layer stops a different failure:
 | mTLS client cert | Random network attackers (no valid cert) | Proxy |
 | Bearer token (`FLUID_MCP_AUTH_TOKEN`) | A leaked client cert (attacker also needs the secret) | Proxy **and** gateway |
 | `agentPolicy.allowedModels` / `allowedUseCases` | A legitimate client running an unapproved model / use case | Gateway (per-`tools/call`) |
-| `policy.authz.rowFilters[]` | A legitimate client bound to a different tenant | Gateway (per-row `WHERE`, by the principal of a verified JWT claim). *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* |
+| `policy.authz.rowFilters[]` | A legitimate client bound to a different tenant | *On forge-cli `main`, not yet in a release ([forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107)).* Gateway (per-row `WHERE`, by the principal of a verified JWT claim) |
 | Cloud row-access policy (IAM compiler) | Bypass-the-gateway direct warehouse reads | Cloud (warehouse-side) |
 
 The `agentPolicy` row and the row-filter row tell a legitimate client from another one only when the caller's identity is verified, which is `FLUID_MCP_AUTH_MODE=jwt`. Behind the shared token the gateway drops what the client declares about itself, and a client certificate supplies none of those attributes; see [Authentication modes](#authentication-modes).
