@@ -419,16 +419,101 @@ There is no `--auth-token` CLI flag. Auth is configured entirely through `FLUID_
 
 ### PII / PHI value redaction
 
-Columns marked `sensitivity: pii` or `sensitivity: phi` in `expose.contract.schema` keep their **key** visible (the agent still sees the field exists and can write `COUNT(DISTINCT …)` aggregates) but their **values** are replaced with the constant `[REDACTED-PII]` before the row leaves the gateway.
+Columns marked `sensitivity: pii`, `sensitivity: phi` or `sensitivity: sensitive` in `expose.contract.schema` keep their **key** visible (the agent still sees the field exists and can write `COUNT(DISTINCT …)` aggregates) but their **values** are replaced with the constant `[REDACTED-PII]` before the row leaves the gateway.
 
 This happens at the **driver boundary** — `EngineDriver.project()` masks every row from `sample`, `query`, and `query_sql` alike. It is distinct from `columnRestrictions`, which drops a column *wholesale*:
 
 | Layer | Source | Effect |
 | --- | --- | --- |
-| **PII redaction** | `contract.schema[].sensitivity` ∈ `{pii, phi}` | Column stays in the schema; values become `[REDACTED-PII]`. |
+| **PII redaction** | `contract.schema[].sensitivity` ∈ `{pii, phi, sensitive}` | Column stays in the schema; values become `[REDACTED-PII]`. |
 | **Column restriction** | `policy.authz.columnRestrictions` (`access: deny`) or `policy.privacy.masking` | Column is removed entirely from the projection. |
 
 Both are **alias-proof on the free-form path.** Masking matches by output column *name*, so `SELECT email AS x` would otherwise sneak a PII value past it. The `query_sql` compiler closes that hole by rejecting any reference to a restricted *or* PII column at compile time (string literals are stripped first, so `WHERE label = 'email'` doesn't false-positive). The agent cannot alias the column away.
+
+### Restricted columns on the query tools
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1105](https://github.com/Agenticstiger/forge-cli/pull/1105)).*
+
+A column is restricted when `policy.authz.columnRestrictions` denies it (`access: deny`), whichever principal the entry names, or `policy.privacy.masking` names it. On an expose with restricted columns, `query` and `query_sql` read through a projection of the columns the contract allows, not through the table. A restricted column is not part of what an expression or a statement can see, however it is written. The name check described above stays as the early, readable refusal.
+
+The examples below run against this expose, served over a CSV file on DuckDB with `ssn` denied:
+
+```yaml
+exposes:
+  - exposeId: customers
+    contract:
+      schema:
+        - { name: customer_id }
+        - { name: email, sensitivity: pii }
+        - { name: ssn }
+        - { name: segment }
+        - { name: amount }
+        - { name: tenant_id }
+    policy:
+      authz:
+        columnRestrictions:
+          - { principal: analysts, columns: [ssn], access: deny }
+```
+
+#### `query`
+
+Every dimension, measure, metric `filter` and filter key is evaluated over the allowed columns. The result's `compiled.sql` shows it:
+
+```sql
+SELECT segment AS segment, SUM(amount) AS total_amount
+FROM (SELECT customer_id, email, segment, amount, tenant_id FROM customers) AS _fluid_allowed
+GROUP BY segment
+ORDER BY total_amount DESC, segment ASC
+LIMIT 100
+```
+
+- **The allowed columns are the ones `contract.schema` declares, less the restricted ones.** A column the table has and the schema does not declare is not part of the projection, so an expression that uses it fails in the engine (`Referenced column "hidden_col" not found in FROM clause!` on DuckDB). An expose whose schema declares no readable column is refused: `This expose restricts columns, but contract.schema declares no readable column to project, so the governed query path cannot evaluate an expression without risking a restricted one. Declare the readable columns in contract.schema.` A column qualified with the table name (`customers.amount`) does not resolve either, on an expose with restricted columns; write the bare column name.
+- **Row filters apply inside the projection.** A [row filter](#row-level-security-—-policy-rowfilters) may therefore name a restricted column. With `tenant_id` denied and a filter on it, the statement reads `FROM (SELECT customer_id, email, ssn, segment, amount FROM customers WHERE ("tenant_id" = :p_0)) AS _fluid_allowed`. A caller's own filter key on a restricted column is still refused by name.
+- **A subquery in an expression is refused** on an expose that restricts or redacts columns, or declares row filters: `Dimension 'd' contains a subquery. On an expose with column restrictions or row filters, expressions may only use the exposed table's own columns.` An expression that spells `SELECT` is refused earlier, as an invalid SQL expression.
+- **An expose with no restrictions** reads `FROM <table>` as before.
+
+##### Redacted columns
+
+On an expose with a column marked `sensitivity: pii`, `phi` or `sensitive`, redaction follows the columns an expression names. An expression that would read a column without naming it is therefore refused: a column selector such as `COLUMNS(...)`, `IDENTIFIER(...)`, a `*` that stands for columns, and the table (or `_fluid_allowed`) used as a whole-row value. It applies to a measure, a dimension, a metric filter and a filter key, and the message names which one:
+
+```text
+Measure 'm' selects columns without naming them (a column selector, IDENTIFIER(...), a star, or the whole row). This expose redacts columns (contract.schema[].sensitivity), and a redaction applies to the columns an expression names, so name the columns it reads.
+```
+
+`count(*)`, arithmetic such as `sum(amount * 2)` and `count(DISTINCT email)` are accepted and return their values. An expression that names the column is redacted as before: a dimension on `email` returns `[REDACTED-PII]` in every row.
+
+#### `query_sql`
+
+`query_sql` exists only with `--allow-sql`. On an expose that restricts or redacts columns, every reference to the exposed table in the statement (the `FROM` and each join, a self-join included) is replaced by a projection of the allowed columns. A redacted column is left out of that projection too, as a restricted one is. `SELECT *`, `alias.*` and the table or its alias used as a whole-row value return only the allowed columns:
+
+```text
+SELECT c.* FROM customers AS c JOIN customers AS d ON c.customer_id = d.customer_id
+-> SELECT c.* FROM (SELECT customer_id, segment, amount, tenant_id FROM customers) AS c JOIN (SELECT customer_id, segment, amount, tenant_id FROM customers) AS d ON c.customer_id = d.customer_id
+   columns: customer_id, segment, amount, tenant_id
+
+SELECT to_json(c) AS row_json FROM customers AS c LIMIT 1
+-> {"customer_id":1,"segment":"retail","amount":10,"tenant_id":"t1"}
+```
+
+A statement that names `ssn` or `email` is still refused by name. What the statement may read from is limited as well. Each of these is refused on such an expose, with the message shown:
+
+| Statement | Refusal |
+| --- | --- |
+| A table function: `SELECT * FROM read_csv('customers.csv')` | `sql may only read from tables named in the usual way, subqueries, UNNEST and VALUES on an expose that restricts columns; query the exposed table directly.` |
+| A quoted file path as a table: `SELECT * FROM 'customers.csv'` | `sql may not read from a table function or a file path on an expose that restricts columns; query the exposed table directly.` |
+| The `TABLE` keyword: `SELECT * FROM (TABLE customers)` | `sql may not use the TABLE keyword on an expose that restricts columns; select from the exposed table by name.` |
+| Any other source that is not a plain table, `UNNEST` or `VALUES` | The first message in this table. |
+| SQL the parser cannot read: `SELECT FROM FROM` | `sql could not be rewritten to read only the columns this expose allows; write one plain SELECT over the exposed table.` |
+
+A subquery that spells `SELECT` is refused earlier, as an invalid SQL expression.
+
+- On DuckDB the engine's own parser checks the rewritten statement as well. A statement it cannot parse, or one in which the exposed table is read in any form other than the allowed-column projection, is refused with `sql could not be checked against the columns this expose allows; write one plain SELECT over the exposed table.`
+- A column written as `schema.table.column` no longer resolves once the table is rewritten. Give the table an alias, or write `table.column`.
+- An expose with no restricted or redacted column runs the statement unchanged.
+
+#### Postgres functions that return a whole relation as XML
+
+`query_sql` and the `query` expressions refuse `table_to_xml`, `query_to_xml`, `cursor_to_xml`, every `schema_to_xml*` and `database_to_xml*` function, and their `*xmlschema` and `*_and_xmlschema` variants. The refusal holds on every engine, in any case, quoted or schema-qualified. On `query_sql` the message is `sql may not call a function that returns a whole table, schema, database or query result as XML (table_to_xml, query_to_xml, cursor_to_xml, schema_to_xml, database_to_xml and their variants). Select the columns of the exposed table directly.` In a `query` expression it is reported as `Invalid SQL expression`. A column or alias that only shares one of those names is not a call and is unaffected.
 
 ### Row-level security — `policy.rowFilters`
 
@@ -459,6 +544,20 @@ So a contract that uses `rowFilters` can be served but cannot go through the val
 :::
 
 `${caller.<attr>}` placeholders resolve from `caller_attributes`: the `fluid` block of the client's declared capabilities over stdio or over HTTP with no auth mode enforced, or the mapped claims of a verified JWT over HTTP with `FLUID_MCP_AUTH_MODE=jwt`. A client certificate checked by a proxy does not supply `tenant_id`; see [Authentication modes](#authentication-modes). The supported operators are `equals` (scalar) and `in` (non-empty list); values are always **bound as parameters**, never interpolated.
+
+`query_sql` is refused altogether on an expose that declares row filters: `Free-form query_sql is not permitted on an expose that declares row filters (policy.rowFilters): row-level security cannot be enforced on arbitrary SQL — use the semantic 'query' tool instead.` A malformed entry is reported first, by the refusal below.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1105](https://github.com/Agenticstiger/forge-cli/pull/1105)).* Each entry needs a string `column` and exactly one operator, `equals` or `in`. On `sample`, `query` and `query_sql`, an entry that is not an object, has no string `column`, has any other operator, or names both operators is refused, and the message names its position. A `policy.rowFilters` that is not a list is refused too, and its message names `policy.rowFilters`:
+
+```text
+policy.rowFilters[0] has no 'equals' or 'in' operator, so the row filter cannot be applied and the request is refused. Each entry needs a string 'column' and exactly one operator, 'equals' or 'in'.
+```
+
+```text
+policy.rowFilters is not a list, so the row filter cannot be applied and the request is refused. Each entry needs a string 'column' and exactly one operator, 'equals' or 'in'.
+```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1105](https://github.com/Agenticstiger/forge-cli/pull/1105)).* On `query`, every term of the `WHERE` is parenthesised, so an `OR` inside a metric-filter expression or a dimension expression stays inside its own term and the row filter is still ANDed to the result. On an expose with no restricted columns, a filter on the key of a dimension written as `segment = 'wholesale' OR amount > 0` compiles to `WHERE ((segment = 'wholesale' OR amount > 0) = :p_0) AND ("tenant_id" = :p_1)`. With restricted columns the row filter is inside the projection instead; see [Restricted columns on the query tools](#restricted-columns-on-the-query-tools).
 
 **Missing identity fails closed.** If a filter references `${caller.tenant_id}` and the caller never supplied it, the read raises `RowFilterIdentityMissing` and serves **no rows**. The gateway prefers no rows to wrong rows.
 

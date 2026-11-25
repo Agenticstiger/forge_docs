@@ -702,6 +702,14 @@ What the compiler does, as of 0.18.1:
 
   Query the underlying measures instead, or let dbt MetricFlow answer the
   metric.
+- **On an expose with restricted or redacted columns, expressions are checked more strictly.** *On forge-cli `main`, not yet in a release ([forge-cli #1105](https://github.com/Agenticstiger/forge-cli/pull/1105)).*
+  On an expose with restricted columns, every dimension, measure, metric `filter` and filter key
+  is evaluated over the columns `contract.schema` declares, less the restricted ones. On an expose
+  with restricted or redacted columns, or with row filters, a subquery in one is refused. On an
+  expose with `sensitivity: pii`, `phi` or `sensitive` columns, an expression that selects columns
+  without naming them (`COLUMNS(...)`, `IDENTIFIER(...)`, a `*` that stands for columns, the table
+  as a whole-row value) is refused, while `count(*)` and `count(DISTINCT email)` still run. See
+  [Restricted columns on the query tools](../advanced/mcp.md#restricted-columns-on-the-query-tools).
 - **Value-revealing aggregates over PII are redacted.** `min`, `max`, `median`
   and `percentile` over a column marked `sensitivity: pii` return a cell value,
   so their results are masked like a raw PII column. `count`,
