@@ -44,7 +44,7 @@ The `local` extra installs DuckDB (`duckdb>=1.5.0`) and pandas. The bare package
 ```text
 ╭───────────────────────────────────── 📦 Version Information ─────────────────────────────────────╮
 │ FLUID CLI                                                                                        │
-│ Version: 0.39.0                                                                                  │
+│ Version: 0.40.1                                                                                  │
 │ API: v1                                                                                          │
 │                                                                                                  │
 │ Supported Specifications:                                                                        │

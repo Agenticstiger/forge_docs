@@ -5,13 +5,15 @@ description: Every forge-cli release, newest first, with what changed and where 
 
 # Releases
 
-These docs are verified against CLI `0.39.0`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
+These docs are verified against CLI `0.40.1`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
 Each version links to its upgrade steps, its release notes, or the forge-cli CHANGELOG.
 
 For what `fluid version`, `fluidVersion` and the schema versions mean, see [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
 
 | Version | Date | What changed |
 | --- | --- | --- |
+| [`0.40.1`](./upgrading.md#changes-in-0-40-1) | 2026-11-24 | The container image is published again after the release scan stopped 0.40.0's; the PyPI package is the same as 0.40.0 apart from five unused names removed. |
+| [`0.40.0`](./upgrading.md#changes-in-0-40-0) | 2026-11-24 | `fluid profile` answers rank correlations and clique statistics of a profile request, releases them under differential privacy, and can make a privacy unit follow its child rows; the `[profile]` extra needs flux-stats 0.11. |
 | [`0.39.0`](./upgrading.md#changes-in-0-39-0) | 2026-11-23 | Iceberg maintenance for a table forge does not write, with the plan binding each maintenance action, `fluid import --check` and `fluid generate ci --add import-drift`, profile facts checked together against differencing, and command plugins that may add new command names only. |
 | [`0.38.0`](./upgrading.md#changes-in-0-38-0) | 2026-11-22 | Per-table Iceberg maintenance that forge runs beside the stream, Airflow alerts and writer pools in generated DAGs, `fluid profile` answers a FLUX profile request and can release a table under differential privacy, and a live Iceberg table in Glue is no longer updated in place. |
 | [`0.37.0`](./upgrading.md#changes-in-0-37-0) | 2026-11-22 | A secret may only travel to a host the operator allowed, whichever way a connection names it, and `fluid import airflow` and `fluid import pyspark` read estates whose code builds its commands in loops. |

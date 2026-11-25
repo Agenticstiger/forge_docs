@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.39.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.40.1, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.39.0                                                              │
+│ Version: 0.40.1                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.39.0"
+pip install "data-product-forge[local]==0.40.1"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.39.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.40.1
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -1659,6 +1659,27 @@ These changes are in 0.39.0. Six need an action, and only if they apply to you: 
 ### Also in 0.39.0
 
 `fluid profile --help` imports at most 328 modules beyond the plain CLI, one more than before, which keeps the startup budget test from failing in an environment with more packages installed. The full list is in the forge-cli [CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md).
+
+## Changes in 0.40.0
+
+These changes are in 0.40.0. One needs an action, and only if you run `fluid profile`: the `[profile]` extra now asks for flux-stats 0.11. Everything else is additive, and a profile that uses none of the new options keeps the format and the bytes it had.
+
+### Steps to take
+
+1. **Upgrade the `[profile]` extra if you use `fluid profile`.** The extra asks for `flux-stats[yaml]>=0.11,<1` now, the first release that holds rank correlations, the follows reach of a release and profile format 1-4-0. It asked for `>=0.9,<1` in 0.39.0. Run `pip install -U 'data-product-forge[profile]'`. A profile that uses none of the new options still runs on an older flux-stats, but a rank correlation and `--follow` need 0.11 and stop with an error that says so. *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* To check: `pip show flux-stats` reports 0.11 or newer after the upgrade. See [fluid profile](./cli/profile.md).
+
+### What changed
+
+- **`fluid profile --request` answers more of a profile request: format 1-2-0 asks, in a profile of format 1-4-0.** A table's `rankCorrelations` are answered with one `kendallTau/1` or `spearmanRho/1` entry (`columnPairs`) for each pair of the listed columns, in the order the request lists them. A correlation over fewer than the records the group-size check needs is withheld like any other group. A table's `cliqueColumns` are answered with one two-way statistic for each pair of the first 32 listed columns, and the pairs not measured are named in the report with the reason. A relationship's `groupBy` asks its statistics grouped by each named parent column, and its `linked` asks a child column's histogram grouped by a column of the parent row its key reaches (`groupByLink`). Each group of a grouped statistic is checked on its own, and the rows of a parent with no value in the column are never a group. A profile names the least format that holds it, so a profile with none of these keeps the format and the bytes it had. `--row-floor N` (a public count of 2 or more) is written as the `rowFloor` of each rank correlation, and the records are counted as the larger of their number and N; without it a rank correlation states no floor. *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))*
+- **`fluid profile --privacy-unit` releases rank correlations and clique marginals over numbers and timestamps.** Each noisy rank correlation carries `--row-floor` (default 1000) as its public `rowFloor`. Its sensitivity for one row is 4 / (floor + 1) for Kendall's tau and 9 / (floor + 1) for Spearman's rho, times the rows one unit contributes. The value is rounded onto a lattice of 2^20 steps per sensitivity and an exact discrete Gaussian is added on it, so no floating-point noise is drawn. A clique that holds a number or timestamp column is released as `cliqueMarginal/2` on the public bins of the column's declared range, and the bins are never chosen from the data. The cliques are chosen with OpenDP's AIM or, with `--clique-method mst`, its MST, and the profile records the method, the OpenDP version and the tenth of `rho` the choice cost in `cliqueSelection`. Each noisy statistic is one part with an equal share of the rest, and every noise block is in the profile's account once. *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))*
+- **`fluid profile --privacy-unit --follow PARENT.COL[,COL]=CHILD.COL[,COL]:MAX` makes the unit follow its child rows.** The unit is a row of the privacy unit's expose with at most MAX of its children through each followed relationship, and repeating the flag follows a tree. The profile names the follows in `privacy.privacyUnit.follows` (format 1-4-0), and the tree is checked before any record is read. A parent's children are cut to MAX by a keyed priority that reads only that parent's children, a child that is dropped takes its descendants, and a row that follows no kept row is dropped, so what a unit keeps depends on the seed and that unit alone. The release holds every table the unit reaches, each charged for the rows one unit contributes to it, and a noisy children-per-parent histogram for each declared relationship. A table the unit does not reach is treated as fixed: the report names those tables and warns when a labelled (`pii` or `restricted`) column of one groups a noisy statistic. `--follow` is not combined with `--release-table`, `--unit-key` or `--max-rows-per-unit`. `--rederive` draws the same release again from the record, which now holds each part. *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))*
+
+## Changes in 0.40.1
+
+`0.40.1` publishes the container image that 0.40.0 did not get. Nothing needs an action. The PyPI package is the same as 0.40.0 apart from the change in the last item.
+
+- **The container image is published again.** The release's image scan stopped the 0.40.0 image on CVE-2026-119170, a regression in how CPython 3.14.10's `hashlib` enforces FIPS algorithms, which matters only where OpenSSL runs in FIPS mode. The image does not run it so, and the fix is in CPython 3.14.11, which was not out when 0.40.1 was cut. The scan's configuration lists the CVE with that reason until a `python:3.14-slim` with CPython 3.14.11 ships. *(since 0.40.1, [forge-cli #1076](https://github.com/Agenticstiger/forge-cli/pull/1076))*
+- **Five names that nothing read are gone from the profiler and its tests.** They are `_COUNT_KINDS`, and the `itertools`, `math`, `_stats` and `selection` imports, as GitHub code quality found. *(since 0.40.1, [forge-cli #1076](https://github.com/Agenticstiger/forge-cli/pull/1076))*
 
 ## Not in a release yet
 
