@@ -338,14 +338,22 @@ Exit `0` deployed (or nothing to change), `1` refused or failed (a `FAILED` depl
 
 ### The deploy role
 
-| On | Needs |
-| --- | --- |
-| The release objects | `s3:GetObject`, `s3:GetObjectVersion`, `s3:ListBucketVersions`, `s3:GetBucketVersioning`; with `--require-receipt`, what [`receipt check`](#fluid-runs-receipt-check) needs (and `s3:GetObjectRetention` for `--require-locked`) |
-| Each target | `s3:PutObject`, `s3:GetObject` (`If-Match` needs it) |
-| The account | `sts:GetCallerIdentity` |
-| `*/deploys/<env>/*` | `s3:PutObject` only, never `s3:DeleteObjectVersion`, `s3:BypassGovernanceRetention` or `s3:PutObjectRetention` |
-| `*/receipts/<env>/*` | Nothing to write: `receipts/` stays the verifier's (the [receipt writer rule](#fluid-runs-receipt-check)); `s3:GetObject`, `s3:GetObjectVersion` only with `--require-receipt` |
-| KMS | `kms:Decrypt` on the release bucket's key, `kms:GenerateDataKey` on each target's |
+Every S3 call `runs deploy` makes, and the permission it needs. Grant these and nothing more.
+
+| On | Needs | Why |
+| --- | --- | --- |
+| The release bucket | `s3:GetBucketVersioning`, `s3:ListBucketVersions` | Versioning must be `Enabled`; `release.json` must have one version |
+| The release objects (`<prefix>/<product>/<code hex>/<env>/*`) | `s3:GetObject`, `s3:GetObjectVersion` | The check reads each object, then reads `release.json` again and copies each file at the version it read |
+| Each target bucket | `s3:ListBucket` | Without it, S3 answers the HEAD of a key not written yet as denied (`403`), not missing (`404`) |
+| Each target object | `s3:PutObject`, `s3:GetObject`, `s3:GetObjectVersion` | The copy; the HEAD before it (and `If-Match`); the read-back at the VersionId written |
+| `<code hex>/deploys/<env>/*` | `s3:PutObject`, `s3:GetObject` | The deploy receipt and its log, written once and read back |
+| `<code hex>/receipts/` | Nothing to write | `receipts/` stays the verifier's (the [receipt writer rule](#fluid-runs-receipt-check)) |
+| With `--require-receipt ENV` | `s3:GetObject`, `s3:GetObjectVersion` on `<code hex>/receipts/ENV/*` and on `ENV`'s release objects | What [`receipt check`](#fluid-runs-receipt-check) reads |
+| With `--require-locked` | `s3:GetObjectRetention` on those objects | Without it, S3 leaves the lock out of every read |
+| With `--require-signed` | `s3:GetBucketObjectLockConfiguration` on the release bucket | The bucket's default retention |
+| KMS | `kms:Decrypt` on the release bucket's key, `kms:GenerateDataKey` on each target's | Encrypted buckets only |
+
+The account check calls STS `GetCallerIdentity`, which needs no permission. No writer of `deploys/<env>/` should hold `s3:DeleteObjectVersion`, `s3:BypassGovernanceRetention` or `s3:PutObjectRetention` there, as for receipts. Release objects carry no tags; a copy of a tagged object also needs `s3:GetObjectVersionTagging`.
 
 A release is only as trusted as whoever can write its prefix. Keep it writable by the release job only, and keep `s3:DeleteObjectVersion` and `s3:PutBucketVersioning` from every writer: a writer who could delete the first `release.json` version could leave a rewritten one as the only version, and one who could suspend versioning could replace objects in place.
 
