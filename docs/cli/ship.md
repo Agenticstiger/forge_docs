@@ -66,8 +66,8 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--require-artifacts <keys>` | | | *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
 | `--release-dir <dir>` | | | *(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
 | `--artifacts <lock>` | `RELEASE_ARTIFACTS` | | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* Seals the external files the lock lists into the release. Needs `--release-dir`, and the variable is read only by a run that seals a release. See [Sealing external files](#sealing-external-files). |
-| `--release-to <s3-uri>` | | | *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* Then publishes the sealed release, write-once, under `s3://bucket/prefix/`. Needs `--release-dir` and the `aws` extra. See [Publishing to S3](#publishing-to-s3). |
-| `--release-to-require <check>` | | | *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* Refuses a `--release-to` bucket without `versioning`, or without Object Lock and a default retention (`object-lock`); repeatable or comma-separated. See [Publishing to S3](#publishing-to-s3). |
+| `--release-to <s3-uri>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Then publishes the sealed release, write-once, under `s3://bucket/prefix/`. Needs `--release-dir` and the `aws` extra. See [Publishing to S3](#publishing-to-s3). |
+| `--release-to-require <check>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Refuses a `--release-to` bucket without `versioning`, or without Object Lock and a default retention (`object-lock`); repeatable or comma-separated. See [Publishing to S3](#publishing-to-s3). |
 | `--journal-dir <dir>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
 | `--acknowledge-inspected <stage>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Reruns a stage whose unknown outcome you inspected, and records it. Name or number; repeatable or comma-separated. |
 | `--publish` | | | Runs stage 10. |
@@ -245,7 +245,7 @@ Each entry is shaped like a SLSA provenance `resolvedDependencies` entry, with i
 
 ### Publishing to S3
 
-*On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.*
+*On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).*
 
 `--release-to s3://bucket/prefix/` publishes the release once the run has sealed it in `--release-dir`. A job that deploys, an auditor or a later stage then reads one place that nothing rewrites.
 
@@ -279,7 +279,7 @@ A failed publish leaves the sealed directory as it is, and ship exits `1` (`3` a
 
 ### The code digest
 
-*On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.*
+*On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).*
 
 A release now names the commit it was built from, inside `identity`, and the digest of its code, beside it:
 
@@ -379,7 +379,7 @@ The store resolver reads this token before any other, a project `.env` token inc
 | Code | Meaning |
 |---|---|
 | `0` | Every selected stage passed or was skipped, or every stage the flags selected is [switched off](#stage-switches-and-knobs). |
-| `1` | A stage failed. *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* Also a `--release-to` publish that failed after the local seal. |
+| `1` | A stage failed. *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Also a `--release-to` publish that failed after the local seal. |
 | `2` | Ship refused its arguments: an unknown stage or a reversed range, no stage left to run, an environment name a stage would refuse, a publish target with `:`, `--dry-run` with another `--apply-mode`, a missing input, no contract, a contract that is missing, symlinked or under a system path, or `--skip-plan`. *(since 0.37.0, [forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042))* Also a wrapped store token that cannot be opened: see [A wrapped store token](#a-wrapped-store-token). |
 | `3` | A stage failed after apply changed something, so those changes are live. A dry-run apply changes nothing. |
 | `130` | Interrupted. |
