@@ -197,6 +197,83 @@ With `--json` it prints `source`, `status` (`intact`, `not-intact` or `undecided
 
 Like [Intact and not intact](#intact-and-not-intact), this proves the bytes match the index, not who wrote the index. The same check is public in Python as `fluid_build.api.verify_release`, and `runs status --release-dir` uses its identity check.
 
+## `fluid runs receipt`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122)).*
+
+A receipt records what one environment's check of a sealed release found. A later environment's deploy passes `receipt check` only when an earlier environment checked the same code and the check passed. The model is [Kargo](https://docs.kargo.io/user-guide/how-to-guides/working-with-freight)'s: Freight, named by a digest of what it carries, goes downstream only after an upstream Stage verified it. Here the [code digest](./ship.md#the-code-digest) plays the Freight's part: one commit and one lock, sealed once per environment.
+
+```bash
+# nonprod: check the deployed product against the release, then record the result
+fluid verify contract.fluid.yaml --release s3://acme-releases/orders/acme.orders/6369...9999/nonprod/ --out verify.json
+fluid runs receipt record s3://acme-releases/orders/acme.orders/6369...9999/nonprod/ --report verify.json \
+  --target "s3://acme-dags/dags/orders.py#3HL4kqtJlcpXroDTDmJ.rmSpXd3dIbrHY" \
+  --target "git+https://git.example.com/ops/dags@<full commit>" --check-targets
+
+# prod: deploy only if nonprod passed for the same code
+fluid runs receipt check s3://acme-releases/orders/acme.orders/6369...9999/prod/ --env nonprod --require-locked
+```
+
+### `fluid runs receipt record`
+
+`record SRC --report R` verifies SRC first, as [`verify-release`](#fluid-runs-verify-release) does, then writes a `fluid-receipt/1` record write-once to `<code hex>/receipts/<env>/<utc>-<identity16>.json` beside it. For a release directory, the record goes to `receipts/<env>/` beside that directory. The report is stored next to the receipt and written first. The receipt is written last, and a reader takes a receipt only together with its report. On disk, `receipts/` and `receipts/<env>/` are created one level at a time and never through a link.
+
+`R` is the report of [`fluid verify --release SRC --out R`](./verify.md#key-options), whose `release` block names the release. A report that names another release, or none, is refused, and nothing is written.
+
+The receipt holds:
+
+- `code_digest` and `identity_digest`;
+- each object verified, with its sha256 and S3 VersionId;
+- the report's sha256 and counts;
+- the CI run, with any credentials cut out of its URLs;
+- the targets.
+
+Its fields follow SLSA's [verification summary attestation](https://slsa.dev/spec/v1.1/verification_summary): `verifier`, `time_verified`, `resource_uri` and the result.
+
+The result is `PASSED` when the report's verdict passes, the report checked the whole release (not one `--expose`), and every checked target reads back. Otherwise the result is `FAILED`, and a failed receipt is written too. The verdict is `fluid_build.api.report_verdict`, the rule [`datamesh-manager promote --verify-report`](./datamesh-manager.md) uses.
+
+| Option | Meaning |
+| --- | --- |
+| `--report R` | The `fluid verify --release SRC --out R` report. Required. |
+| `--env NAME` | Must be the environment the release was sealed for; that environment is the default. |
+| `--target T` | Where the release went, repeatable. `s3://bucket/key#versionId` names an object version, since a key alone can change. `git+<repo>@<commit>` takes a full commit and is recorded, never checked. The repository URL is kept without user, password, query or fragment. |
+| `--check-targets` | Reads each S3 target version back and records the checksums S3 holds for it (its sha256 when it has one), its ETag and its size. A version that is not there fails the receipt. One that cannot be read writes nothing, with exit `2`. |
+| `--sign` | Also stores an in-toto Statement of the SLSA verification-summary type over the release's `release.json`, signed with cosign (keyless) into one bundle beside it (`<stem>.intoto.jsonl.sigstore.json`). It is signed before anything is written. Needs cosign 2.0 or later; sign and verify with the same major version, since 2.x and 3.x write different bundle formats. |
+| `--sign-key REF` | With `--sign`: a cosign key, either a path or a KMS URI. |
+| `--json` | Prints the receipt and the files written. |
+
+Exit `0` `PASSED`, `1` `FAILED` or refused (nothing written), `2` cannot decide or a usage error (nothing written).
+
+### `fluid runs receipt check`
+
+`check SRC --env nonprod` verifies SRC, then reads the newest `nonprod` receipt for SRC's code digest. It passes when all of these hold:
+
+- the receipt is `PASSED`;
+- the report stored beside it is the one it names, and still passes;
+- the `nonprod` release it names is there, intact, of that environment and of the same code.
+
+It fails closed:
+
+- a newest file there that is not a receipt fails the check, rather than letting it fall back to an older receipt;
+- a receipt overwritten or deleted after it was written fails the check. The listing reads every version and delete marker, because Object Lock keeps versions, not keys. Reading receipts in S3 therefore needs `s3:ListBucketVersions` and `s3:GetObjectVersion`. `--require-locked` also needs `s3:GetObjectRetention`: without it S3 leaves the lock out of every read, and the check fails. `--require-signed` needs both of those and `s3:GetBucketObjectLockConfiguration`;
+- in S3, a receipt of other code under this code's folder fails the check;
+- a receipt of this code named later than now decides nothing (exit `2`): a recorder's clock is ahead, or the name is not its own;
+- a listing past 50,000 entries decides nothing. A new commit, whose code digest starts a new folder, is the way on.
+
+Whoever can write under `receipts/<env>/` can therefore also make the folder decide nothing, by adding a second version of an entry. That fails closed; a new commit gives a new code digest and a new folder.
+
+The check never reads a release's `gates` or `provenance`.
+
+It reports whether each object of both releases and of the receipt carries an Object Lock in force, read at the version it checked. `--require-locked` fails the check when one does not. A receipt whose lock has run out gates nothing, so the retention must cover the time from the earlier environment's check to the later deploy; the way on is a fresh check of the earlier environment. Never shorten the bucket's default retention while releases are gated on its receipts: a newer receipt would then lose its lock before an older one, and `s3:DeleteObjectVersion` alone could remove it and let the older receipt decide. Lengthening it is safe. Never move or expire receipts (a lifecycle rule included): in a versioned bucket that leaves a delete marker, and the check then fails for that code for good.
+
+::: warning Who may write receipts
+A receipt is only as trusted as whoever can write `receipts/<env>/`. Keep that prefix writable by the verifier's own identity only, never by a role that runs build code. Or sign receipts with `--sign` and pass `--require-signed` to `check` with the signer: `--verify-key REF`, or `--certificate-identity` and `--certificate-oidc-issuer` for keyless. A signature cannot show that a newer receipt was never there, so `--require-signed` implies `--require-locked` over the receipt, its report and its Statement, needs a bucket with Object Lock and a default retention, and decides nothing (exit `2`) for a release on disk. No writer of `receipts/<env>/` may hold `s3:DeleteObjectVersion`, `s3:BypassGovernanceRetention` or `s3:PutObjectRetention` there: with any of them a newer receipt could be removed while the older one is still locked. The signer must be one the build code cannot reach. Keyless, the certificate identity is the workflow, and any step in a job that can mint its OIDC token can sign as it, so record receipts in a separate job, or use a key only the verifier can use. The Statement beside the newest receipt must then verify with `cosign verify-blob` for exactly that signer. It must also name the receipt's own sha256, environment, code and identity digests, `PASSED`, and the `release.json` of the release it vouches for.
+:::
+
+Exit `0` passes, `1` does not, `2` cannot decide (a read failed, cosign is missing, or the release has no code digest). With `--json` it prints `status`, `reason`, `code_digest`, `receipt`, `receipt_release`, `locks` (each with `uri`, `version_id`, `lock`) and `ignored`.
+
+`fluid runs status --release-dir` lists, under each release, the newest receipt of each environment for its code, picked as the check picks it.
+
 ## `fluid runs logs`
 
 Read the logs a product left, filtered by component.

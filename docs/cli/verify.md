@@ -65,6 +65,7 @@ Without `--strict` the same run reports the drift and exits `0`. Remove the extr
 | `--strict` | Exit non-zero on CRITICAL drift (see [Severity](#severity)). Non-critical drift (nullable-vs-required constraints, extra columns in a warehouse table) is reported and downgraded to a warning. Verification errors fail with or without `--strict`. |
 | `--fail-on-warning` | Exit non-zero on any mismatch, including the non-critical drift `--strict` downgrades. Use it for a CI gate that must not let a required-to-nullable change through. Works with or without `--strict`. |
 | `--out` | Write the JSON verification report to this path. No default: omit it and no report file is written. |
+| `--release SRC` | *On forge-cli `main`, not yet in a release ([forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122)).* The sealed release this run checks: a release directory or its `s3://` prefix. It is verified first and must be a release of the contract's product. The `--out` report (required with it) gains `release: {source, product, environment, identity_digest, code_digest, expose}`, which [`fluid runs receipt record`](./runs.md#fluid-runs-receipt-record) requires. Not for a managed Flink contract. |
 | `--show-diffs` | Show field-by-field differences |
 | `--reconcile-dbt` | Cross-check the contract schema against the build's dbt project (`models/**/schema.yml`) and flag drift. Static, warehouse-free. |
 | `--reconcile-lineage` | Cross-check declared lineage against local run evidence and the catalog publish payload. Local-only, no network. |
