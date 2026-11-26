@@ -106,6 +106,9 @@ flag_oracle_ok:
   - docs/cli/verify.md::--release
                      # `fluid verify --release` comes with forge-cli #1122, as
                      # above.
+  - docs/cli/runs.md::fluid verify
+                     # The receipt example on runs.md runs `fluid verify
+                     # --release`, from forge-cli #1122 as above. Drop with it.
   # Surface removed in 0.31.0 (forge-cli #881, the embedded copilot). These pages
   # still describe it under a removal banner, so the pinned parser no longer
   # knows the fences. Each entry is scoped to the removed flag or command; drop it
