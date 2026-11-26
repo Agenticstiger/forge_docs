@@ -54,7 +54,7 @@ fluid profile CONTRACT --source SOURCE [--expose ID]... [--table NAME] [--out FI
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory, or `<contract id>.profile.json` when the call profiles several exposes. |
 | `--fractional-bits` | The grid [`mean/1`](#the-mean-1-statistic) is formed on, in steps of 2^-N: 0 to 128, default 16. Set it to the fidelity block's `encoding.fractionalBits`. |
 | `--bundle` | *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* A FLUX bundle directory: the profile answers the fidelity block its one Simulation declares for the expose, on the block's grid, and a different `--fractional-bits` is refused. See [Answering a fidelity block](#answering-a-fidelity-block-bundle). |
-| `--request` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* A profile request that `fluxsim init --contract` wrote. See [Answering a profile request](#answering-a-profile-request-request). *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A workload, a consumer query, a date pair, a calendar, a relationship's dates or an exposure that the profile does not form is now named under `Not measured` with its reason, where it was dropped without a word before. See [Asks the profile does not form](#asks-the-profile-does-not-form-strict). |
+| `--request` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* A profile request that `fluxsim init --contract` wrote. See [Answering a profile request](#answering-a-profile-request-request). *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A workload, a consumer query, a date pair, a calendar, a relationship's dates or an exposure that the profile does not form is now named under `Not measured` with its reason, where it was dropped without a word before. See [Asks the profile does not form](#asks-the-profile-does-not-form-strict). *On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* A consumer query the request lists is answered with its rate: see [Consumer queries](#consumer-queries). |
 | `--privacy-unit`, `--rho`, `--release-record` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* Release one table under differential privacy. See [Releasing a table under differential privacy](#releasing-a-table-under-differential-privacy). `--release-table`, `--unit-key`, `--max-rows-per-unit`, `--max-rows-per-cell`, `--clique-method`, `--follow` and `--rederive` refine it. |
 | `--row-floor` | *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* The row floor of the rank correlations a `--request` asks for: a public count of 2 or more, written as each statistic's `rowFloor` and used to form its value, as the larger of the number of records and N. Without it a rank correlation is formed over its records alone and states no `rowFloor`. In a private release each noisy rank correlation carries `--row-floor` as its public `rowFloor`, 1000 by default. Without `--request` it is refused with `profile_row_floor_needs_request`, and in a private release that releases no rank correlation it is refused with `profile_release_row_floor_unused`. |
 | `--strict` | *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* Refuse a `--request` before any record is read when the request or the contract alone shows that an ask cannot be formed. See [Asks the profile does not form](#asks-the-profile-does-not-form-strict). |
@@ -368,13 +368,103 @@ What this does not cover: a fact's overlap with a histogram's cells, a column's 
 
 A request is refused before any record is read, each with its own event code, when it is used beside `--bundle`, `--env` or `--expose`, when the contract is a stage-1 bundle archive, when the request file is not a regular file, is too large, is not UTF-8 or is refused by flux-stats, when its contract digest is not the contract file's (run `fluxsim init` again), when a table, column or domain is not shared by the contract and the profile, when `--fractional-bits` differs from the request's, and when a listed table has no `--source` or a `--source` names a table the request does not list.
 
+### Consumer queries
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* A request of format 1-1-0 can list consumer queries (PROFILE-REQUEST-SPEC 1-1-0, section 6). Through 0.41.0 the profile named each under `Not measured` and answered none. Now it answers a query with its rate, in a `queries` section of the document: how many of its unit's records the query keeps.
+
+A query lists a `name`, its `sql`, a `unit` and, optionally, a `groupBy`. This request, written by hand, asks the share of a library's membership cards held at the `family` tier:
+
+```yaml
+"queries":
+  - "name": "family_cards"
+    "sql": "SELECT member_id FROM cards WHERE tier = 'family'"
+    "unit":
+      "table": "cards"
+```
+
+```bash
+fluid profile contract.yaml --source cards=cards.ndjson --request request.yml --out library.profile.json
+```
+
+```text
+Queries: 1 of 1 published whole.
+```
+
+The document answers it with one `levelHistogram/1` over `false` and `true`. `k` is the unit's records and the `true` count is the rows the query returns, each published as a count rounded to a multiple of 5 like any other:
+
+```json
+{"name": "family_cards", "statistics": [{"definition": "levelHistogram/1", "levels": ["false", "true"],
+  "groups": [{"group": "", "k": 910, "levelCounts": [595, 310], "status": "F"}], ...}]}
+```
+
+The table held 908 records, 311 of them at the `family` tier. With a `groupBy`, the histogram has one group for each level of that column, and a profile that holds a grouped query is format 1-3-0:
+
+```json
+"groups": [{"group": "basic", "k": 320, "levelCounts": [230, 90], "status": "F"},
+           {"group": "family", "k": 310, "levelCounts": [215, 95], "status": "F"},
+           {"group": "plus", "k": 280, "levelCounts": [195, 85], "status": "F"}]
+```
+
+That is the query `SELECT member_id, tier FROM cards WHERE valid_to IS NULL` with `"groupBy": "tier"`: the cards still open, by tier.
+
+**What a query may be.** A query is answered when it keeps some of its unit's records and changes none:
+
+- It is one outer `SELECT` of columns, from exactly its unit, with at most one `WHERE`. A join, `DISTINCT`, `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`, a window, an aggregate, a set operation or a subquery in the `WHERE` is not answered.
+- Its `unit` is a table of the request, or a view that itself only keeps some of one table's rows (`SELECT ... FROM table [WHERE ...]`). A query over a view carries the view as its one `WITH` entry. This one counts the open cards that are at the `plus` tier, out of the open cards (`k` is 265, and the `true` count 85):
+
+```yaml
+  - "name": "open_plus_cards"
+    "sql": "WITH \"v\" AS (SELECT * FROM cards WHERE valid_to IS NULL) SELECT \"v\".\"member_id\" AS \"member_id\" FROM \"v\" AS \"v\" WHERE \"v\".\"tier\" = 'plus'"
+    "unit":
+      "sql": "SELECT * FROM cards WHERE valid_to IS NULL"
+```
+
+- Its `groupBy` names a column of the unit's records that the query also returns under the same name, and whose type declares its levels (an `enum(...)` or a boolean). The groups are those levels, whatever the records hold.
+- A condition must not be able to fail on a row's value. A cast, arithmetic, a `CASE` or a function off the allowed list is refused. Compare columns with constants of their own type, joined by `AND`, `OR` and `NOT`.
+- A unit may aggregate only when it counts entities: one table's rows grouped by the child column of a declared `many_to_one` relationship, as in `SELECT branch_id, count(*) AS n FROM cards GROUP BY branch_id`. Its records are then the relationship's parents, and a query over it is checked together with the relationship's children-per-parent bins. Any other aggregate unit is not answered.
+- A request holds at most 1,024 queries, and at most 64 are answered over one unit.
+
+What is not answered is named under `Not measured`, with its reason, and the rest of the profile is written. These lines are from requests run on `main`. The first query groups its rows, the second joins a table the request does not list, the third casts a column, the fourth groups by a column with no declared levels, the fifth is the 65th over its unit, and the last one's unit aggregates by a column that keys no relationship:
+
+```text
+Not measured: query per_member: fluid profile answers a query that keeps some of its unit's records: it groups its rows.
+Not measured: query joined: the check refuses the query: the query names the table 'branches', which is not one of the tables the request lists (['cards']) and not a WITH entry.
+Not measured: query cast_cond: a condition of its query or its unit's view could raise an error that depends on a row's value, so fluid profile does not run it: compare columns with constants of their own type, joined by AND, OR and NOT.
+Not measured: query by_branch: its groupBy branch_id is a column whose type declares no levels.
+Not measured: query q64: past the 64 queries over one unit that fluid profile answers.
+Not measured: query busy_branches: a unit that aggregates is answered only when it groups one table's rows by an entity they belong to.
+```
+
+The report counts the queries: `Queries: N of M published whole.`, with `, K in part.` when a grouped query publishes some of its groups.
+
+**The queries of a unit are checked together.** A query's two cells pass the output checks as a fact's do. Queries over one unit, and the facts of the same table, are then checked as one set, since two queries that differ by one record give that record back by differencing. Each published cell of the table's columns is held in the set too: an ungrouped level histogram, an ungrouped histogram of a number or timestamp column, or the rows with a value where a column's `count` or `nullCount` is published. A query that would give back a small cell is withheld with `D`. Two queries that differ only by the cards of one member, `valid_to IS NULL` and `valid_to IS NULL OR member_id = 7`, are both withheld:
+
+```text
+Queries: 0 of 2 published whole.
+Query open_cards: withheld by the check (D, secondary suppression).
+Query open_or_member_7: withheld by the check (D, secondary suppression).
+```
+
+A table's records are counted one way in a run: as its rows, as its entities by one column, or as the parents of one relationship's children. A query whose unit counts a table another way than a fact or an earlier query does is named, and not answered.
+
+**Before any record is read.** Whether a query is answered, with the shape, `groupBy`, condition and bound rules above, is decided before any record is read. [`--strict`](#asks-the-profile-does-not-form-strict) refuses a request with such a query. What only the records decide (a withheld cell, a statement that failed) is named and never refused. If a statement fails because of the records (an error, a time-out, running out of memory, a value that does not load), every query of the run is withheld with one message, so the run says at most that some statement failed.
+
+**How a query runs.** The query's text is untrusted. It is parsed and checked against closed lists of expression classes and functions, and bounds. It is then built again from the checked tree, and that text is checked a second time. Only the rebuilt text runs, in a DuckDB process of its own: a bare environment with no inherited descriptors, file-size, CPU and memory limits, an in-memory database that cannot reach files, load extensions or change its settings, one `SELECT` per statement, and only counts and bits come back. A request from a source you do not trust still belongs in a container.
+
+**A private release answers no query.** The profile format refuses noise on a query statistic. With `--privacy-unit`, the report names each query under `Not released`, and `--strict` refuses the request:
+
+```text
+Not released (a private release publishes no query rate: PROFILE-SPEC refuses noise on a query statistic): query family_cards.
+```
+
 ### Asks the profile does not form: `--strict`
 
 *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* The request is read whole. An ask that `fluid profile` does not form is named in the report under `Not measured` (under `Not released` with `--privacy-unit`), with its reason, and the rest of the profile is written. A listed query is named, never printed: its text is not kept.
 
 `--strict` turns that into a refusal before any record is read. It refuses a request when the request or the contract alone shows that an ask cannot be formed:
 
-- a workload or a consumer query;
+- a workload;
+- a consumer query that `fluid profile` does not answer. *On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* A query is answered where it can be: see [Consumer queries](#consumer-queries). Through 0.41.0 every consumer query was refused;
 - a metric, statistic, rank correlation, grouping, date pair, calendar, relationship date or exposure over a column the profile does not read, over a key of a counted relationship, or over a column whose type rules it out;
 - a fact whose rule `fluid profile` cannot measure;
 - more entries than a profile holds;
@@ -494,6 +584,39 @@ Two consequences to expect:
 These are output-checking conventions only. No privacy or anonymity guarantee is made or implied. ACRO's tools assist human output checkers and do not replace them: read the document before you share it.
 :::
 
+### Rounded date extremes
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* The order-statistics rule publishes a `min` or `max` only when at least 10 records hold that exact value. One record often holds a date or timestamp column's earliest or latest value, so through 0.41.0 such an end was withheld. Now an end that fewer than 10 records hold is rounded to a calendar unit and published.
+
+- The units are the UTC calendar day, the month and the year, finest first. A column the contract types `date` has no day unit, since its exact value already is a day.
+- The first unit whose bucket holds at least 10 records gives the end. For a `min` the bucket is the one that holds the column's smallest value, and for a `max` the one that holds its largest.
+- A `min` is published as the first value of the bucket. A `max` is published as the last value of it: its last day for a `date` column, its last millisecond for a timestamp column. The value has status `F`, as any published value has. The document carries no mark that an end was rounded, and the report names it.
+- When no bucket up to the year holds 10 records, the end stays withheld.
+- A `range` rule on the column clips a rounded end, so a `max` is never published past the declared end, nor a `min` before the declared start. When a record lies outside the declared range, the end stays withheld and is not clipped. A range rule the profiler does not read leaves the column's ends unrounded.
+- A `min` or `max` that is withheld for what a histogram of the same column withholds (`D`) is not rounded.
+
+A published end says that its bucket holds at least 10 records and that no record lies beyond it. It does not say that a record holds that value: a `min` of 2019-01-01 can sit beside an earliest record of 2019-01-02.
+
+The examples use a `visits` table with a timestamp column `visited_at` and a `date` column `visit_day` that hold the same days. Each row of the table below adds 12 visits a day for 60 consecutive days from 2024-06-01 to the records it names. Each row was profiled on forge-cli `main`:
+
+| The records at the end | `visited_at` (timestamp) | `visit_day` (date) | Report |
+|---|---|---|---|
+| Earliest: 3 visits at 09:00 on 2024-03-02 and 9 more at 15:00 the same day | `min` 2024-03-02T00:00:00.000Z | `min` 2024-03-02, exact: 12 records hold it | `visited_at min to day` |
+| Latest: 3 visits on 2024-12-30, and 11 more on 2024-12-05 | `max` 2024-12-31T23:59:59.999Z | `max` 2024-12-31 | `visited_at max to month; visit_day max to month` |
+| Latest: 3 visits on 2024-12-30, and 11 more on 2024-10-05 | `max` 2024-12-31T23:59:59.999Z | `max` 2024-12-31 | `visited_at max to year; visit_day max to year` |
+| Latest: 3 visits on 2024-12-10 and 11 more on 2024-12-05, and the contract declares a range ending `2024-12-20` | `max` 2024-12-20T00:00:00.000Z | `max` 2024-12-20 | `visited_at max to month; visit_day max to month` |
+| The contract declares a range ending `2024-12-15`, and 3 visits lie on 2024-12-30 with 11 more on 2024-12-05 | `max` withheld, status `A` | `max` withheld, status `A` | none |
+
+A range is declared on the column as a rule, for example `validationRules: [{type: range, constraint: "<= '2024-12-20'"}]` on the `date` column. A timestamp column's constraint names an instant, such as `"<= '2024-12-20T00:00:00Z'"`.
+
+The report names each rounded end and its unit, per table, in the summary of a default profile, of a [`--request`](#answering-a-profile-request-request) and of a [`--bundle`](#answering-a-fidelity-block-bundle) table:
+
+```text
+exposes[cards]: Rounded extremes: valid_from min to year; valid_to min to year.
+```
+
+In the library profile of [Reference tables published whole](#reference-tables-published-whole), the earliest `valid_from` is 2019-01-02 and only 7 records start in January 2019, so no month holds 10 and the `min` is the first day of the year, which 166 records start in. In the document that is `"status": "F"` and `"value": "1546300800000"`, the milliseconds since the epoch of 2019-01-01T00:00:00Z. The `max` of the same column stays withheld (`"status": "A"`), since the year of its largest value holds 1 record. Through 0.41.0 both ends were withheld.
+
 ## Children per parent
 
 *(since 0.37.0)* When one call profiles both exposes of a `semantics.relationships` entry, without `--bundle`, the document's `relationships[]` entry holds how many child rows each parent has. Each parent row counts once, in one of these bins: 0, 1, 2, 3 to 4, 5 to 9, 10 to 19, and 20 or more. Keys are matched as the registry reads them, and a null key matches none.
@@ -591,7 +714,7 @@ A column that a contract `dependency` sets from an entity key gets its histogram
 
 ### Asking for these members, and what stays withheld
 
-A profile request asks for the members in the table's `datePairs` (entries of `start` and `end`) and `calendar` (a list of columns), and in a relationship's `dates` (entries of `parent` and `child`) and `exposure` (entries of `start`, and `end` for a lifetime). A default profile forms them from the contract. On a public profile a request's date pairs, calendar, relationship dates and exposure are formed. A workload and a consumer query are named, not formed. Event lags are not formed: neither the request format nor the profile format has a member for them yet.
+A profile request asks for the members in the table's `datePairs` (entries of `start` and `end`) and `calendar` (a list of columns), and in a relationship's `dates` (entries of `parent` and `child`) and `exposure` (entries of `start`, and `end` for a lifetime). A default profile forms them from the contract. On a public profile a request's date pairs, calendar, relationship dates and exposure are formed. A workload is named, not formed, and so was a consumer query through 0.41.0. *On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* A consumer query is [answered](#consumer-queries) where it can be. Event lags are not formed: neither the request format nor the profile format has a member for them yet.
 
 - **What a withheld cell leaves readable.** Where a date statistic chooses between a published zero and a withheld cell (an order level a contract rule empties, `childless`, the end bins that set a span's or a pair's grain), the choice reads the records. A withheld cell there, a missing `childless` or a coarser grain tells a reader that at least one record lies there, never how many beyond what the check's code says, and never a value.
 - **A relationship's day histogram counts child rows.** The children of one parent can fill an end bin, so a published outer edge bounds the days from that parent's date to its children's to the bin, an interval, as a row threshold does in any histogram.
@@ -611,6 +734,255 @@ Each line names tables, columns and how many entries were published, never a cou
 | `exposes[beds]: Periods: N of M monthly groups published.` | A table's monthly periods. |
 | `exposes[beds]: Per-entity statistics: N of M published.` | The statistics counted per entity. |
 | `tasks.due: no date span: ...` | A date column that kept its quartiles, with the reason. |
+
+## Reference tables published whole
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121)).* A small table that its contract marks `Public` is written whole, under the profile's top-level `references` (PROFILE-SPEC section 5b, format 1-3-0), when it passes the gate below. Its rows are not counts: every value of every column is in the document. A table the gate does not pass is left out, and named. Mark an expose `Public` only when you mean to release all of its rows.
+
+The examples use a small synthetic library. `branches` is a table of its six branches, marked `Public`. `cards` holds a membership card for each version of a member's membership: it has a validity window (`valid_from`, `valid_to`), a `tier` and a foreign key `branch_id` into `branches`. The records are 360 members and 908 cards.
+
+```yaml
+fluidVersion: 0.7.7
+kind: DataProduct
+id: library.members
+exposes:
+  - exposeId: branches
+    kind: table
+    policy:
+      classification: Public
+    contract:
+      schema:
+        - {name: branch_id, type: string}
+        - {name: city, type: string}
+  - exposeId: cards
+    kind: table
+    semantics:
+      entities:
+        - {name: member, type: natural, expr: member_id}
+      dimensions:
+        - name: valid_from
+          type: time
+          typeParams: {timeGranularity: day, validityParams: {isStart: true}}
+        - name: valid_to
+          type: time
+          typeParams: {timeGranularity: day, validityParams: {isEnd: true, chain: nextStart}}
+      relationships:
+        - name: home_branch
+          to: branches
+          fromColumns: [branch_id]
+          toColumns: [branch_id]
+          cardinality: many_to_one
+    contract:
+      schema:
+        - {name: member_id, type: integer}
+        - {name: valid_from, type: date}
+        - {name: valid_to, type: date}
+        - {name: branch_id, type: string}
+        - {name: tier, type: "enum('basic','plus','family')"}
+```
+
+```bash
+fluid profile contract.yaml --source branches=branches.ndjson --source cards=cards.ndjson --out library.profile.json
+```
+
+The lines of the report that matter here (the others are left out):
+
+```text
+Profiled 2 exposes (branches, cards): 7 columns, 36 values published, 30 withheld.
+exposes[cards]: Rounded extremes: valid_from min to year; valid_to min to year.
+Children per parent of exposes[branches] in exposes[cards] (home_branch): withheld whole.
+exposes[cards]: History: 5 of 10 members published whole, 2 in part.
+Published whole, as the contract marks them Public: branches
+```
+
+### The gate
+
+A table is written whole only when every one of these holds:
+
+1. **The expose marks itself public.** Its own `policy.classification` is `Public`, spelled so. A lowercase `public`, an expose with no classification, and a `metadata.classification` of the whole product do not count: a product-wide label would publish every table.
+2. **A relationship the profile counts reaches it.** It is the parent of a relationship whose [children per parent](#children-per-parent) the profile counts, so a table nothing references is never written, whatever its label.
+3. **It is not a versioned table.** No counted relationship reaches it by the natural entity of a table with a validity window, since the keys of such a table repeat.
+4. **It holds at most 64 rows.**
+5. **It states no row restriction.** It has no `policy.authz.rowFilters` and no `policy.privacy.rowLevelPolicy`.
+6. **None of its columns is labelled.** No column has a `sensitivity` other than `none`, or a tag `pii`, `phi` or `sensitive` in any case, or a `policy.authz.columnRestrictions` or `policy.privacy.masking` entry. One labelled column keeps the whole table out: it is all or none.
+7. **The profile reads every column and can write every cell.** A table with a column the profile does not read (a floating-point column, for example) is left out, and so is a table with a cell longer than 4,096 characters.
+8. **The key is one column, never null, and unique.** This is the column of the table that each counted relationship references.
+
+The gate does not read a column's `labels` or `semanticType`, or an expose's own `tags`. A `Public` table with a column marked only that way is still written whole.
+
+### What the profile writes
+
+The columns stay in the contract's order, and the rows are sorted by the text of the key (in Unicode NFC code point order), so the bytes never follow the order of the source's rows: the same records in another order give the same document. A cell is spelled as the format spells it: a number as canonical decimal text (`12.5` for `12.50`, `1` for `1.0`), a date as `YYYY-MM-DD`, a timestamp as its milliseconds since the epoch, a boolean as `true` or `false`, and a string as stored.
+
+```json
+"references": {
+  "branches": {
+    "columns": ["branch_id", "city"],
+    "disclosure": "public",
+    "rows": [["central", "Aldermoor"], ["harbour", "Brookby"], ["hillside", "Corley"],
+             ["lakeside", "Dunmere"], ["market", "Elstow"], ["station", "Fenwick"]]
+  }
+}
+```
+
+`disclosureRules` gains `"public": {}` beside `acro-default`. A document that holds `references` names format 1-3-0, so its format changes with its digest: a profile of one contract with no date column went from 1-1-0 to 1-3-0.
+
+### Where it is never written
+
+A [private release](#releasing-a-table-under-differential-privacy), a [`--request`](#answering-a-profile-request-request) and a table that a [`--bundle`](#answering-a-fidelity-block-bundle) fidelity block answers never write `references`, whatever the contract marks `Public`.
+
+### What the report names
+
+The report names each table written whole, and each table marked `Public` that is left out, with the reason. A reason names a table, a column or a kind of rule, and never a key, a value or a count:
+
+```text
+Published whole, as the contract marks them Public: branches
+```
+
+```text
+Not measured: reference table branches: no relationship this profile counts reaches it.
+Not measured: reference table branches: it is a versioned table, whose keys repeat.
+Not measured: reference table branches: it holds more rows than a table released whole may.
+Not measured: reference table branches: a row filter or a row-level policy limits who reads its rows.
+Not measured: reference table branches: column 'city' carries a label.
+Not measured: reference table branches: column 'area' is not read.
+Not measured: reference table branches: column 'notes' cannot be written as a cell.
+Not measured: reference table branches: a key it is referenced by holds more than one column.
+Not measured: reference table branches: its key 'branch_id' is not unique and never null.
+```
+
+A table that is not marked `Public` is not named. A history that follows a foreign key into it says why it did not ([below](#following-a-foreign-key)).
+
+## History of a table with a validity window
+
+*(since 0.41.0, [forge-cli #1111](https://github.com/Agenticstiger/forge-cli/pull/1111))* A default profile of a table whose contract declares a validity window publishes the table's `history`. The window is one natural entity and a start and an end, which are both `date` columns or both timestamp columns (see [Versioned tables](../concepts/semantic-layer.md#versioned-tables-window-conventions-and-as-of-reads)). The history says how many versions each entity has, when its first one starts, how long a version lasts, how consecutive versions meet, how the last one ends, and for each categorical column that declares its levels, its first value and its changes. A `--request`, a private release and a table that a `--bundle` fidelity block answers write no history.
+
+The rows used are those whose entity and start are known. An entity's versions are ordered by start, then end (an open end last). An end is open when it is NULL or equals the `openEnd` the contract declares. The `cards` table of the [library](#reference-tables-published-whole) publishes these members:
+
+| Member | What it counts |
+|---|---|
+| `versionsPerEntity` | the entities, by their number of versions, on the bins 1, 2, 3, 5, 10 and 20 and up |
+| `firstStart` | the entities, by the year of their first version's start |
+| `versionLength` | the whole days from a version's start to the next version's start |
+| `chain` | each pair of consecutive versions, as `dayBefore`, `gap`, `nextStart` or `overlap` |
+| `lastVersion` | the entities, by how their last version ends: `closed` or `open` |
+| `columns` | for each categorical column that declares its levels (at most 32 columns of at most 64 levels): `initial`, the value on each entity's first version, and `transitions`, the changes between consecutive versions, grouped by the column's own value |
+| `reasons` | with at least two tracked columns, the changes by the one column that moves, or `several` |
+
+Every member goes through the same output checks as any other statistic. The report counts them:
+
+```text
+exposes[cards]: History: 5 of 10 members published whole, 2 in part.
+```
+
+A member is whole when every group of it is published with no cell withheld, and in part when some cell is published and some is not. Here the ten members are the five fixed ones, `initial` and `transitions` of `branch_id` and `tier`, and `reasons`.
+
+### Withheld a cell at a time
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).* `versionsPerEntity`, `versionLength` and `firstStart` are counted on public ladders: versions per entity, whole days, and calendar years. Each is trimmed to the bins that hold records, as a date pair's days are.
+
+- **The ends are coded.** An end bin with fewer than 10 records is joined to the bin beside it, until each end holds at least 10. The coded end then reaches a public bound, which is the ladder's own end, or for `firstStart` and `versionLength` the start column's published extremes. So no outer edge is placed by fewer than 10 records.
+- **A cell, not the member.** Each member is checked once, as a set of cells, with complementary suppression: a small cell is withheld, and so is what the check needs beside it, so that no withheld cell comes back by subtraction. A bin inside the ladder that holds no record is a zero, and is withheld with what the check needs beside it. The group and its `k` stay published.
+- **A member is withheld whole only when its records together are fewer than 10.** It is then written on the whole public ladder, so its bins say nothing of where records lie.
+
+On the library with six more members of six versions each, `versionsPerEntity` on 0.41.0 and on `main`:
+
+```text
+0.41.0: bins 1, 2, 3, 5, 10, 20, and up    cells [85, 90, withheld, withheld, withheld, withheld]
+main:   bins 1, 2, 3, and up               cells [85, 90, 190]
+```
+
+On 0.41.0 the six members made the bin of 5 to 9 versions small, and the check withheld every bin from 3 up. Now that small end bin is joined to the bin beside it, and the last bin holds the 190 members of 3 versions or more.
+
+`versionLength` of the library has a bin that holds no record, the one of 91 to 180 days, and the check withholds it with the bin beside it. The group's `k` is published:
+
+```json
+"versionLength": {"bins": ["8", "31", "91", "181", "366"],
+  "groups": [{"binCounts": [175, 210, null, null], "cellStatus": ["F", "F", "C", "C"],
+              "k": 550, "group": "", "status": "F"}], ...}
+```
+
+A table of 8 members has fewer than 10 entities, so `versionsPerEntity` and `firstStart` are written withheld whole, with `"status": "C"`, on their whole ladders. Its version lengths number 10 or more, so `versionLength` is published, on one bin.
+
+### First starts beside the start and end columns
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).* `firstStart` is published. Through 0.41.0 it was always withheld whole.
+
+Every end that is not an entity's last is the next version's start. So the start column's records below a date, less the first starts below it, are the later versions' starts, and the end column's records below it, less those, are the closed last ends. A reader who knows the start and end columns' published counts at a date (a histogram's cells, a quantile's bin, the `min` and `max`) and the first starts there can work out both. Any two of the start column, the first starts and the later versions' starts give the third. Any two of the end column, the later versions' starts and the closed last ends do too.
+
+So the first starts are checked against the two columns. When a count of later versions' starts or of closed last ends that a reader could form only through the first starts is small (or zero, where zeros are disclosive), the two first-start cells beside the date that sets it apart are withheld, until none is left. When only the records' own outer edge sets it apart, `firstStart` is withheld whole. Where the published versions per entity show that every entity has one version, and no row with a start lacks an entity, the later versions' starts are 0 everywhere and count as known.
+
+In the library, 3 entities have a closed last version that ends before 2020, a small count that the end column, the start column and the first starts would give back. So the first starts of 2019 and 2020 are withheld, and those of 2021 and 2022 are published. With 13 such entities in place of 3, all four cells are published.
+
+```json
+"firstStart": {"bins": ["1546300800000", "1577836800000", "1609459200000", "1640995200000", "1672531200000"],
+  "groups": [{"binCounts": [null, null, 100, 80], "cellStatus": ["C", "C", "F", "F"],
+              "k": 360, "group": "", "status": "F"}], ...}
+```
+
+The bins are the starts of 2019, 2020, 2021, 2022 and 2023.
+
+### Zeros the contract states
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).* A contract can declare a `lifecycle` on the natural entity, with an `endMarker` or a `currentFlag` (see [Versioned tables](../concepts/semantic-layer.md#the-natural-entity-s-life-cycle)). Each states zeros:
+
+- An `endMarker` ends an entity with a marked version, and never by closing its last one. `lastVersion` then writes `closed` as 0, and the marker value's `transitions` group is written as zeros.
+- A `currentFlag` marks the last version of an entity, so its value's `transitions` group is written as zeros.
+
+This holds only where the records leave those cells empty, as a declared `chain` already does. Where the records break the statement, the cells are checked like any other. In a library whose members end with a final version marked `lapsed`:
+
+```yaml
+entities:
+  - name: member
+    type: natural
+    expr: member_id
+    lifecycle:
+      endMarker: {column: status, value: lapsed}
+```
+
+`lastVersion` is published, `closed` as 0 and `open` as 360 (the count the output check rounds to), and the `lapsed` group of `status` is `[0, 0]`. Without the declaration the same records give a zero `closed`, which is withheld, and `lastVersion` is withheld whole. When 40 members end with a closed version that is not marked, `closed` is no zero and is published as any cell is.
+
+### `lastVersion` beside the end column's NULLs
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).* The end column's NULL ends, less the open last versions, are the rows that have no entity and a NULL end. When that count is small, both levels of `lastVersion` are withheld, since the end column's `nullCount` would give it back. With 3 such rows added to the library, `lastVersion` goes from `[95, 265]` to withheld whole.
+
+### Following a foreign key
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121)).* A history tracks a foreign key into a table that [the profile publishes whole](#reference-tables-published-whole). The levels of the tracked column are that table's keys, in the order it publishes them, and its `initial` and `transitions` pass the same output checks as any tracked column's. Through 0.41.0 the `branch_id` of the library was named under `Not measured` with "the contract declares no levels for it" and not tracked.
+
+A foreign key is tracked when it is one column, the relationship that keys it is counted, and the table it references is published whole. When it is not followed, the report says why, naming no value:
+
+```text
+Not measured: history of cards.branch_id: the table it references is not declared public.
+Not measured: history of cards.branch_id: the table it references is left out: column 'city' carries a label.
+Not measured: history of cards.branch_id: its key is not text: a history follows categorical columns.
+```
+
+A key that is not text (an integer key, for example) is published in `references`, and its foreign key is not followed. A foreign key into a table that is not published whole is not tracked, even where the contract declares the column's levels.
+
+**The guard.** A count that `initial` and `transitions` publish for a key is also a count of that key's children. A cell of `initial` is the members whose first card is at the branch, so the branch holds at least that many cards. So are the changes into a key, and the size of the group of changes out of it. A key's children are at most its cell plus the rows that are not first versions. Beside the relationship's [children per parent](#children-per-parent), whose cells are mostly withheld, these floors and ceilings can place each parent in a bin and give a withheld cell back.
+
+Where they would, the key's `initial` and `transitions` are withheld whole. No size and no cell is written for them, since a number beside a withheld cell gives it back as much as the cell does. The key's levels and the reference table stay published. The guard reads the exact group sizes and row counts, which a reader holds no tighter than.
+
+In the library, every branch starts at least 45 cards, so the floors would put all six branches in the bin of 20 or more and give back the relationship's withheld cells. The foreign key is withheld whole:
+
+```json
+"branch_id": {
+  "initial": {"groups": [{"group": "", "status": "C"}], "sampleSize": {"min": 0},
+              "levels": ["central", "harbour", "hillside", "lakeside", "market", "station"], ...},
+  "transitions": {"groupBy": "branch_id", "groups": [{"group": "central", "status": "C"}, ...], ...}
+}
+```
+
+The children per parent of this relationship are withheld whole, as the report says. A library of four branches, one of which has no cards yet, keeps the shares of the others: the guard finds no withheld cell pinned.
+
+```json
+"initial": {"groups": [{"group": "", "k": 105, "levelCounts": [45, 30, null, null],
+                        "cellStatus": ["F", "F", "C", "C"], "status": "F"}],
+            "levels": ["central", "harbour", "lakeside", "station"], ...}
+```
+
+Where every parent has many children, the bounds often pin a cell, so the shares are withheld whole. Data with several versions per entity keeps more of its shares. The guard withholds the shares whole and not single cells, so it can withhold more than it needs to.
 
 ## Where the time goes: `--timings`
 
@@ -656,7 +1028,7 @@ Pin it in the FLUX Simulation:
 
 *(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965))* The second line of this output reads `Withheld, by the check (CL_CONF_STATUS code): A (small count) 3.`
 
-The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A document that holds one of the time and structure members (a calendar, date pairs, a relationship's dates, structural classes, exposure, periods or a statistic counted per entity) is format `1-3-0` (see [Time and structure statistics](#time-and-structure-statistics)). A default profile of a table with a date or timestamp column holds a calendar. A profile that also holds the 0.40.0 rank-correlation or follow members is `1-4-0`. Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
+The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A document that holds one of the time and structure members (a calendar, date pairs, a relationship's dates, structural classes, exposure, periods or a statistic counted per entity) is format `1-3-0` (see [Time and structure statistics](#time-and-structure-statistics)). A default profile of a table with a date or timestamp column holds a calendar. A profile that also holds the 0.40.0 rank-correlation or follow members is `1-4-0`. *On forge-cli `main`, not yet in a release ([forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121)).* A profile that holds `references` is `1-3-0`: see [Reference tables published whole](#reference-tables-published-whole). Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
 
 ```yaml
 extensions:
