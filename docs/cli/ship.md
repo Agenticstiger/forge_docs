@@ -66,6 +66,8 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--require-artifacts <keys>` | | | *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
 | `--release-dir <dir>` | | | *(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
 | `--artifacts <lock>` | `RELEASE_ARTIFACTS` | | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* Seals the external files the lock lists into the release. Needs `--release-dir`, and the variable is read only by a run that seals a release. See [Sealing external files](#sealing-external-files). |
+| `--release-to <s3-uri>` | | | *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* Then publishes the sealed release, write-once, under `s3://bucket/prefix/`. Needs `--release-dir` and the `aws` extra. See [Publishing to S3](#publishing-to-s3). |
+| `--release-to-require <check>` | | | *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* Refuses a `--release-to` bucket without `versioning` or `object-lock` enabled; repeatable or comma-separated. |
 | `--journal-dir <dir>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
 | `--acknowledge-inspected <stage>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Reruns a stage whose unknown outcome you inspected, and records it. Name or number; repeatable or comma-separated. |
 | `--publish` | | | Runs stage 10. |
@@ -241,6 +243,45 @@ artifacts:
 
 Each entry is shaped like a SLSA provenance `resolvedDependencies` entry, with its source the way `fluid bundle --attest` records the contract's own. No path on the machine that ran ship is recorded, so two clean runs with the same lock and bytes give one `identity_digest`, and a changed file gives a new one. [`fluid runs status --release-dir`](./runs.md#which-release-was-in-force) prints one `external` line for each file.
 
+### Publishing to S3
+
+*On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.*
+
+`--release-to s3://bucket/prefix/` publishes the release once the run has sealed it in `--release-dir`. A job that deploys, an auditor or a later stage then reads one place that nothing rewrites.
+
+```bash
+fluid ship --release-dir releases/orders-1 --release-to s3://acme-releases/orders/ --yes
+```
+
+**Where it goes.** Every file of the release goes under `<prefix>/<product>/<code hex>/<env>/`. The code hex is the hex of the release's `code_digest` (see [The code digest](#the-code-digest)), which is the same for each environment sealed from one commit and one lock. So `dev` and `prod` releases of one commit sit side by side under one code digest, and each environment's release is its own sealed packet.
+
+**How it writes.** Each file is one single-part `PutObject` with `ChecksumSHA256` and `If-None-Match: *`: S3 refuses bytes that are not that digest, and refuses to replace an object at the key. Each object is read back with `HeadObject` and `ChecksumMode=ENABLED`. `release.json` is checked before anything is written and goes up last, so a reader that finds it finds every file it lists.
+
+- An object already at a key counts as published only when its SHA-256 is the release's. Running the publish of the same sealed directory again writes nothing and succeeds.
+- A `release.json` there with other bytes is a release another run sealed for this code and environment. When it has this run's `identity_digest` and verifies intact, as [`fluid runs verify-release`](./runs.md#fluid-runs-verify-release) checks it, that release stands: reports and run times are run details, not identity, so nothing is written, the run succeeds and the report says `already-published`. A release there of another identity, for the same code and environment (another bundle, artifacts or plan), fails the run with both digests, and so does one that does not verify. Nothing is written either way. A published release never changes.
+- An object with other bytes, a denied write or a read-back that does not match fails the run. The message says how many objects were written. Under a prefix with no `release.json`, an earlier run stopped partway: delete the objects under it and run again.
+- A write that raced a delete of its key (HTTP 409) is tried again, up to three times.
+- A file over 5 GiB is refused before any write: a multipart upload keeps no full-object SHA-256.
+
+A failed publish leaves the sealed directory as it is, and ship exits `1` (`3` after an apply). The run report's `release` block gains `remote`: the `uri`, a `status` (`published`, `already-published` or `not-published`), and `written` and `already_there`, or the `reason`.
+
+**Refusals before stage 1** (exit `2`): `--release-to` in a run whose CI names no commit (the release then has no code digest to file it under), `--release-to` without `--release-dir`, a blank value, a target that is not `s3://bucket/` or `s3://bucket/prefix/` (each prefix segment takes letters, digits and `._=+-`), an unknown `--release-to-require` check, or `--release-to-require` without `--release-to`. Without boto3, the `aws` extra, ship says to install it. The product id and the environment must also be valid key segments: letters, digits and `._=+-`, starting with a letter, digit or `_`.
+
+**What it does not do.** `If-None-Match` only stops this command from replacing an object. Anyone with `s3:PutObject` on the bucket can still overwrite one. For objects nobody can change, turn on S3 Object Lock and pass `--release-to-require object-lock`; with versioning, `--release-to-require versioning` keeps every earlier version. [`fluid runs verify-release`](./runs.md#fluid-runs-verify-release) tells whether a published release is still intact.
+
+**Credentials.** The default AWS credential chain, as for every AWS command. The publish needs `s3:PutObject` and `s3:GetObject` on the prefix (`s3:ListBucket` is not needed), `kms:GenerateDataKey` and `kms:Decrypt` for an SSE-KMS bucket, and `s3:GetBucketVersioning` or `s3:GetBucketObjectLockConfiguration` for the checks.
+
+### The code digest
+
+*On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.*
+
+A release now names the commit it was built from, inside `identity`, and the digest of its code, beside it:
+
+- `identity.source` is `{"uri": "git+<repo>", "digest": {"gitCommit": "<commit>"}}`, taken from the CI's own variables (the ones listed under [What `release.json` holds](./runs.md#what-release-json-holds)). It is left out when the CI names no commit. The ref is not in it, so a branch build and a tag build of one commit name one source. Until now the commit was only in `provenance`, outside `identity_digest`.
+- `code_digest` is the sha256 of the canonical JSON of `identity`'s `product_id`, `source`, `external`, `forge_version` and `fluid_version`. It is the same for every environment sealed from one commit and one lock, and changes when the commit, an external file or the Forge or FLUID version changes. A release with no source commit has no `code_digest`.
+
+`identity_digest` still differs per environment, because `identity` holds the environment and each environment's bundle. `code_digest` is the key that spans them. [`fluid runs verify-release`](./runs.md#fluid-runs-verify-release) recomputes it.
+
 ### The stage journal
 
 *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))*
@@ -332,7 +373,7 @@ The store resolver reads this token before any other, a project `.env` token inc
 | Code | Meaning |
 |---|---|
 | `0` | Every selected stage passed or was skipped, or every stage the flags selected is [switched off](#stage-switches-and-knobs). |
-| `1` | A stage failed. |
+| `1` | A stage failed. *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* Also a `--release-to` publish that failed after the local seal. |
 | `2` | Ship refused its arguments: an unknown stage or a reversed range, no stage left to run, an environment name a stage would refuse, a publish target with `:`, `--dry-run` with another `--apply-mode`, a missing input, no contract, a contract that is missing, symlinked or under a system path, or `--skip-plan`. *(since 0.37.0, [forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042))* Also a wrapped store token that cannot be opened: see [A wrapped store token](#a-wrapped-store-token). |
 | `3` | A stage failed after apply changed something, so those changes are live. A dry-run apply changes nothing. |
 | `130` | Interrupted. |
@@ -354,7 +395,7 @@ Every run that starts a stage writes `runtime/ship-report.json` and `runtime/shi
 | `not-run` | It was not selected, or came after a failure. |
 | `unknown` | It was interrupted or killed by a signal (exit 129 to 159): what it had done by then is not known. |
 
-Each stage also has one `reason`, which replaces `skip_reason` and `failure_reason`, and `started_at` and `finished_at` in UTC. The report gains `written_at`, a `journal` block when a [stage journal](#the-stage-journal) is kept, and a `release` block under `--release-dir` with the directory, a `status` (`published` or `not-published`), the `identity_digest` and the `reason`. In one-step-per-stage CI, an earlier step's report that is the run's but cannot be read leaves the stages before this step `unknown`, and the run's `exit_code` is not 0. A version 1 record still merges, with `skipped` read as `skipped-by-policy`. JUnit counts `unknown` as a failure and both kinds of skip as skipped.
+Each stage also has one `reason`, which replaces `skip_reason` and `failure_reason`, and `started_at` and `finished_at` in UTC. The report gains `written_at`, a `journal` block when a [stage journal](#the-stage-journal) is kept, and a `release` block under `--release-dir` with the directory, a `status` (`published` or `not-published`), the `identity_digest` and the `reason` (with `--release-to`, also `remote`: see [Publishing to S3](#publishing-to-s3)). In one-step-per-stage CI, an earlier step's report that is the run's but cannot be read leaves the stages before this step `unknown`, and the run's `exit_code` is not 0. A version 1 record still merges, with `skipped` read as `skipped-by-policy`. JUnit counts `unknown` as a failure and both kinds of skip as skipped.
 
 A CI job that calls `fluid ship --stage N` once per step gets one report: calls with the same run id, env, mode and contract merge, and each call keeps its own records for the stages it selected. The run id is `FLUID_RUN_ID`, else the one in `.fluid/run-id.txt`. A call that includes stage 1 starts a new report.
 

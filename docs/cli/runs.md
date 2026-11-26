@@ -24,6 +24,7 @@ The reel above walks `runs status`, `runs logs --component dlq`, `runs diff`, a 
 ```bash
 fluid runs status <product-id> [--build BUILD] [--last N] [--state-root PATH] [--json]
 fluid runs status <product-id> --release-dir DIR [--release-dir DIR ...] [--on YYYY-MM-DD] [--env NAME] [--json]
+fluid runs verify-release SRC [--json]
 fluid runs logs   <product-id> [--component C] [--run-id ID] [--grep TEXT] [--limit N] [--state-root PATH] [--json]
 fluid runs diff   <product-id> --build BUILD --run-a ID --run-b ID [--state-root PATH] [--json]
 ```
@@ -152,6 +153,48 @@ With a product that has no runs, the command prints a one-line message and exits
 ```text
 no builds found for product nothing.here under .../.fluid/runs/nothing.here/
 ```
+
+## `fluid runs verify-release`
+
+*On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.*
+
+Checks a sealed release without changing it. `SRC` is a release directory that `fluid ship --release-dir` wrote, or the `s3://bucket/prefix/<product>/<code hex>/<env>/` that [`fluid ship --release-to`](./ship.md#publishing-to-s3) wrote.
+
+```bash
+fluid runs verify-release releases/orders-1
+fluid runs verify-release s3://acme-releases/orders/acme.orders/6369...9999/prod/ --json
+```
+
+It checks that:
+
+- `release.json` is a `fluid-release/1` record, at most 1 MB;
+- its `identity_digest` is the digest of its `identity`;
+- `code_digest` is the digest of the code `identity` names, recomputed (see [The code digest](./ship.md#the-code-digest)), and is absent only when `identity` names no source commit;
+- for an S3 key laid out as `<code hex>/<env>/`, the code hex is this release's and the environment is its own;
+- every file the index lists is there, with the sha256 it names. A path in the index that is absolute, has `..`, or names `release.json` is not intact;
+- the files `identity` pins are listed with the digests `identity` names: `bundle.tgz`, each external file, `artifacts/MANIFEST.json` (its Merkle root) and each artifact it lists, and `plan.json` (its `bundleDigest` and `planDigest`). The `files` list sits outside `identity_digest`, so a file swapped with its entry rewritten, or dropped from the list, is not intact.
+
+A directory is read without following a link: a file reached through one is not intact. An S3 release is read with `GetObject` only. A file the index does not list is not part of the release and is not read.
+
+```text
+s3://acme-releases/orders/acme.orders/6369...9999/dev/: NOT INTACT
+  release  sha256:cce7...89bd
+  code     sha256:6369...9999
+  product  acme.orders
+  env      dev
+  files    14 checked
+  - bundle.tgz: the index does not list it with the sha256 the identity's bundle names
+```
+
+With `--json` it prints `source`, `status` (`intact`, `not-intact` or `undecided`), `identity_digest`, `code_digest`, `product_id`, `environment`, `files_checked`, `problems` and `objects`. `objects` lists each object read, `release.json` first, with its `path`, `sha256` and `version_id`: the S3 VersionId on a versioned bucket, `null` for a directory. Record those to name exactly which object versions were checked.
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Intact. |
+| `1` | Not intact: no `release.json` there, a record that does not parse or is not `fluid-release/1`, an identity digest that does not match, a file that is missing, changed, reached through a link or listed under a path a release never writes, or a file `identity` pins that is not listed with its digest. |
+| `2` | Cannot decide: the release cannot be read (access denied, a network error, a bucket that does not exist), or boto3 is missing for an `s3://` source (install the `aws` extra). A local directory needs no extra. |
+
+Like [Intact and not intact](#intact-and-not-intact), this proves the bytes match the index, not who wrote the index. The same check is public in Python as `fluid_build.api.verify_release`, and `runs status --release-dir` uses its identity check.
 
 ## `fluid runs logs`
 
@@ -334,6 +377,8 @@ Text taken from a record is cleaned of control characters and cut, so a record c
 | --- | --- |
 | `identity.expose_versions` | The version of each expose, by expose id. |
 | `provenance.source` | `revision`, `repository` and `ref`, read from the CI system's own variables. |
+| `identity.source` | *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* The commit the CI built, as `uri` (`git+<repo>`) and `digest.gitCommit`. See [The code digest](./ship.md#the-code-digest). |
+| `code_digest` | *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* The digest of the code, the same for every environment of one commit and one lock. |
 | `identity.external` | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* The external files the release sealed (`fluid ship --artifacts`): each one's `name`, `kind`, `digest.sha256`, and its `source` as `uri` (`git+<repo>@<ref>`) and `digest.gitCommit`. See [Sealing external files](./ship.md#sealing-external-files). |
 
 `provenance.source` is filled from the first CI system whose run variable is set:
@@ -386,6 +431,6 @@ With `--release-dir`, the codes are those of [Exit codes with `--release-dir`](#
 - [Source-aligned acquisition](../advanced/source-aligned-acquisition.md): what produces these run records
 - [`fluid retention`](./retention.md): sweep run records past their horizon
 - [`fluid stats`](./stats.md): aggregate cost across forge runs
-- [`fluid ship`](./ship.md#publishing-a-release): seal the releases that `--release-dir` reads
+- [`fluid ship`](./ship.md#publishing-a-release): seal the releases that `--release-dir` reads, and [publish them to S3](./ship.md#publishing-to-s3)
 - [Spark to Iceberg on AWS](../advanced/spark-iceberg-aws.md#commit-stamps): the stamps on each Iceberg commit
 - [Typed CLI errors](../advanced/typed-cli-errors.md): the error catalog
