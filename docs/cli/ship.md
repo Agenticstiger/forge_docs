@@ -66,6 +66,7 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--require-artifacts <keys>` | | | *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
 | `--release-dir <dir>` | | | *(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
 | `--artifacts <lock>` | `RELEASE_ARTIFACTS` | | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* Seals the external files the lock lists into the release. Needs `--release-dir`, and the variable is read only by a run that seals a release. See [Sealing external files](#sealing-external-files). |
+| `--deploy-targets <file>` | `RELEASE_DEPLOY_TARGETS` | | *On forge-cli `main`, not yet in a release ([forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125)).* Seals where [`fluid runs deploy`](./runs.md#fluid-runs-deploy) copies each external file. Needs `--artifacts`, and the variable is read only by a run that seals a release. See [Deploy targets](#deploy-targets). |
 | `--release-archive <path>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123)).* Also writes the sealed release as one `.tgz` at the path, after the seal and before any `--release-to` upload, and prints its SHA-256. Needs `--release-dir`. See [Release archive](#release-archive). |
 | `--release-to <s3-uri>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Then publishes the sealed release, write-once, under `s3://bucket/prefix/`. Needs `--release-dir` and the `aws` extra. See [Publishing to S3](#publishing-to-s3). |
 | `--release-to-require <check>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Refuses a `--release-to` bucket without `versioning`, or without Object Lock and a default retention (`object-lock`); repeatable or comma-separated. See [Publishing to S3](#publishing-to-s3). |
@@ -243,6 +244,36 @@ artifacts:
 ```
 
 Each entry is shaped like a SLSA provenance `resolvedDependencies` entry, with its source the way `fluid bundle --attest` records the contract's own. No path on the machine that ran ship is recorded, so two clean runs with the same lock and bytes give one `identity_digest`, and a changed file gives a new one. [`fluid runs status --release-dir`](./runs.md#which-release-was-in-force) prints one `external` line for each file.
+
+### Deploy targets
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125)).*
+
+`--deploy-targets FILE` seals, beside the external files `--artifacts` names, where each one goes in this environment. [`fluid runs deploy`](./runs.md#fluid-runs-deploy) reads the targets from the verified release, never from the checkout, so a deploy copies exactly what was sealed to exactly where it says. `$RELEASE_DEPLOY_TARGETS` names the file when the flag is absent, read only beside `--release-dir`, as `$RELEASE_ARTIFACTS` is. One file per environment:
+
+```yaml
+# deploy/prod.yaml
+deploy:
+  account: "123456789012"     # the AWS account every target bucket belongs to
+  region: eu-north-1          # optional: the targets' region (default: the profile's)
+  targets:
+    - artifact: orders-dag    # a name the --artifacts lock lists
+      to: s3://acme-airflow/dags/orders_dag.py
+    - artifact: orders-jobs
+      to: s3://acme-jobs/jobs/orders_jobs-1.4.0.zip   # a key per version: see runs deploy
+```
+
+```bash
+fluid ship contract.fluid.yaml --env prod --stage 1-4 --strict \
+  --release-dir handoff/prod --artifacts artifacts.lock.yaml --deploy-targets deploy/prod.yaml \
+  --release-to s3://acme-releases/orders/ --release-to-require versioning
+```
+
+The release records them in `identity["deploy"]`: the account, the region, and each target with the artifact's kind, release path and sha256 from the lock, every Airflow DAG last. They are part of the identity digest and not of the code digest, so the releases of one commit for nonprod and prod share their code and differ in where it goes.
+
+Refused before stage 1 (exit `2`): `--deploy-targets` without `--release-dir` or without `--artifacts`, a blank value, a field the format does not allow, an account that is not 12 digits (write it quoted), a region that is not one, an artifact the lock does not list, a `to` that is not one `s3://bucket/key` object (a prefix ending in `/` is not), two targets with one `to`, or a file over 5 GiB, more than one copy writes. [`fluid runs verify-release`](./runs.md#fluid-runs-verify-release) then checks that each target is a sealed external file, by its path and sha256.
+
+A release that will be deployed from S3 must be published to a bucket with versioning `Enabled` (`--release-to-require versioning`): `runs deploy` pins each copy to the version that was verified, and refuses a bucket whose versioning is `Suspended` or off. An environment cannot be named `receipts` or `deploys`, the folders beside it.
 
 ### Release archive
 

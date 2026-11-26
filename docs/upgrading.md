@@ -1779,6 +1779,13 @@ The example projects move past their known advisories, the container image's Pyt
 
 ## Not in a release yet
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125)).*
+
+- **The `aws` extra needs boto3 and botocore 1.40.61 or later** (it took 1.35.2 on `main` before): the first release whose CopyObject takes `If-Match` and `If-None-Match` on the destination. `pip install -U 'data-product-forge[aws]'`. `fluid runs deploy` refuses an older botocore with exit `2`.
+- **`fluid ship --deploy-targets FILE` and `fluid runs deploy SRC --env E` are new**: where each sealed external file goes, sealed into the release, and the deploy that copies it there on condition, every DAG last. Nothing changes without them. See [Deploy targets](./cli/ship.md#deploy-targets) and [`fluid runs deploy`](./cli/runs.md#fluid-runs-deploy).
+- **A receipt states `check`, `verify` or `deploy`, and only a verify receipt gates.** Deploy receipts go to `deploys/<env>/`, never `receipts/<env>/`; a receipt without the field counts as a verify receipt, so receipts written before are read as they were. `fluid runs status --release-dir` also lists the newest deploy receipt.
+- **`fluid ship --help` words `--require-artifacts` and the stage switches more briefly.** Same meaning and behaviour.
+
 *On forge-cli `main`, not yet in a release ([forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123)).*
 
 - **`fluid ship --release-archive PATH` is new**: the sealed release as one reproducible `.tgz`. Nothing changes without it. See [Release archive](./cli/ship.md#release-archive).
