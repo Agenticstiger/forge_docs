@@ -4,7 +4,7 @@ Verify a Sigstore cosign signature (and optional SLSA Level 2 in-toto attestatio
 
 Added in `0.8.0`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #COS](https://github.com/Agenticstiger/forge-cli/pull/COS)).* The signature, the certificate (keyless) and the transparency-log proof are one Sigstore bundle, `<BUNDLE_TGZ>.sigstore.json`, which `fluid bundle --sign` writes and this command reads with `cosign verify-blob --bundle`. Through 0.41.0 they were `<BUNDLE_TGZ>.sig` and `<BUNDLE_TGZ>.pem`, which cosign 3.x no longer writes for a blob; those files are not read any more. cosign 2.x writes its own bundle format and 3.x the Sigstore one, so sign and verify with the same cosign major version.
+*On forge-cli `main`, not yet in a release ([forge-cli #1126](https://github.com/Agenticstiger/forge-cli/pull/1126)).* The signature, the certificate (keyless) and the transparency-log proof are one Sigstore bundle, `<BUNDLE_TGZ>.sigstore.json`, which `fluid bundle --sign` writes and this command reads with `cosign verify-blob --bundle`. Through 0.41.0 they were `<BUNDLE_TGZ>.sig` and `<BUNDLE_TGZ>.pem`, which cosign 3.x no longer writes for a blob; those files are not read any more. cosign 2.x writes its own bundle format and 3.x the Sigstore one, so sign and verify with the same cosign major version.
 
 ## Syntax
 
