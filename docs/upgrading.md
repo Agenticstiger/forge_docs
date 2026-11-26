@@ -1784,6 +1784,14 @@ The example projects move past their known advisories, the container image's Pyt
 - **`fluid ship --release-dir DIR --artifacts LOCK` seals external files into the release.** Nothing changes for a run without a lock: its `identity` has the same keys as before. A release with a lock has `external` in its `identity` and the files under `external/`. See [Sealing external files](./cli/ship.md#sealing-external-files).
 - **`fluid ship --help` words `--ci-output` differently.** Same choices and default (`auto`, which detects the CI system).
 
+*On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.*
+
+- **A release's `identity` gains `source`, the commit the CI built, and `release.json` gains `code_digest`.** A run in CI therefore gets a new `identity_digest`, once. A run whose CI names no commit has neither field, and its identity is as before. See [The code digest](./cli/ship.md#the-code-digest).
+- **`fluid ship --release-dir DIR --release-to s3://bucket/prefix/` publishes the sealed release to S3, write-once**, under `<product>/<code hex>/<env>/`. A run without the flag is unchanged. See [Publishing to S3](./cli/ship.md#publishing-to-s3).
+- **`fluid runs verify-release SRC` checks a release directory or S3 prefix, read-only**, with exit `0`, `1` or `2`. In Python, `fluid_build.api.verify_release` (API `1.3`). See [`fluid runs verify-release`](./cli/runs.md#fluid-runs-verify-release).
+- **The `aws` extra needs boto3 and botocore `1.35.2` or later**, the first PutObject with `IfNoneMatch`. An install that pins an older botocore beside `data-product-forge[aws]` fails to resolve.
+- **`fluid ship --help` words exit `3` and `--acknowledge-inspected` more briefly.** Same meaning and behaviour.
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the

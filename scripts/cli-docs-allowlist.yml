@@ -90,6 +90,15 @@ flag_oracle_ok:
                      # #1115) and not in the pinned 0.41.0. Scoped to the
                      # invocation that carries it. Drop this entry when the pin
                      # reaches the release that contains #1115.
+  - docs/cli/ship.md::--release-to
+                     # `fluid ship --release-to` is on forge-cli's
+                     # feat/release-s3-publish branch (forge-cli #1116), not in
+                     # the pinned 0.41.0. Scoped to the invocation that carries
+                     # it. Drop this entry when the pin reaches the release that
+                     # contains #1116.
+  - docs/cli/runs.md::fluid runs verify-release
+                     # `fluid runs verify-release` comes with forge-cli #1116,
+                     # not in the pinned 0.41.0. Drop with the entry above.
   # Surface removed in 0.31.0 (forge-cli #881, the embedded copilot). These pages
   # still describe it under a removal banner, so the pinned parser no longer
   # knows the fences. Each entry is scoped to the removed flag or command; drop it
