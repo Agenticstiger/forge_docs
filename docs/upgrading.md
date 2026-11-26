@@ -1777,6 +1777,8 @@ These changes are in 0.41.0. Most of the actions are for the MCP output port, `f
 
 The example projects move past their known advisories, the container image's Python base is pinned by digest, the release attests the image and attaches a provenance bundle for each file, and the CI tools install from hash-locked files. The full list is in the forge-cli [CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md).
 
+## Not in a release yet
+
 *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).*
 
 - **`fluid ship --release-dir DIR --artifacts LOCK` seals external files into the release.** Nothing changes for a run without a lock: its `identity` has the same keys as before. A release with a lock has `external` in its `identity` and the files under `external/`. See [Sealing external files](./cli/ship.md#sealing-external-files).
