@@ -1779,6 +1779,11 @@ The example projects move past their known advisories, the container image's Pyt
 
 ## Not in a release yet
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123)).*
+
+- **`fluid ship --release-archive PATH` is new**: the sealed release as one reproducible `.tgz`. Nothing changes without it. See [Release archive](./cli/ship.md#release-archive).
+- **`fluid ship --help` words `--emit` shorter.** Same flag, same default.
+
 *On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).*
 
 - **`fluid profile` publishes a date or timestamp column's `min` or `max` rounded to a calendar unit** when fewer than 10 records hold the exact value. The end is the first (`min`) or last (`max`) value of the finest UTC day (a timestamp only), month or year that holds at least 10 records, clipped to a range the contract declares, and only when no record lies outside it. An end that 0.41.0 withheld can now be published, so a profile's values and its digest can change. The document has no mark for a rounded end, and the report names each under `Rounded extremes`. See [Rounded date extremes](./cli/profile.md#rounded-date-extremes).
