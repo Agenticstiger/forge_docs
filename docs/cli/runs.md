@@ -156,7 +156,7 @@ no builds found for product nothing.here under .../.fluid/runs/nothing.here/
 
 ## `fluid runs verify-release`
 
-*On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.*
+*On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).*
 
 Checks a sealed release without changing it. `SRC` is a release directory that `fluid ship --release-dir` wrote, or the `s3://bucket/prefix/<product>/<code hex>/<env>/` that [`fluid ship --release-to`](./ship.md#publishing-to-s3) wrote.
 
@@ -378,8 +378,8 @@ Text taken from a record is cleaned of control characters and cut, so a record c
 | --- | --- |
 | `identity.expose_versions` | The version of each expose, by expose id. |
 | `provenance.source` | `revision`, `repository` and `ref`, read from the CI system's own variables. |
-| `identity.source` | *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* The commit the CI built, as `uri` (`git+<repo>`) and `digest.gitCommit`. See [The code digest](./ship.md#the-code-digest). |
-| `code_digest` | *On forge-cli's `feat/release-s3-publish` branch ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)), not yet on `main` or in a release.* The digest of the code, the same for every environment of one commit and one lock. |
+| `identity.source` | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* The commit the CI built, as `uri` (`git+<repo>`) and `digest.gitCommit`. See [The code digest](./ship.md#the-code-digest). |
+| `code_digest` | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* The digest of the code, the same for every environment of one commit and one lock. |
 | `identity.external` | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* The external files the release sealed (`fluid ship --artifacts`): each one's `name`, `kind`, `digest.sha256`, and its `source` as `uri` (`git+<repo>@<ref>`) and `digest.gitCommit`. See [Sealing external files](./ship.md#sealing-external-files). |
 
 `provenance.source` is filled from the first CI system whose run variable is set:
