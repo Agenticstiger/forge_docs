@@ -1779,6 +1779,10 @@ The example projects move past their known advisories, the container image's Pyt
 
 ## Not in a release yet
 
+*On forge-cli `main`, not yet in a release ([forge-cli #COS](https://github.com/Agenticstiger/forge-cli/pull/COS)).*
+
+- **`fluid bundle --sign` writes one Sigstore bundle, `<bundle>.sigstore.json`, instead of `<bundle>.sig` and `<bundle>.pem`**, so it works with cosign 3.x, which refuses `--output-signature` for a blob. `fluid verify-signature` and `fluid schedule-sync --verify-signature` read the new file; `.sig`/`.pem` are not read any more, so sign again any bundle you verify after upgrading. `verify-signature --signature` and `--certificate` are gone: `--bundle PATH` names another Sigstore bundle, and `--certificate-identity` with `--certificate-oidc-issuer` pins a keyless signer exactly. Sign and verify with the same cosign major version. See [`fluid verify-signature`](./cli/verify-signature.md).
+
 *On forge-cli `main`, not yet in a release ([forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125)).*
 
 - **The `aws` extra needs boto3 and botocore 1.40.61 or later** (it took 1.35.2 on `main` before): the first release whose CopyObject takes `If-Match` and `If-None-Match` on the destination. `pip install -U 'data-product-forge[aws]'`. `fluid runs deploy` refuses an older botocore with exit `2`.
