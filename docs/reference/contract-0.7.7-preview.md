@@ -9,13 +9,13 @@ description: "What the FLUID 0.7.7 preview schema adds to, and changes in, the s
 
 Status: **preview**. A contract opts in with `fluidVersion: "0.7.7"`; a contract that declares 0.7.6 is unaffected. This page lists the difference between the 0.7.6 schema and the 0.7.7 schema as bundled with the CLI: added fields, fields whose definition changed, and fields removed. A field not listed here has the same type, required flag, allowed values, default and description in both; for those, use the [0.7.6 reference](./contract-0.7.6.md). A definition used at several paths is listed once, at its first path.
 
-Generated from `fluid_build/schemas/fluid-schema-0.7.7.json` in the `data-product-forge` 0.40.1 package (sha256 `05e90a805d8de8bc`). It is the schema `fluid validate` checks a contract against, rendered without edits. To regenerate: `python scripts/gen_contract_reference.py`.
+Generated from `fluid_build/schemas/fluid-schema-0.7.7.json` in the `data-product-forge` 0.41.0 package (sha256 `649b9bc59bb509b5`). It is the schema `fluid validate` checks a contract against, rendered without edits. To regenerate: `python scripts/gen_contract_reference.py`.
 
 Each table row is one field, addressed by its path from the contract root: `.` descends into an object, `[]` marks the items of a list, and `<key>` stands for any key of a map. **Required** means required inside its parent object; the parent can itself be optional. **Allowed values** lists the enum, pattern and range the schema enforces. An object typed plainly `object` rejects keys the schema does not list; `object (open)` accepts extra keys and `object (free-form)` has no listed keys. A row that begins "Only when ..." exists only under that condition. See [how to read this reference](./README.md#how-to-read-a-row).
 
 ## At a glance
 
-- Added: 360 rows
+- Added: 371 rows
 - Changed: 18 rows
 - Removed: 0 rows
 
@@ -105,6 +105,14 @@ Each table row is one field, addressed by its path from the contract root: `.` d
 | `exposes[].binding.packaging.containers.athenaWorkgroup` | string | no | one of `isolated`, `shared` |  | NEW in v0.7.7 (preview): Ownership of the Athena workgroup (aws_athena_workgroup) the product's queries and dbt builds run in. |
 | `exposes[].binding.packaging.containers.kmsKey` | string | no | one of `isolated`, `shared` |  | NEW in v0.7.7 (preview): Ownership of the KMS key (aws_kms_key) that encrypts the product's data, checkpoints and logs. |
 | `exposes[].binding.packaging.containers.mwaaEnvironment` | string | no | must be `shared` |  | NEW in v0.7.7 (preview): The MWAA environment (aws_mwaa_environment) is the platform team's, so shared is the only value: a product ships its DAG files into the environment's bucket and never creates or changes the environment. |
+| `exposes[].semantics.entities[].lifecycle` | object | no | min properties 1 |  | NEW in v0.7.7 (preview): How the versions of this natural entity begin and end. Only on the natural entity of a model that declares a validity window. |
+| `exposes[].semantics.entities[].lifecycle.activation` | string | no | min length 1 |  | A column of the expose, of the window's type, that holds the same value on every version of an entity: the start of its first version. |
+| `exposes[].semantics.entities[].lifecycle.endMarker` | object | no |  |  | The entity ends with a final version that holds value in column; that version's start is the entity's end, and no earlier version holds the value (dbt's hard_deletes: new_record). |
+| `exposes[].semantics.entities[].lifecycle.endMarker.column` | string | yes | min length 1 |  |  |
+| `exposes[].semantics.entities[].lifecycle.endMarker.value` | string or number or boolean | yes |  |  |  |
+| `exposes[].semantics.entities[].lifecycle.currentFlag` | object | no |  |  | The column holds value on exactly one version of each entity: its last one (a current-row indicator). |
+| `exposes[].semantics.entities[].lifecycle.currentFlag.column` | string | yes | min length 1 |  |  |
+| `exposes[].semantics.entities[].lifecycle.currentFlag.value` | string or number or boolean | yes |  |  |  |
 | `exposes[].semantics.relationships` | array of object | no |  |  | NEW in v0.7.7 (preview): Named joins from this expose to an expose of the same contract, declared on the many side. Entities join by entity name only; a relationship names its target expose and the ordered key columns on both sides, so a composite key is one relationship. Names are unique within the expose. |
 | `exposes[].semantics.relationships[].name` | string | yes |  |  | Relationship name, unique within the expose (e.g., 'orders_to_customers'). |
 | `exposes[].semantics.relationships[].to` | string | yes | matches `^[A-Za-z0-9_][A-Za-z0-9_.-]*[A-Za-z0-9_]$\|^[A-Za-z0-9_]$` |  | exposeId of the target expose, in the same contract. It may be the declaring expose itself, for a self-join such as employees to their managers. |
@@ -113,9 +121,12 @@ Each table row is one field, addressed by its path from the contract root: `.` d
 | `exposes[].semantics.relationships[].cardinality` | string | yes | one of `many_to_one`, `one_to_one` |  | many_to_one: many rows of the declaring expose can match one target row (an ordinary foreign key). one_to_one: each target row matches at most one row of the declaring expose. Against a target with a validity window (a slowly changing dimension), the one target row is the version valid at the declaring row's point in time. |
 | `exposes[].semantics.relationships[].joinType` | string | no | one of `left`, `inner` | `"left"` | How a consumer joins the target: left keeps the declaring expose's rows that have no match, inner drops them. Defaults to left. |
 | `exposes[].semantics.relationships[].sharedColumns` | array of string | no | min items 1<br>unique items<br>each item: min length 1 |  | NEW in v0.7.7 (preview): Columns copied through this relationship (RFC-data-rules.md section 5): each is in both exposes' schemas under one name and of one type, and on every row whose link reaches a target row it IS NOT DISTINCT FROM the target's. Short for a derive of the column with expr &lt;name&gt;.&lt;column&gt; on the rows the link reaches. The relationship's own key columns are never listed: they agree by definition. |
+| `exposes[].semantics.relationships[].asOf` | string | no | min length 1 |  | A DATE or TIMESTAMP column of this expose; the relationship reaches the version valid on it. |
 | `exposes[].semantics.dimensions[].typeParams.validityParams` | object | no |  |  | NEW in v0.7.7 (preview): Marks this time dimension as one bound of the validity window of a type II slowly changing dimension, field for field dbt's validity_params. A model with a window has exactly two such dimensions, one with isStart and one with isEnd, and one natural entity: the key whose versions the window separates. |
 | `exposes[].semantics.dimensions[].typeParams.validityParams.isStart` | boolean | no |  |  | This dimension holds the time each version starts to apply. |
 | `exposes[].semantics.dimensions[].typeParams.validityParams.isEnd` | boolean | no |  |  | This dimension holds the time each version stops applying. |
+| `exposes[].semantics.dimensions[].typeParams.validityParams.openEnd` | string or null | no |  |  | The end an open version holds: null, or a literal of the end column's type. Only on the isEnd dimension. |
+| `exposes[].semantics.dimensions[].typeParams.validityParams.chain` | string | no | one of `nextStart`, `dayBefore`, `none` |  | How a closed version's end meets the same entity's next start. Only on the isEnd dimension. |
 | `exposes[].iceberg.maintenance` | object | no | must not set `build`, `runtime` |  | NEW in v0.7.7: The table's maintenance: compaction, manifests, snapshot expiry, orphan files and a package's actions, on a schedule (backend spark) or by the Glue Data Catalog's table optimizers (backend glue). |
 | `exposes[].iceberg.maintenance.backend` | string | no | one of `spark`, `glue` | `"spark"` | spark: forge's Spark runner, on the writer build's runtime. glue: the Glue Data Catalog's table optimizers (compaction, retention, orphan file deletion), for a Glue Data Catalog table. |
 | `exposes[].iceberg.maintenance.schedule` | string | no | min length 1 |  | backend spark, required: the cron (or Airflow preset) the table's maintenance DAG runs on. |

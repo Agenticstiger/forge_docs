@@ -5,13 +5,14 @@ description: Every forge-cli release, newest first, with what changed and where 
 
 # Releases
 
-These docs are verified against CLI `0.40.1`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
+These docs are verified against CLI `0.41.0`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
 Each version links to its upgrade steps, its release notes, or the forge-cli CHANGELOG.
 
 For what `fluid version`, `fluidVersion` and the schema versions mean, see [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
 
 | Version | Date | What changed |
 | --- | --- | --- |
+| [`0.41.0`](./upgrading.md#changes-in-0-41-0) | 2026-11-25 | The MCP output port enforces `policy.authz.rowFilters` and holds `query_sql` and `sample` to the declared columns for every caller, `fluid profile` publishes time and structure statistics and the history of a versioned table (format 1-3-0), rules can read a versioned table through a relationship, and an unset `{{ env.NAME }}` or a duplicate key now stops a command. |
 | [`0.40.1`](./upgrading.md#changes-in-0-40-1) | 2026-11-24 | The container image is published again after the release scan stopped 0.40.0's; the PyPI package is the same as 0.40.0 apart from five unused names removed. |
 | [`0.40.0`](./upgrading.md#changes-in-0-40-0) | 2026-11-24 | `fluid profile` answers rank correlations and clique statistics of a profile request, releases them under differential privacy, and can make a privacy unit follow its child rows; the `[profile]` extra needs flux-stats 0.11. |
 | [`0.39.0`](./upgrading.md#changes-in-0-39-0) | 2026-11-23 | Iceberg maintenance for a table forge does not write, with the plan binding each maintenance action, `fluid import --check` and `fluid generate ci --add import-drift`, profile facts checked together against differencing, and command plugins that may add new command names only. |

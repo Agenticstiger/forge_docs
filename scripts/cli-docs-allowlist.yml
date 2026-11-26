@@ -85,11 +85,6 @@ flag_oracle_ok:
                      # prints the command's options and
                      # `fluid generate-custom-scaffold --help` prints the
                      # top-level usage. The pages document the name that runs.
-  - docs/cli/profile.md::--timings
-                     # `fluid profile --timings` is on forge-cli `main` (forge-cli
-                     # #1106) and not in the pinned 0.40.1. Scoped to the
-                     # invocation that carries it. Drop this entry when the pin
-                     # reaches the release that contains #1106.
   # Surface removed in 0.31.0 (forge-cli #881, the embedded copilot). These pages
   # still describe it under a removal banner, so the pinned parser no longer
   # knows the fences. Each entry is scoped to the removed flag or command; drop it
