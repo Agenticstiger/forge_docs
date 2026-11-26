@@ -20,8 +20,10 @@ fluid verify-signature BUNDLE_TGZ [options]
 | `--bundle PATH` | The Sigstore bundle. Default `<BUNDLE_TGZ>.sigstore.json`. |
 | `--key PATH_OR_KMS_URI` | Keyed-mode verification. Path or KMS URI of the public key; selects keyed over keyless. Supports file paths + `awskms://`, `gcpkms://`, `azurekms://`, `hashivault://`, `k8s://`, `pkcs11://`, `file://`. |
 | `--certificate-identity ID`, `--certificate-oidc-issuer URL` | Keyless: the signer's exact certificate identity and OIDC issuer, both required. They replace the regexps below. |
-| `--identity-regexp PATTERN` | Regexp matching the acceptable OIDC subject (keyless mode). Default `.*` accepts any — tighten in production to pin signer identity. |
-| `--oidc-issuer-regexp PATTERN` | Regexp matching the acceptable OIDC issuer. Default `.*`; tighten to pin the CI system (e.g. `https://token.actions.githubusercontent.com`). |
+| `--identity-regexp PATTERN` | Keyless: a regexp the signer's certificate identity must match, instead of `--certificate-identity`. |
+| `--oidc-issuer-regexp PATTERN` | Keyless: a regexp the signer's OIDC issuer must match (e.g. `https://token\.actions\.githubusercontent\.com`), instead of `--certificate-oidc-issuer`. |
+
+Keyless verification names its signer: an identity and an issuer, each exactly or as a regexp. There is no default, since anyone can get a Sigstore certificate for their own identity, so a check that names none proves nothing about who signed. A missing or empty value (an unset CI variable) exits `2` with `signing_identity_not_pinned` before cosign runs. Through 0.41.0 both regexps defaulted to `.*`. `--signature` and `--certificate` exit `2` with `verify_signature_sig_pem_gone`, naming `--bundle`.
 | `--timeout SECONDS` | Per-subprocess cosign timeout. Default 120. |
 
 ::: tip Got `SupplyChainViolationError` instead?
@@ -34,18 +36,13 @@ That error is not raised by this command. It comes from an Airbyte acquisition b
 | --- | --- |
 | `0` | Signature valid. |
 | `1` | Invalid signature or identity mismatch. |
-| `2` | Config error — bundle not found, cosign not on PATH, no Sigstore bundle (`signing_sigstore_bundle_missing`), half an exact signer, etc. |
+| `2` | Config error — bundle not found, cosign not on PATH, no Sigstore bundle (`signing_sigstore_bundle_missing`), no signer named or an empty one (`signing_identity_not_pinned`), etc. |
 
 ## Examples
 
 ### Keyless (GitHub Actions / GitLab / CircleCI / GCP WIF)
 
-Default mode. Uses Sigstore's Fulcio cert + Rekor transparency log:
-
-```bash
-# Accepts any keyless signature (default regexps are permissive)
-fluid verify-signature runtime/bundle.tgz
-```
+Default mode. Uses Sigstore's Fulcio cert + Rekor transparency log, and names the signer (below): a keyless check without one is refused.
 
 ### Keyless, pinned to one workflow
 
@@ -102,6 +99,8 @@ fluid schedule-sync --scheduler airflow \
   --dags-dir dist/artifacts/schedule/ \
   --destination s3://my-airflow-dags/team-x/ \
   --verify-signature \
+  --verify-certificate-identity 'https://github.com/<your-org>/<repo>/.github/workflows/ci.yml@refs/heads/main' \
+  --verify-certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   --bundle runtime/bundle.tgz
 ```
 
