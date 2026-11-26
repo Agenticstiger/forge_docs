@@ -72,10 +72,11 @@ Airflow keys run history on the `dag_id`, so a DAG that moves to an environment-
 | `--delete-scope {product,destination,none}` | Where stale DAGs may be deleted at the destination. Default `product`. See [What gets deleted](#what-gets-deleted). |
 | `--dry-run` | Log the planned subprocess argv, with secrets redacted, without executing it. The scheduler's CLI must still be on `PATH`: without it the run fails with `schedule_sync_binary_not_on_path` and prints no argv. |
 | `--bundle PATH` | Path to the signed source tgz bundle the DAGs were generated from. Required whenever `--verify-signature` is set; ignored otherwise. |
-| `--verify-signature` | Refuse to push DAGs unless the bundle's cosign signature verifies. **Requires `--bundle PATH`**: passing `--verify-signature` alone aborts with `schedule_sync_verify_signature_missing_bundle`. See [`fluid verify-signature`](./verify-signature.md). |
+| `--verify-signature` | Refuse to push DAGs unless the bundle's cosign signature verifies, from the Sigstore bundle beside it (`<bundle>.sigstore.json`, what `fluid bundle --sign` writes; *on forge-cli `main`, not yet in a release, [forge-cli #1126](https://github.com/Agenticstiger/forge-cli/pull/1126)*). **Requires `--bundle PATH`**: passing `--verify-signature` alone aborts with `schedule_sync_verify_signature_missing_bundle`. See [`fluid verify-signature`](./verify-signature.md). |
 | `--verify-key PATH` | Keyed-mode verification public key (path or KMS URI), matching bundles signed with `bundle --sign --sign-key`. Selects keyed verification over the default keyless mode. Ignored unless `--verify-signature` is set. |
-| `--verify-identity-regexp REGEXP` | Regexp matching the acceptable OIDC signer identity (keyless mode). Default `.*` accepts **any** signer: pin this in production to `https://github.com/<your-org>/.*` or equivalent. Ignored unless `--verify-signature` is set, and ignored in keyed mode (`--verify-key`). |
-| `--verify-oidc-issuer-regexp REGEXP` | Regexp matching the acceptable OIDC issuer (keyless mode). Default `.*` accepts any. Pin to `https://token.actions.githubusercontent.com` to force GitHub Actions signers only, or to your GitLab OIDC issuer URL. Ignored unless `--verify-signature` is set, and ignored in keyed mode (`--verify-key`). |
+| `--verify-certificate-identity ID`, `--verify-certificate-oidc-issuer URL` | Keyless: the signer's exact certificate identity and OIDC issuer. *On forge-cli `main`, not yet in a release ([forge-cli #1126](https://github.com/Agenticstiger/forge-cli/pull/1126)).* |
+| `--verify-identity-regexp REGEXP` | Keyless: a regexp the signer's identity must match, instead of the exact identity. Keyless verification names its signer, exactly or by regexp: there is no default (through 0.41.0 it was `.*`, which any Sigstore certificate matches), and a missing or empty one exits `2` with `signing_identity_not_pinned`. |
+| `--verify-oidc-issuer-regexp REGEXP` | Keyless: a regexp the signer's OIDC issuer must match, instead of the exact issuer. |
 | `--git-commit-author "Name <email@host>"` | Override the git commit author for `git+ssh://` destinations. When unset, git uses the runner's `user.name` / `user.email` from git config. Recommended for CI and service accounts so commits are attributable to a deterministic identity (e.g. `fluid-bot <bot@example.com>`). |
 | `--timeout SECONDS` | Per-subprocess timeout. Default 600, hard cap 3600. |
 | `--report PATH` | Write a JSON result summary. See [The report](#the-report). |
@@ -338,8 +339,10 @@ fluid schedule-sync \
   --dags-dir dist/artifacts/schedule/ \
   --destination s3://my-airflow-dags/team-x/ \
   --verify-signature \
+  --verify-certificate-identity 'https://github.com/<your-org>/<repo>/.github/workflows/ci.yml@refs/heads/main' \
+  --verify-certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   --bundle dist/bundle.tgz
-# Refuses to push if the source tgz bundle's cosign signature doesn't verify
+# Refuses to push if the source tgz bundle's cosign signature doesn't verify for that signer
 ```
 
 ## Notes

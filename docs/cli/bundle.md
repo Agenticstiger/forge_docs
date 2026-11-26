@@ -546,7 +546,7 @@ With keyless cosign signing on a GitHub Actions runner:
 
 ```bash
 fluid bundle contract.fluid.yaml --format tgz --out runtime/bundle.tgz --sign
-# emits: runtime/bundle.tgz, bundle.tgz.sig, bundle.tgz.pem
+# emits: runtime/bundle.tgz, bundle.tgz.sigstore.json
 ```
 
 With keyed cosign signing (Bitbucket / air-gapped):
@@ -554,8 +554,19 @@ With keyed cosign signing (Bitbucket / air-gapped):
 ```bash
 fluid bundle contract.fluid.yaml --format tgz --out runtime/bundle.tgz \
   --sign --sign-key awskms:///arn:aws:kms:us-east-1:111122223333:key/<key-id>
-# emits: runtime/bundle.tgz, bundle.tgz.sig
+# emits: runtime/bundle.tgz, bundle.tgz.sigstore.json
 ```
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1126](https://github.com/Agenticstiger/forge-cli/pull/1126)).* `--sign` writes one Sigstore bundle, `<bundle>.sigstore.json`: the signature, the certificate in keyless mode and the transparency-log proof, with `cosign sign-blob --bundle`. Through 0.41.0 it wrote `<bundle>.sig` (and `<bundle>.pem` keyless) with `--output-signature`, which cosign 3.x refuses for a blob (`must specify --bundle with --new-bundle-format`). A keyed run on cosign 3.1.6, the paths shortened:
+
+```console
+$ fluid bundle contract.fluid.yaml --format tgz --out b.tgz --sign --sign-key k.key
+✅ Bundle written to <project>/b.tgz
+✅ Bundle signed (keyed mode)
+   sigstore bundle: <project>/b.tgz.sigstore.json
+```
+
+Sign and verify with the same cosign major version: 2.x writes its own bundle format, 3.x the Sigstore one.
 
 With a SLSA provenance attestation (no cosign needed):
 

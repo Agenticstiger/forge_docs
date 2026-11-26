@@ -96,6 +96,12 @@ flag_oracle_ok:
                      # the pinned 0.41.0. Scoped to the invocation that carries
                      # it. Drop this entry when the pin reaches the release that
                      # contains #1116.
+  - docs/cli/verify-signature.md::--verify-certificate-identity
+  - docs/cli/schedule-sync.md::--verify-certificate-identity
+  - docs/cli/verify-signature.md::--certificate-identity
+                     # `fluid verify-signature --certificate-identity` comes with
+                     # forge-cli #1126, not in the pinned 0.41.0. Drop this entry
+                     # when the pin reaches the release that contains it.
   - docs/cli/ship.md::--release-archive
                      # `fluid ship --release-archive` comes with forge-cli #1123,
                      # not in the pinned 0.41.0. Drop this entry when the pin
