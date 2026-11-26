@@ -1779,6 +1779,11 @@ The example projects move past their known advisories, the container image's Pyt
 
 ## Not in a release yet
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).*
+
+- **`fluid profile` publishes a date or timestamp column's `min` or `max` rounded to a calendar unit** when fewer than 10 records hold the exact value. The end is the first (`min`) or last (`max`) value of the finest UTC day (a timestamp only), month or year that holds at least 10 records, clipped to a range the contract declares, and only when no record lies outside it. An end that 0.41.0 withheld can now be published, so a profile's values and its digest can change. The document has no mark for a rounded end, and the report names each under `Rounded extremes`. See [Rounded date extremes](./cli/profile.md#rounded-date-extremes).
+- **`fluid profile --request` answers the consumer queries a request lists, each with its rate**, under a `queries` section. Through 0.41.0 each was named under `Not measured`. A query the profile does not answer is still named with its reason, and `--strict` refuses it before any record is read. The queries of a table are checked together with its facts, and a private release answers none. See [Consumer queries](./cli/profile.md#consumer-queries).
+
 *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).*
 
 - **`fluid ship --release-dir DIR --artifacts LOCK` seals external files into the release.** Nothing changes for a run without a lock: its `identity` has the same keys as before. A release with a lock has `external` in its `identity` and the files under `external/`. See [Sealing external files](./cli/ship.md#sealing-external-files).
@@ -1798,6 +1803,19 @@ The example projects move past their known advisories, the container image's Pyt
 - **On an expose with row filters, a read grant now reads every row through the gateway.** The principal of each unconditional `accessPolicy` grant with `read`, `select`, `query` or `admin` that covers the expose reads every row, as a principal in `policy.authz.readers` does, unless a row filter names it. `owner` alone does not count. Before this, only `policy.authz.readers` did. If a grantee should stay filtered, add a row filter for it. See [A read grant is a reader too](./advanced/mcp.md#which-rows-a-caller-reads).
 - **A `$ref` left in an expose's `contract` or columns is no longer refused by `declares_row_filters`.** A library caller that passes `contract=` to `declares_row_filters` has the document's same-document pointers resolved first. The read paths still refuse an unresolved pointer in the expose itself, its `policy`, its `contract`, its `contract.schema` or a column.
 - **On BigQuery, a principal a row filter names stays out of `fluid_all_rows` whatever its case.** See [Row filters](./providers/gcp.md#row-filters).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).*
+
+- **`fluid profile` withholds a history's cells, not its members.** `versionsPerEntity`, `versionLength` and `firstStart` are counted on public ladders trimmed to the bins that hold records, and an end bin of fewer than 10 records is joined to the bin beside it. A member is withheld whole only when its records together are fewer than 10. A table with a history can therefore get a new document and digest. See [Withheld a cell at a time](./cli/profile.md#withheld-a-cell-at-a-time).
+- **`firstStart` is published**, where 0.41.0 always withheld it whole. It is checked beside the start and end columns, and the first-start cells next to a date are withheld when a small count of later versions' starts or of closed last ends could be formed through them. See [First starts beside the start and end columns](./cli/profile.md#first-starts-beside-the-start-and-end-columns).
+- **A declared `endMarker` or `currentFlag` writes the zeros it states.** `lastVersion.closed` is 0 for an `endMarker`, and the marker value's `transitions` group is zeros for an `endMarker` or a `currentFlag`, where the records leave those cells empty. See [Zeros the contract states](./cli/profile.md#zeros-the-contract-states).
+- **`lastVersion` is withheld when the rows with no entity and a NULL end are few.** See [`lastVersion` beside the end column's NULLs](./cli/profile.md#lastversion-beside-the-end-column-s-nulls).
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121)).*
+
+- **A small table that its contract marks `Public` is written whole**, under `references` in the profile document. The gate: the expose's own `policy.classification` is `Public`, a relationship the profile counts reaches it, it is not versioned, it holds at most 64 rows, it states no row restriction, none of its columns is labelled, and the key the relationships reference is one column, never null and unique. A table that already carries the label and passes the gate is therefore written with every value of every column the next time you profile. Check the label before you profile again. A table marked `Public` that is left out is named under `Not measured` with its reason. See [Reference tables published whole](./cli/profile.md#reference-tables-published-whole).
+- **A profile that holds `references` is format 1-3-0.** Its digest changes, and `fluxsim` 0.10.0 is the first release that reads format 1-3-0. A private release, a `--request` and a table a `--bundle` block answers never write `references`.
+- **A history follows a foreign key into a published table.** The tracked column's levels are the table's keys, and its `initial` and `transitions` are checked as any tracked column's. Where the counts they publish would bound a withheld cell of the relationship's children per parent, they are withheld whole. A key that is not text is published but its foreign key is not followed, and a foreign key into a table that is not published whole is not tracked, whatever levels the contract declares. See [Following a foreign key](./cli/profile.md#following-a-foreign-key).
 
 ## Older releases
 
