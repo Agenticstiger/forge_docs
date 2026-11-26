@@ -172,6 +172,7 @@ It checks that:
 - `code_digest` is the digest of the code `identity` names, recomputed (see [The code digest](./ship.md#the-code-digest)), and is absent only when `identity` names no source commit;
 - for an S3 key laid out as `<code hex>/<env>/`, the code hex is this release's and the environment is its own;
 - every file the index lists is there, with the sha256 it names. A path in the index that is absolute, has `..`, or names `release.json` is not intact;
+- the identity pins a bundle and an artifacts MANIFEST, as every sealed release does, and a `plan.json` only when it pins a plan;
 - the files `identity` pins are listed with the digests `identity` names: `bundle.tgz`, each external file, `artifacts/MANIFEST.json` (its Merkle root) and each artifact it lists, and `plan.json` (its `bundleDigest` and `planDigest`). The `files` list sits outside `identity_digest`, so a file swapped with its entry rewritten, or dropped from the list, is not intact.
 
 A directory is read without following a link: a file reached through one is not intact. An S3 release is read with `GetObject` only. A file the index does not list is not part of the release and is not read.
