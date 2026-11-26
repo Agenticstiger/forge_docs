@@ -66,6 +66,7 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--require-artifacts <keys>` | | | *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
 | `--release-dir <dir>` | | | *(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
 | `--artifacts <lock>` | `RELEASE_ARTIFACTS` | | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* Seals the external files the lock lists into the release. Needs `--release-dir`, and the variable is read only by a run that seals a release. See [Sealing external files](#sealing-external-files). |
+| `--release-archive <path>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123)).* Also writes the sealed release as one `.tgz` at the path, after the seal and before any `--release-to` upload, and prints its SHA-256. Needs `--release-dir`. See [Release archive](#release-archive). |
 | `--release-to <s3-uri>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Then publishes the sealed release, write-once, under `s3://bucket/prefix/`. Needs `--release-dir` and the `aws` extra. See [Publishing to S3](#publishing-to-s3). |
 | `--release-to-require <check>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Refuses a `--release-to` bucket without `versioning`, or without Object Lock and a default retention (`object-lock`); repeatable or comma-separated. See [Publishing to S3](#publishing-to-s3). |
 | `--journal-dir <dir>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
@@ -242,6 +243,26 @@ artifacts:
 ```
 
 Each entry is shaped like a SLSA provenance `resolvedDependencies` entry, with its source the way `fluid bundle --attest` records the contract's own. No path on the machine that ran ship is recorded, so two clean runs with the same lock and bytes give one `identity_digest`, and a changed file gives a new one. [`fluid runs status --release-dir`](./runs.md#which-release-was-in-force) prints one `external` line for each file.
+
+### Release archive
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123)).*
+
+For a platform that takes one file rather than a directory, `--release-archive PATH` writes the sealed release as a `.tgz`:
+
+```bash
+fluid ship contract.fluid.yaml --stage 1-4 --strict \
+  --release-dir handoff/packet \
+  --release-archive handoff/forge-release.tgz
+```
+
+- It holds every file of the sealed directory at its path: `release.json` at the archive's root, no folder around it, and every file the release sealed (the bundle, the artifacts and what the scaffold emitted into them, external files, reports). Empty folders are not kept, and modes are normalized (below).
+- It is written only after the seal succeeds, and before any `--release-to` upload, so a failed upload keeps it.
+- Its bytes are the same for the same sealed release: entries in sorted order, a fixed modification time (`SOURCE_DATE_EPOCH`, else 0), owner and group 0 with no names, modes `0644` and `0755`, and a gzip header with no time or file name, the rules `bundle.tgz` follows and the [Reproducible Builds](https://reproducible-builds.org/docs/archives/) project gives for archives. Its SHA-256 therefore holds across reruns of one sealed release with the same `SOURCE_DATE_EPOCH`. Two runs seal different releases (their reports and run times differ), so their archives differ too.
+- Ship prints `Release archive: PATH (sha256:...)`, and the run report records `release.archive` as `{path, status: written, sha256}` or `{path, status: not-written, reason}`.
+- It is written owner-only (`0600`) to a temporary file of its own beside PATH and renamed into place; widen the mode yourself if another user hands it on. A failure, an unreadable folder in the release included, leaves no archive and no temporary file, keeps the sealed directory, and fails the run (exit `1`, or `3` after an apply). An archive already at PATH is replaced whole.
+
+Refused before stage 1 (exit `2`), creating nothing: no `--release-dir`, a blank value, a path inside the release directory (links resolved), a folder, a link, or a file name over 200 characters. Without the flag nothing changes. Upload is not part of it: hand the file on with your own tooling, and check it with `sha256sum`.
 
 ### Publishing to S3
 
