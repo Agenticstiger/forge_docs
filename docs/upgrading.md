@@ -1790,6 +1790,13 @@ The example projects move past their known advisories, the container image's Pyt
 - **`fluid ship --release-dir DIR --release-to s3://bucket/prefix/` publishes the sealed release to S3, write-once**, under `<product>/<code hex>/<env>/`. A run without the flag is unchanged. See [Publishing to S3](./cli/ship.md#publishing-to-s3).
 - **`fluid runs verify-release SRC` checks a release directory or S3 prefix, read-only**, with exit `0`, `1` or `2`. In Python, `fluid_build.api.verify_release` (API `1.3`). See [`fluid runs verify-release`](./cli/runs.md#fluid-runs-verify-release).
 - **The `aws` extra needs boto3 and botocore `1.35.2` or later**, the first PutObject with `IfNoneMatch`. An install that pins an older botocore beside `data-product-forge[aws]` fails to resolve.
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122)).*
+
+- **`fluid runs receipt record` and `fluid runs receipt check` are new**, and so is `fluid verify --release SRC`. Nothing changes for a run without them. See [`fluid runs receipt`](./cli/runs.md#fluid-runs-receipt).
+- **`fluid ship --release-dir` refuses a checkout at another commit than the CI names**, before stage 1 (exit `2`). A workflow that checks out a pull request's head while the CI variable names the base now fails there. Seal from a checkout of the named commit.
+- **`--release-to-require object-lock` refuses a re-run when an object already there is no longer locked**, with the ways on. See [Publishing to S3](./cli/ship.md#publishing-to-s3).
+- **`fluid_build.api` is at `1.4`**, with `report_verdict`.
 - **`fluid ship --help` words exit `3` and `--acknowledge-inspected` more briefly.** Same meaning and behaviour.
 
 *On forge-cli `main`, not yet in a release ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)).*
