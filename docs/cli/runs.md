@@ -25,6 +25,7 @@ The reel above walks `runs status`, `runs logs --component dlq`, `runs diff`, a 
 fluid runs status <product-id> [--build BUILD] [--last N] [--state-root PATH] [--json]
 fluid runs status <product-id> --release-dir DIR [--release-dir DIR ...] [--on YYYY-MM-DD] [--env NAME] [--json]
 fluid runs verify-release SRC [--json]
+fluid runs deploy SRC --env NAME [--require-receipt ENV [--require-locked] [--require-signed ...]] [--dry-run] [--sign [--sign-key REF]] [--json]
 fluid runs logs   <product-id> [--component C] [--run-id ID] [--grep TEXT] [--limit N] [--state-root PATH] [--json]
 fluid runs diff   <product-id> --build BUILD --run-a ID --run-b ID [--state-root PATH] [--json]
 ```
@@ -272,7 +273,83 @@ A receipt is only as trusted as whoever can write `receipts/<env>/`. Keep that p
 
 Exit `0` passes, `1` does not, `2` cannot decide (a read failed, cosign is missing, or the release has no code digest). With `--json` it prints `status`, `reason`, `code_digest`, `receipt`, `receipt_release`, `locks` (each with `uri`, `version_id`, `lock`) and `ignored`.
 
-`fluid runs status --release-dir` lists, under each release, the newest receipt of each environment for its code, picked as the check picks it.
+Only a verify receipt gates. A receipt states `check`, `verify` (what `record` writes) or `deploy` (what [`runs deploy`](#fluid-runs-deploy) writes); a receipt without it is a verify receipt. Deploy receipts go to a folder of their own, `<code hex>/deploys/<env>/` (`deploys/<env>/` beside a release directory), so a deployer never writes where the check reads. The check reads `receipts/<env>/` only, and a newest entry there that records anything but a verify fails it, as any other file that is not a verify receipt does.
+
+`--require-locked` reads each lock with HeadObject, which returns the lock only to a caller that holds `s3:GetObjectRetention`. Without that permission every object reads as unlocked, and the check says so.
+
+`fluid runs status --release-dir` lists, under each release, the newest verify receipt of each environment for its code, picked as the check picks it, and the newest deploy receipt, from `deploys/<env>/`, as `deployed`.
+
+## `fluid runs deploy`
+
+*On forge-cli `main`, not yet in a release ([forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125)).*
+
+`deploy SRC --env prod` copies the external files a sealed release holds to where its deploy targets send them, then records a deploy receipt beside the release. The targets are sealed into the release by [`fluid ship --deploy-targets`](./ship.md#deploy-targets): the deploy reads them from the verified release, never from a file of the checkout.
+
+```bash
+# prod: deploy only if nonprod's verify receipt for the same code passed
+fluid runs deploy s3://acme-releases/orders/acme.orders/6369...9999/prod/ --env prod \
+  --require-receipt nonprod --require-locked
+```
+
+Before anything is written, it checks that:
+
+- SRC verifies, as [`verify-release`](#fluid-runs-verify-release) checks it, and names a code digest;
+- SRC is the release of `--env`;
+- in S3, the bucket has versioning `Enabled` and every object was read at a real version, so each copy is pinned to the version and ETag the check read (exit `2` otherwise: with versioning `Suspended` or off, S3 writes the `null` version, which the next write replaces in place, so it pins nothing), and `release.json` has one version and no delete marker (exit `1` otherwise): deploy targets rewritten after the seal keep the code digest, so a second `release.json` is what shows it;
+- with `--require-receipt ENV`, [`receipt check SRC --env ENV`](#fluid-runs-receipt-check) passes, with `--require-locked` and `--require-signed` as there;
+- the installed botocore can copy on condition (1.40.61 or later);
+- the credentials are the account the targets name (STS `GetCallerIdentity`).
+
+Then it goes through the targets, every file but an Airflow DAG first and the DAGs last, so a DAG folder never picks up a DAG before the package it runs:
+
+- A target whose object already has the file's full-object SHA-256 is left as it is, and its VersionId is recorded. A deploy run again copies nothing.
+- Otherwise the file is copied with CopyObject from the release object at the version that was verified (`CopySourceIfMatch` the ETag that read answered). The copy takes `If-Match` the target's ETag when the key exists and `If-None-Match: *` when it does not, so a target that changed since it was read is never overwritten. Every call to a target bucket carries `ExpectedBucketOwner`, the release's account, and the copy stores a SHA-256 checksum.
+- Each copy is read back and must have the SHA-256 the release names.
+
+A release directory is put with PutObject under the same conditions, its bytes checked against the release first.
+
+| Outcome | What happens |
+| --- | --- |
+| A target was written meanwhile (`412`) | The deploy stops, so the DAGs after it are not copied. Run it again to copy over what is there now. |
+| A copy raced another write (`409`) | It is tried up to three times. |
+| A `412` and the target now holds the release's bytes | Counted as copied: a copy whose answer was lost and whose retry met it. |
+| A bucket policy enforces conditional writes (`501`) | Refused with exit `1`, naming the policy: S3 allows no CopyObject under `s3:if-match` / `s3:if-none-match` enforcement. Lift it for the deploy role, or deploy with your own tooling. |
+| A target bucket of another account (`403` on `ExpectedBucketOwner`) | Refused with exit `1`. |
+| A copy reads back other bytes, or S3 refuses it otherwise (`NoSuchBucket`, `EntityTooLarge`) | Fails with exit `1`. |
+
+The deploy receipt goes to `<code hex>/deploys/<env>/` (`deploys/<env>/` beside a release directory), never to `receipts/<env>/`, with `"check": "deploy"`, each target's URI, VersionId, sha256 and action (`copied` or `unchanged`), and the deploy log stored beside it as its report. A deploy that fails once it reached a target writes a `FAILED` deploy receipt. `deploys/<env>/` keeps the write-once and listing rules of `receipts/<env>/`, and never gates: [only a verify receipt does](#fluid-runs-receipt-check). To roll back, deploy the previous release.
+
+::: warning What DAG-last does not cover
+Copying every DAG last keeps a DAG from picking up a package or file before it exists. It does not protect a DAG that is already running from a file replaced under the same key: a run that started before the deploy can read the new package halfway. Give every file a DAG reads a key per version, with the version or the digest in its name (`jobs/orders_jobs-1.4.0.zip`, not `jobs/orders_jobs.zip`), so a deploy only adds keys and the DAG names the one it runs.
+
+A deploy that fails in the middle leaves the targets before the failure copied and those after it as they were, the DAGs among them; its `FAILED` deploy receipt names which. Fix the cause and deploy the same release again: the copied targets are left as they are, and the rest are copied.
+:::
+
+| Option | Meaning |
+| --- | --- |
+| `--env NAME` | The environment the release was sealed for. Required. |
+| `--require-receipt ENV` | First pass `fluid runs receipt check SRC --env ENV`. |
+| `--require-locked`, `--require-signed` | With `--require-receipt`: as on `receipt check`, with `--verify-key`, or `--certificate-identity` and `--certificate-oidc-issuer`. |
+| `--dry-run` | Checks everything and prints what it would copy and leave; writes nothing, no receipt either. |
+| `--sign`, `--sign-key REF` | Sign the deploy receipt, as `receipt record --sign` does. Checked before any copy, so a missing cosign changes nothing. |
+| `--json` | Prints `status` (`deployed`, `dry-run`, `failed` or `undecided`), `reason`, `account`, each target and the receipt. |
+
+Exit `0` deployed (or nothing to change), `1` refused or failed (a `FAILED` deploy receipt always goes with `1`), `2` cannot decide before any target is reached (a read failed, the account cannot be read, the bucket's versioning is not `Enabled`, botocore is too old, or the release names no deploy targets).
+
+### The deploy role
+
+| On | Needs |
+| --- | --- |
+| The release objects | `s3:GetObject`, `s3:GetObjectVersion`, `s3:ListBucketVersions`, `s3:GetBucketVersioning`; with `--require-receipt`, what [`receipt check`](#fluid-runs-receipt-check) needs (and `s3:GetObjectRetention` for `--require-locked`) |
+| Each target | `s3:PutObject`, `s3:GetObject` (`If-Match` needs it) |
+| The account | `sts:GetCallerIdentity` |
+| `*/deploys/<env>/*` | `s3:PutObject` only, never `s3:DeleteObjectVersion`, `s3:BypassGovernanceRetention` or `s3:PutObjectRetention` |
+| `*/receipts/<env>/*` | Nothing to write: `receipts/` stays the verifier's (the [receipt writer rule](#fluid-runs-receipt-check)); `s3:GetObject`, `s3:GetObjectVersion` only with `--require-receipt` |
+| KMS | `kms:Decrypt` on the release bucket's key, `kms:GenerateDataKey` on each target's |
+
+A release is only as trusted as whoever can write its prefix. Keep it writable by the release job only, and keep `s3:DeleteObjectVersion` and `s3:PutBucketVersioning` from every writer: a writer who could delete the first `release.json` version could leave a rewritten one as the only version, and one who could suspend versioning could replace objects in place.
+
+The copy does not send `ExpectedSourceBucketOwner`: the release bucket's owner is not sealed. The source is pinned by its VersionId and the ETag the check read, and every copy is read back against the sealed sha256.
 
 ## `fluid runs logs`
 
