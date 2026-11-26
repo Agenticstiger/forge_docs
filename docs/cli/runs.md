@@ -238,7 +238,7 @@ The result is `PASSED` when the report's verdict passes, the report checked the 
 | `--env NAME` | Must be the environment the release was sealed for; that environment is the default. |
 | `--target T` | Where the release went, repeatable. `s3://bucket/key#versionId` names an object version, since a key alone can change. `git+<repo>@<commit>` takes a full commit and is recorded, never checked. The repository URL is kept without user, password, query or fragment. |
 | `--check-targets` | Reads each S3 target version back and records the checksums S3 holds for it (its sha256 when it has one), its ETag and its size. A version that is not there fails the receipt. One that cannot be read writes nothing, with exit `2`. |
-| `--sign` | Also stores an in-toto Statement of the SLSA verification-summary type over the release's `release.json`, signed with cosign (keyless). It is signed before anything is written. |
+| `--sign` | Also stores an in-toto Statement of the SLSA verification-summary type over the release's `release.json`, signed with cosign (keyless) into one bundle beside it (`<stem>.intoto.jsonl.sigstore.json`). It is signed before anything is written. Needs cosign 2.0 or later; sign and verify with the same major version, since 2.x and 3.x write different bundle formats. |
 | `--sign-key REF` | With `--sign`: a cosign key, either a path or a KMS URI. |
 | `--json` | Prints the receipt and the files written. |
 
@@ -255,19 +255,19 @@ Exit `0` `PASSED`, `1` `FAILED` or refused (nothing written), `2` cannot decide 
 It fails closed:
 
 - a newest file there that is not a receipt fails the check, rather than letting it fall back to an older receipt;
-- a receipt overwritten or deleted after it was written fails the check. The listing reads every version and delete marker, because Object Lock keeps versions, not keys. Reading receipts in S3 therefore needs `s3:ListBucketVersions` and `s3:GetObjectVersion`, and `--require-signed` also `s3:GetBucketVersioning`;
+- a receipt overwritten or deleted after it was written fails the check. The listing reads every version and delete marker, because Object Lock keeps versions, not keys. Reading receipts in S3 therefore needs `s3:ListBucketVersions` and `s3:GetObjectVersion`, and `--require-signed` also `s3:GetBucketObjectLockConfiguration`;
 - in S3, a receipt of other code under this code's folder fails the check;
 - a receipt of this code named later than now decides nothing (exit `2`): a recorder's clock is ahead, or the name is not its own;
-- a listing past 50,000 entries decides nothing.
+- a listing past 50,000 entries decides nothing. A new commit, whose code digest starts a new folder, is the way on.
 
 Whoever can write under `receipts/<env>/` can therefore also make the folder decide nothing, by adding a second version of an entry. That fails closed; a new commit gives a new code digest and a new folder.
 
 The check never reads a release's `gates` or `provenance`.
 
-It reports whether each object of both releases and of the receipt carries an Object Lock in force, read at the version it checked. `--require-locked` fails the check when one does not.
+It reports whether each object of both releases and of the receipt carries an Object Lock in force, read at the version it checked. `--require-locked` fails the check when one does not. A receipt whose lock has run out gates nothing, so the retention must cover the time from the earlier environment's check to the later deploy; the way on is a fresh check of the earlier environment. Never move or expire receipts (a lifecycle rule included): in a versioned bucket that leaves a delete marker, and the check then fails for that code for good.
 
 ::: warning Who may write receipts
-A receipt is only as trusted as whoever can write `receipts/<env>/`. Keep that prefix writable by the verifier's own identity only, never by a role that runs build code. Or sign receipts with `--sign` and pass `--require-signed` to `check` with the signer: `--verify-key REF`, or `--certificate-identity` and `--certificate-oidc-issuer` for keyless. The bucket must keep versions (without versioning a deleted receipt leaves no trace), and, for receipts that cannot be erased, carry Object Lock retention no one can bypass. On disk nothing records a deleted receipt, so `--require-signed` there proves who signed the newest receipt left, not that no newer one was removed. The signer must be one the build code cannot reach. Keyless, the certificate identity is the workflow, and any step in a job that can mint its OIDC token can sign as it, so record receipts in a separate job, or use a key only the verifier can use. The Statement beside the newest receipt must then verify with `cosign verify-blob` for exactly that signer. It must also name the receipt's own sha256, environment, code and identity digests, `PASSED`, and the `release.json` of the release it vouches for.
+A receipt is only as trusted as whoever can write `receipts/<env>/`. Keep that prefix writable by the verifier's own identity only, never by a role that runs build code. Or sign receipts with `--sign` and pass `--require-signed` to `check` with the signer: `--verify-key REF`, or `--certificate-identity` and `--certificate-oidc-issuer` for keyless. A signature cannot show that a newer receipt was never there, so `--require-signed` implies `--require-locked` over the receipt, its report and its Statement, needs a bucket with Object Lock and a default retention, and decides nothing (exit `2`) for a release on disk. No writer of `receipts/<env>/` may hold `s3:DeleteObjectVersion`, `s3:BypassGovernanceRetention` or `s3:PutObjectRetention` there: with any of them a newer receipt could be removed while the older one is still locked. The signer must be one the build code cannot reach. Keyless, the certificate identity is the workflow, and any step in a job that can mint its OIDC token can sign as it, so record receipts in a separate job, or use a key only the verifier can use. The Statement beside the newest receipt must then verify with `cosign verify-blob` for exactly that signer. It must also name the receipt's own sha256, environment, code and identity digests, `PASSED`, and the `release.json` of the release it vouches for.
 :::
 
 Exit `0` passes, `1` does not, `2` cannot decide (a read failed, cosign is missing, or the release has no code digest). With `--json` it prints `status`, `reason`, `code_digest`, `receipt`, `receipt_release`, `locks` (each with `uri`, `version_id`, `lock`) and `ignored`.

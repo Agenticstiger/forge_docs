@@ -1794,7 +1794,7 @@ The example projects move past their known advisories, the container image's Pyt
 *On forge-cli `main`, not yet in a release ([forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122)).*
 
 - **`fluid runs receipt record` and `fluid runs receipt check` are new**, and so is `fluid verify --release SRC`. Nothing changes for a run without them. See [`fluid runs receipt`](./cli/runs.md#fluid-runs-receipt).
-- **`fluid ship --release-dir` refuses a checkout at another commit than the CI names**, before stage 1 (exit `2`). A workflow that checks out a pull request's head while the CI variable names the base now fails there. Seal from a checkout of the named commit.
+- **`fluid ship --release-dir` refuses a checkout at another commit than the CI names**, before stage 1 (exit `2`). A contract in a second repository or a submodule, or a pull-request pipeline that builds a local merge commit, now fails there. Seal from a checkout of the named commit.
 - **`--release-to-require object-lock` refuses a re-run when an object already there is no longer locked**, with the ways on. See [Publishing to S3](./cli/ship.md#publishing-to-s3).
 - **`fluid_build.api` is at `1.4`**, with `report_verdict`.
 - **`fluid ship --help` words exit `3` and `--acknowledge-inspected` more briefly.** Same meaning and behaviour.
