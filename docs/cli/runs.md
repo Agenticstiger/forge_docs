@@ -255,7 +255,7 @@ Exit `0` `PASSED`, `1` `FAILED` or refused (nothing written), `2` cannot decide 
 It fails closed:
 
 - a newest file there that is not a receipt fails the check, rather than letting it fall back to an older receipt;
-- a receipt overwritten or deleted after it was written fails the check. The listing reads every version and delete marker, because Object Lock keeps versions, not keys. Reading receipts in S3 therefore needs `s3:ListBucketVersions` and `s3:GetObjectVersion`, and `--require-signed` also `s3:GetBucketObjectLockConfiguration`;
+- a receipt overwritten or deleted after it was written fails the check. The listing reads every version and delete marker, because Object Lock keeps versions, not keys. Reading receipts in S3 therefore needs `s3:ListBucketVersions` and `s3:GetObjectVersion`. `--require-locked` also needs `s3:GetObjectRetention`: without it S3 leaves the lock out of every read, and the check fails. `--require-signed` needs both of those and `s3:GetBucketObjectLockConfiguration`;
 - in S3, a receipt of other code under this code's folder fails the check;
 - a receipt of this code named later than now decides nothing (exit `2`): a recorder's clock is ahead, or the name is not its own;
 - a listing past 50,000 entries decides nothing. A new commit, whose code digest starts a new folder, is the way on.
