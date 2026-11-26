@@ -804,11 +804,12 @@ A table is written whole only when every one of these holds:
 3. **It is not a versioned table.** No counted relationship reaches it by the natural entity of a table with a validity window, since the keys of such a table repeat.
 4. **It holds at most 64 rows.**
 5. **It states no row restriction.** It has no `policy.authz.rowFilters` and no `policy.privacy.rowLevelPolicy`.
-6. **None of its columns is labelled.** No column has a `sensitivity` other than `none`, or a tag `pii`, `phi` or `sensitive` in any case, or a `policy.authz.columnRestrictions` or `policy.privacy.masking` entry. One labelled column keeps the whole table out: it is all or none.
-7. **The profile reads every column and can write every cell.** A table with a column the profile does not read (a floating-point column, for example) is left out, and so is a table with a cell longer than 4,096 characters.
-8. **The key is one column, never null, and unique.** This is the column of the table that each counted relationship references.
+6. **None of its columns is labelled.** No column has a `sensitivity` other than `none`, a tag or a `labels` key or value with a part `pii`, `phi` or `sensitive` in any case (so `pii-email` and `contains-pii` count), a `sensitivity` label other than `none`, a `semanticType` that names personal data, or a `policy.authz.columnRestrictions` or `policy.privacy.masking` entry. One labelled column keeps the whole table out: it is all or none. *On forge-cli `main`, not yet in a release ([forge-cli #1124](https://github.com/Agenticstiger/forge-cli/pull/1124)): the labels, the semantic types and the parts of a tag.*
+7. **The table is not marked personal.** No tag or label with a part `pii`, `phi` or `sensitive` sits on the expose, its `policy`, `policy.authz` or `policy.privacy`. *On forge-cli `main`, not yet in a release ([forge-cli #1124](https://github.com/Agenticstiger/forge-cli/pull/1124)).*
+8. **The profile reads every column and can write every cell.** A table with a column the profile does not read (a floating-point column, for example) is left out, and so is a table with a cell longer than 4,096 characters.
+9. **The key is one column, never null, and unique.** This is the column of the table that each counted relationship references.
 
-The gate does not read a column's `labels` or `semanticType`, or an expose's own `tags`. A `Public` table with a column marked only that way is still written whole.
+A `semanticType` names personal data when it is one of a set of personal-data types (an email, a phone number, a person's name, a national or passport id, a card or bank number, an address, a birth date, an IP or MAC address, credentials, health and special-category data, and the types forge's own classifier writes), read case-folded with its separators and camel case split, or a longer name that ends in one, such as `customer_email`. `semanticType` is free text, so the set cannot be complete: label a personal column with `sensitivity` as well.
 
 ### What the profile writes
 

@@ -1829,6 +1829,10 @@ The example projects move past their known advisories, the container image's Pyt
 - **A profile that holds `references` is format 1-3-0.** Its digest changes, and `fluxsim` 0.10.0 is the first release that reads format 1-3-0. A private release, a `--request` and a table a `--bundle` block answers never write `references`.
 - **A history follows a foreign key into a published table.** The tracked column's levels are the table's keys, and its `initial` and `transitions` are checked as any tracked column's. Where the counts they publish would bound a withheld cell of the relationship's children per parent, they are withheld whole. A key that is not text is published but its foreign key is not followed, and a foreign key into a table that is not published whole is not tracked, whatever levels the contract declares. See [Following a foreign key](./cli/profile.md#following-a-foreign-key).
 
+*On forge-cli `main`, not yet in a release ([forge-cli #1124](https://github.com/Agenticstiger/forge-cli/pull/1124)).*
+
+- **A `Public` table is not written whole when a label, a semantic type or a tag marks it personal.** The gate now also reads a column's `labels` and `semanticType`, and the tags and labels of the expose, its `policy`, `policy.authz` and `policy.privacy`, each by its parts. A table that was written whole and carries such a mark is left out, and named under Not measured. See [Reference tables published whole](./cli/profile.md#reference-tables-published-whole).
+
 ## Older releases
 
 Upgrading from before `0.15.0`? Start with the
