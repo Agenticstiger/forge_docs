@@ -394,7 +394,7 @@ A proxy in front of the gateway can require client certificates, which keeps hos
 Without an auth mode, the gateway is unauthenticated whatever the proxy does: a caller picks its own model, use case and `tenant_id`. *(since 0.41.0, [forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107))* The principal that a row filter reads does not bind from what a client says about itself, so an expose that declares `policy.authz.rowFilters` refuses every call there, and `serve` refuses to start it (see [Row-level security](#row-level-security-—-policy-authz-rowfilters)). *(since 0.31.0, [forge-cli #879](https://github.com/Agenticstiger/forge-cli/pull/879))* Such a gateway also answers 421 to every request a proxy forwards under its public name, so it serves only callers on its own machine.
 :::
 
-`FLUID_MCP_JWT_CLAIM_MAPPING` is a comma-separated `claim=attr` list, e.g. `sub=principal,https://fluid/model=model,https://fluid/tenant=tenant_id`. Mapped claims land in `caller_attributes`. *(since 0.41.0, [forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107))* The claim mapped to `principal` is what `policy.authz.rowFilters` and `policy.authz.readers` match, so on the JWT path the rows a caller reads follow a verified credential, never self-attested `clientInfo`.
+`FLUID_MCP_JWT_CLAIM_MAPPING` is a comma-separated `claim=attr` list, e.g. `sub=principal,https://fluid/model=model,https://fluid/tenant=tenant_id`. Mapped claims land in `caller_attributes`. *(since 0.41.0, [forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107))* The claim mapped to `principal` is what `policy.authz.rowFilters` and `policy.authz.readers` match, so on the JWT path the rows a caller reads follow a verified credential, never self-attested `clientInfo`. *On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.* The principal of an `accessPolicy` read grant is matched too: see [A read grant is a reader too](#which-rows-a-caller-reads).
 
 *(since 0.15.0)* The value **merges over** the default mappings instead of replacing them. Those defaults are:
 
@@ -574,11 +574,20 @@ To move a filter, write one `policy.authz.rowFilters` entry per principal, with 
 
 #### Which rows a caller reads
 
-- **The principal comes from a verified JWT claim.** The caller attribute `principal`, one value or a list, is matched against the `principal` of each filter and against `policy.authz.readers`. It binds only from a JWT claim mapped to it, `FLUID_MCP_JWT_CLAIM_MAPPING=<claim>=principal` (see [Authentication modes](#authentication-modes)). A client that states its own `principal`, in `clientInfo` or in its `fluid` capability block, is dropped in every auth mode, so a client cannot pick its own filter or a reader's every row.
+- **The principal comes from a verified JWT claim.** The caller attribute `principal`, one value or a list, is matched against the `principal` of each filter and against `policy.authz.readers`, or the principal of an `accessPolicy` read grant (see [A read grant is a reader too](#which-rows-a-caller-reads)). *On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.* It binds only from a JWT claim mapped to it, `FLUID_MCP_JWT_CLAIM_MAPPING=<claim>=principal` (see [Authentication modes](#authentication-modes)). A client that states its own `principal`, in `clientInfo` or in its `fluid` capability block, is dropped in every auth mode, so a client cannot pick its own filter or a reader's every row.
 - **A caller reads the union of the filters that name its principals.** BigQuery combines row access policies the same way. A caller with two principals reads the rows of either predicate.
 - **A reader no filter names reads every row.** A principal in `policy.authz.readers` that no filter names reads every row. A caller with any such principal reads every row, whatever its other principals are filtered to. *(since 0.41.0, [forge-cli #1110](https://github.com/Agenticstiger/forge-cli/pull/1110))* Like every caller, it reads only the declared columns of the exposed table and calls only the listed functions; its conditions are not limited (see below).
-- **A caller no filter or reader names is refused.** A request with no principal, or with principals that neither a filter nor `readers` names, gets `RowFilterIdentityMissing`. The gateway cannot tell an unfiltered reader from a filtered principal it does not know, so it serves neither.
-- **`accessPolicy` grantees and `binding.principals` are not consulted.** To read every row through the gateway, a principal must be in `policy.authz.readers`.
+- **A read grant is a reader too.** *On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.* When the gateway has the contract (its own tools pass the session's), the principal of each `accessPolicy` grant also reads every row if the grant:
+  - has a `read`, `select`, `query` or `admin` permission;
+  - has no condition;
+  - covers the expose: it lists no resources, every expose, or this one.
+
+  `owner` does not count. It reads on BigQuery but holds no table privilege on Databricks, and the gateway counts only what reads on every platform. A grant with a condition, a grant scoped to another expose or to a resource the gateway cannot evaluate, a write-only grant and a principal that `binding.principals` maps to `[]` never count, and neither does a reader mapped to `[]`.
+- **A principal a row filter names never reads every row.** Whatever its spelling: the prefix is dropped when it is `user:`, `group:`, `serviceAccount:` or `domain:` (an unprefixed address leaves the type to be inferred; any other prefix, such as `tenant:`, is part of the name), the case is folded, an AWS role or user is one by its IAM key (account and name, whatever its path), an account is one by its ID, and two principals that `binding.principals` maps to one identity are one. So a grant or a reader spelled in another case than a filter's principal does not lift that filter.
+- **A caller's principals match as written.** They are never translated through `binding.principals`, so the identity a principal maps to is not a claim that matches. Without the contract (a library caller that does not pass `contract=`), only `policy.authz.readers` read every row, narrowed the same ways.
+- **A caller no filter or reader names is refused.** A request with no principal, or with principals that neither a filter nor a reader names, gets `RowFilterIdentityMissing`. The gateway cannot tell an unfiltered reader from a filtered principal it does not know, so it serves neither.
+- **A grant list that cannot be read as written is refused.** An `accessPolicy` that holds a `$ref` left unresolved, or an `accessPolicy` or `binding.principals` that is malformed, is refused with `RowFilterUnavailable`. `accessPolicy` is read only when the gateway has the contract.
+- **On AWS, the emitter writes no `accessPolicy` grant.** A principal with a read grant and no Lake Formation grant reads every row through the gateway only. Lake Formation still filters the principal a row filter names.
 
 #### What the gateway applies
 
@@ -650,11 +659,12 @@ A function refusal names the function as the caller wrote it; a condition refusa
 
 #### Refusals
 
-- **A request that cannot be filtered is refused.** `RowFilterIdentityMissing` is the refusal for a caller without a principal that a filter or `readers` names. `RowFilterUnavailable` is the refusal on every call to an expose whose filter cannot be applied: a column that `contract.schema` does not declare, a malformed entry, a principal filtered twice, two filters whose derived names collide (set `name:` on one), a predicate that the engine would read differently, or the old `policy.rowFilters` key. A predicate that BigQuery or Spark would read differently is a double-quoted name, which is a string there, so write the name bare. *(since 0.41.0, [forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107))* `fluid generate iac` and `fluid apply` refuse a row filter with a double-quoted column name for BigQuery and Databricks as well, and check Lake Formation filters as Athena reads them.
+- **A request that cannot be filtered is refused.** `RowFilterIdentityMissing` is the refusal for a caller without a principal that a filter or `readers` names, or the principal of an `accessPolicy` read grant (see [A read grant is a reader too](#which-rows-a-caller-reads)). *On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.* `RowFilterUnavailable` is the refusal on every call to an expose whose filter cannot be applied: a column that `contract.schema` does not declare, a malformed entry, a principal filtered twice, two filters whose derived names collide (set `name:` on one), a predicate that the engine would read differently, or the old `policy.rowFilters` key. A predicate that BigQuery or Spark would read differently is a double-quoted name, which is a string there, so write the name bare. *(since 0.41.0, [forge-cli #1107](https://github.com/Agenticstiger/forge-cli/pull/1107))* `fluid generate iac` and `fluid apply` refuse a row filter with a double-quoted column name for BigQuery and Databricks as well, and check Lake Formation filters as Athena reads them.
 - **The caller sees a generic message.** The wire message is `Tool '<tool>' failed; see server audit trail for the full annotated error.` for both. The detail, which names the predicate and the principals, goes to the operator log and the audit record.
 - **A filter is checked as the engine reads it.** The same check refuses a predicate that holds the text `:p_`, because the gateway's bind markers are rewritten wherever they appear, and a predicate that holds the word `UNION`, `INTERSECT` or `EXCEPT`, because the statement guard reads string literals too.
 - **Without sqlglot, every row filter is refused.** An unchecked predicate is never applied. sqlglot is a base dependency of forge-cli. *(since 0.41.0, [forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109))* The floor is 30.1: releases before 30.1 refuse some valid `query_sql` reads on an expose with row filters (a DuckDB `EXISTS (FROM ...)` subquery, for one), and 26.16 and older record no identifier positions and refuse every row filter. Upgrade with `pip install --upgrade "sqlglot>=30.1"` or upgrade `data-product-forge`.
 - **An expose that holds an unresolved `$ref` is refused.** *(since 0.41.0, [forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109))* forge's loader resolves every reference, a pointer into the same document included, before `serve` reads a policy. A caller that hands the compiler an expose of its own (the Python functions `compile_semantic_query`, `compile_free_form_sql`, `row_filter_predicate` and `declares_row_filters`) could pass `policy: {$ref: ...}` unresolved, which read as no row filter. Every read path and the startup check now refuse an expose that is itself a `$ref`, or whose `policy`, `contract` or `contract.schema` entries hold one.
+- **A pointer is resolved only to decide whether an expose is filtered.** *On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.* `declares_row_filters` decides from the expose's policy alone, so a `$ref` left in the expose's `contract` or columns is no longer refused there. With `contract=` (the whole document as written) it first resolves the document's same-document pointers, so a policy kept behind one is read. A pointer in the expose or its policy that cannot be resolved, such as one into another file, is still refused. The read paths (`row_filter_predicate`, `compile_semantic_query`, `compile_free_form_sql` and the `sample` read) refuse an unresolved pointer in the expose itself, its `policy`, its `contract`, its `contract.schema` or a column, with or without `contract=`, and in `accessPolicy` when they read it. The column restrictions and sensitivity flags they apply come from the expose as passed, so the document must be resolved first.
 
 `fluid mcp output-port serve` refuses to start an expose whose row filters no request could satisfy, and exits 2: over stdio, over HTTP without auth or with a shared token, and over HTTP with JWT auth when no claim is mapped to `principal`. It refuses too when the old `policy.rowFilters` key is present or a filter cannot be applied, as the engine of the binding reads it. Serve such an expose over HTTP with JWT auth and map the claim that carries a caller's principal:
 
@@ -679,6 +689,45 @@ Over HTTP with JWT auth and no claim mapped to `principal`, the message reads `.
 - **A column's type can be up to five minutes old.** The table's types are kept for five minutes, so a column whose type changes is typed by its old type until the next read. On Athena, the catalog read uses `current_schema`, which has not been verified on a live engine; if it fails, narrowed callers are refused.
 - **Direct warehouse access bypasses the gateway.** Anyone who connects to the warehouse with their own role is not filtered by it. `fluid apply` writes warehouse-side policy for that path; see [Cloud-IAM compilers](#cloud-iam-compilers-—-defending-the-bypass-path).
 
+### Reading an as-of relationship through `query`
+
+*On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.*
+
+A dimension or a filter key `<relationship>.<column>` reads `column` of the version of the target that was valid on the row's `asOf` value. The relationship is an entry of `semantics.relationships[]` that declares `asOf` (see [Reading a versioned table through a relationship](../concepts/semantic-layer.md#reading-a-versioned-table-through-a-relationship)). The result column is named `<relationship>_<column>`.
+
+```json
+{
+  "measure": "reading_count",
+  "dimensions": ["station_on_date.sensor_model"]
+}
+```
+
+```text
+columns: station_on_date_sensor_model, reading_count
+```
+
+- **A row that reaches no version reads NULL.** A reading dated before the first version of its station groups under NULL. With `joinType: inner` on the relationship, such rows are dropped instead. `joinType` is `left` or `inner`.
+- **The target is read through its own governed projection.** Only its declared columns that no policy restricts, and only the rows its `policy.authz.rowFilters` leave the same caller. The filter sits inside the projection that the version is picked from, so a version the caller may not read never ends a visible one. A caller that the target's filters do not name is refused with `RowFilterIdentityMissing`, as on the target itself. The statement that the result shows reads `(<row filter>)` in place of the target's predicate.
+- **A restricted target column cannot be read, filtered on or joined on.** A column marked `sensitivity: pii` is redacted under its `<relationship>_<column>` name.
+- **The target must be readable in the same statement.** That holds when the target uses the same connection as the served expose:
+
+  | Engine | The target must share |
+  | --- | --- |
+  | DuckDB | The database, with its file inside `--readable-paths` |
+  | BigQuery | The project |
+  | Snowflake | The database and schema |
+  | PostgreSQL | The connection settings and the database |
+  | Athena | The workgroup, region and output location |
+
+- **These are refused**, with a message that names the relationship and the target expose and no path, host or table:
+  - a target on another platform, database, project or workgroup;
+  - a target with another `agentPolicy` than the served expose;
+  - a target file outside `--readable-paths`;
+  - a restricted target column;
+  - on DuckDB, a target whose table name another file holds.
+
+  The detail goes to the operator log. A relationship that is not a well-formed as-of reading is refused with the reason. A request that names no relationship builds nothing, so it is not refused.
+
 ### The five engine drivers
 
 Drivers are keyed on `(binding.platform, binding.format)` and built lazily, so `describe` works even when cloud credentials are missing. Out-of-tree drivers can register via `register_driver(("databricks", "delta_table"), DatabricksDriver)` from a private wheel — no core edits.
@@ -699,7 +748,7 @@ The query compiler emits portable `:p_<index>` placeholders and each driver re-r
 
 The gateway reads the table as one database role or cloud account, whoever calls it. A row filter limits what a caller is shown; it does not limit what the gateway's own account can read. Give that account the least it needs, so that a statement a guard missed reaches no more than the exposed table.
 
-**PostgreSQL.** The driver connects with `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and optionally `POSTGRES_SSLMODE`. *(since 0.41.0, [forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109))* At connect, the driver checks whether the role is privileged: a superuser, or a member, directly or through another role, of `pg_read_server_files`, `pg_write_server_files`, `pg_execute_server_program`, `pg_monitor`, `pg_read_all_data`, `pg_read_all_settings` or `pg_read_all_stats`. If it is, every read of an expose with row filters is refused with that reason, and any other expose logs a warning. A connection is kept only once its check has passed, so a check that failed runs again on the next request. Nothing else about the role is checked. Set it up as follows:
+**PostgreSQL.** The driver connects with `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD` and optionally `POSTGRES_SSLMODE`. *(since 0.41.0, [forge-cli #1109](https://github.com/Agenticstiger/forge-cli/pull/1109))* At connect, the driver checks whether the role is privileged: a superuser, or a member, directly or through another role, of `pg_read_server_files`, `pg_write_server_files`, `pg_execute_server_program`, `pg_monitor`, `pg_read_all_data`, `pg_read_all_settings` or `pg_read_all_stats`. If it is, every read of an expose with row filters is refused with that reason, and any other expose logs a warning. *On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.* The refusal also covers a read of an expose whose as-of relationship reaches a target that declares row filters, since the query reads that target over the same connection. A connection is kept only once its check has passed, so a check that failed runs again on the next request. Nothing else about the role is checked. Set it up as follows:
 
 - It is not a superuser, and holds none of the predefined roles above, which read beyond the granted tables, run programs or read server files.
 - Any extension that adds functions (`pageinspect`, `dblink` and others) is installed in a schema the role cannot use.
@@ -719,7 +768,7 @@ GRANT SELECT ON analytics.customers TO fluid_gateway;
 
 Set its password outside this script. The role name, schema and table are examples.
 
-**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member with an `accessPolicy` grant of any permission, write grants included, or listed in `policy.authz.readers`. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, so the service account resolves to a grant on the expose, and name it in no row filter, because a filter narrows every identity it names. Without the grant, BigQuery returns the gateway no rows once `fluid apply` writes the row access policies. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
+**BigQuery.** The gateway queries as its own account, the one the Google Cloud client library resolves from `GOOGLE_APPLICATION_CREDENTIALS` or the application default credentials. BigQuery shows an account that no row access policy names no row at all. `fluid apply` writes a policy per row filter for the principals the filters name, and one more, `fluid_all_rows` with the predicate `TRUE`, for every other member with an `accessPolicy` grant of any permission, write grants included, or listed in `policy.authz.readers`. *On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.* A principal that a row filter names stays out of `fluid_all_rows`, however its case is spelled: the identities are compared with the case folded. The gateway's account must be one of those members, or its queries return no rows. Grant it a read permission in `accessPolicy`, so the service account resolves to a grant on the expose, and name it in no row filter, because a filter narrows every identity it names. Without the grant, BigQuery returns the gateway no rows once `fluid apply` writes the row access policies. The gateway's own per-caller filter then applies on top of the every-row policy. See [Row filters](../providers/gcp.md#row-filters) on GCP.
 
 ```yaml
 # top level of the contract, beside exposes:

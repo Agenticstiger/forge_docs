@@ -721,9 +721,13 @@ What the compiler does, as of 0.18.1:
   which also rejects the column as a filter key.
 
 Relationships (0.7.7 preview) are returned by the `describe` tool with the rest
-of the `semantics` block. No `query` call joins on them yet, and
-`validityParams` are ignored, so a `query` over a type II dimension reads every
-version of a row.
+of the `semantics` block. A relationship that declares `asOf` can be read by `query`:
+name `<relationship>.<column>` as a dimension or a filter key, and the call reads
+the version of the target valid on each row's `asOf` value. See
+[Reading an as-of relationship through `query`](../advanced/mcp.md#reading-an-as-of-relationship-through-query).
+*On forge-cli's `fix/row-filter-followups` branch ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)), not yet on `main` or in a release.*
+A relationship without `asOf` is not joined, and a `query` over a type II
+dimension of the served expose reads every version of a row.
 
 Governance on this path (agent policy, row filters, authentication) is
 described in [MCP Server → The contract is the policy](../advanced/mcp.md#the-contract-is-the-policy).
