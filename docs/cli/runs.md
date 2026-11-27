@@ -219,17 +219,17 @@ fluid runs receipt check s3://acme-releases/orders/acme.orders/6369...9999/prod/
 
 `record SRC --report R` verifies SRC first, as [`verify-release`](#fluid-runs-verify-release) does, then writes a `fluid-receipt/1` record write-once to `<code hex>/receipts/<env>/<utc>-<identity16>.json` beside it. For a release directory, the record goes to `receipts/<env>/` beside that directory. The report is stored next to the receipt and written first. The receipt is written last, and a reader takes a receipt only together with its report. On disk, `receipts/` and `receipts/<env>/` are created one level at a time and never through a link.
 
-`R` is the report of [`fluid verify --release SRC --out R`](./verify.md#key-options), whose `release` block names the release. A report that names another release, or none, is refused, and nothing is written.
+`R` is the report of [`fluid verify --release SRC --out R`](./verify.md#key-options), whose `release` block names the release. A report that names another release, or none, is refused, and nothing is written. *On forge-cli `main`, not yet in a release ([forge-cli #PRNUM](https://github.com/Agenticstiger/forge-cli/pull/PRNUM)).* So is a report whose block names another environment or contract digest than the release sealed, or none, as a report of `fluid verify` from before the check carries.
 
 The receipt holds:
 
 - `code_digest` and `identity_digest`;
 - each object verified, with its sha256 and S3 VersionId;
-- the report's sha256 and counts;
+- the report's sha256 and counts, and the contract digest it checked;
 - the CI run, with any credentials cut out of its URLs;
 - the targets.
 
-Its fields follow SLSA's [verification summary attestation](https://slsa.dev/spec/v1.1/verification_summary): `verifier`, `time_verified`, `resource_uri` and the result.
+Its fields follow SLSA's [verification summary attestation](https://slsa.dev/spec/v1.1/verification_summary): `verifier`, `time_verified`, `resource_uri` and the result. A signed verify receipt's Statement names the contract it was checked against as `policy.digest`, the exact version of the policy applied.
 
 The result is `PASSED` when the report's verdict passes, the report checked the whole release (not one `--expose`), and every checked target reads back. Otherwise the result is `FAILED`, and a failed receipt is written too. The verdict is `fluid_build.api.report_verdict`, the rule [`datamesh-manager promote --verify-report`](./datamesh-manager.md) uses.
 
@@ -334,7 +334,7 @@ A deploy that fails in the middle leaves the targets before the failure copied a
 | `--sign`, `--sign-key REF` | Sign the deploy receipt, as `receipt record --sign` does. Checked before any copy, so a missing cosign changes nothing. |
 | `--json` | Prints `status` (`deployed`, `dry-run`, `failed` or `undecided`), `reason`, `account`, each target and the receipt. |
 
-Exit `0` deployed (or nothing to change), `1` refused or failed (a `FAILED` deploy receipt always goes with `1`), `2` cannot decide before any target is reached (a read failed, the account cannot be read, the bucket's versioning is not `Enabled`, botocore is too old, or the release names no deploy targets).
+Exit `0` deployed (or nothing to change), `1` refused or failed (a `FAILED` deploy receipt always goes with `1`), `2` cannot decide before any target is reached (a read failed, the account cannot be read, the bucket's versioning is not `Enabled`, botocore is too old, or the release names no deploy targets). Every check runs before the first write, and after any write the result is `0` or `1`, never `2`. *On forge-cli `main`, not yet in a release ([forge-cli #PRNUM](https://github.com/Agenticstiger/forge-cli/pull/PRNUM)).* Where the receipt goes is one of those checks: a release that is not at `<prefix>/<product>/<code hex>/<env>/` (a mirror) exits `2` with nothing copied. A deploy receipt that cannot be written after targets were copied (no `s3:PutObject` on `deploys/<env>/`) exits `1`: the message says no deploy receipt exists and names the targets written, which are then live with no record of them. Grant the write and deploy the same release again: the copied targets are left as they are, and the receipt is written.
 
 ### The deploy role
 
