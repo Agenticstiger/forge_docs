@@ -1779,7 +1779,7 @@ The example projects move past their known advisories, the container image's Pyt
 
 ## Not in a release yet
 
-*On forge-cli `main`, not yet in a release ([forge-cli #PRNUM](https://github.com/Agenticstiger/forge-cli/pull/PRNUM)).*
+*On forge-cli `main`, not yet in a release ([forge-cli #1128](https://github.com/Agenticstiger/forge-cli/pull/1128)).*
 
 - **`fluid verify --release SRC` refuses a release of another environment or contract** (exit `2`, `verify_release_refused`, before any check): run it with the `--env` the release was sealed for, on the contract the release was sealed from. The report's `release` block gains `contract_digest`, and `fluid runs receipt record` refuses a report without it, so run `fluid verify --release` again before recording a receipt with a report written before the upgrade. Receipts recorded before this version were not tied to the env and contract they checked, and `receipt check` and `runs deploy --require-receipt` still accept them: record them again from a fresh `fluid verify --release` before relying on the prod gate. See [`fluid verify`](./cli/verify.md#key-options).
 - **`fluid schedule-sync` refuses a `--verify-*` flag without `--verify-signature`** (exit `2`, `schedule_sync_verify_flags_need_gate`). A pipeline that passed `--verify-key` or a `--verify-certificate-*` or `--verify-*-regexp` flag without `--verify-signature` pushed its DAGs unchecked: add `--verify-signature --bundle PATH`, or drop the flags. See [`fluid schedule-sync`](./cli/schedule-sync.md#behaviour).
