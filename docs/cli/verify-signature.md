@@ -22,9 +22,9 @@ fluid verify-signature BUNDLE_TGZ [options]
 | `--certificate-identity ID`, `--certificate-oidc-issuer URL` | Keyless: the signer's exact certificate identity and OIDC issuer, both required. They replace the regexps below. |
 | `--identity-regexp PATTERN` | Keyless: a regexp the signer's certificate identity must match, instead of `--certificate-identity`. |
 | `--oidc-issuer-regexp PATTERN` | Keyless: a regexp the signer's OIDC issuer must match (e.g. `https://token\.actions\.githubusercontent\.com`), instead of `--certificate-oidc-issuer`. |
+| `--timeout SECONDS` | Per-subprocess cosign timeout. Default 120. |
 
 Keyless verification names its signer: an identity and an issuer, each exactly or as a regexp. There is no default, since anyone can get a Sigstore certificate for their own identity, so a check that names none proves nothing about who signed. A missing or empty value (an unset CI variable) exits `2` with `signing_identity_not_pinned` before cosign runs. Through 0.41.0 both regexps defaulted to `.*`. `--signature` and `--certificate` exit `2` with `verify_signature_sig_pem_gone`, naming `--bundle`.
-| `--timeout SECONDS` | Per-subprocess cosign timeout. Default 120. |
 
 ::: tip Got `SupplyChainViolationError` instead?
 That error is not raised by this command. It comes from an Airbyte acquisition build whose connector image failed its Cosign check. The check is configured on the build, under `builds[].properties.airbyte.image_signature` (`verifier: cosign`, `publicKey`, `slsaProvenance`), and the failing image is named in the error. Its fix text also mentions `sovereignty.allowedSigners`; as of 0.18.1 no bundled contract schema defines that field, so pin the signer with `publicKey`. See [typed CLI errors](../advanced/typed-cli-errors.md#governance) and [Source-Aligned Acquisition](../advanced/source-aligned-acquisition.md). `fluid verify-signature` checks a `fluid bundle` tarball, not a container image.
