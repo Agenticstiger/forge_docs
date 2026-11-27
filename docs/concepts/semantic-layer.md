@@ -725,7 +725,7 @@ of the `semantics` block. A relationship that declares `asOf` can be read by `qu
 name `<relationship>.<column>` as a dimension or a filter key, and the call reads
 the version of the target valid on each row's `asOf` value. See
 [Reading an as-of relationship through `query`](../advanced/mcp.md#reading-an-as-of-relationship-through-query).
-*On forge-cli `main`, not yet in a release ([forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117)).*
+*(since 0.42.0, [forge-cli #1117](https://github.com/Agenticstiger/forge-cli/pull/1117))*
 A relationship without `asOf` is not joined, and a `query` over a type II
 dimension of the served expose reads every version of a row.
 

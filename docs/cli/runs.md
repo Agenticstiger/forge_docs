@@ -157,7 +157,7 @@ no builds found for product nothing.here under .../.fluid/runs/nothing.here/
 
 ## `fluid runs verify-release`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).*
+*(since 0.42.0, [forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116))*
 
 Checks a sealed release without changing it. `SRC` is a release directory that `fluid ship --release-dir` wrote, or the `s3://bucket/prefix/<product>/<code hex>/<env>/` that [`fluid ship --release-to`](./ship.md#publishing-to-s3) wrote.
 
@@ -200,7 +200,7 @@ Like [Intact and not intact](#intact-and-not-intact), this proves the bytes matc
 
 ## `fluid runs receipt`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122)).*
+*(since 0.42.0, [forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122))*
 
 A receipt records what one environment's check of a sealed release found. A later environment's deploy passes `receipt check` only when an earlier environment checked the same code and the check passed. The model is [Kargo](https://docs.kargo.io/user-guide/how-to-guides/working-with-freight)'s: Freight, named by a digest of what it carries, goes downstream only after an upstream Stage verified it. Here the [code digest](./ship.md#the-code-digest) plays the Freight's part: one commit and one lock, sealed once per environment.
 
@@ -219,7 +219,7 @@ fluid runs receipt check s3://acme-releases/orders/acme.orders/6369...9999/prod/
 
 `record SRC --report R` verifies SRC first, as [`verify-release`](#fluid-runs-verify-release) does, then writes a `fluid-receipt/1` record write-once to `<code hex>/receipts/<env>/<utc>-<identity16>.json` beside it. For a release directory, the record goes to `receipts/<env>/` beside that directory. The report is stored next to the receipt and written first. The receipt is written last, and a reader takes a receipt only together with its report. On disk, `receipts/` and `receipts/<env>/` are created one level at a time and never through a link.
 
-`R` is the report of [`fluid verify --release SRC --out R`](./verify.md#key-options), whose `release` block names the release. A report that names another release, or none, is refused, and nothing is written. *On forge-cli `main`, not yet in a release ([forge-cli #1128](https://github.com/Agenticstiger/forge-cli/pull/1128)).* So is a report whose block names another environment or contract digest than the release sealed, or names none, as a report written before this check does. The binding catches a mistake, not a forgery: a report made by hand can copy the release's public fields. Trust in a receipt comes from who can write `receipts/<env>/` (see [Who may write receipts](#fluid-runs-receipt-check)), or from `--require-signed`.
+`R` is the report of [`fluid verify --release SRC --out R`](./verify.md#key-options), whose `release` block names the release. A report that names another release, or none, is refused, and nothing is written. *(since 0.42.0, [forge-cli #1128](https://github.com/Agenticstiger/forge-cli/pull/1128))* So is a report whose block names another environment or contract digest than the release sealed, or names none, as a report written before this check does. The binding catches a mistake, not a forgery: a report made by hand can copy the release's public fields. Trust in a receipt comes from who can write `receipts/<env>/` (see [Who may write receipts](#fluid-runs-receipt-check)), or from `--require-signed`.
 
 The receipt holds:
 
@@ -281,7 +281,7 @@ Only a verify receipt gates. A receipt states `check`, `verify` (what `record` w
 
 ## `fluid runs deploy`
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125)).*
+*(since 0.42.0, [forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125))*
 
 `deploy SRC --env prod` copies the external files a sealed release holds to where its deploy targets send them, then records a deploy receipt beside the release. The targets are sealed into the release by [`fluid ship --deploy-targets`](./ship.md#deploy-targets): the deploy reads them from the verified release, never from a file of the checkout.
 
@@ -334,7 +334,7 @@ A deploy that fails in the middle leaves the targets before the failure copied a
 | `--sign`, `--sign-key REF` | Sign the deploy receipt, as `receipt record --sign` does. Checked before any copy, so a missing cosign changes nothing. |
 | `--json` | Prints `status` (`deployed`, `dry-run`, `failed` or `undecided`), `reason`, `account`, each target and the receipt. |
 
-Exit `0` deployed (or nothing to change), `1` refused or failed (a `FAILED` deploy receipt always goes with `1`), `2` cannot decide before any target is reached (a read failed, the account cannot be read, the bucket's versioning is not `Enabled`, botocore is too old, or the release names no deploy targets). Every check runs before the first write, and after any write the result is `0` or `1`, never `2`. *On forge-cli `main`, not yet in a release ([forge-cli #1128](https://github.com/Agenticstiger/forge-cli/pull/1128)).* Where the receipt goes is one of those checks: a release that is not at `<prefix>/<product>/<code hex>/<env>/` (a mirror) exits `2` with nothing copied. A deploy receipt that cannot be written after targets were copied (no `s3:PutObject` on `deploys/<env>/`) exits `1`: the message says no deploy receipt exists and names the targets written, which are then live with no record of them. Grant the write and deploy the same release again: the copied targets are left as they are, and the receipt is written.
+Exit `0` deployed (or nothing to change), `1` refused or failed (a `FAILED` deploy receipt always goes with `1`), `2` cannot decide before any target is reached (a read failed, the account cannot be read, the bucket's versioning is not `Enabled`, botocore is too old, or the release names no deploy targets). Every check runs before the first write, and after any write the result is `0` or `1`, never `2`. *(since 0.42.0, [forge-cli #1128](https://github.com/Agenticstiger/forge-cli/pull/1128))* Where the receipt goes is one of those checks: a release that is not at `<prefix>/<product>/<code hex>/<env>/` (a mirror) exits `2` with nothing copied. A deploy receipt that cannot be written after targets were copied (no `s3:PutObject` on `deploys/<env>/`) exits `1`: the message says no deploy receipt exists and names the targets written, which are then live with no record of them. Grant the write and deploy the same release again: the copied targets are left as they are, and the receipt is written.
 
 ### The deploy role
 
@@ -476,7 +476,7 @@ For each environment, the command prints:
 - the release **in force**: now, or at the start of the `--on` day. This is the latest intact release sealed before that moment.
 - the releases **sealed during** the `--on` day, if any.
 - for each release, its expose versions, its release id, when it was sealed, the run that sealed it, the environment, the forge version, the `code` line (revision, repository and ref) and its `bundle` digest.
-- *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* one `external` line for each file the release sealed with [`fluid ship --artifacts`](./ship.md#sealing-external-files): its name, kind and sha256, and the repository, ref and commit it was built from. With `--json`, each release has an `external` list with `name`, `kind`, `sha256`, `source` and `commit`.
+- *(since 0.42.0, [forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115))* one `external` line for each file the release sealed with [`fluid ship --artifacts`](./ship.md#sealing-external-files): its name, kind and sha256, and the repository, ref and commit it was built from. With `--json`, each release has an `external` list with `name`, `kind`, `sha256`, `source` and `commit`.
 - a "Not in force" block for later records that are not intact (see below).
 - a `not read` line for each kind of entry that was skipped, with a count.
 
@@ -540,9 +540,9 @@ Text taken from a record is cleaned of control characters and cut, so a record c
 | --- | --- |
 | `identity.expose_versions` | The version of each expose, by expose id. |
 | `provenance.source` | `revision`, `repository` and `ref`, read from the CI system's own variables. |
-| `identity.source` | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* The commit the CI built, as `uri` (`git+<repo>`) and `digest.gitCommit`. See [The code digest](./ship.md#the-code-digest). |
-| `code_digest` | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* The digest of the code, the same for every environment of one commit and one lock. |
-| `identity.external` | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* The external files the release sealed (`fluid ship --artifacts`): each one's `name`, `kind`, `digest.sha256`, and its `source` as `uri` (`git+<repo>@<ref>`) and `digest.gitCommit`. See [Sealing external files](./ship.md#sealing-external-files). |
+| `identity.source` | *(since 0.42.0, [forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116))* The commit the CI built, as `uri` (`git+<repo>`) and `digest.gitCommit`. See [The code digest](./ship.md#the-code-digest). |
+| `code_digest` | *(since 0.42.0, [forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116))* The digest of the code, the same for every environment of one commit and one lock. |
+| `identity.external` | *(since 0.42.0, [forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115))* The external files the release sealed (`fluid ship --artifacts`): each one's `name`, `kind`, `digest.sha256`, and its `source` as `uri` (`git+<repo>@<ref>`) and `digest.gitCommit`. See [Sealing external files](./ship.md#sealing-external-files). |
 
 `provenance.source` is filled from the first CI system whose run variable is set:
 

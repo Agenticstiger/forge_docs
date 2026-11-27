@@ -54,7 +54,7 @@ fluid profile CONTRACT --source SOURCE [--expose ID]... [--table NAME] [--out FI
 | `--out` | Where to write the document. Default: `<exposeId>.profile.json` in the current directory, or `<contract id>.profile.json` when the call profiles several exposes. |
 | `--fractional-bits` | The grid [`mean/1`](#the-mean-1-statistic) is formed on, in steps of 2^-N: 0 to 128, default 16. Set it to the fidelity block's `encoding.fractionalBits`. |
 | `--bundle` | *(since 0.32.0, [forge-cli #959](https://github.com/Agenticstiger/forge-cli/pull/959))* A FLUX bundle directory: the profile answers the fidelity block its one Simulation declares for the expose, on the block's grid, and a different `--fractional-bits` is refused. See [Answering a fidelity block](#answering-a-fidelity-block-bundle). |
-| `--request` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* A profile request that `fluxsim init --contract` wrote. See [Answering a profile request](#answering-a-profile-request-request). *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A workload, a consumer query, a date pair, a calendar, a relationship's dates or an exposure that the profile does not form is now named under `Not measured` with its reason, where it was dropped without a word before. See [Asks the profile does not form](#asks-the-profile-does-not-form-strict). *On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* A consumer query the request lists is answered with its rate: see [Consumer queries](#consumer-queries). |
+| `--request` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* A profile request that `fluxsim init --contract` wrote. See [Answering a profile request](#answering-a-profile-request-request). *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A workload, a consumer query, a date pair, a calendar, a relationship's dates or an exposure that the profile does not form is now named under `Not measured` with its reason, where it was dropped without a word before. See [Asks the profile does not form](#asks-the-profile-does-not-form-strict). *(since 0.42.0, [forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112))* A consumer query the request lists is answered with its rate: see [Consumer queries](#consumer-queries). |
 | `--privacy-unit`, `--rho`, `--release-record` | *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* Release one table under differential privacy. See [Releasing a table under differential privacy](#releasing-a-table-under-differential-privacy). `--release-table`, `--unit-key`, `--max-rows-per-unit`, `--max-rows-per-cell`, `--clique-method`, `--follow` and `--rederive` refine it. |
 | `--row-floor` | *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* The row floor of the rank correlations a `--request` asks for: a public count of 2 or more, written as each statistic's `rowFloor` and used to form its value, as the larger of the number of records and N. Without it a rank correlation is formed over its records alone and states no `rowFloor`. In a private release each noisy rank correlation carries `--row-floor` as its public `rowFloor`, 1000 by default. Without `--request` it is refused with `profile_row_floor_needs_request`, and in a private release that releases no rank correlation it is refused with `profile_release_row_floor_unused`. |
 | `--strict` | *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* Refuse a `--request` before any record is read when the request or the contract alone shows that an ask cannot be formed. See [Asks the profile does not form](#asks-the-profile-does-not-form-strict). |
@@ -370,7 +370,7 @@ A request is refused before any record is read, each with its own event code, wh
 
 ### Consumer queries
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* A request of format 1-1-0 can list consumer queries (PROFILE-REQUEST-SPEC 1-1-0, section 6). Through 0.41.0 the profile named each under `Not measured` and answered none. Now it answers a query with its rate, in a `queries` section of the document: how many of its unit's records the query keeps.
+*(since 0.42.0, [forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112))* A request of format 1-1-0 can list consumer queries (PROFILE-REQUEST-SPEC 1-1-0, section 6). Through 0.41.0 the profile named each under `Not measured` and answered none. Now it answers a query with its rate, in a `queries` section of the document: how many of its unit's records the query keeps.
 
 A query lists a `name`, its `sql`, a `unit` and, optionally, a `groupBy`. This request, written by hand, asks the share of a library's membership cards held at the `family` tier:
 
@@ -464,7 +464,7 @@ Not released (a private release publishes no query rate: PROFILE-SPEC refuses no
 `--strict` turns that into a refusal before any record is read. It refuses a request when the request or the contract alone shows that an ask cannot be formed:
 
 - a workload;
-- a consumer query that `fluid profile` does not answer. *On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* A query is answered where it can be: see [Consumer queries](#consumer-queries). Through 0.41.0 every consumer query was refused;
+- a consumer query that `fluid profile` does not answer. *(since 0.42.0, [forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112))* A query is answered where it can be: see [Consumer queries](#consumer-queries). Through 0.41.0 every consumer query was refused;
 - a metric, statistic, rank correlation, grouping, date pair, calendar, relationship date or exposure over a column the profile does not read, over a key of a counted relationship, or over a column whose type rules it out;
 - a fact whose rule `fluid profile` cannot measure;
 - more entries than a profile holds;
@@ -586,7 +586,7 @@ These are output-checking conventions only. No privacy or anonymity guarantee is
 
 ### Rounded date extremes
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* The order-statistics rule publishes a `min` or `max` only when at least 10 records hold that exact value. One record often holds a date or timestamp column's earliest or latest value, so through 0.41.0 such an end was withheld. Now an end that fewer than 10 records hold is rounded to a calendar unit and published.
+*(since 0.42.0, [forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112))* The order-statistics rule publishes a `min` or `max` only when at least 10 records hold that exact value. One record often holds a date or timestamp column's earliest or latest value, so through 0.41.0 such an end was withheld. Now an end that fewer than 10 records hold is rounded to a calendar unit and published.
 
 - The units are the UTC calendar day, the month and the year, finest first. A column the contract types `date` has no day unit, since its exact value already is a day.
 - The first unit whose bucket holds at least 10 records gives the end. For a `min` the bucket is the one that holds the column's smallest value, and for a `max` the one that holds its largest.
@@ -714,7 +714,7 @@ A column that a contract `dependency` sets from an entity key gets its histogram
 
 ### Asking for these members, and what stays withheld
 
-A profile request asks for the members in the table's `datePairs` (entries of `start` and `end`) and `calendar` (a list of columns), and in a relationship's `dates` (entries of `parent` and `child`) and `exposure` (entries of `start`, and `end` for a lifetime). A default profile forms them from the contract. On a public profile a request's date pairs, calendar, relationship dates and exposure are formed. A workload is named, not formed, and so was a consumer query through 0.41.0. *On forge-cli `main`, not yet in a release ([forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112)).* A consumer query is [answered](#consumer-queries) where it can be. Event lags are not formed: neither the request format nor the profile format has a member for them yet.
+A profile request asks for the members in the table's `datePairs` (entries of `start` and `end`) and `calendar` (a list of columns), and in a relationship's `dates` (entries of `parent` and `child`) and `exposure` (entries of `start`, and `end` for a lifetime). A default profile forms them from the contract. On a public profile a request's date pairs, calendar, relationship dates and exposure are formed. A workload is named, not formed, and so was a consumer query through 0.41.0. *(since 0.42.0, [forge-cli #1112](https://github.com/Agenticstiger/forge-cli/pull/1112))* A consumer query is [answered](#consumer-queries) where it can be. Event lags are not formed: neither the request format nor the profile format has a member for them yet.
 
 - **What a withheld cell leaves readable.** Where a date statistic chooses between a published zero and a withheld cell (an order level a contract rule empties, `childless`, the end bins that set a span's or a pair's grain), the choice reads the records. A withheld cell there, a missing `childless` or a coarser grain tells a reader that at least one record lies there, never how many beyond what the check's code says, and never a value.
 - **A relationship's day histogram counts child rows.** The children of one parent can fill an end bin, so a published outer edge bounds the days from that parent's date to its children's to the bin, an interval, as a row threshold does in any histogram.
@@ -737,7 +737,7 @@ Each line names tables, columns and how many entries were published, never a cou
 
 ## Reference tables published whole
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121)).* A small table that its contract marks `Public` is written whole, under the profile's top-level `references` (PROFILE-SPEC section 5b, format 1-3-0), when it passes the gate below. Its rows are not counts: every value of every column is in the document. A table the gate does not pass is left out, and named. Mark an expose `Public` only when you mean to release all of its rows.
+*(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))* A small table that its contract marks `Public` is written whole, under the profile's top-level `references` (PROFILE-SPEC section 5b, format 1-3-0), when it passes the gate below. Its rows are not counts: every value of every column is in the document. A table the gate does not pass is left out, and named. Mark an expose `Public` only when you mean to release all of its rows.
 
 The examples use a small synthetic library. `branches` is a table of its six branches, marked `Public`. `cards` holds a membership card for each version of a member's membership: it has a validity window (`valid_from`, `valid_to`), a `tier` and a foreign key `branch_id` into `branches`. The records are 360 members and 908 cards.
 
@@ -804,8 +804,8 @@ A table is written whole only when every one of these holds:
 3. **It is not a versioned table.** No counted relationship reaches it by the natural entity of a table with a validity window, since the keys of such a table repeat.
 4. **It holds at most 64 rows.**
 5. **It states no row restriction.** It has no `policy.authz.rowFilters` and no `policy.privacy.rowLevelPolicy`.
-6. **None of its columns is labelled.** No column has a `sensitivity` other than `none`, a tag or a `labels` key or value with a part `pii`, `phi` or `sensitive` in any case (so `pii-email` and `contains-pii` count), a `sensitivity` label other than `none`, a `semanticType` that names personal data, or a `policy.authz.columnRestrictions` or `policy.privacy.masking` entry. One labelled column keeps the whole table out: it is all or none. *On forge-cli `main`, not yet in a release ([forge-cli #1124](https://github.com/Agenticstiger/forge-cli/pull/1124)): the labels, the semantic types and the parts of a tag.*
-7. **The table is not marked personal.** No tag or label with a part `pii`, `phi` or `sensitive` sits on the expose, its `policy`, `policy.authz` or `policy.privacy`. *On forge-cli `main`, not yet in a release ([forge-cli #1124](https://github.com/Agenticstiger/forge-cli/pull/1124)).*
+6. **None of its columns is labelled.** No column has a `sensitivity` other than `none`, a tag or a `labels` key or value with a part `pii`, `phi` or `sensitive` in any case (so `pii-email` and `contains-pii` count), a `sensitivity` label other than `none`, a `semanticType` that names personal data, or a `policy.authz.columnRestrictions` or `policy.privacy.masking` entry. One labelled column keeps the whole table out: it is all or none. *(since 0.42.0, [forge-cli #1124](https://github.com/Agenticstiger/forge-cli/pull/1124))* That covers the labels, the semantic types and the parts of a tag.
+7. **The table is not marked personal.** No tag or label with a part `pii`, `phi` or `sensitive` sits on the expose, its `policy`, `policy.authz` or `policy.privacy`. *(since 0.42.0, [forge-cli #1124](https://github.com/Agenticstiger/forge-cli/pull/1124))*
 8. **The profile reads every column and can write every cell.** A table with a column the profile does not read (a floating-point column, for example) is left out, and so is a table with a cell longer than 4,096 characters.
 9. **The key is one column, never null, and unique.** This is the column of the table that each counted relationship references.
 
@@ -880,20 +880,20 @@ A member is whole when every group of it is published with no cell withheld, and
 
 ### Withheld a cell at a time
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).* `versionsPerEntity`, `versionLength` and `firstStart` are counted on public ladders: versions per entity, whole days, and calendar years. Each is trimmed to the bins that hold records, as a date pair's days are.
+*(since 0.42.0, [forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119))* `versionsPerEntity`, `versionLength` and `firstStart` are counted on public ladders: versions per entity, whole days, and calendar years. Each is trimmed to the bins that hold records, as a date pair's days are.
 
 - **The ends are coded.** An end bin with fewer than 10 records is joined to the bin beside it, until each end holds at least 10. The coded end then reaches a public bound, which is the ladder's own end, or for `firstStart` and `versionLength` the start column's published extremes. So no outer edge is placed by fewer than 10 records.
 - **A cell, not the member.** Each member is checked once, as a set of cells, with complementary suppression: a small cell is withheld, and so is what the check needs beside it, so that no withheld cell comes back by subtraction. A bin inside the ladder that holds no record is a zero, and is withheld with what the check needs beside it. The group and its `k` stay published.
 - **A member is withheld whole only when its records together are fewer than 10.** It is then written on the whole public ladder, so its bins say nothing of where records lie.
 
-On the library with six more members of six versions each, `versionsPerEntity` on 0.41.0 and on `main`:
+On the library with six more members of six versions each, `versionsPerEntity` on 0.41.0 and on 0.42.0:
 
 ```text
-0.41.0: bins 1, 2, 3, 5, 10, 20, and up    cells [85, 90, withheld, withheld, withheld, withheld]
+0.42.0: bins 1, 2, 3, 5, 10, 20, and up    cells [85, 90, withheld, withheld, withheld, withheld]
 main:   bins 1, 2, 3, and up               cells [85, 90, 190]
 ```
 
-On 0.41.0 the six members made the bin of 5 to 9 versions small, and the check withheld every bin from 3 up. Now that small end bin is joined to the bin beside it, and the last bin holds the 190 members of 3 versions or more.
+On 0.42.0 the six members made the bin of 5 to 9 versions small, and the check withheld every bin from 3 up. Now that small end bin is joined to the bin beside it, and the last bin holds the 190 members of 3 versions or more.
 
 `versionLength` of the library has a bin that holds no record, the one of 91 to 180 days, and the check withholds it with the bin beside it. The group's `k` is published:
 
@@ -907,7 +907,7 @@ A table of 8 members has fewer than 10 entities, so `versionsPerEntity` and `fir
 
 ### First starts beside the start and end columns
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).* `firstStart` is published. Through 0.41.0 it was always withheld whole.
+*(since 0.42.0, [forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119))* `firstStart` is published. Through 0.41.0 it was always withheld whole.
 
 Every end that is not an entity's last is the next version's start. So the start column's records below a date, less the first starts below it, are the later versions' starts, and the end column's records below it, less those, are the closed last ends. A reader who knows the start and end columns' published counts at a date (a histogram's cells, a quantile's bin, the `min` and `max`) and the first starts there can work out both. Any two of the start column, the first starts and the later versions' starts give the third. Any two of the end column, the later versions' starts and the closed last ends do too.
 
@@ -925,7 +925,7 @@ The bins are the starts of 2019, 2020, 2021, 2022 and 2023.
 
 ### Zeros the contract states
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).* A contract can declare a `lifecycle` on the natural entity, with an `endMarker` or a `currentFlag` (see [Versioned tables](../concepts/semantic-layer.md#the-natural-entity-s-life-cycle)). Each states zeros:
+*(since 0.42.0, [forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119))* A contract can declare a `lifecycle` on the natural entity, with an `endMarker` or a `currentFlag` (see [Versioned tables](../concepts/semantic-layer.md#the-natural-entity-s-life-cycle)). Each states zeros:
 
 - An `endMarker` ends an entity with a marked version, and never by closing its last one. `lastVersion` then writes `closed` as 0, and the marker value's `transitions` group is written as zeros.
 - A `currentFlag` marks the last version of an entity, so its value's `transitions` group is written as zeros.
@@ -945,11 +945,11 @@ entities:
 
 ### `lastVersion` beside the end column's NULLs
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119)).* The end column's NULL ends, less the open last versions, are the rows that have no entity and a NULL end. When that count is small, both levels of `lastVersion` are withheld, since the end column's `nullCount` would give it back. With 3 such rows added to the library, `lastVersion` goes from `[95, 265]` to withheld whole.
+*(since 0.42.0, [forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119))* The end column's NULL ends, less the open last versions, are the rows that have no entity and a NULL end. When that count is small, both levels of `lastVersion` are withheld, since the end column's `nullCount` would give it back. With 3 such rows added to the library, `lastVersion` goes from `[95, 265]` to withheld whole.
 
 ### Following a foreign key
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121)).* A history tracks a foreign key into a table that [the profile publishes whole](#reference-tables-published-whole). The levels of the tracked column are that table's keys, in the order it publishes them, and its `initial` and `transitions` pass the same output checks as any tracked column's. Through 0.41.0 the `branch_id` of the library was named under `Not measured` with "the contract declares no levels for it" and not tracked.
+*(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))* A history tracks a foreign key into a table that [the profile publishes whole](#reference-tables-published-whole). The levels of the tracked column are that table's keys, in the order it publishes them, and its `initial` and `transitions` pass the same output checks as any tracked column's. Through 0.41.0 the `branch_id` of the library was named under `Not measured` with "the contract declares no levels for it" and not tracked.
 
 A foreign key is tracked when it is one column, the relationship that keys it is counted, and the table it references is published whole. When it is not followed, the report says why, naming no value:
 
@@ -1029,7 +1029,7 @@ Pin it in the FLUX Simulation:
 
 *(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965))* The second line of this output reads `Withheld, by the check (CL_CONF_STATUS code): A (small count) 3.`
 
-The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A document that holds one of the time and structure members (a calendar, date pairs, a relationship's dates, structural classes, exposure, periods or a statistic counted per entity) is format `1-3-0` (see [Time and structure statistics](#time-and-structure-statistics)). A default profile of a table with a date or timestamp column holds a calendar. A profile that also holds the 0.40.0 rank-correlation or follow members is `1-4-0`. *On forge-cli `main`, not yet in a release ([forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121)).* A profile that holds `references` is `1-3-0`: see [Reference tables published whole](#reference-tables-published-whole). Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
+The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A document that holds one of the time and structure members (a calendar, date pairs, a relationship's dates, structural classes, exposure, periods or a statistic counted per entity) is format `1-3-0` (see [Time and structure statistics](#time-and-structure-statistics)). A default profile of a table with a date or timestamp column holds a calendar. A profile that also holds the 0.40.0 rank-correlation or follow members is `1-4-0`. *(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))* A profile that holds `references` is `1-3-0`: see [Reference tables published whole](#reference-tables-published-whole). Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
 
 ```yaml
 extensions:

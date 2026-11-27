@@ -557,7 +557,7 @@ fluid bundle contract.fluid.yaml --format tgz --out runtime/bundle.tgz \
 # emits: runtime/bundle.tgz, bundle.tgz.sigstore.json
 ```
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1126](https://github.com/Agenticstiger/forge-cli/pull/1126)).* `--sign` writes one Sigstore bundle, `<bundle>.sigstore.json`: the signature, the certificate in keyless mode and the transparency-log proof, with `cosign sign-blob --bundle`. Through 0.41.0 it wrote `<bundle>.sig` (and `<bundle>.pem` keyless) with `--output-signature`, which cosign 3.x refuses for a blob (`must specify --bundle with --new-bundle-format`). A keyed run on cosign 3.1.6, the paths shortened:
+*(since 0.42.0, [forge-cli #1126](https://github.com/Agenticstiger/forge-cli/pull/1126))* `--sign` writes one Sigstore bundle, `<bundle>.sigstore.json`: the signature, the certificate in keyless mode and the transparency-log proof, with `cosign sign-blob --bundle`. Through 0.41.0 it wrote `<bundle>.sig` (and `<bundle>.pem` keyless) with `--output-signature`, which cosign 3.x refuses for a blob (`must specify --bundle with --new-bundle-format`). A keyed run on cosign 3.1.6, the paths shortened:
 
 ```console
 $ fluid bundle contract.fluid.yaml --format tgz --out b.tgz --sign --sign-key k.key
