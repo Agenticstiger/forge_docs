@@ -1,6 +1,6 @@
 ---
 title: Upgrading
-description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.42.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
+description: How to upgrade and pin data-product-forge, the checklist for each step from 0.15.x to 0.43.0, and what moving the local engine from DuckDB 1.x to 2.x changes, including what breaks, what to do, and how to check it.
 ---
 
 # Upgrading
@@ -19,7 +19,7 @@ fluid version
 $ fluid version
 ╭─────────────────────────── 📦 Version Information ───────────────────────────╮
 │ FLUID CLI                                                                    │
-│ Version: 0.42.0                                                              │
+│ Version: 0.43.0                                                              │
 │ API: v1                                                                      │
 │                                                                              │
 │ Supported Specifications:                                                    │
@@ -40,7 +40,7 @@ DuckDB.
 **Pin an exact version in CI and production:**
 
 ```bash
-pip install "data-product-forge[local]==0.42.0"
+pip install "data-product-forge[local]==0.43.0"
 ```
 
 A range such as `>=0.16,<0.17` is not safe for CLI behaviour. Patch releases have changed
@@ -56,7 +56,7 @@ through the checklist below.
 ```console
 $ fluid generate ci contract.fluid.yaml --system jenkins
 ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.42.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.43.0
 ```
 
 Upgrading the CLI on your machine does not upgrade that pipeline. Regenerate it, or set
@@ -137,6 +137,7 @@ when they apply.
 | `0.40.0` | [Changes in 0.40.1](#changes-in-0-40-1) and [Changes in 0.41.0](#changes-in-0-41-0) |
 | `0.40.1` | [Changes in 0.41.0](#changes-in-0-41-0) |
 | `0.41.0` | [Changes in 0.42.0](#changes-in-0-42-0) |
+| `0.42.0` | [Changes in 0.43.0](#changes-in-0-43-0) |
 | Anything before `0.24.0`, if you read forge's ODCS or ODPS output | [Read this first if you consume the exported artifacts](#read-this-first-if-you-consume-the-exported-artifacts) (`0.23.0` and `0.24.0`) |
 | Anything before `0.23.0`, and any DuckDB upgrade | [DuckDB 1.x to 2.x](#duckdb-1-x-to-2-x) (`0.22.0` and `0.23.0`) |
 
@@ -1845,7 +1846,7 @@ These changes are in 0.42.0. Most of the actions are for pipelines that seal, pu
 - **`lastVersion` is withheld when the rows with no entity and a NULL end are few.** See [`lastVersion` beside the end column's NULLs](./cli/profile.md#lastversion-beside-the-end-column-s-nulls). *(since 0.42.0, [forge-cli #1119](https://github.com/Agenticstiger/forge-cli/pull/1119))*
 - **A small table that its contract marks `Public` is written whole**, under `references` in the profile document. The gate: the expose's own `policy.classification` is `Public`, a relationship the profile counts reaches it, it is not versioned, it holds at most 64 rows, it states no row restriction, none of its columns is labelled, and the key the relationships reference is one column, never null and unique. A table that already carries the label and passes the gate is therefore written with every value of every column the next time you profile. Check the label before you profile again. A table marked `Public` that is left out is named under `Not measured` with its reason. See [Reference tables published whole](./cli/profile.md#reference-tables-published-whole). *(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))*
 - **A profile that holds `references` is format 1-3-0.** Its digest changes, and `fluxsim` 0.10.0 is the first release that reads format 1-3-0. A private release, a `--request` and a table a `--bundle` block answers never write `references`. *(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))*
-- **A history follows a foreign key into a published table.** The tracked column's levels are the table's keys, and its `initial` and `transitions` are checked as any tracked column's. Where the counts they publish would bound a withheld cell of the relationship's children per parent, they are withheld whole. A key that is not text is published but its foreign key is not followed, and a foreign key into a table that is not published whole is not tracked, whatever levels the contract declares. See [Following a foreign key](./cli/profile.md#following-a-foreign-key). *(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))*
+- **A history follows a foreign key into a published table.** The tracked column's levels are the table's keys, and its `initial` and `transitions` are checked as any tracked column's. Where the counts they publish would bound a withheld cell of the relationship's children per parent, they are withheld whole. A key that is not text is published but its foreign key is not followed, and a foreign key into a table that is not published whole is not tracked, whatever levels the contract declares. See [Following a foreign key](./cli/profile.md#following-a-foreign-key). *(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))* *Since 0.43.0 the children per parent are withheld instead, and a whole-number key is followed: see [Changes in 0.43.0](#changes-in-0-43-0).*
 - **A `Public` table is not written whole when a label, a semantic type or a tag marks it personal.** The gate now also reads a column's `labels` and `semanticType`, and the tags and labels of the expose, its `policy`, `policy.authz` and `policy.privacy`, each by its parts. A table that was written whole and carries such a mark is left out, and named under Not measured. See [Reference tables published whole](./cli/profile.md#reference-tables-published-whole). *(since 0.42.0, [forge-cli #1124](https://github.com/Agenticstiger/forge-cli/pull/1124))*
 
 #### The MCP output port
@@ -1858,6 +1859,37 @@ These changes are in 0.42.0. Most of the actions are for pipelines that seal, pu
 ### Also in 0.42.0
 
 The release is built with a locked build backend, signs its provenance in jobs of their own, and verifies what it published; a pull request that changes the release path rehearses the release; the weekly model-catalog refresh runs fetched code without a write token; the verification image's Singer tap and the security tools install from hash locks; and the container image holds the release's own wheel and reports its version. A Spark build that succeeds on Glue ends SUCCEEDED, and `fluid profile --privacy-unit` goes on when a `--source` names an expose the release chooses not to read, naming it in the report. On BigQuery, a principal a row filter names stays out of the every-row policy whatever its case. The full list is in the [forge-cli CHANGELOG](https://github.com/Agenticstiger/forge-cli/blob/main/CHANGELOG.md).
+
+## Changes in 0.43.0
+
+These changes are in 0.43.0, and all of them are in `fluid profile`. A pipeline that does not run `fluid profile` behaves as before. Each step says when it applies.
+
+### Steps to take
+
+#### If you run `fluid profile`
+
+1. **Install the `[profile]` extra again.** `pip install -U 'data-product-forge[profile]'`. It needs flux-stats 0.13 or later (`flux-stats[yaml]>=0.13,<1`), the first release that holds profile format 1-5-0 and profile request format 1-3-0. An environment with an older flux-stats stops before it reads anything and says what to install. *(since 0.43.0)*
+2. **Regenerate a 0.42.0 profile before you share it further, if it writes `references` and a history tracks a foreign key over a small table.** In 0.42.0, `fluid profile` decided from the counts whether such a key's history was published, and on a very small child table that choice could itself narrow a count it withheld. From 0.43.0 the relationship's children per parent are withheld whenever the contract makes a history follow the key, and the key's history goes through the ordinary output check. Profile the data again with 0.43.0 and use that document. *(since 0.43.0)*
+3. **Profile again and pin the new digest if a history tracks a foreign key.** A whole-number key into a table published whole is now followed, a key into a table of fewer than three keys no longer is, and the relationship that keys a followed column publishes no children per parent, so the values and the digest of such a profile change. *(since 0.43.0)*
+
+### What changed
+
+#### Profile formats
+
+- **`fluid profile` reads profile request format 1-3-0 and writes profile format 1-5-0 where it needs it.** A private release that holds a null count, a noisy history or a noisy query is format 1-5-0. `flux-stats` is required at `>=0.13,<1`. A release that asks for none of these is byte for byte what it was. See [Releasing a table under differential privacy](./cli/profile.md#releasing-a-table-under-differential-privacy). *(since 0.43.0)*
+- **A request may ask a table's `history: {}` and a column's `nullCount/2`.** `history` takes `columns`, the candidate tracked columns, as an option. An exact profile forms the history of exactly the tables that ask for it, from the contract's natural entity and validity window, and names a table with no window, or whose history does not form, under Not measured with the reason. Without the ask, a request still writes none. `nullCount/2` has a noisy form only, so an exact profile names the ask with that reason, and `--strict` refuses it. See [Answering a profile request](./cli/profile.md#answering-a-profile-request-request). *(since 0.43.0)*
+
+#### Private releases
+
+- **A private release writes one `nullCount/2` for each asked column it can release.** It holds two noisy cells, the known records and then the NULL ones, charged like any count table of its table (`m_T`, so the cap of a followed table counts). *(since 0.43.0)*
+- **A private release writes a followed table's history with noise.** When the request asks the history and the unit follows into that table, the release writes `versionsPerEntity`, `firstStart`, `versionLength`, `chain`, `lastVersion`, each tracked column's `initial` and `transitions`, and `reasons` on the public ladders an exact history uses. Every cell is published. Under one parent row an entity is kept with all of its versions or dropped with all of them, and a release whose records put one entity's versions under two parent rows is refused (`profile_release_entity_units`) before anything is written. *(since 0.43.0)*
+- **A private release answers the consumer queries of its request.** A query that passes the same checks as for an exact profile gets a `queries` entry: two noisy cells (`false`, `true`) for each group, with the `unit` it counts. A query that cannot be charged is named with its reason. Through 0.42.0 a private release answered none. See [Queries answered with noise](./cli/profile.md#queries-answered-with-noise). *(since 0.43.0)*
+
+#### Following a foreign key
+
+- **A history follows a whole-number foreign key into a table the profile publishes whole.** A key typed as an integer, or as a decimal of scale 0, is tracked as a text key is: its levels are the published table's keys, and the column is written in the category domain, with `count`, `nullCount` and the withheld `distinctCount`. A key that is not followed keeps its number domain and every metric it had. A float, a decimal with a scale or a date key is named as not followed. See [Following a foreign key](./cli/profile.md#following-a-foreign-key). *(since 0.43.0)*
+- **A history follows a foreign key into a table of at least three keys.** A table of fewer than three keys is not followed, and its profile is byte for byte that of a profile that follows no key. The most columns a history follows now counts the candidates, so a column whose values fail the read keeps its place under the 32-column cap. *(since 0.43.0)*
+- **For a followed key, the relationship's children per parent are withheld, decided by the contract.** The report names the relationship under Not measured. Where 0.42.0 withheld the key's `initial` and `transitions` when their counts would bound a withheld cell, they now go through the ordinary output check. *(since 0.43.0)*
 
 ## Older releases
 

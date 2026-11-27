@@ -16,7 +16,7 @@ fluid generate ci contract.fluid.yaml --system jenkins --out Jenkinsfile
 [install-mode: pypi] Jenkinsfile written -> Jenkinsfile
   |- Jenkins installs FLUID_PACKAGE_SPEC into $WORKSPACE/.fluid-venv (stage 0)
   ...
-  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.42.0
+  |- FLUID_PACKAGE_SPEC default: data-product-forge[local]==0.43.0
   |- Jenkins plugins required: workflow-aggregator, git
 ```
 
@@ -185,7 +185,7 @@ Jenkins learns a job's parameters from its first build. As measured on a Jenkins
 
 ### Install
 
-Stage 0 creates `$WORKSPACE/.fluid-venv`, because agents that follow PEP 668 refuse a bare `pip install`, and installs `FLUID_PACKAGE_SPEC` into it. The default is the version that generated the file with the extras the contract's base and overlays need, for example `data-product-forge[local]==0.42.0`. Every stage then runs `fluid` from that venv, and stage 0 fails if the first `fluid` on `PATH` is another one. The agent needs `python3` with the `venv` module, and `rsync` for a `file://` or `ssh://` stage 11 destination. The workspace is removed with Jenkins's core `deleteDir()`, so the `ws-cleanup` plugin is not needed.
+Stage 0 creates `$WORKSPACE/.fluid-venv`, because agents that follow PEP 668 refuse a bare `pip install`, and installs `FLUID_PACKAGE_SPEC` into it. The default is the version that generated the file with the extras the contract's base and overlays need, for example `data-product-forge[local]==0.43.0`. Every stage then runs `fluid` from that venv, and stage 0 fails if the first `fluid` on `PATH` is another one. The agent needs `python3` with the `venv` module, and `rsync` for a `file://` or `ssh://` stage 11 destination. The workspace is removed with Jenkins's core `deleteDir()`, so the `ws-cleanup` plugin is not needed.
 
 Pin a different version at build time with `FLUID_PACKAGE_SPEC=data-product-forge==X.Y.Z`. `FLUID_PIP_INDEX_URL` (blank means PyPI), `FLUID_PIP_EXTRA_INDEX_URL` and `FLUID_ALLOW_PRERELEASE` (`true` adds `pip --pre`) cover TestPyPI pilots and private mirrors. With `--install-mode dev-source` the file installs from a `/forge-cli-src` bind mount and fails if the mount is missing; it never falls back to PyPI.
 
