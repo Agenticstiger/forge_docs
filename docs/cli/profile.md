@@ -6,11 +6,11 @@ Profile one expose's records where they live, and write a profile document of ou
 
 FLUX's statistic registry, `flux-stats`, reads every value and forms every statistic. The fidelity check uses the same registry, so a profile and a check of the same records hold the same numbers.
 
-The `[profile]` extra installs DuckDB and `flux-stats` from PyPI: `flux-stats>=0.6.2,<0.7` through 0.34.0 and, *(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))*, `flux-stats[yaml]>=0.7.0,<0.8` through 0.37.0 and, *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))*, `flux-stats[yaml]>=0.9,<1` through 0.39.0 and, *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))*, `flux-stats[yaml]>=0.11,<1`: from 0.9 flux-stats is versioned by its own formats and API, so a minor release no longer renames what the profiler imports. 0.9.0 is the first release that holds the profile request reader, a boolean read as a category and profile format 1-2-0. 0.11.0 is the first that holds rank correlations, the follows reach of a release under differential privacy and profile format 1-4-0. Installing the extra replaces a flux-stats below its lower bound. Without flux-stats, `fluid profile` stops before it reads anything and says what to install:
+The `[profile]` extra installs DuckDB and `flux-stats` from PyPI: `flux-stats>=0.6.2,<0.7` through 0.34.0 and, *(since 0.35.0, [forge-cli #1021](https://github.com/Agenticstiger/forge-cli/pull/1021))*, `flux-stats[yaml]>=0.7.0,<0.8` through 0.37.0 and, *(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))*, `flux-stats[yaml]>=0.9,<1` through 0.39.0 and, *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))*, `flux-stats[yaml]>=0.11,<1` through 0.42.0 and, *(since 0.43.0)*, `flux-stats[yaml]>=0.13,<1`: from 0.9 flux-stats is versioned by its own formats and API, so a minor release no longer renames what the profiler imports. 0.9.0 is the first release that holds the profile request reader, a boolean read as a category and profile format 1-2-0. 0.11.0 is the first that holds rank correlations, the follows reach of a release under differential privacy and profile format 1-4-0. 0.13.0 is the first that holds profile format 1-5-0 and profile request format 1-3-0: a noisy history, `nullCount/2` and a noisy query rate with its unit. Installing the extra replaces a flux-stats below its lower bound. Without flux-stats, `fluid profile` stops before it reads anything and says what to install:
 
 ```text
 ❌ profile_statistics_unavailable  [ERR_PROFILE_STATISTICS_UNAVAILABLE]
-  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed. It needs flux-stats[yaml]>=0.11,<1; install it with: pip install 'data-product-forge[profile]'
+  detail: fluid profile forms every statistic with flux-stats, the statistic registry FLUX shares with its fidelity check, and flux-stats is not installed. It needs flux-stats[yaml]>=0.13,<1; install it with: pip install 'data-product-forge[profile]'
   read: nothing: no record was read
   next: pip install 'data-product-forge[profile]'
 ```
@@ -341,7 +341,9 @@ The `Withheld histogram cells` line counts the histogram cells withheld inside g
 
 ## Answering a profile request: `--request`
 
-*(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* `--request FILE` takes the list of statistics, column metrics and relationships that `fluxsim init --contract` writes for a contract. The profile measures what the request lists and nothing else, under the same output checks: per listed table only the listed columns, metrics and statistics, the row count only when asked, and children per parent only for a listed relationship the contract declares. The request's grid is the profile's. Each listed item the profile cannot answer is named in the report as `Not measured`, with its reason, for example a histogram over a number with no declared range. A listed fact, a rule of the contract's `invariants`, is measured as the rows the rule covers that do not and do satisfy it, and the profile is then format 1-2-0. A rule over an aggregate, a dependency or a related row is reported as not measured.
+*(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* `--request FILE` takes the list of statistics, column metrics and relationships that `fluxsim init --contract` writes for a contract. The profile measures what the request lists and nothing else, under the same output checks: per listed table only the listed columns, metrics and statistics, the row count only when asked, and children per parent only for a listed relationship the contract declares. The request's grid is the profile's. Each listed item the profile cannot answer is named in the report as `Not measured`, with its reason, for example a histogram over a number with no declared range. A listed fact, a rule of the contract's `invariants`, is measured as the rows the rule covers that do not and do satisfy it, and the profile is then format 1-2-0.
+
+*(since 0.43.0)* `fluid profile` reads profile request format 1-3-0. Beside the asks above, a request of that format may ask a table's `history: {}`, with `columns` optionally naming the candidate tracked columns, and a column's `nullCount/2`. A [private release](#releasing-a-table-under-differential-privacy) answers both with noise. An exact profile forms the history of exactly the tables whose request asks for it, from the contract's natural entity and validity window, and names a table with no window, or whose history does not form, under `Not measured` with the reason; a request that asks for no history still writes none. `nullCount/2` has a noisy form only, so an exact profile names the ask under `Not measured` with that reason, and [`--strict`](#asks-the-profile-does-not-form-strict) refuses it. A rule over an aggregate, a dependency or a related row is reported as not measured.
 
 ### The facts of a table are checked together
 
@@ -451,11 +453,7 @@ A table's records are counted one way in a run: as its rows, as its entities by 
 
 **How a query runs.** The query's text is untrusted. It is parsed and checked against closed lists of expression classes and functions, and bounds. It is then built again from the checked tree, and that text is checked a second time. Only the rebuilt text runs, in a DuckDB process of its own: a bare environment with no inherited descriptors, file-size, CPU and memory limits, an in-memory database that cannot reach files, load extensions or change its settings, one `SELECT` per statement, and only counts and bits come back. A request from a source you do not trust still belongs in a container.
 
-**A private release answers no query.** The profile format refuses noise on a query statistic. With `--privacy-unit`, the report names each query under `Not released`, and `--strict` refuses the request:
-
-```text
-Not released (a private release publishes no query rate: PROFILE-SPEC refuses noise on a query statistic): query family_cards.
-```
+**A private release answers a query with noise.** *(since 0.43.0)* Through 0.42.0 a private release named each query under `Not released`. Now a query that passes the checks above gets a `queries` entry whose rate is two noisy cells (`false`, then `true`) for each group, and which states its `unit`. See [Queries answered with noise](#queries-answered-with-noise).
 
 ### Asks the profile does not form: `--strict`
 
@@ -470,7 +468,7 @@ Not released (a private release publishes no query rate: PROFILE-SPEC refuses no
 - more entries than a profile holds;
 - any ask of a relationship the contract does not declare or the profile does not read.
 
-With `--privacy-unit`, `--strict` refuses instead the kinds a private release does not form: a workload, a consumer query, date pairs, a calendar, relationship dates and exposure.
+With `--privacy-unit`, `--strict` refuses instead the kinds a private release does not form: a workload, date pairs, a calendar, relationship dates and exposure. *(since 0.43.0)* A consumer query is no longer one of them.
 
 An ask that only the records leave unanswered, such as a small cell, a column with no published date span or a value that is not a whole day, is named under `Not measured` and never refused. Without `--request`, `--strict` is refused.
 
@@ -515,7 +513,7 @@ CLI command error
 
 ## Releasing a table under differential privacy
 
-*(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* With `--privacy-unit`, `--request`, `--rho` and `--release-record`, the profile is a release of one table's requested statistics under zero-concentrated differential privacy, a profile of format 1-2-0, or 1-4-0 once it holds a rank correlation or a follow. It holds a noisy level histogram of each required `enum` column the request lists, a noisy histogram of each required number, date or timestamp column on public bins, and noisy clique marginals chosen with OpenDP's AIM or, with `--clique-method mst`, its MST. *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* A request can also ask for noisy rank correlations, and a clique can hold a number or timestamp column. The selection needs the `[privacy]` extra, `pip install 'data-product-forge[profile,privacy]'`, and only when a selection runs.
+*(since 0.38.0, [forge-cli #1040](https://github.com/Agenticstiger/forge-cli/pull/1040))* With `--privacy-unit`, `--request`, `--rho` and `--release-record`, the profile is a release of one table's requested statistics under zero-concentrated differential privacy, a profile of format 1-2-0, or 1-4-0 once it holds a rank correlation or a follow, or, *(since 0.43.0)*, 1-5-0 once it holds a null count, a noisy history or a noisy query. It holds a noisy level histogram of each required `enum` column the request lists, a noisy histogram of each required number, date or timestamp column on public bins, and noisy clique marginals chosen with OpenDP's AIM or, with `--clique-method mst`, its MST. *(since 0.40.0, [forge-cli #1074](https://github.com/Agenticstiger/forge-cli/pull/1074))* A request can also ask for noisy rank correlations, and a clique can hold a number or timestamp column. The selection needs the `[privacy]` extra, `pip install 'data-product-forge[profile,privacy]'`, and only when a selection runs.
 
 ```bash
 fluid profile contract.fluid.yaml --request orders.request.json \
@@ -543,9 +541,21 @@ fluid profile contract.fluid.yaml --request orders.request.json \
     --follow invoice.invoice_id=line.invoice_id:2 --rho 1 --release-record billing.record.json
   ```
 
+- **A request can ask a table's noisy null counts.** *(since 0.43.0)* For each column whose `nullCount/2` the request lists, and that is not a key, the release writes one `nullCount/2` of two noisy cells, the known records and then the NULL ones. It is a count table of its own, charged like any count table of its table (`m_T`, so the cap of a followed table counts), and it joins no clique. A release whose request asks for none is byte for byte what it was.
+- **A request can ask a followed table's noisy history.** *(since 0.43.0)* When the request asks a table's `history: {}` and the unit follows into that table (the unit's own expose has none), the release writes the table's `versionsPerEntity`, `firstStart`, `versionLength`, `chain`, `lastVersion`, each tracked column's `initial` and `transitions`, and `reasons`, on the same public ladders an exact history uses. Each member is a count table over the followed table, charged `m_T`, with an equal share of the budget of its own, and every cell is published: nothing is withheld. Under one parent row the cap is spent on whole entities. An entity is kept with all of its versions or dropped with all of them, by a priority that reads only that parent's rows, and an entity with more versions than the cap is not described. A release whose records put one entity's versions under two parent rows is refused (`profile_release_entity_units`) before anything is written. The unit's own expose, a table the unit does not reach and a table with no validity window are named under `Not released` with the reason.
+- **A request's consumer queries are answered with noise.** *(since 0.43.0)* See [Queries answered with noise](#queries-answered-with-noise).
 - **The budget.** A tenth of `rho` chooses the cliques, and the rest is split equally over the count tables. The report names the unit, the loss and its split, each table's noise scale, the cliques, an informational conversion to (epsilon, delta), and every requested item that is not released, with the reason.
 - **The release record.** The noise is drawn from a seeded randomness source that is recorded in `--release-record`, created readable by its owner alone, and the file must not exist for a new release. Keep it inside the data owner's boundary: with the record and the profile, the noise can be taken off. `--rederive` with the existing record draws the release again and writes the profile only when its digest is the recorded one.
 - **Nothing that depends on the records** is printed, logged or recorded outside the noise. A refusal names a column and a row, never a value or a count.
+
+### Queries answered with noise
+
+*(since 0.43.0)* A consumer query that passes the same checks as for an exact profile gets a `queries` entry in a private release. Its rate is two noisy cells for each group, the records of its unit the query does not return (`false`) and those it does (`true`). It is a count table of its own, with a share of the budget of its own, and it states its `unit`:
+
+- `{table: T}`: the query counts the records of `T`, or of a view that keeps some rows of `T`. It is charged `m_T`, so `T` must be a table the unit reaches.
+- `{table: T, by: [columns]}`: the query counts groups of `T`'s rows. The columns are the child columns of a relationship the unit follows, and the charge is `m_P` of the parent, or they are the natural entity of `T` where the release holds `T`'s history, and the charge is `m_T`.
+
+A query that cannot be charged is named under `Not released` with its reason, and never a count. A statement that fails because of the records withholds every query of the release, each named with the reason. The disclosure checks of an exact profile do not apply to a noisy release, since noise stands in for them, and an exact profile writes no `unit`. The release record re-derives the same bytes.
 
 ## What leaves: the output checks
 
@@ -856,7 +866,7 @@ A table that is not marked `Public` is not named. A history that follows a forei
 
 ## History of a table with a validity window
 
-*(since 0.41.0, [forge-cli #1111](https://github.com/Agenticstiger/forge-cli/pull/1111))* A default profile of a table whose contract declares a validity window publishes the table's `history`. The window is one natural entity and a start and an end, which are both `date` columns or both timestamp columns (see [Versioned tables](../concepts/semantic-layer.md#versioned-tables-window-conventions-and-as-of-reads)). The history says how many versions each entity has, when its first one starts, how long a version lasts, how consecutive versions meet, how the last one ends, and for each categorical column that declares its levels, its first value and its changes. A `--request`, a private release and a table that a `--bundle` fidelity block answers write no history.
+*(since 0.41.0, [forge-cli #1111](https://github.com/Agenticstiger/forge-cli/pull/1111))* A default profile of a table whose contract declares a validity window publishes the table's `history`. The window is one natural entity and a start and an end, which are both `date` columns or both timestamp columns (see [Versioned tables](../concepts/semantic-layer.md#versioned-tables-window-conventions-and-as-of-reads)). The history says how many versions each entity has, when its first one starts, how long a version lasts, how consecutive versions meet, how the last one ends, and for each categorical column that declares its levels, its first value and its changes. A table that a `--bundle` fidelity block answers writes no history, and neither does a `--request` that does not ask for one. *(since 0.43.0)* A request of format 1-3-0 can ask a table's history: see [Answering a profile request](#answering-a-profile-request-request). A private release writes a [noisy history](#releasing-a-table-under-differential-privacy) for a followed table that its request asks for.
 
 The rows used are those whose entity and start are known. An entity's versions are ordered by start, then end (an open end last). An end is open when it is NULL or equals the `openEnd` the contract declares. The `cards` table of the [library](#reference-tables-published-whole) publishes these members:
 
@@ -956,34 +966,24 @@ A foreign key is tracked when it is one column, the relationship that keys it is
 ```text
 Not measured: history of cards.branch_id: the table it references is not declared public.
 Not measured: history of cards.branch_id: the table it references is left out: column 'city' carries a label.
-Not measured: history of cards.branch_id: its key is not text: a history follows categorical columns.
+Not measured: history of cards.branch_id: its key is not text or a whole number.
 ```
 
-A key that is not text (an integer key, for example) is published in `references`, and its foreign key is not followed. A foreign key into a table that is not published whole is not tracked, even where the contract declares the column's levels.
+**Whole-number keys.** *(since 0.43.0)* A key typed as an integer, or as a decimal of scale 0, is followed as a text key is. Its levels are the published table's keys, spelled as that table spells them, and the column is written in the category domain, from its values' decimal text. It then holds the metrics that domain forms (`count`, `nullCount` and the withheld `distinctCount`); its `sum`, `min`, `max` and `quantiles` are not formed. Through 0.42.0 such a key was named as not followed, and the history carried it as an untracked column, so a generated history held each entity's key constant across its versions. A key that is neither text nor a whole number (a float, a decimal with a scale, a date) is named as not followed, with the reason "its key is not text or a whole number". A key that is not followed keeps its number domain and every metric it had, whatever the reason.
 
-**The guard.** A count that `initial` and `transitions` publish for a key is also a count of that key's children. A cell of `initial` is the members whose first card is at the branch, so the branch holds at least that many cards. So are the changes into a key, and the size of the group of changes out of it. A key's children are at most its cell plus the rows that are not first versions. Beside the relationship's [children per parent](#children-per-parent), whose cells are mostly withheld, these floors and ceilings can place each parent in a bin and give a withheld cell back.
+**At least three keys.** *(since 0.43.0)* A history follows a key into a table of at least three keys. With two, the published totals pin the cells, so a table of fewer than three keys is not followed and the profile is byte for byte that of a profile that follows no key. A table that is not published whole, two relationships on the column, a key over the cap, and a key that a statistic the contract declares reads are not followed either. The most columns a history follows is 32, and it counts the candidates, so a column whose values fail the read keeps its place under that cap. That is the one change for a profile that follows no key.
 
-Where they would, the key's `initial` and `transitions` are withheld whole. No size and no cell is written for them, since a number beside a withheld cell gives it back as much as the cell does. The key's levels and the reference table stay published. The guard reads the exact group sizes and row counts, which a reader holds no tighter than.
+**Decided by the contract.** *(since 0.43.0)* The keys a history follows are the plan's alone: the contract, and the public keys of the tables released whole. A key that a record then proves is no key of its table is still one of them, so it is written as the category it would be followed as, and only its history is left out. Cells of the key's `initial` and `transitions` are checked exactly as for a text key.
 
-In the library, every branch starts at least 45 cards, so the floors would put all six branches in the bin of 20 or more and give back the relationship's withheld cells. The foreign key is withheld whole:
+**Children per parent are withheld.** *(since 0.43.0)* A published cell of the key's `initial`, the size of a group and a change into or out of a key are each a floor on the children of that key's parent. So whenever the contract makes a history follow a key, the children per parent of the relationship that keys the column are withheld whole, whatever the records hold, and the report says so under `Not measured`, with a note that holds no count and no structural class:
 
-```json
-"branch_id": {
-  "initial": {"groups": [{"group": "", "status": "C"}], "sampleSize": {"min": 0},
-              "levels": ["central", "harbour", "hillside", "lakeside", "market", "station"], ...},
-  "transitions": {"groupBy": "branch_id", "groups": [{"group": "central", "status": "C"}, ...], ...}
-}
+```text
+Not measured: children per parent of cards(branch_id) to branches: its key is one a history may follow by the keys of a table published whole, so it is withheld whatever the records hold.
 ```
 
-The children per parent of this relationship are withheld whole, as the report says. A library of four branches, one of which has no cards yet, keeps the shares of the others: the guard finds no withheld cell pinned.
+The key's `initial` and `transitions` then go through the ordinary output check, like any categorical column's, and are published as it allows. The key's levels and the reference table stay published.
 
-```json
-"initial": {"groups": [{"group": "", "k": 105, "levelCounts": [45, 30, null, null],
-                        "cellStatus": ["F", "F", "C", "C"], "status": "F"}],
-            "levels": ["central", "harbour", "lakeside", "station"], ...}
-```
-
-Where every parent has many children, the bounds often pin a cell, so the shares are withheld whole. Data with several versions per entity keeps more of its shares. The guard withholds the shares whole and not single cells, so it can withhold more than it needs to.
+*Through 0.42.0 the profile decided from the counts. It withheld the key's `initial` and `transitions` whole where their counts, beside the relationship's children per parent, would bound a withheld cell, and so published the children per parent in some profiles and not in others.* That decision read the counts, which on a very small child table could itself narrow a withheld count. A 0.42.0 profile that writes `references` and a history tracking a foreign key over a small table should be regenerated with 0.43.0 before it is shared further.
 
 ## Where the time goes: `--timings`
 
@@ -1029,7 +1029,7 @@ Pin it in the FLUX Simulation:
 
 *(since 0.33.0, [forge-cli #965](https://github.com/Agenticstiger/forge-cli/pull/965))* The second line of this output reads `Withheld, by the check (CL_CONF_STATUS code): A (small count) 3.`
 
-The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A document that holds one of the time and structure members (a calendar, date pairs, a relationship's dates, structural classes, exposure, periods or a statistic counted per entity) is format `1-3-0` (see [Time and structure statistics](#time-and-structure-statistics)). A default profile of a table with a date or timestamp column holds a calendar. A profile that also holds the 0.40.0 rank-correlation or follow members is `1-4-0`. *(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))* A profile that holds `references` is `1-3-0`: see [Reference tables published whole](#reference-tables-published-whole). Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
+The document is FLUX's profile format `1-0-0`, or `1-1-0` when it holds a `quantile/2` (see [Default statistics without `--bundle`](#default-statistics-without-bundle)), in canonical JSON (RFC 8785), so the file's own sha256 is the digest. The same forge-cli release, given the same records, writes the same bytes, whichever of the four kinds of source they come from. The document names the release in `_producer`, so another release writes another digest. *(since 0.41.0, [forge-cli #1106](https://github.com/Agenticstiger/forge-cli/pull/1106))* A document that holds one of the time and structure members (a calendar, date pairs, a relationship's dates, structural classes, exposure, periods or a statistic counted per entity) is format `1-3-0` (see [Time and structure statistics](#time-and-structure-statistics)). A default profile of a table with a date or timestamp column holds a calendar. A profile that also holds the 0.40.0 rank-correlation or follow members is `1-4-0`. *(since 0.43.0)* A private release that holds a null count, a noisy history or a noisy query is `1-5-0`. *(since 0.42.0, [forge-cli #1121](https://github.com/Agenticstiger/forge-cli/pull/1121))* A profile that holds `references` is `1-3-0`: see [Reference tables published whole](#reference-tables-published-whole). Pin the digest in the Simulation: copy the line the command printed into the `com.agentics.flux/1` namespace of the Simulation's `extensions`, indented to sit beside `emits`:
 
 ```yaml
 extensions:
