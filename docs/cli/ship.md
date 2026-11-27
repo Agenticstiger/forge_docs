@@ -65,11 +65,11 @@ Each option takes the flag, then the variable the generated pipelines export, th
 | `--no-generate-artifacts` | | | Skips stage 3. |
 | `--require-artifacts <keys>` | | | *(since 0.33.0, [forge-cli #971](https://github.com/Agenticstiger/forge-cli/pull/971))* Fails the run unless stage 3 writes what it promised. See [Requiring artifacts](#requiring-artifacts). |
 | `--release-dir <dir>` | | | *(since 0.33.0, [forge-cli #980](https://github.com/Agenticstiger/forge-cli/pull/980))* Publishes the run as a release in a new directory once every stage it ran passed. See [Publishing a release](#publishing-a-release). |
-| `--artifacts <lock>` | `RELEASE_ARTIFACTS` | | *On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).* Seals the external files the lock lists into the release. Needs `--release-dir`, and the variable is read only by a run that seals a release. See [Sealing external files](#sealing-external-files). |
-| `--deploy-targets <file>` | `RELEASE_DEPLOY_TARGETS` | | *On forge-cli `main`, not yet in a release ([forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125)).* Seals where [`fluid runs deploy`](./runs.md#fluid-runs-deploy) copies each external file. Needs `--artifacts`, and the variable is read only by a run that seals a release. See [Deploy targets](#deploy-targets). |
-| `--release-archive <path>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123)).* Also writes the sealed release as one `.tgz` at the path, after the seal and before any `--release-to` upload, and prints its SHA-256. Needs `--release-dir`. See [Release archive](#release-archive). |
-| `--release-to <s3-uri>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Then publishes the sealed release, write-once, under `s3://bucket/prefix/`. Needs `--release-dir` and the `aws` extra. See [Publishing to S3](#publishing-to-s3). |
-| `--release-to-require <check>` | | | *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Refuses a `--release-to` bucket without `versioning`, or without Object Lock and a default retention (`object-lock`); repeatable or comma-separated. See [Publishing to S3](#publishing-to-s3). |
+| `--artifacts <lock>` | `RELEASE_ARTIFACTS` | | *(since 0.42.0, [forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115))* Seals the external files the lock lists into the release. Needs `--release-dir`, and the variable is read only by a run that seals a release. See [Sealing external files](#sealing-external-files). |
+| `--deploy-targets <file>` | `RELEASE_DEPLOY_TARGETS` | | *(since 0.42.0, [forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125))* Seals where [`fluid runs deploy`](./runs.md#fluid-runs-deploy) copies each external file. Needs `--artifacts`, and the variable is read only by a run that seals a release. See [Deploy targets](#deploy-targets). |
+| `--release-archive <path>` | | | *(since 0.42.0, [forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123))* Also writes the sealed release as one `.tgz` at the path, after the seal and before any `--release-to` upload, and prints its SHA-256. Needs `--release-dir`. See [Release archive](#release-archive). |
+| `--release-to <s3-uri>` | | | *(since 0.42.0, [forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116))* Then publishes the sealed release, write-once, under `s3://bucket/prefix/`. Needs `--release-dir` and the `aws` extra. See [Publishing to S3](#publishing-to-s3). |
+| `--release-to-require <check>` | | | *(since 0.42.0, [forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116))* Refuses a `--release-to` bucket without `versioning`, or without Object Lock and a default retention (`object-lock`); repeatable or comma-separated. See [Publishing to S3](#publishing-to-s3). |
 | `--journal-dir <dir>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Keeps a stage journal in `dir`, and refuses a rerun whose earlier outcome is unknown. A `--release-dir` run keeps one in `.fluid/ship-journal` without it. See [The stage journal](#the-stage-journal). |
 | `--acknowledge-inspected <stage>` | | | *(since 0.33.0, [forge-cli #1003](https://github.com/Agenticstiger/forge-cli/pull/1003))* Reruns a stage whose unknown outcome you inspected, and records it. Name or number; repeatable or comma-separated. |
 | `--publish` | | | Runs stage 10. |
@@ -186,7 +186,7 @@ The flag is added whether or not `--no-verify-strict` drops `--strict`. A run th
 
 ### Sealing external files
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115)).*
+*(since 0.42.0, [forge-cli #1115](https://github.com/Agenticstiger/forge-cli/pull/1115))*
 
 A product can run code Forge does not build: a PySpark package that writes its own output, a hand-written Airflow DAG, a file another job reads. `--artifacts LOCK` seals those files into the release, next to what the run built, so the release names every piece of code that ran. `$RELEASE_ARTIFACTS` names the lock when the flag is absent.
 
@@ -247,7 +247,7 @@ Each entry is shaped like a SLSA provenance `resolvedDependencies` entry, with i
 
 ### Deploy targets
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125)).*
+*(since 0.42.0, [forge-cli #1125](https://github.com/Agenticstiger/forge-cli/pull/1125))*
 
 `--deploy-targets FILE` seals, beside the external files `--artifacts` names, where each one goes in this environment. [`fluid runs deploy`](./runs.md#fluid-runs-deploy) reads the targets from the verified release, never from the checkout, so a deploy copies exactly what was sealed to exactly where it says. `$RELEASE_DEPLOY_TARGETS` names the file when the flag is absent, read only beside `--release-dir`, as `$RELEASE_ARTIFACTS` is. One file per environment:
 
@@ -277,7 +277,7 @@ A release that will be deployed from S3 must be published to a bucket with versi
 
 ### Release archive
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123)).*
+*(since 0.42.0, [forge-cli #1123](https://github.com/Agenticstiger/forge-cli/pull/1123))*
 
 For a platform that takes one file rather than a directory, `--release-archive PATH` writes the sealed release as a `.tgz`:
 
@@ -297,7 +297,7 @@ Refused before stage 1 (exit `2`), creating nothing: no `--release-dir`, a blank
 
 ### Publishing to S3
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).*
+*(since 0.42.0, [forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116))*
 
 `--release-to s3://bucket/prefix/` publishes the release once the run has sealed it in `--release-dir`. A job that deploys, an auditor or a later stage then reads one place that nothing rewrites.
 
@@ -311,7 +311,7 @@ fluid ship --release-dir releases/orders-1 --release-to s3://acme-releases/order
 
 - An object already at a key counts as published only when its SHA-256 is the release's. Running the publish of the same sealed directory again writes nothing and succeeds.
 - A `release.json` there with other bytes is a release another run sealed for this code and environment. When it has this run's `identity_digest` and verifies intact, as [`fluid runs verify-release`](./runs.md#fluid-runs-verify-release) checks it, that release stands: reports and run times are run details, not identity, so nothing is written, the run succeeds and the report says `already-published`. A release there of another identity, for the same code and environment (another bundle, artifacts or plan), fails the run with both digests, and so does one that does not verify. Nothing is written either way. A published release never changes.
-- An object with other bytes, a denied write or a read-back that does not match fails the run. The message says how many objects were written. Under a prefix with no `release.json`, an earlier run stopped partway, and a run again seals other report bytes under the same keys, so it is refused. *On forge-cli `main`, not yet in a release ([forge-cli #1128](https://github.com/Agenticstiger/forge-cli/pull/1128)).* The message lists the objects there (at most ten, then how many more). Delete them, then run the same ship again: on a versioned bucket the delete leaves a delete marker as the current version, which S3 takes as no object, so the conditional write goes through, and the old versions stay behind, noncurrent, until a lifecycle rule or an admin removes them. With Object Lock the versions stay until their retention ends, and in `GOVERNANCE` mode only `s3:BypassGovernanceRetention`, which a writer should not hold, deletes them early: seal from a new commit instead, which gives a new code digest and so a new prefix. When the bucket's lock cannot be read, the message gives both ways.
+- An object with other bytes, a denied write or a read-back that does not match fails the run. The message says how many objects were written. Under a prefix with no `release.json`, an earlier run stopped partway, and a run again seals other report bytes under the same keys, so it is refused. *(since 0.42.0, [forge-cli #1128](https://github.com/Agenticstiger/forge-cli/pull/1128))* The message lists the objects there (at most ten, then how many more). Delete them, then run the same ship again: on a versioned bucket the delete leaves a delete marker as the current version, which S3 takes as no object, so the conditional write goes through, and the old versions stay behind, noncurrent, until a lifecycle rule or an admin removes them. With Object Lock the versions stay until their retention ends, and in `GOVERNANCE` mode only `s3:BypassGovernanceRetention`, which a writer should not hold, deletes them early: seal from a new commit instead, which gives a new code digest and so a new prefix. When the bucket's lock cannot be read, the message gives both ways.
 - A write that raced a delete of its key (HTTP 409) is tried again, up to three times.
 - A file over 5 GiB is refused before any write: a multipart upload keeps no full-object SHA-256.
 
@@ -322,7 +322,7 @@ A failed publish leaves the sealed directory as it is, and ship exits `1` (`3` a
 **What it does not do.** `If-None-Match` only stops this command from replacing an object. Anyone with `s3:PutObject` on the bucket can still overwrite one, and anyone with `s3:DeleteObjectVersion` can delete one, after which a new release could be written in its place. To make the objects themselves hold, use S3 Object Lock with a default retention and pass `--release-to-require object-lock`:
 
 - the bucket must have Object Lock enabled **and** a default retention rule, with a mode and a period in days or years. An enabled lock with no rule locks nothing, so that is refused, and the message names what is missing;
-- every object, once written or found already there, must read back with a lock mode (`GOVERNANCE` or `COMPLIANCE`) and a retain-until date still to come. *On forge-cli `main`, not yet in a release ([forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122)).* When an object already there is no longer locked, the run is refused before `release.json` is written. The message gives the count, the last date a lock ran out, and two ways on: extend each version's retention (`aws s3api put-object-retention`), or publish under a new code digest from a new commit. Without `object-lock` required, such a re-run stands as before. When another run published this identity, every key its `release.json` lists is checked;
+- every object, once written or found already there, must read back with a lock mode (`GOVERNANCE` or `COMPLIANCE`) and a retain-until date still to come. *(since 0.42.0, [forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122))* When an object already there is no longer locked, the run is refused before `release.json` is written. The message gives the count, the last date a lock ran out, and two ways on: extend each version's retention (`aws s3api put-object-retention`), or publish under a new code digest from a new commit. Without `object-lock` required, such a re-run stands as before. When another run published this identity, every key its `release.json` lists is checked;
 - `GOVERNANCE` retention can still be bypassed by anyone with `s3:BypassGovernanceRetention`. `COMPLIANCE` retention cannot be shortened or removed by anyone, the root user included, until it runs out, and neither can the bucket be deleted. Ship prints which one the objects carry, and the report's `remote.retention` records it.
 
 `--release-to-require versioning` keeps every earlier version of an object that is overwritten. [`fluid runs verify-release`](./runs.md#fluid-runs-verify-release) tells whether a published release is still intact.
@@ -331,14 +331,14 @@ A failed publish leaves the sealed directory as it is, and ship exits `1` (`3` a
 
 ### The code digest
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).*
+*(since 0.42.0, [forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116))*
 
 A release now names the commit it was built from, inside `identity`, and the digest of its code, beside it:
 
 - `identity.source` is `{"uri": "git+<repo>", "digest": {"gitCommit": "<commit>"}}`, taken from the CI's own variables (the ones listed under [What `release.json` holds](./runs.md#what-release-json-holds)). It is left out when the CI names no full commit: 40 or 64 hex characters, as every CI names it. A short commit is not used, since it would give one commit two code digests. The ref is not in it, so a branch build and a tag build of one commit name one source. Until now the commit was only in `provenance`, outside `identity_digest`.
 - `code_digest` is the sha256 of the canonical JSON of `identity`'s `product_id`, `source`, `external`, `forge_version` and `fluid_version`. It is the same for every environment sealed from one commit and one lock, and changes when the commit, an external file or the Forge or FLUID version changes. A release with no source commit has no `code_digest`.
 
-*On forge-cli `main`, not yet in a release ([forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122)).* When the contract sits in a git checkout at another commit than the CI names, `--release-dir` is refused before stage 1 (exit `2`). That happens when the contract lives in a second repository or a submodule, or when a pull-request pipeline builds a local merge commit (Bitbucket, Jenkins "merge with target"). Seal from the checkout the CI variable names, or set the CI's commit and repository variables to the checkout's. Setting the commit alone would file this checkout's commit under the other repository's URL. GitHub's `pull_request` checks out the merge commit that `GITHUB_SHA` names, so it matches. The code digest is the named commit's, so the release must be built from it. A contract outside a git checkout is not checked. When git cannot say which commit the checkout is at (git is missing, or a "dubious ownership" checkout in a container), ship warns `release_checkout_unknown` and goes on.
+*(since 0.42.0, [forge-cli #1122](https://github.com/Agenticstiger/forge-cli/pull/1122))* When the contract sits in a git checkout at another commit than the CI names, `--release-dir` is refused before stage 1 (exit `2`). That happens when the contract lives in a second repository or a submodule, or when a pull-request pipeline builds a local merge commit (Bitbucket, Jenkins "merge with target"). Seal from the checkout the CI variable names, or set the CI's commit and repository variables to the checkout's. Setting the commit alone would file this checkout's commit under the other repository's URL. GitHub's `pull_request` checks out the merge commit that `GITHUB_SHA` names, so it matches. The code digest is the named commit's, so the release must be built from it. A contract outside a git checkout is not checked. When git cannot say which commit the checkout is at (git is missing, or a "dubious ownership" checkout in a container), ship warns `release_checkout_unknown` and goes on.
 
 `identity_digest` still differs per environment, because `identity` holds the environment and each environment's bundle. `code_digest` is the key that spans them. [`fluid runs verify-release`](./runs.md#fluid-runs-verify-release) recomputes it.
 
@@ -433,7 +433,7 @@ The store resolver reads this token before any other, a project `.env` token inc
 | Code | Meaning |
 |---|---|
 | `0` | Every selected stage passed or was skipped, or every stage the flags selected is [switched off](#stage-switches-and-knobs). |
-| `1` | A stage failed. *On forge-cli `main`, not yet in a release ([forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116)).* Also a `--release-to` publish that failed after the local seal. |
+| `1` | A stage failed. *(since 0.42.0, [forge-cli #1116](https://github.com/Agenticstiger/forge-cli/pull/1116))* Also a `--release-to` publish that failed after the local seal. |
 | `2` | Ship refused its arguments: an unknown stage or a reversed range, no stage left to run, an environment name a stage would refuse, a publish target with `:`, `--dry-run` with another `--apply-mode`, a missing input, no contract, a contract that is missing, symlinked or under a system path, or `--skip-plan`. *(since 0.37.0, [forge-cli #1042](https://github.com/Agenticstiger/forge-cli/pull/1042))* Also a wrapped store token that cannot be opened: see [A wrapped store token](#a-wrapped-store-token). |
 | `3` | A stage failed after apply changed something, so those changes are live. A dry-run apply changes nothing. |
 | `130` | Interrupted. |
