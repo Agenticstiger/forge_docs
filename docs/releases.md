@@ -5,13 +5,14 @@ description: Every forge-cli release, newest first, with what changed and where 
 
 # Releases
 
-These docs are verified against CLI `0.41.0`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
+These docs are verified against CLI `0.42.0`. Moving to a newer CLI? See [Upgrading](./upgrading.md).
 Each version links to its upgrade steps, its release notes, or the forge-cli CHANGELOG.
 
 For what `fluid version`, `fluidVersion` and the schema versions mean, see [Understand the version numbers](./getting-started/README.md#understand-the-version-numbers).
 
 | Version | Date | What changed |
 | --- | --- | --- |
+| [`0.42.0`](./upgrading.md#changes-in-0-42-0) | 2026-11-27 | `fluid ship` can publish a sealed release to S3 write-once, write it as one reproducible archive with `--release-archive`, seal external files and say where each goes, and a release now names its commit and the digest of its code; `fluid runs` gains `verify-release`, `receipt record`, `receipt check` (a release goes on only after an earlier environment's verify receipt) and `deploy` into existing buckets; `fluid bundle --sign` writes one Sigstore bundle and works with cosign 3, and keyless verification names its signer; `fluid profile` rounds date extremes, answers a request's consumer queries, publishes a small public table whole and withholds a history a cell at a time; the MCP `query` tool reads an as-of relationship; and the release path is hardened. Breaking: `fluid verify --release` refuses another environment or contract, `fluid schedule-sync` refuses a `--verify-*` flag without `--verify-signature`, `.sig` and `.pem` files are no longer read, keyless verification no longer defaults to `.*`, and the `aws` extra needs botocore 1.40.61 or later. |
 | [`0.41.0`](./upgrading.md#changes-in-0-41-0) | 2026-11-25 | The MCP output port enforces `policy.authz.rowFilters` and holds `query_sql` and `sample` to the declared columns for every caller, `fluid profile` publishes time and structure statistics and the history of a versioned table (format 1-3-0), rules can read a versioned table through a relationship, and an unset `{{ env.NAME }}` or a duplicate key now stops a command. |
 | [`0.40.1`](./upgrading.md#changes-in-0-40-1) | 2026-11-24 | The container image is published again after the release scan stopped 0.40.0's; the PyPI package is the same as 0.40.0 apart from five unused names removed. |
 | [`0.40.0`](./upgrading.md#changes-in-0-40-0) | 2026-11-24 | `fluid profile` answers rank correlations and clique statistics of a profile request, releases them under differential privacy, and can make a privacy unit follow its child rows; the `[profile]` extra needs flux-stats 0.11. |
