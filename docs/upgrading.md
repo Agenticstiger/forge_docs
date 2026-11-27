@@ -1779,6 +1779,13 @@ The example projects move past their known advisories, the container image's Pyt
 
 ## Not in a release yet
 
+*On forge-cli `main`, not yet in a release ([forge-cli #PRNUM](https://github.com/Agenticstiger/forge-cli/pull/PRNUM)).*
+
+- **`fluid verify --release SRC` refuses a release of another environment or contract** (exit `2`, `verify_release_refused`, before any check): run it with the `--env` the release was sealed for, on the contract the release was sealed from. The report's `release` block gains `contract_digest`, and `fluid runs receipt record` refuses a report without it, so run `fluid verify --release` again before recording a receipt with a report written before the upgrade. See [`fluid verify`](./cli/verify.md#key-options).
+- **`fluid schedule-sync` refuses a `--verify-*` flag without `--verify-signature`** (exit `2`, `schedule_sync_verify_flags_need_gate`). A pipeline that passed `--verify-key` or a `--verify-certificate-*` or `--verify-*-regexp` flag without `--verify-signature` pushed its DAGs unchecked: add `--verify-signature --bundle PATH`, or drop the flags. See [`fluid schedule-sync`](./cli/schedule-sync.md#behaviour).
+- **`fluid runs deploy` exits `2` with nothing copied when its receipt has nowhere to go**, and `1` when the receipt cannot be written after targets were copied (it was `2` both times). See [`fluid runs deploy`](./cli/runs.md#fluid-runs-deploy).
+- **`fluid_build.api.ReleaseVerification` gains `bundle_digest`** (API 1.5), the digest of the bundle the release sealed.
+
 *On forge-cli `main`, not yet in a release ([forge-cli #1126](https://github.com/Agenticstiger/forge-cli/pull/1126)).*
 
 - **`fluid bundle --sign` writes one Sigstore bundle, `<bundle>.sigstore.json`, instead of `<bundle>.sig` and `<bundle>.pem`**, so it works with cosign 3.x, which refuses `--output-signature` for a blob. `fluid verify-signature` and `fluid schedule-sync --verify-signature` read the new file; `.sig`/`.pem` are not read any more, so sign again any bundle you verify after upgrading. `verify-signature --signature` and `--certificate` are gone: `--bundle PATH` names another Sigstore bundle, and `--certificate-identity` with `--certificate-oidc-issuer` pins a keyless signer exactly. Sign and verify with the same cosign major version. See [`fluid verify-signature`](./cli/verify-signature.md).
